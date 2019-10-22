@@ -1,0 +1,121 @@
+WITH DEPENDANTS (REMOVE_TYPE, SCHEMA, ITEM, TYPE) AS (SELECT (CASE BTYPE
+	WHEN 'C' THEN 'Column'
+	WHEN 'E' THEN 'Instead Of Trigger '
+	WHEN 'F' THEN 'Routine'		--Function
+	WHEN 'G' THEN 'Global Temporary Table'
+	WHEN 'H' THEN 'Global Variable '
+	WHEN 'I' THEN 'Index '
+	WHEN 'M' THEN 'Materialized Query Table'
+	WHEN 'O' THEN 'Procedure '
+	WHEN 'P' THEN 'Partitioned Table Space '
+	WHEN 'Q' THEN 'Sequence'
+	WHEN 'R' THEN 'Table Space '
+	WHEN 'S' THEN 'Synonym'
+	WHEN 'T' THEN 'Table'
+	WHEN 'U' THEN 'Distinct Type '
+	WHEN 'V' THEN 'View'
+	WHEN 'W' THEN 'System_Time Period'
+	WHEN 'Z' THEN 'Business_Time Period'
+	WHEN '0' THEN 'Alias'
+	END)
+, DSCHEMA
+, DNAME
+, (CASE DTYPE
+	WHEN 'B' THEN 'Trigger'
+	WHEN 'C' THEN 'Column'
+	WHEN 'F' THEN 'Routine'		--Function
+	WHEN 'I' THEN 'Index'	
+	WHEN 'M' THEN 'Materialized Query Table'
+	WHEN 'O' THEN 'Procedure'
+	WHEN 'V' THEN 'View'
+	WHEN 'X' THEN 'Row Permission'
+	WHEN 'Y' THEN 'Column Mask'
+	END)
+FROM SYSIBM.SYSDEPENDENCIES D
+WHERE TRIM(D.BSCHEMA)='//OWNER//'
+AND TRIM(D.BNAME)='//NAME//'
+)
+------------------------------
+, ROUTINES (Type, DBName, TSName, Creator, Owner, Name, Value) AS (SELECT 'Routine'
+, CAST('' AS CHAR(1))
+, CAST('' AS CHAR(1))
+, TRIM(CREATEDBY)
+, TRIM(OWNER)
+, TRIM(NAME)
+, CAST(TEXT AS VARCHAR(20000))
+
+FROM SYSIBM.SYSROUTINES R
+WHERE OWNER='//OWNER//'
+)
+------------------------------
+, TRIGGERS (Type, DBName, TSName, Creator, Owner, Name, Value) AS (SELECT 'Trigger'
+, CAST('' AS CHAR(1))
+, CAST('' AS CHAR(1))
+, TRIM(CREATEDBY)
+, TRIM(OWNER)
+, TRIM(NAME)
+, CAST(STATEMENT AS VARCHAR(20000))
+
+FROM SYSIBM.SYSTRIGGERS T
+WHERE OWNER='//OWNER//'
+)
+------------------------------
+, TABLES_VIEWS (Type, DBName, TSName, Creator, Owner, Name, Value) AS (SELECT (CASE T.TYPE
+	WHEN 'T' THEN 'Table'
+	WHEN 'V' THEN 'View'
+	END)
+, TRIM(T.DBNAME)
+, TRIM(T.TSNAME)
+, TRIM(T.CREATOR)
+, TRIM(T.OWNER)
+, TRIM(T.NAME)
+, CAST(V.STATEMENT AS VARCHAR(20000))
+
+FROM SYSIBM.SYSTABLES T
+LEFT JOIN SYSIBM.SYSVIEWS V
+ON (T.CREATOR=V.CREATOR AND T.OWNER=V.OWNER AND T.NAME=V.NAME)
+WHERE T.TYPE IN ('T', 'V')
+AND V.OWNER='//OWNER//'
+)
+------------------------------
+, COMBINED (Type, DBName, TSName, Creator, Owner, Name, Value) AS (SELECT *
+FROM ROUTINES R
+
+UNION
+
+SELECT *
+FROM TRIGGERS T
+
+UNION
+
+SELECT *
+FROM TABLES_VIEWS TV)
+------------------------------
+, FINAL_OBJECTS (DataSource, Type, DBName, TSName, Owner, Name, Value) AS (SELECT TRIM(CURRENT SERVER)
+, Type
+, DBName
+, TSName
+, CAST(TRIM((CASE WHEN TRIM(OWNER)='' THEN CREATOR ELSE OWNER END)) AS VARCHAR(25))
+, NAME
+, VALUE
+
+FROM COMBINED)
+------------------------------
+, FINAL_DEPENDANTS (REMOVE_TYPE, SCHEMA, ITEM, REFERENCES, DEPENDANT_TYPE)  AS (SELECT REMOVE_TYPE
+, SCHEMA
+, MAX(ITEM)
+, COUNT(ITEM) REFERENCES
+, MAX(TYPE)
+
+FROM DEPENDANTS
+GROUP BY REMOVE_TYPE, SCHEMA, ITEM, TYPE
+)
+------------------------------
+, FINAL (SCHEMA, ITEM, REFERENCES, DEPENDANT_TYPE, VALUE) AS (SELECT SCHEMA, ITEM, REFERENCES, DEPENDANT_TYPE, VALUE
+FROM FINAL_DEPENDANTS FD
+LEFT JOIN FINAL_OBJECTS FO
+ON (FD.SCHEMA=FO.OWNER AND FD.REMOVE_TYPE=FO.TYPE AND FD.ITEM=FO.NAME)
+)
+--====================
+SELECT *
+FROM FINAL

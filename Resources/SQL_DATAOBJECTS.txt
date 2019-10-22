@@ -1,0 +1,54 @@
+WITH ROUTINES (Type, DBName, TSName, Creator, Owner, Name) AS (SELECT 'ROUTINE'
+, CAST('' AS VARCHAR(1))
+, CAST('' AS VARCHAR(1))
+, TRIM(CREATEDBY)
+, TRIM(OWNER)
+, TRIM(NAME)
+
+FROM SYSIBM.SYSROUTINES R)
+------------------------------
+, TRIGGERS (Type, DBName, TSName, Creator, Owner, Name) AS (SELECT 'TRIGGER'
+, CAST('' AS VARCHAR(1))
+, CAST('' AS VARCHAR(1))
+, TRIM(CREATEDBY)
+, TRIM(OWNER)
+, TRIM(NAME)
+
+FROM SYSIBM.SYSTRIGGERS T)
+------------------------------
+, TABLES_VIEWS (Type, DBName, TSName, Creator, Owner, Name) AS (SELECT (CASE WHEN T.TYPE='T' THEN 'TABLE' ELSE 'VIEW' END)
+, TRIM(DBNAME)
+, TRIM(TSNAME)
+, TRIM(CREATOR)
+, TRIM(OWNER)
+, TRIM(NAME)
+
+FROM SYSIBM.SYSTABLES T
+WHERE T.TYPE IN ('T', 'V')
+)
+------------------------------
+, COMBINED (Type, DBName, TSName, Creator, Owner, Name) AS (SELECT *
+FROM ROUTINES R
+
+UNION
+
+SELECT *
+FROM TRIGGERS T
+
+UNION
+
+SELECT *
+FROM TABLES_VIEWS TV)
+------------------------------
+, FINAL (DataSource, Type, DBName, TSName, Owner, Name) AS (SELECT TRIM(CURRENT SERVER)
+, Type
+, DBName
+, TSName
+, CAST(TRIM((CASE WHEN TRIM(OWNER)='' THEN CREATOR ELSE OWNER END)) AS VARCHAR(25))
+, NAME
+
+FROM COMBINED)
+--====================
+SELECT *
+FROM FINAL
+ORDER BY OWNER, TYPE, NAME
