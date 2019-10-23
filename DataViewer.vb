@@ -139,7 +139,7 @@ Public Class DataViewer
             PaintCount += 1
 #Region " DRAW HEADERS "
             With Columns
-                Dim HeadFullBounds As New Rectangle(0, 0, .HeadBounds.Width, .HeadBounds.Height)
+                Dim HeadFullBounds As New Rectangle(0, 0, {1, .HeadBounds.Width}.Max, .HeadBounds.Height)
                 HeadFullBounds.Offset(-HScroll.Value, 0)
                 Using LinearBrush As New LinearGradientBrush(HeadFullBounds, .HeaderStyle.BackColor, .HeaderStyle.ShadeColor, LinearGradientMode.Vertical)
                     e.Graphics.FillRectangle(LinearBrush, HeadFullBounds)
@@ -699,6 +699,7 @@ Public Class DataViewer
                         }
                             ColumnHeadTip.SetToolTip(Me, Bulletize(Bullets))
                         End With
+                        Cursor = Cursors.VSplit
 
                     End If
                     .Point = e.Location
@@ -869,6 +870,8 @@ Public Class ColumnCollection
     Friend Event CollectionSizingStart(sender As Object, e As EventArgs)
     Friend Event CollectionSizingEnd(sender As Object, e As EventArgs)
     Friend Event ColumnSized(sender As Object, e As EventArgs)
+    Public ReadOnly Property IsBusy As Boolean
+    Private MoveColumn As Column, MoveIndex As Integer
     Public Sub New(Viewer As DataViewer)
         Parent = Viewer
     End Sub
@@ -909,15 +912,43 @@ Public Class ColumnCollection
         End Set
     End Property
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Public Shadows Function Add(ByVal NewColumn As Column) As Column
+    Public Shadows Function Add(ByVal AddColumn As Column) As Column
 
-        If NewColumn IsNot Nothing Then
-            NewColumn._Parent = Me
-            NewColumn._Index = Count
-            NewColumn.Left = Where(Function(c) c.Index < NewColumn.Index).Select(Function(c) c.Width).Sum
-            MyBase.Add(NewColumn)
+        If AddColumn IsNot Nothing Then
+            With AddColumn
+                .Parent_ = Me
+                ._Index = Count
+                .Left = Where(Function(c) c.ViewIndex < .ViewIndex).Select(Function(c) c.Width).Sum
+            End With
+            MyBase.Add(AddColumn)
         End If
-        Return NewColumn
+        Return AddColumn
+
+    End Function
+    Public Shadows Function Insert(MoveIndex As Integer, ByVal MoveColumn As Column) As Column
+
+        If MoveColumn IsNot Nothing Then
+            With MoveColumn
+                .Parent_ = Me
+                ._Index = MoveIndex
+                .Left = Where(Function(c) c.ViewIndex < .ViewIndex).Select(Function(c) c.Width).Sum
+                MyBase.Insert(MoveIndex, MoveColumn)
+            End With
+        End If
+        Return MoveColumn
+
+    End Function
+    Public Shadows Function Remove(ByVal RemoveColumn As Column) As Column
+
+        If RemoveColumn IsNot Nothing Then
+            With RemoveColumn
+                .Parent_ = Nothing
+                ._Index = -1
+                .Left = -1
+            End With
+            MyBase.Remove(RemoveColumn)
+        End If
+        Return RemoveColumn
 
     End Function
     Public Shadows Function Contains(ByVal ColumnName As String) As Boolean
@@ -931,17 +962,6 @@ Public Class ColumnCollection
         Else
             Return Nothing
         End If
-
-    End Function
-    Public Shadows Function Remove(ByVal OldColumn As Column) As Column
-
-        If OldColumn IsNot Nothing Then
-            OldColumn._Parent = Nothing
-            OldColumn._Index = -1
-            OldColumn.Left = -1
-            MyBase.Remove(OldColumn)
-        End If
-        Return OldColumn
 
     End Function
     Public Shadows Sub Clear()
@@ -993,10 +1013,24 @@ Public Class ColumnCollection
     End Sub
     Friend Sub Reorder(Column As Column, ViewIndex As Integer)
 
+        MoveColumn = Column
+        MoveIndex = ViewIndex
+        If IsBusy Then
+            AddHandler CollectionSizingEnd, AddressOf CanReorder
+        Else
+            CanReorder(Nothing, Nothing)
+        End If
+
+    End Sub
+    Private Sub CanReorder(sender As Object, e As EventArgs)
+
+        RemoveHandler CollectionSizingEnd, AddressOf CanReorder
         First.Left = 0
-        Remove(Column)
-        Insert(ViewIndex, Column)
-        Dim Columns As New List(Of Column)({First})
+        _IsBusy = True
+        Remove(MoveColumn)
+        Insert(MoveIndex, MoveColumn)
+        _IsBusy = False
+        Dim Columns As New List(Of Column) From {First}
         For Each Column In Skip(1)
             Column.Left = Columns.Sum(Function(c) c.Width)
             Columns.Add(Column)
@@ -1010,73 +1044,76 @@ Public Class ColumnCollection
     End Sub
     Private Sub FormatSizeWorker_Start(sender As Object, e As DoWorkEventArgs) Handles ColumnsWorker.DoWork
 
-        For Each Column In Me
-            With Column
-                ._DataType = GetDataType(.Values.Values.ToList)
-                .DataStart = Now
-                .Formatted_ = False
+        If Not IsBusy Then
+            _IsBusy = True
+            For Each Column In Where(Function(c) c.Visible)
+                With Column
+                    ._DataType = GetDataType(.Values.Values.ToList)
+                    .DataStart = Now
+                    .Formatted_ = False
 #Region " ALIGNMENT "
-                Select Case .DataType
-                    Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long), GetType(Date)
-                        .GridStyle.Alignment = ContentAlignment.MiddleCenter
+                    Select Case .DataType
+                        Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long), GetType(Date)
+                            .GridStyle.Alignment = ContentAlignment.MiddleCenter
 
-                    Case GetType(Decimal), GetType(Double)
-                        .GridStyle.Alignment = ContentAlignment.MiddleRight
+                        Case GetType(Decimal), GetType(Double)
+                            .GridStyle.Alignment = ContentAlignment.MiddleRight
 
-                    Case GetType(String), GetType(Boolean)
-                        .GridStyle.Alignment = ContentAlignment.MiddleLeft
+                        Case GetType(String), GetType(Boolean)
+                            .GridStyle.Alignment = ContentAlignment.MiddleLeft
 
-                End Select
+                    End Select
 #End Region
 #Region " FORMAT "
-                Select Case .DataType
-                    Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)
-                        .Format = New KeyValuePair(Of String, String)("Integer", String.Empty)
-                        .DefaultValue = 0
+                    Select Case .DataType
+                        Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)
+                            .Format = New KeyValuePair(Of String, String)("Integer", String.Empty)
+                            .DefaultValue = 0
 
-                    Case GetType(Date)
-                        Dim DateValue As Date
-                        Dim Dates As New List(Of Date)(From D In .Values Where Date.TryParse(Convert.ToString(D.Value, InvariantCulture), DateValue) Select Date.Parse(D.Value.ToString, InvariantCulture))
-                        REM /// TEST IF ALWAYS MIDNIGHT
-                        Dim CultureInfo = Threading.Thread.CurrentThread.CurrentCulture
-                        If Dates.Count = (From D In Dates Where D.TimeOfDay.Ticks = 0 Select D).Count Then
-                            .Format = New KeyValuePair(Of String, String)("Date", CultureInfo.DateTimeFormat.ShortDatePattern)
-                        Else
-                            .Format = New KeyValuePair(Of String, String)("Time", Microsoft.VisualBasic.Join({CultureInfo.DateTimeFormat.ShortDatePattern, "@", CultureInfo.DateTimeFormat.ShortTimePattern}))
-                        End If
-                        .DefaultValue = New Date
+                        Case GetType(Date)
+                            Dim DateValue As Date
+                            Dim Dates As New List(Of Date)(From D In .Values Where Date.TryParse(Convert.ToString(D.Value, InvariantCulture), DateValue) Select Date.Parse(D.Value.ToString, InvariantCulture))
+                            REM /// TEST IF ALWAYS MIDNIGHT
+                            Dim CultureInfo = Threading.Thread.CurrentThread.CurrentCulture
+                            If Dates.Count = (From D In Dates Where D.TimeOfDay.Ticks = 0 Select D).Count Then
+                                .Format = New KeyValuePair(Of String, String)("Date", CultureInfo.DateTimeFormat.ShortDatePattern)
+                            Else
+                                .Format = New KeyValuePair(Of String, String)("Time", Microsoft.VisualBasic.Join({CultureInfo.DateTimeFormat.ShortDatePattern, "@", CultureInfo.DateTimeFormat.ShortTimePattern}))
+                            End If
+                            .DefaultValue = New Date
 
-                    Case GetType(Decimal), GetType(Double)
-                        .Format = New KeyValuePair(Of String, String)("Decimal", "C2")
-                        .DefaultValue = 0
+                        Case GetType(Decimal), GetType(Double)
+                            .Format = New KeyValuePair(Of String, String)("Decimal", "C2")
+                            .DefaultValue = 0
 
-                    Case GetType(String)
-                        .Format = New KeyValuePair(Of String, String)("Text", String.Empty)
-                        Dim BooleanValue As Boolean
-                        Dim Booleans As New List(Of Boolean)(From N In .Values Select Boolean.TryParse(Convert.ToString(N.Value, InvariantCulture), BooleanValue))
-                        Booleans = Booleans.Distinct.ToList
-                        Dim Images = From N In .Values Where Convert.ToString(N.Value, InvariantCulture).StartsWith("iVBORw0KGgo", StringComparison.InvariantCulture)
-                        If Booleans.Count = 1 AndAlso Booleans.First = True Then
-                            .Format = New KeyValuePair(Of String, String)("Boolean", String.Empty)
-                        ElseIf Images.Any Then
-                            .Format = New KeyValuePair(Of String, String)("Image", String.Empty)
-                        Else
+                        Case GetType(String)
                             .Format = New KeyValuePair(Of String, String)("Text", String.Empty)
-                        End If
-                        .DefaultValue = String.Empty
+                            Dim BooleanValue As Boolean
+                            Dim Booleans As New List(Of Boolean)(From N In .Values Select Boolean.TryParse(Convert.ToString(N.Value, InvariantCulture), BooleanValue))
+                            Booleans = Booleans.Distinct.ToList
+                            Dim Images = From N In .Values Where Convert.ToString(N.Value, InvariantCulture).StartsWith("iVBORw0KGgo", StringComparison.InvariantCulture)
+                            If Booleans.Count = 1 AndAlso Booleans.First = True Then
+                                .Format = New KeyValuePair(Of String, String)("Boolean", String.Empty)
+                            ElseIf Images.Any Then
+                                .Format = New KeyValuePair(Of String, String)("Image", String.Empty)
+                            Else
+                                .Format = New KeyValuePair(Of String, String)("Text", String.Empty)
+                            End If
+                            .DefaultValue = String.Empty
 
-                    Case GetType(Boolean)
-                        .Format = New KeyValuePair(Of String, String)("Boolean", String.Empty)
-                        .DefaultValue = False
+                        Case GetType(Boolean)
+                            .Format = New KeyValuePair(Of String, String)("Boolean", String.Empty)
+                            .DefaultValue = False
 
-                End Select
+                    End Select
 #End Region
-                .DataEnd = Now
-                .Formatted_ = True
-            End With
-            SizeColumn(Column, True)
-            If ColumnsWorker.CancellationPending Then Exit For
-        Next
+                    .DataEnd = Now
+                    .Formatted_ = True
+                End With
+                SizeColumn(Column, True)
+                If ColumnsWorker.CancellationPending Then Exit For
+            Next
+        End If
 
     End Sub
     Friend Sub SizeColumn(ColumnItem As Column, Optional BackgroundProcess As Boolean = False)
@@ -1094,13 +1131,14 @@ Public Class ColumnCollection
             ColumnsLeft()
             .SizeEnd = Now
         End With
-        If BackgroundProcess Then ColumnsWorker.ReportProgress(ColumnItem.Index)
+        If BackgroundProcess Then ColumnsWorker.ReportProgress({0, ColumnItem.Index}.Max)
 
     End Sub
     Private Sub FormatSizeColumn_Progress(sender As Object, e As ProgressChangedEventArgs) Handles ColumnsWorker.ProgressChanged
         RaiseEvent ColumnSized(Me(e.ProgressPercentage), Nothing)
     End Sub
     Private Sub FormatSizeWorker_End(sender As Object, e As RunWorkerCompletedEventArgs) Handles ColumnsWorker.RunWorkerCompleted
+        _IsBusy = False
         RaiseEvent CollectionSizingEnd(Me, Nothing)
     End Sub
     Friend Sub CancelWorkers()
@@ -1115,6 +1153,7 @@ Public Class ColumnCollection
                 ' TODO: dispose managed state (managed objects).
                 ColumnsWorker.Dispose()
                 HeaderStyle_.Dispose()
+                MoveColumn.Dispose()
             End If
             ' TODO: free unmanaged resources (unmanaged objects) and override Finalize() below.
             ' TODO: set large fields to null.
@@ -1138,9 +1177,6 @@ End Class
 '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 <Serializable()> Public Class Column
     Implements IDisposable
-    Public Sub New()
-        Name = "Column"
-    End Sub
     Public Sub New(NewColumn As DataColumn)
 
         If NewColumn IsNot Nothing Then
@@ -1152,10 +1188,10 @@ End Class
 
     End Sub
     Public Property DefaultValue As Object
-    <NonSerialized> Friend _Parent As ColumnCollection
+    <NonSerialized> Friend Parent_ As ColumnCollection
     Public ReadOnly Property Parent As ColumnCollection
         Get
-            Return _Parent
+            Return Parent_
         End Get
     End Property
     Public ReadOnly Property Table As DataTable
@@ -1203,10 +1239,14 @@ End Class
     End Property
     Public Property ViewIndex As Integer
         Get
-            Return Parent.IndexOf(Me)
+            If Parent Is Nothing Then
+                Return -1
+            Else
+                Return Parent.IndexOf(Me)
+            End If
         End Get
         Set(value As Integer)
-            Parent.Reorder(Me, value)
+            If Parent IsNot Nothing Then Parent.Reorder(Me, value)
         End Set
     End Property
     Private _Name As String
@@ -1317,7 +1357,7 @@ End Class
                 'value = {value, MinimumWidth}.Max
                 _Width = value
                 ReBounds()
-                Parent.ColumnsLeft()
+                If Parent IsNot Nothing Then Parent.ColumnsLeft()
             End If
         End Set
     End Property
@@ -1505,7 +1545,7 @@ End Class
     Friend Property SizeStart As Date
     Friend Property SizeEnd As Date
     Public Sub AutoSize()
-        Parent.SizeColumn(Me)
+        If Parent IsNot Nothing Then Parent.SizeColumn(Me)
     End Sub
     Friend _DataType As Type
     Public ReadOnly Property DataType As Type
@@ -1540,7 +1580,6 @@ End Class
     End Sub
 #End Region
 End Class
-
 '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 Public Class RowCollection
         Inherits List(Of Row)

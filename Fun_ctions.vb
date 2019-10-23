@@ -117,7 +117,25 @@ Public Module Functions
         End Try
 
     End Function
+    Public Function StringToBitmap(Text As String, TextFont As Font) As Image
 
+        Dim TextSize As Size = TextRenderer.MeasureText(Text, TextFont)
+
+        Dim Flag As Bitmap = New Bitmap(TextSize.Width + 6, TextSize.Height + 3)
+        Using FlagGraphics As Graphics = Graphics.FromImage(Flag)
+            With FlagGraphics
+                .SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
+                .InterpolationMode = Drawing2D.InterpolationMode.HighQualityBicubic
+                .PixelOffsetMode = Drawing2D.PixelOffsetMode.HighQuality
+                .FillRectangle(Brushes.WhiteSmoke, 0, 0, Flag.Width, Flag.Height)
+                .DrawRectangle(Pens.DarkGray, 1, 2, Flag.Width - 2, Flag.Height - 2)
+                Dim Format As StringFormat = New StringFormat With {.Alignment = StringAlignment.Center, .LineAlignment = StringAlignment.Center}
+                FlagGraphics.DrawString(Text, TextFont, Brushes.Black, New Rectangle(0, 0, Flag.Width, Flag.Height), Format)
+            End With
+        End Using
+        Return Flag
+
+    End Function
 #Region " RANDOM NUMBERS "
     Private ReadOnly Rnd As New Random()
     Public Function RandomNumber(ByVal Low As Integer, ByVal High As Integer) As Integer
@@ -129,6 +147,38 @@ Public Module Functions
     Public Function RandomBoolean() As Boolean
         Dim Value As Integer = RandomNumber(1, 100) Mod 2
         Return Value = 1
+    End Function
+    Public Function Shuffle(Items As IEnumerable(Of Object), Optional TakeCount As Integer = 0) As List(Of Object)
+
+        Dim List As New List(Of Object)(Items)
+        If Items Is Nothing Then
+            Return Nothing
+
+        ElseIf Items.Any Then
+            For i = 1 To 100
+                Dim RandomIndex As Integer = RandomNumber(0, List.Count - 1)
+                Dim ListIndex As Integer = i Mod List.Count
+                Dim ListItem = List(ListIndex)
+                List.RemoveAt(ListIndex)
+                List.Insert(RandomIndex, ListItem)
+            Next
+            If TakeCount = 0 Then
+                Return List
+
+            ElseIf TakeCount < 0 Then
+                'Flag to use Random Count
+                Return List.Take(RandomNumber(0, Items.Count - 1)).ToList
+
+            Else
+                Return List.Take(TakeCount).ToList
+
+            End If
+
+        Else
+            Return List
+
+        End If
+
     End Function
 #End Region
     Public Enum RelativeCursor

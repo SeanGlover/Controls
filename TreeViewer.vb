@@ -56,10 +56,11 @@ Public Class TreeViewer
     Inherits Control
     Public WithEvents VScroll As New VScrollBar
     Public WithEvents HScroll As New HScrollBar
-    Private WithEvents NodeTimer As New Threading.Timer(New Threading.TimerCallback(AddressOf NodeTimer_Tick),
-    Nothing,
-    1000,
-    1000)
+    'Private WithEvents NodeTimer As New Threading.Timer(New Threading.TimerCallback(AddressOf NodeTimer_Tick),
+    'Nothing,
+    '1000,
+    '1000)
+    Private WithEvents NodeTimer As New Timer With {.Interval = 200}
     Private WithEvents SizeTimer As New Timer With {.Interval = 100}
     Private WithEvents CursorTimer As New Timer With {.Interval = 300}
     Private WithEvents OptionsTimer As New Timer With {.Interval = 1500}
@@ -1163,9 +1164,12 @@ Public Class TreeViewer
         _TotalSize = New Size(_TotalWidth, _TotalHeight)
         If Nodes.Any And AutoSize Then
             Dim NewSize = New Size({_TotalWidth, MaximumSize.Width}.Min, {_TotalHeight, MaximumSize.Height}.Min)
-            If NewSize <> Size Then SetSafeControlPropertyValue(Me, "Size", NewSize)
-            SetSafeControlPropertyValue(Me, "Width", _TotalWidth)
-            SetSafeControlPropertyValue(Me, "Height", _TotalHeight)
+            If NewSize <> Size Then Size = NewSize
+            Width = _TotalWidth
+            Height = _TotalHeight
+            'If NewSize <> Size Then SetSafeControlPropertyValue(Me, "Size", NewSize)
+            'SetSafeControlPropertyValue(Me, "Width", _TotalWidth)
+            'SetSafeControlPropertyValue(Me, "Height", _TotalHeight)
         End If
 
     End Sub
@@ -1176,40 +1180,61 @@ Public Class TreeViewer
             VScroll.Hide()
         Else
             With HScroll
-                .Minimum = 0
+                .Minimum=0
                 .Maximum = {0, TotalSize.Width - 1}.Max
                 .Visible = TotalSize.Width > Width
+                'SetSafeControlPropertyValue(HScroll, "Minimum", 0)
+                'SetSafeControlPropertyValue(HScroll, "Maximum", {0, TotalSize.Width - 1}.Max)
+                'SetSafeControlPropertyValue(HScroll, "Visible", TotalSize.Width > Width)
                 If .Visible Then
-                    SetSafeControlPropertyValue(HScroll, "Height", HScrollHeight)
+                    .Height = HScrollHeight
                     .Top = Height - .Height
                     .Left = 0
                     .LargeChange = Width
                     .Width = If(VScroll.Visible, Width - VScroll.Width, Width)
                     If .Value > (TotalSize.Width - Width) Then .Value = TotalSize.Width - Width
+                    'SetSafeControlPropertyValue(HScroll, "Height", HScrollHeight)
+                    'SetSafeControlPropertyValue(HScroll, "Top", Height - .Height)
+                    'SetSafeControlPropertyValue(HScroll, "Left", 0)
+                    'SetSafeControlPropertyValue(HScroll, "LargeChange", Width)
+                    'SetSafeControlPropertyValue(HScroll, "Width", If(VScroll.Visible, Width - VScroll.Width, Width))
+                    'If .Value > (TotalSize.Width - Width) Then SetSafeControlPropertyValue(HScroll, "Value", TotalSize.Width - Width)
                     .Show()
                 Else
-                    SetSafeControlPropertyValue(HScroll, "Height", 0)
-                    .Hide()
+                    .Height = 0
                     .Value = 0
+                    'SetSafeControlPropertyValue(HScroll, "Height", 0)
+                    'SetSafeControlPropertyValue(HScroll, "Value", 0)
+                    .Hide()
                 End If
             End With
             With VScroll
                 .Minimum = 0
                 .Maximum = {0, TotalSize.Height - 1}.Max
                 .Visible = TotalSize.Height > Height
+                'SetSafeControlPropertyValue(VScroll, "Minimum", 0)
+                'SetSafeControlPropertyValue(VScroll, "Maximum", {0, TotalSize.Height - 1}.Max)
+                'SetSafeControlPropertyValue(VScroll, "Visible", TotalSize.Height > Height)
                 If .Visible Then
-                    SetSafeControlPropertyValue(VScroll, "Width", VScrollWidth)
-                    .Top = 0
-                    .Left = Width - .Width
+                    .Width = VScrollWidth
+                    .Top=0
+                    .Left=Width - .Width
                     .SmallChange = NodeHeight
                     .LargeChange = Height
-                    .Height = Height
+                    .Height=Height
                     If .Value > (TotalSize.Height - Height) Then .Value = TotalSize.Height - Height
+                    'SetSafeControlPropertyValue(VScroll, "Width", VScrollWidth)
+                    'SetSafeControlPropertyValue(VScroll, "Top", 0)
+                    'SetSafeControlPropertyValue(VScroll, "Left", Width - .Width)
+                    'SetSafeControlPropertyValue(VScroll, "SmallChange", NodeHeight)
+                    'SetSafeControlPropertyValue(VScroll, "LargeChange", Height)
+                    'SetSafeControlPropertyValue(VScroll, "Height", Height)
+                    'If .Value > (TotalSize.Height - Height) Then SetSafeControlPropertyValue(VScroll, "Value", TotalSize.Height - Height)
                     .Show()
                 Else
-                    SetSafeControlPropertyValue(VScroll, "Width", 0)
-                    .Hide()
+                    .Width = 0
                     .Value = 0
+                    .Hide()
                 End If
             End With
         End If
@@ -1270,19 +1295,19 @@ Public Class TreeViewer
     Friend Sub NodeTimer_Start(TickNode As Node)
 
         With NodeTimer
-            .Change(1000, 1000)
+            .Tag = TickNode
+            .Start()
         End With
-        Stop
 
     End Sub
-    Private Sub NodeTimer_Tick(state As Object)
+    Private Sub NodeTimer_Tick() Handles NodeTimer.Tick
 
         With NodeTimer
-            'Dim TickNode As Node = DirectCast(.Tag, Node)
-            'RaiseEvent NodesChanged(Me, New NodeEventArgs(TickNode))
-            If Name = "Scripts" Then Stop
+            .Stop()
+            Dim TickNode As Node = DirectCast(.Tag, Node)
+            RaiseEvent NodesChanged(Me, New NodeEventArgs(TickNode))
+            'If Name = "Scripts" Then Stop
             RequiresRepaint()
-            Stop
         End With
 
     End Sub
@@ -2068,8 +2093,7 @@ Public Class Node
                 _Clicked = False
                 TreeViewer.RequiresRepaint()
             Else
-                'TreeViewer.NodeTimer.Stop()
-                'TreeViewer.NodeTimer.Start()
+                TreeViewer.NodeTimer_Start(Me)
             End If
         End If
 
