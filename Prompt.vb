@@ -1,6 +1,5 @@
 ﻿Option Strict On
 Option Explicit On
-Imports System.Runtime.InteropServices
 Imports System.Drawing.Drawing2D
 Imports System.Text.RegularExpressions
 Imports System.Text
@@ -389,17 +388,17 @@ Public Class Prompt
     Public Shadows Sub Closing()
         Datasource = Nothing
     End Sub
-#Region " METHODS "
     Private Sub ResizeMe()
 
         REM //////////// DRAW ICON IN UPPER LEFT CORNER OF BOX, OFFSET(10,10)
-
+        Dim Words As String() = Split(BodyMessage, " ")
         Dim Padding As Integer = 4
         Dim LinearTextSize As Size = TextRenderer.MeasureText(BodyMessage, Segoe)
         Dim LinearHeaderTextSize As Size = TextRenderer.MeasureText(TitleMessage, Segoe)
         Dim WindowRatio As Double = (WorkingSpace.Width / WorkingSpace.Height)
         Dim RelativeHeight As Integer = Convert.ToInt32(Math.Sqrt((LinearTextSize.Width * LinearTextSize.Height) / WindowRatio))
         Dim RelativeWidth As Integer = {{Convert.ToInt32(RelativeHeight * WindowRatio), MinimumSize.Width + (2 * SideBorderWidths), (2 * SideBorderWidths) + LinearHeaderTextSize.Width, GridBounds.Width}.Max, MaximumSize.Width + (2 * SideBorderWidths)}.Min
+        If Words.Count = 1 Then RelativeWidth = LinearTextSize.Width + 60
         Dim ImageTextRowCount As Integer = Convert.ToInt32(Math.Ceiling(IconBounds.Bottom / {LinearTextSize.Height, 16}.Max))
 
         REM ////////////
@@ -408,7 +407,6 @@ Public Class Prompt
         Dim LineBuilder As New StringBuilder
         Dim LineWidth As Integer = 0
         Dim ImageRow As Boolean = False
-        Dim Words As String() = Split(BodyMessage, " ")
         For Each Word As String In Words
             ImageRow = (TextBounds.Count < ImageTextRowCount)
             LineWidth = (RelativeWidth - (Padding + If(ImageRow, IconBounds.Right, 0)))
@@ -420,7 +418,6 @@ Public Class Prompt
             End If
             LineBuilder.Append(Word & " ")
         Next
-
         REM /// ADD THE LAST WRAPPED ROW- SELDOM NO LAST ROW
         If LineBuilder.Length = 0 Then
         Else
@@ -481,7 +478,6 @@ Public Class Prompt
         CenterToScreen()
 
     End Sub
-#End Region
 End Class
 Public Class TitleBarImage
     Inherits Form

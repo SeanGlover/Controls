@@ -679,6 +679,11 @@ Public Class DataViewer
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Public ReadOnly Property MouseData As New MouseInfo
+    Protected Overrides Sub OnMouseLeave(ByVal e As EventArgs)
+        _MouseData = Nothing
+        Invalidate()
+        MyBase.OnMouseLeave(e)
+    End Sub
     Protected Overrides Sub OnMouseMove(ByVal e As MouseEventArgs)
 
         If e IsNot Nothing Then
@@ -871,7 +876,8 @@ Public Class ColumnCollection
     Friend Event CollectionSizingEnd(sender As Object, e As EventArgs)
     Friend Event ColumnSized(sender As Object, e As EventArgs)
     Public ReadOnly Property IsBusy As Boolean
-    Private MoveColumn As Column, MoveIndex As Integer
+    Private WithEvents ReOrderTimer As New Timer With {.Interval = 100}
+    Private ReadOnly MoveColumns As New Dictionary(Of Column, Integer)
     Public Sub New(Viewer As DataViewer)
         Parent = Viewer
     End Sub
@@ -901,12 +907,17 @@ Public Class ColumnCollection
                 HeaderStyle_ = value
                 For Each Column In Me
                     REM /// DO NOT SET HeaderStyle=HeaderStyle_...that binds each Column to Columns.HeaderStyle
-                    Column.HeaderStyle.Alignment = HeaderStyle_.Alignment
-                    Column.HeaderStyle.BackColor = HeaderStyle_.BackColor
-                    Column.HeaderStyle.Font = HeaderStyle_.Font
-                    Column.HeaderStyle.ForeColor = HeaderStyle_.ForeColor
-                    Column.HeaderStyle.Padding = HeaderStyle_.Padding
-                    Column.HeaderStyle.ShadeColor = HeaderStyle_.ShadeColor
+                    With Column
+                        If value IsNot Nothing Then
+                            .HeaderStyle = New CellStyle With {
+                            .Alignment = value.Alignment,
+                            .BackColor = value.BackColor,
+                            .Font = value.Font,
+                            .ForeColor = value.ForeColor,
+                            .Padding = value.Padding,
+                            .ShadeColor = value.ShadeColor}
+                        End If
+                    End With
                 Next
             End If
         End Set
@@ -917,6 +928,7 @@ Public Class ColumnCollection
         If AddColumn IsNot Nothing Then
             With AddColumn
                 .Parent_ = Me
+                .HeaderStyle = HeaderStyle
                 ._Index = Count
                 .Left = Where(Function(c) c.ViewIndex < .ViewIndex).Select(Function(c) c.Width).Sum
             End With
@@ -1013,8 +1025,13 @@ Public Class ColumnCollection
     End Sub
     Friend Sub Reorder(Column As Column, ViewIndex As Integer)
 
-        MoveColumn = Column
-        MoveIndex = ViewIndex
+        ReOrderTimer.Start()
+        MoveColumns.Add(Column, ViewIndex)
+
+    End Sub
+    Private Sub ReOrderTimer_Tick() Handles ReOrderTimer.Tick
+
+        ReOrderTimer.Stop()
         If IsBusy Then
             AddHandler CollectionSizingEnd, AddressOf CanReorder
         Else
@@ -1027,14 +1044,18 @@ Public Class ColumnCollection
         RemoveHandler CollectionSizingEnd, AddressOf CanReorder
         First.Left = 0
         _IsBusy = True
-        Remove(MoveColumn)
-        Insert(MoveIndex, MoveColumn)
+        For Each Column In MoveColumns
+            Remove(Column.Key)
+            Insert(Column.Value, Column.Key)
+        Next
+        MoveColumns.Clear()
         _IsBusy = False
         Dim Columns As New List(Of Column) From {First}
         For Each Column In Skip(1)
             Column.Left = Columns.Sum(Function(c) c.Width)
             Columns.Add(Column)
         Next
+        Parent.Refresh()
 
     End Sub
     Private WithEvents ColumnsWorker As New BackgroundWorker With {.WorkerReportsProgress = True, .WorkerSupportsCancellation = True}
@@ -1153,7 +1174,7 @@ Public Class ColumnCollection
                 ' TODO: dispose managed state (managed objects).
                 ColumnsWorker.Dispose()
                 HeaderStyle_.Dispose()
-                MoveColumn.Dispose()
+                ReOrderTimer.Dispose()
             End If
             ' TODO: free unmanaged resources (unmanaged objects) and override Finalize() below.
             ' TODO: set large fields to null.
@@ -1653,9 +1674,14 @@ Public Class RowCollection
                 Return {_EvenRowHeight, _OddRowHeight}.Max
             End Get
         End Property
-        Public Property SingleSelect As Boolean = True
-        '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-        Public Shadows Function Add(ByVal NewRow As Row) As Row
+    Public Property SingleSelect As Boolean = True
+    Public ReadOnly Property Selected As List(Of Row)
+        Get
+            Return Where(Function(r) r.Selected).ToList
+        End Get
+    End Property
+    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+    Public Shadows Function Add(ByVal NewRow As Row) As Row
 
             If NewRow IsNot Nothing Then
                 NewRow._Parent = Me
@@ -1748,15 +1774,15 @@ Public Class RowCollection
     End Function
     Public Function Cell(Column As String) As Object
 
-        Try
+        If DataRow.Table.Columns.Contains(Column) Then
             If IsDBNull(DataRow(Column)) Then
                 Return Nothing
             Else
                 Return DataRow(Column)
             End If
-        Catch ex As KeyNotFoundException
+        Else
             Return Nothing
-        End Try
+        End If
 
     End Function
     Public Function Cell(ColumnIndex As Integer) As Object

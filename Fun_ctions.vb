@@ -984,6 +984,9 @@ Public Module Functions
         End If
 
     End Function
+    Public Function GetDataType(Value As Object) As Type
+        Return GetDataType(Value.ToString)
+    End Function
     Public Function GetDataType(Value As String) As Type
 
         Dim _Date As Date

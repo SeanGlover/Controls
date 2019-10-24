@@ -2916,22 +2916,25 @@ Public Class SQL
         Me.Instruction = If(Instruction, String.Empty)
 
     End Sub
-    Public Sub Execute()
+    Public Sub Execute(Optional Synchronous As Boolean = True)
 
         _Started = Now
         _Busy = True
-        With New BackgroundWorker
-            AddHandler .DoWork, AddressOf Execute
-            AddHandler .RunWorkerCompleted, AddressOf Executed
-            .RunWorkerAsync()
-        End With
+        If Synchronous Then
+            With New BackgroundWorker
+                AddHandler .DoWork, AddressOf Execute
+                AddHandler .RunWorkerCompleted, AddressOf Executed
+                .RunWorkerAsync()
+            End With
+        Else
+            Execute(Nothing, Nothing)
+            Executed(Nothing, Nothing)
+        End If
 
     End Sub
     Private Sub Execute(sender As Object, e As DoWorkEventArgs)
 
-        With DirectCast(sender, BackgroundWorker)
-            RemoveHandler .DoWork, AddressOf Execute
-        End With
+        If sender IsNot Nothing Then RemoveHandler DirectCast(sender, BackgroundWorker).DoWork, AddressOf Execute
         _Table = New DataTable
 
         If ConnectionString.Any And Instruction.Any Then
@@ -3107,9 +3110,7 @@ Public Class SQL
     End Sub
     Private Sub Executed(sender As Object, e As RunWorkerCompletedEventArgs)
 
-        With DirectCast(sender, BackgroundWorker)
-            RemoveHandler .RunWorkerCompleted, AddressOf Executed
-        End With
+        If sender IsNot Nothing Then RemoveHandler DirectCast(sender, BackgroundWorker).RunWorkerCompleted, AddressOf Executed
         _Busy = False
         RaiseEvent Completed(Me, Response)
 
@@ -3157,6 +3158,7 @@ Public Class DDL
     Public ReadOnly Property Ended As Date
     Public ReadOnly Property Response As ResponseEventArgs
     Public Property Name As String
+    Public Property Tag As Object
     Public ReadOnly Property Procedures As List(Of Procedure)
         Get
             If Regex.Match(Instruction, "(CREATE|ALTER|DROP)(\s{1,}OR REPLACE){0,1}\s{1,}(FUNCTION|PROCEDURE|TRIGGER)[\s]{1,}", RegexOptions.IgnoreCase).Success Then
@@ -3198,6 +3200,7 @@ Public Class DDL
                     Try
                         ExcelConnection.Open()
                         Using Command As New OleDbCommand(Instruction, ExcelConnection)
+                            'Command.Parameters.AddWithValue("@username", SqlDbType.NChar).Value = String.Empty
                             'Command.Parameters.AddWithValue("@instruction", Instruction)
                             'UPDATE[`R US all billing$`] SET `Item Amt` = 0'
                             Command.ExecuteNonQuery()
@@ -4680,103 +4683,105 @@ Public Module iData
     End Sub
     Public Sub FormatSheet(ExcelPath As String, SheetName As String, Table As DataTable)
 
-        Dim App As New Excel.Application
-        Dim Book As Excel.Workbook = App.Workbooks.Open(ExcelPath)
-        Dim Sheet As Excel.Worksheet = DirectCast(Book.Sheets(SheetName), Excel.Worksheet)
-        Dim TableRange As String = String.Format(InvariantCulture, "A1:{0}{1}", ExcelColName(Table.Columns.Count), Table.Rows.Count + 1)
-        With App
-            .DisplayAlerts = False
-            .ActiveWindow.SplitRow = 1
-            .ActiveWindow.FreezePanes = True
-        End With
-        With Sheet
-            .Cells.VerticalAlignment = Excel.XlVAlign.xlVAlignCenter
-            With .Range(TableRange, Type.Missing)
-                .AutoFilter(1, Type.Missing, Excel.XlAutoFilterOperator.xlAnd, Type.Missing, True)
-                With .FormatConditions
-                    .Delete()
-                    .Add(Excel.XlFormatConditionType.xlExpression, Formula1:="=MOD(ROW(A2),2)=1")
-                    With DirectCast(.Item(1), Excel.FormatCondition)
-                        .SetFirstPriority()
-                        With .Interior
-                            .PatternColorIndex = Excel.XlPattern.xlPatternAutomatic
-                            .ThemeColor = Excel.XlThemeColor.xlThemeColorDark1
-                            .TintAndShade = -0.0499893185216834
+        If Table IsNot Nothing Then
+            Dim App As New Excel.Application
+            Dim Book As Excel.Workbook = App.Workbooks.Open(ExcelPath)
+            Dim Sheet As Excel.Worksheet = DirectCast(Book.Sheets(SheetName), Excel.Worksheet)
+            Dim TableRange As String = String.Format(InvariantCulture, "A1:{0}{1}", ExcelColName(Table.Columns.Count), Table.Rows.Count + 1)
+            With App
+                .DisplayAlerts = False
+                .ActiveWindow.SplitRow = 1
+                .ActiveWindow.FreezePanes = True
+            End With
+            With Sheet
+                .Cells.VerticalAlignment = Excel.XlVAlign.xlVAlignCenter
+                With .Range(TableRange, Type.Missing)
+                    .AutoFilter(1, Type.Missing, Excel.XlAutoFilterOperator.xlAnd, Type.Missing, True)
+                    With .FormatConditions
+                        .Delete()
+                        .Add(Excel.XlFormatConditionType.xlExpression, Formula1:="=MOD(ROW(A2),2)=1")
+                        With DirectCast(.Item(1), Excel.FormatCondition)
+                            .SetFirstPriority()
+                            With .Interior
+                                .PatternColorIndex = Excel.XlPattern.xlPatternAutomatic
+                                .ThemeColor = Excel.XlThemeColor.xlThemeColorDark1
+                                .TintAndShade = -0.0499893185216834
+                            End With
+                            .StopIfTrue = False
                         End With
-                        .StopIfTrue = False
                     End With
-                End With
-                .WrapText = False
-                With .Font
-                    .Bold = True
-                    .Name = "Trebuchet MS"      'Sakkal Majalla
-                    .Size = 8
-                End With
-                For Each Column As DataColumn In Table.Columns
-                    Dim ColumnRange As Excel.Range = .Range(.Cells(2, Column.Ordinal + 1), .Cells(2, Column.Ordinal + 1)).EntireColumn
-                    Dim ColumnType As Type = GetDataType(Column)
-                    Dim CR As String = ColumnRange.Address
-                    Select Case ColumnType
-                        Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)
-                            ColumnRange.NumberFormat = "0"
-                            ColumnRange.HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter
-
-                        Case GetType(Decimal), GetType(Double)
-                            ColumnRange.NumberFormat = "#,##0.00"
-                            ColumnRange.HorizontalAlignment = Excel.XlHAlign.xlHAlignRight
-
-                        Case GetType(Date)
-                            ColumnRange.NumberFormat = "m/d/yyyy"
-                            ColumnRange.HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter
-
-                        Case GetType(String)
-                            Dim Objects As New List(Of Object)(From r In Table.AsEnumerable Select r(Column))
-                            Dim Strings As New List(Of String)(From o In Objects Where Not IsDBNull(o) Select Trim(Convert.ToString(o, InvariantCulture)))
-                            If Strings.Any Then
-                                If Strings.Min(Function(s) s.Length) = Strings.Max(Function(s) s.Length) Then
-                                    'Strings with uniform width look better centered 
-                                    ColumnRange.HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter
-                                Else
-                                    'Strings with mixed width look better aligned left
-                                    ColumnRange.HorizontalAlignment = Excel.XlHAlign.xlHAlignLeft
-                                End If
-                            End If
-
-                    End Select
-                Next
-                Dim TopRowRange As String = String.Format(InvariantCulture, "A1:{0}{1}", ExcelColName(Table.Columns.Count), 1)
-                With .Range(TopRowRange, Type.Missing)
-                    .Interior.Color = Color.Gainsboro
+                    .WrapText = False
                     With .Font
                         .Bold = True
-                        .Name = "Trebuchet MS"
-                        .Size = 9
+                        .Name = "Trebuchet MS"      'Sakkal Majalla
+                        .Size = 8
                     End With
-                    .HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter
+                    For Each Column As DataColumn In Table.Columns
+                        Dim ColumnRange As Excel.Range = .Range(.Cells(2, Column.Ordinal + 1), .Cells(2, Column.Ordinal + 1)).EntireColumn
+                        Dim ColumnType As Type = GetDataType(Column)
+                        Dim CR As String = ColumnRange.Address
+                        Select Case ColumnType
+                            Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)
+                                ColumnRange.NumberFormat = "0"
+                                ColumnRange.HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter
+
+                            Case GetType(Decimal), GetType(Double)
+                                ColumnRange.NumberFormat = "#,##0.00"
+                                ColumnRange.HorizontalAlignment = Excel.XlHAlign.xlHAlignRight
+
+                            Case GetType(Date)
+                                ColumnRange.NumberFormat = "m/d/yyyy"
+                                ColumnRange.HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter
+
+                            Case GetType(String)
+                                Dim Objects As New List(Of Object)(From r In Table.AsEnumerable Select r(Column))
+                                Dim Strings As New List(Of String)(From o In Objects Where Not IsDBNull(o) Select Trim(Convert.ToString(o, InvariantCulture)))
+                                If Strings.Any Then
+                                    If Strings.Min(Function(s) s.Length) = Strings.Max(Function(s) s.Length) Then
+                                        'Strings with uniform width look better centered 
+                                        ColumnRange.HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter
+                                    Else
+                                        'Strings with mixed width look better aligned left
+                                        ColumnRange.HorizontalAlignment = Excel.XlHAlign.xlHAlignLeft
+                                    End If
+                                End If
+
+                        End Select
+                    Next
+                    Dim TopRowRange As String = String.Format(InvariantCulture, "A1:{0}{1}", ExcelColName(Table.Columns.Count), 1)
+                    With .Range(TopRowRange, Type.Missing)
+                        .Interior.Color = Color.Gainsboro
+                        With .Font
+                            .Bold = True
+                            .Name = "Trebuchet MS"
+                            .Size = 9
+                        End With
+                        .HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter
+                    End With
+                    .EntireColumn.AutoFit()
                 End With
-                .EntireColumn.AutoFit()
             End With
-        End With
 #Region " CLEANUP "
-        Book.Close(True, ExcelPath)
-        ReleaseObject(Book)
+            Book.Close(True, ExcelPath)
+            ReleaseObject(Book)
 
-        'Release the Application object
-        App.Quit()
-        ReleaseObject(App)
+            'Release the Application object
+            App.Quit()
+            ReleaseObject(App)
 
-        'Collect the unreferenced objects
-        GC.Collect()
-        GC.WaitForPendingFinalizers()
+            'Collect the unreferenced objects
+            GC.Collect()
+            GC.WaitForPendingFinalizers()
 
-        Dim Windows = Process.GetProcesses
-        For Each ExcelProcess In From w In Windows Where w.ProcessName.ToUpperInvariant.Contains("EXCEL") And w.MainWindowTitle.Length = 0 Select w
-            Try
-                ExcelProcess.Kill()
-            Catch ex As Win32Exception
-            End Try
-        Next
+            Dim Windows = Process.GetProcesses
+            For Each ExcelProcess In From w In Windows Where w.ProcessName.ToUpperInvariant.Contains("EXCEL") And w.MainWindowTitle.Length = 0 Select w
+                Try
+                    ExcelProcess.Kill()
+                Catch ex As Win32Exception
+                End Try
+            Next
 #End Region
+        End If
 
     End Sub
     Private Function ExcelColName(ByVal Col As Integer) As String
@@ -5224,25 +5229,25 @@ Public Module iData
 
     End Function
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Public Function FieldsToString(Fields As Object()) As String
-
-        If Fields Is Nothing Then
-            Return Nothing
-        Else
-            Dim Values As New List(Of String)
-            For Each Field In Fields
-                Values.Add(ValueToField(Field))
-            Next
-            Return Join(Values.ToArray, ",")
-        End If
-
-    End Function
     Public Function ValueToField(Value As Object) As String
 
         If Value Is Nothing Then
             Return Nothing
         Else
             Return ValueToField(Value, Value.GetType)
+        End If
+
+    End Function
+    Public Function ValuesToFields(Values As Object()) As String
+
+        If Values Is Nothing Then
+            Return Nothing
+        Else
+            Dim Items As New List(Of String)
+            For Each Value In Values
+                Items.Add(ValueToField(Value, GetDataType(Value)))
+            Next
+            Return "(" & Join(Items.ToArray, ",") & ")"
         End If
 
     End Function
