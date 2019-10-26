@@ -51,6 +51,7 @@ Public Class Tabs
     Private MouseXY As Point
     Public Property ZoneColor As Color = Color.White
     Public Property AddNewTabColor As Color = Color.DarkGray
+    Public Property SelectedTabColor As Color = Color.Yellow
     Public Property RedrawZoneChange As Boolean
     Public ReadOnly Property MouseTab As Tab
     Public ReadOnly Property MouseZone As Zone
@@ -70,9 +71,6 @@ Public Class Tabs
         Next
         _Myself = Me
         TabPages_ = New TabCollection
-        'For Each Name As String In {"Sean", "Liliana", "Natasha", "Vanilla"}
-        '    TabPages.Add(Name, Name, My.Resources.UID)
-        'Next
 
     End Sub
 
@@ -86,19 +84,15 @@ Public Class Tabs
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
             Dim TabItem As Tab = TabPages.Item(e.Index)
             With TabItem
+                Dim FatPenThickness As Integer = If(.Selected, 4, 0)
                 Dim TabBounds As Rectangle = e.Bounds
                 Dim ImageRegionBounds As Rectangle, ImageBounds As Rectangle
-                If .Image Is Nothing Then
-                    ImageRegionBounds = New Rectangle(TabBounds.X, TabBounds.Y, 0, TabBounds.Height)
-                    ImageBounds = ImageRegionBounds
-                Else
+                If TabItem Is AddTab Then
                     ImageRegionBounds = New Rectangle(TabBounds.X, TabBounds.Y, .Image.Width, TabBounds.Height)
-                    ImageBounds = New Rectangle(TabBounds.X + 3,
+                    ImageBounds = New Rectangle(TabBounds.X + Convert.ToInt32((TabBounds.Width - .Image.Width) / 2),
                                           TabBounds.Y + Convert.ToInt32((TabBounds.Height - .Image.Height) / 2),
                                           .Image.Width,
                                           .Image.Height)
-                End If
-                If TabItem Is AddTab Then
                     If TabBounds.Contains(MouseXY) Then _MouseZone = Zone.Add
                     Using AddTabBrush As New LinearGradientBrush(TabBounds, AddNewTabColor, Color.WhiteSmoke, LinearGradientMode.BackwardDiagonal)
                         e.Graphics.FillRectangle(AddTabBrush, TabBounds)
@@ -109,8 +103,10 @@ Public Class Tabs
                         End Using
                     End If
                     e.Graphics.DrawImage(.Image, ImageBounds)
-
                 Else
+                    Using BoundsBrush As New LinearGradientBrush(TabBounds, .HeaderBackColor, Color.WhiteSmoke, LinearGradientMode.BackwardDiagonal)
+                        e.Graphics.FillRectangle(BoundsBrush, TabBounds)
+                    End Using
                     Dim SpaceSize As Size = TextRenderer.MeasureText(StrDup(100, " "), .Font)
                     Dim SpaceWidth As Double = SpaceSize.Width / 100
                     Dim Image_LeftSpaceCount As Integer = 0 ' Convert.ToInt32(If(Image Is Nothing, 0, Image.Width) / SpaceWidth)
@@ -127,14 +123,24 @@ Public Class Tabs
                             .BeforeBounds = Nothing
                         End If
 #Region " BOUNDS "
+                        If .Image Is Nothing Then
+                            ImageRegionBounds = New Rectangle(TabBounds.X, TabBounds.Y, 0, TabBounds.Height)
+                            ImageBounds = ImageRegionBounds
+                        Else
+                            ImageRegionBounds = New Rectangle(TabBounds.X, TabBounds.Y, .Image.Width, TabBounds.Height)
+                            ImageBounds = New Rectangle(TabBounds.X + 3,
+                                          TabBounds.Y + Convert.ToInt32((TabBounds.Height - FatPenThickness - .Image.Height) / 2),
+                                          .Image.Width,
+                                          .Image.Height)
+                        End If
                         If ImageRegionBounds.Contains(MouseXY) Then _MouseZone = Zone.Image
 #Region " TEXT BOUNDS "
                         Dim TextBounds As Rectangle
                         If If(.ItemText, String.Empty).Any Then
                             Dim TextSize As Size = TextRenderer.MeasureText(.ItemText, Font)
-                            TextBounds = New Rectangle(ImageBounds.Right, TabBounds.Top, TextSize.Width, TabBounds.Height)
+                            TextBounds = New Rectangle(ImageBounds.Right, TabBounds.Top, TextSize.Width, TabBounds.Height - FatPenThickness)
                         Else
-                            TextBounds = New Rectangle(ImageBounds.Right, TabBounds.Top, 0, TabBounds.Height)
+                            TextBounds = New Rectangle(ImageBounds.Right, TabBounds.Top, 0, TabBounds.Height - FatPenThickness)
                         End If
 #End Region
                         If TextBounds.Contains(Location) Then _MouseZone = Zone.Text
@@ -144,7 +150,7 @@ Public Class Tabs
                         If .CanClose Then
                             CloseRegionBounds = New Rectangle(TextBounds.Right, TabBounds.Y, TabBounds.Right - TextBounds.Right, TabBounds.Height)
                             CloseBounds = New Rectangle(TabBounds.Right - (My.Resources.Close.Width + 4),
-                                             TabBounds.Y + Convert.ToInt32((TabBounds.Height - My.Resources.Close.Height) / 2),
+                                             TabBounds.Y + Convert.ToInt32((TabBounds.Height - 4 - My.Resources.Close.Height) / 2),        '4=FatPen.Width ( actually height ) at bottom
                                              My.Resources.Close.Width,
                                              My.Resources.Close.Height)
                         Else
@@ -157,16 +163,10 @@ Public Class Tabs
                             ImageBounds.Offset(6, 0)
                             TextBounds.Offset(4, -1)
                             CloseBounds.Offset(0, 0)
-                            Using BoundsBrush As New LinearGradientBrush(TabBounds, .HeaderSelectedBackColor, Color.WhiteSmoke, LinearGradientMode.BackwardDiagonal)
-                                e.Graphics.FillRectangle(BoundsBrush, TabBounds)
-                            End Using
-                        Else
-                            Using BoundsBrush As New LinearGradientBrush(TabBounds, .HeaderBackColor, Color.WhiteSmoke, LinearGradientMode.BackwardDiagonal)
-                                e.Graphics.FillRectangle(BoundsBrush, TabBounds)
-                            End Using
                         End If
 #End Region
                         If TabItem Is MouseTab Then
+                            'Make solid when mouse is over tab
                             Using MouseBrush As New SolidBrush(.HeaderBackColor)
                                 e.Graphics.FillRectangle(MouseBrush, TabBounds)
                             End Using
@@ -202,6 +202,12 @@ Public Class Tabs
                                 e.Graphics.FillRectangle(FadedTextZoneBrush, TextBounds)
                             End Using
                         End If
+                    End If
+                    If .Selected Then
+                        Using FatPen As New Pen(SelectedTabColor, FatPenThickness)
+                            Dim PenTop As Integer = TabBounds.Bottom - CInt(FatPen.Width)
+                            e.Graphics.DrawLine(FatPen, New Point(TabBounds.X, PenTop), New Point(TabBounds.Right, PenTop))
+                        End Using
                     End If
                 End If
             End With
@@ -374,7 +380,7 @@ Public Class Tabs
         End If
 
         If Parent IsNot Nothing Then
-            Dim ParentText As String = Join({Location.ToString, OldString, NewString, redraw}, " *** ")
+            Dim ParentText As String = Join({Location.ToString, OldString, NewString, Redraw}, " *** ")
             'Parent.Text = ParentText
             If Parent.Parent IsNot Nothing Then
                 'Parent.Parent.Text = ParentText
@@ -571,7 +577,6 @@ Public Class Tab
         End Get
     End Property
     Public Property HeaderBackColor As Color = Color.Gray
-    Public Property HeaderSelectedBackColor As Color = Color.DarkBlue
     Public Property HeaderForeColor As Color = Color.Black
     Private _Font As Font = Nothing
     Public Overloads Property Font As Font

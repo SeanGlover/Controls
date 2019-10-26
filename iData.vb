@@ -1286,7 +1286,7 @@ Public Class BodyElements
         Return FromElements
 
     End Function
-    Private Function FieldsFromBlocks(_StringData As StringData, Pattern As String) As List(Of InstructionElement)
+    Private Shared Function FieldsFromBlocks(DataString As StringData, Pattern As String) As List(Of InstructionElement)
 
         Dim Fields As New List(Of InstructionElement)
         Dim SourceType As InstructionElement.LabelName
@@ -1307,7 +1307,7 @@ Public Class BodyElements
             FieldPattern = "\bSELECT\b[\s]{1,}"
 
         End If
-        Dim FieldSection As String = _StringData.Value.Remove(0, Regex.Match(_StringData.Value, FieldPattern, RegexOptions.IgnoreCase).Length)
+        Dim FieldSection As String = DataString.Value.Remove(0, Regex.Match(DataString.Value, FieldPattern, RegexOptions.IgnoreCase).Length)
         Dim FieldSectionNoParenthesis As String = FieldSection
         REM /// REMOVE CONTENT INSIDE () SINCE FUNCTIONS, ETC OFTEN CONTAIN COMMAS WHICH IS NEEDED AS A "§" FOR THE FIELD
         Dim Root As New StringData With {.Value = FieldSection}
@@ -1322,7 +1322,7 @@ Public Class BodyElements
             FieldSectionNoParenthesis = FieldSectionNoParenthesis.Insert(Section.Start, StrDup(Section.Length, "½"))
         Next
         FieldSectionNoParenthesis = Regex.Replace(FieldSectionNoParenthesis, " ", "¾")
-        Dim FieldStart As Integer = (_StringData.Value.Length - FieldSection.Length)
+        Dim FieldStart As Integer = (DataString.Value.Length - FieldSection.Length)
         Dim FieldMatches As New List(Of StringData)(From M In Regex.Matches(FieldSectionNoParenthesis, "[^½\s®]{1,}", RegexOptions.IgnoreCase) Select New StringData(M))
 
         For Each Field As StringData In FieldMatches
@@ -1331,7 +1331,7 @@ Public Class BodyElements
             FieldValue = Regex.Replace(FieldValue, "■$", String.Empty)
             If FieldValue.StartsWith("½", StringComparison.InvariantCulture) Then Stop
             Dim FieldElement As New StringData With {
-                                        .Start = _StringData.Start + FieldStart + Field.Start,
+                                        .Start = DataString.Start + FieldStart + Field.Start,
                                         .Length = Field.Length,
                                         .Value = FieldValue,
                                         .BackColor = Color.White,
@@ -1914,7 +1914,15 @@ End Class
         Return DataSource.GetHashCode Xor UserID.GetHashCode Xor Password.GetHashCode
     End Function
     Public Overloads Function Equals(ByVal other As Connection) As Boolean Implements IEquatable(Of Connection).Equals
-        Return DataSource = other.DataSource AndAlso UserID = other.UserID
+
+        If DataSource Is Nothing Then
+            Return other Is Nothing
+        ElseIf other Is Nothing Then
+            Return DataSource Is Nothing
+        Else
+            Return DataSource = other.DataSource AndAlso UserID = other.UserID
+        End If
+
     End Function
     Public Shared Operator =(ByVal value1 As Connection, ByVal value2 As Connection) As Boolean
 
@@ -2935,7 +2943,7 @@ Public Class SQL
     Private Sub Execute(sender As Object, e As DoWorkEventArgs)
 
         If sender IsNot Nothing Then RemoveHandler DirectCast(sender, BackgroundWorker).DoWork, AddressOf Execute
-        _Table = New DataTable
+        Dim xTable As New DataTable
 
         If ConnectionString.Any And Instruction.Any Then
 #Region " BACKUP "
@@ -3007,41 +3015,41 @@ Public Class SQL
                                 Try
                                     Select Case Column.Type
                                         Case ADODB.DataTypeEnum.adBigInt
-                                            Table.Columns.Add(ColumnName, GetType(Long))
+                                            xTable.Columns.Add(ColumnName, GetType(Long))
 
                                         Case ADODB.DataTypeEnum.adInteger
-                                            Table.Columns.Add(ColumnName, GetType(Integer))
+                                            xTable.Columns.Add(ColumnName, GetType(Integer))
 
                                         Case ADODB.DataTypeEnum.adSmallInt, ADODB.DataTypeEnum.adSingle
-                                            Table.Columns.Add(ColumnName, GetType(Short))
+                                            xTable.Columns.Add(ColumnName, GetType(Short))
 
                                         Case ADODB.DataTypeEnum.adBinary, ADODB.DataTypeEnum.adVarBinary, ADODB.DataTypeEnum.adLongVarBinary, ADODB.DataTypeEnum.adUnsignedTinyInt
-                                            Table.Columns.Add(ColumnName, GetType(Byte))
+                                            xTable.Columns.Add(ColumnName, GetType(Byte))
 
                                         Case ADODB.DataTypeEnum.adBoolean
-                                            Table.Columns.Add(ColumnName, GetType(Boolean))
+                                            xTable.Columns.Add(ColumnName, GetType(Boolean))
 
                                         Case ADODB.DataTypeEnum.adChar, ADODB.DataTypeEnum.adVarChar, ADODB.DataTypeEnum.adWChar, ADODB.DataTypeEnum.adVarWChar, ADODB.DataTypeEnum.adLongVarChar, ADODB.DataTypeEnum.adLongVarWChar
-                                            Table.Columns.Add(ColumnName, GetType(String))
+                                            xTable.Columns.Add(ColumnName, GetType(String))
 
                                         Case ADODB.DataTypeEnum.adDate, ADODB.DataTypeEnum.adDBDate, ADODB.DataTypeEnum.adDBTimeStamp
-                                            Table.Columns.Add(ColumnName, GetType(Date))
+                                            xTable.Columns.Add(ColumnName, GetType(Date))
 
                                         Case ADODB.DataTypeEnum.adDecimal, ADODB.DataTypeEnum.adNumeric, ADODB.DataTypeEnum.adCurrency
-                                            Table.Columns.Add(ColumnName, GetType(Decimal))
+                                            xTable.Columns.Add(ColumnName, GetType(Decimal))
 
                                         Case ADODB.DataTypeEnum.adDouble
-                                            Table.Columns.Add(ColumnName, GetType(Double))
+                                            xTable.Columns.Add(ColumnName, GetType(Double))
 
                                         Case ADODB.DataTypeEnum.adVariant
-                                            Table.Columns.Add(ColumnName, GetType(Object))
+                                            xTable.Columns.Add(ColumnName, GetType(Object))
 
                                         Case ADODB.DataTypeEnum.adGUID
                                         Case ADODB.DataTypeEnum.adIDispatch
 
                                     End Select
                                 Catch ex As ExternalException
-                                    Table.Columns.Add(ColumnName, Nothing)
+                                    xTable.Columns.Add(ColumnName, Nothing)
 
                                 End Try
                             Next
@@ -3051,7 +3059,7 @@ Public Class SQL
                                 Dim ColumnIndex As Integer = 0
                                 Dim RowCells As New List(Of Object)
                                 For Each Field As ADODB.Field In .Fields
-                                    Dim Column = Table.Columns(ColumnIndex)
+                                    Dim Column = xTable.Columns(ColumnIndex)
                                     If Column Is Nothing Then
                                         RowCells.Add(Nothing)
 
@@ -3074,15 +3082,15 @@ Public Class SQL
                                     End If
                                     ColumnIndex += 1
                                 Next
-                                Table.Rows.Add(RowCells.ToArray)
+                                xTable.Rows.Add(RowCells.ToArray)
                                 .MoveNext()         'Moves to Next Row
                             Loop
 #End Region
                         End If
-                        Table.Locale = CultureInfo.InvariantCulture
-                        Table.Namespace = "<DB2>"
+                        xTable.Locale = CultureInfo.InvariantCulture
+                        xTable.Namespace = "<DB2>"
                         _Ended = Now
-                        _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, Table, Ended - Started)
+                        _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, xTable, Ended - Started)
 
                     Catch ADODB_RunError As ExternalException
                         _Ended = Now
@@ -3106,6 +3114,7 @@ Public Class SQL
             End If
             _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, MissingMessage.ToString, New Errors(MissingMessage.ToString))
         End If
+        _Table = xTable
 
     End Sub
     Private Sub Executed(sender As Object, e As RunWorkerCompletedEventArgs)

@@ -609,7 +609,7 @@ Public Module Functions
 
         Dim Capture As New StringData
         With Capture
-            If IsNothing(Text) Then
+            If Text Is Nothing Then
             Else
                 Dim Parentheses As New List(Of Match)(From M In Regex.Matches(Text, "\(|\)", RegexOptions.IgnoreCase) Select DirectCast(M, Match))
                 Dim LeftCount As Integer = 0, RightCount As Integer = 0
@@ -985,7 +985,11 @@ Public Module Functions
 
     End Function
     Public Function GetDataType(Value As Object) As Type
-        Return GetDataType(Value.ToString)
+        If Value Is Nothing Then
+            Return Nothing
+        Else
+            Return GetDataType(Value.ToString)
+        End If
     End Function
     Public Function GetDataType(Value As String) As Type
 
@@ -1084,8 +1088,10 @@ Namespace Pdf2Text
     Public Class ConversionEventArgs
         Inherits EventArgs
         Public ReadOnly Property Succeeded As Boolean
-        Public Sub New(Success As Boolean)
+        Public ReadOnly Property Message As String
+        Public Sub New(Success As Boolean, Optional Message As String = Nothing)
             Succeeded = Success
+            Me.Message = Message
         End Sub
     End Class
     Public Class ConversionCollection
@@ -1161,7 +1167,7 @@ Namespace Pdf2Text
             End If
 
         End Sub
-        Private Sub ConversionCompleted(sender As Object, e As String)
+        Private Sub ConversionCompleted(sender As Object, e As ConversionEventArgs)
 
             With DirectCast(sender, Conversion)
                 RemoveHandler .Completed, AddressOf ConversionCompleted
@@ -1175,7 +1181,7 @@ Namespace Pdf2Text
         End Sub
     End Class
     Public Class Conversion
-        Public Event Completed(sender As Object, e As String)
+        Public Event Completed(sender As Object, e As ConversionEventArgs)
         Public ReadOnly Property PdfPath As String
         Public ReadOnly Property TxtPath As String
         Friend Property Parent As ConversionCollection
@@ -1193,6 +1199,12 @@ Namespace Pdf2Text
         Public ReadOnly Property Ended As New Date
         Public ReadOnly Property Succeeded As Boolean
         Public ReadOnly Property Content As String
+        Public Sub New(pdfPath As String)
+
+            _PdfPath = pdfPath
+            _TxtPath = Replace(pdfPath, ".pdf", ".txt")
+
+        End Sub
         Public Sub New(pdfPath As String, txtPath As String)
 
             _PdfPath = pdfPath
@@ -1213,7 +1225,7 @@ Namespace Pdf2Text
                 _Started = Now
                 _Ended = _Started
                 _Succeeded = False
-                RaiseEvent Completed(Me, PdfPath & " not found")
+                RaiseEvent Completed(Me, New ConversionEventArgs(False, PdfPath & " not found"))
             End If
 
         End Sub
@@ -1235,7 +1247,7 @@ Namespace Pdf2Text
                     sw.WriteLine(Content)
                 End Using
 
-            Catch ex As Exception
+            Catch ex As ExternalException
                 _Succeeded = False
                 _Content = String.Empty
 
@@ -1254,7 +1266,7 @@ Namespace Pdf2Text
                 RemoveHandler .RunWorkerCompleted, AddressOf PdfWorker_Completed
             End With
             _Ended = Now
-            RaiseEvent Completed(Me, Content)
+            RaiseEvent Completed(Me, New ConversionEventArgs(True))
 
         End Sub
     End Class

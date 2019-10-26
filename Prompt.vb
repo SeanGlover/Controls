@@ -53,7 +53,7 @@ Public Class Prompt
         FormBorderStyle = FormBorderStyle.Fixed3D
         Font = Segoe
         TopMost = True
-        Me.Style = Style
+        ColorStyle = Style
         MinimizeBox = False
         MaximizeBox = False
         MinimumSize = New Size(256, 128)
@@ -73,7 +73,7 @@ Public Class Prompt
             Return _DataSource
         End Get
     End Property
-    Public Property Style As StyleOption
+    Public Property ColorStyle As StyleOption
     Public Property TitleMessage As String
     Public Property TitleBarImageLeft As Boolean = True
     Public Property BodyMessage As String
@@ -324,7 +324,7 @@ Public Class Prompt
         Me.Type = Type
         REM /// IF NEW WAS SETUP WITH STYLE OTHER THAN THE DEFAULT SHOW (BLUETONES) THEN 
         Dim SelectedStyle As StyleOption = Style
-        If Style = StyleOption.UseNew Then SelectedStyle = Me.Style
+        If Style = StyleOption.UseNew Then SelectedStyle = ColorStyle
         Dim AlternatingRowColor As Color, BackColor As Color, ForeColor As Color, ShadeColor As Color, AccentColor As Color
         Select Case SelectedStyle
             Case StyleOption.BlueTones

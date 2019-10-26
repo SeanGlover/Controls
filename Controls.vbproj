@@ -472,6 +472,9 @@
   <ItemGroup>
     <None Include="Resources\Collapsed.png" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\QuestionMark.png" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>

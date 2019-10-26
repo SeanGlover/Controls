@@ -291,7 +291,7 @@ End Class
         If State = ViewState.OpenDraft Or State = ViewState.OpenSaved Then
             Tab.Image = If(e.CurrentType = ExecutionType.DDL, My.Resources.DDL,
                         If(e.CurrentType = ExecutionType.SQL, My.Resources.SQL,
-                        My.Resources.Question.ToBitmap))
+                        My.Resources.QuestionMark))
             If State = ViewState.OpenDraft Then Tab.ItemText = Name
         End If
 
@@ -441,7 +441,7 @@ End Class
             If _Name <> value Then
                 Dim NameMatch As Match = Regex.Match(value, "(?<=[012][0-9]:[0-5][0-9]:[0-5][0-9]\.[0-9]{3}§)", RegexOptions.IgnoreCase)
                 If value IsNot Nothing AndAlso NameMatch.Success Then
-#Region " NAME CHANGE CAME FROM IC_SaveAs (OPEN) -OR- BTV_ClosedScripts (CLOSED) "
+#Region " NAME CHANGE CAME FROM IC_SaveAs (OPEN) -OR- Tree_ClosedScripts (CLOSED) "
                     Dim FormerName As String = _Name
                     _Name = Split(value, Delimiter).Last
                     If FileCreated And _Name = FormerName Then
@@ -527,7 +527,7 @@ End Class
                         RemoveControls()
 
                     Case FormerState = ViewState.OpenDraft And NewState = ViewState.OpenSaved
-                            REM /// Handled in Name Set since the only method to change from OpenDraft to OpenSaved is via IC_SaveAs -OR- BTV_ClosedScripts
+                            REM /// Handled in Name Set since the only method to change from OpenDraft to OpenSaved is via IC_SaveAs -OR- Tree_ClosedScripts
 
                     Case FormerState = ViewState.OpenDraft And NewState = ViewState.ClosedSaved
                             REM /// No longer applies- OpenDraft can not become ClosedSaved, only OpenDraft to OpenSaved as immediately above
@@ -553,7 +553,7 @@ End Class
 #End Region
 #Region " From ClosedSaved "
                     Case FormerState = ViewState.ClosedSaved And NewState = ViewState.None
-                        REM /// Delete...BTV_ClosedScripts, NodeRemove Clicked
+                        REM /// Delete...Tree_ClosedScripts, NodeRemove Clicked
                         File.Delete(Path)
                         Parent.Remove(Me)
 
@@ -626,8 +626,8 @@ End Class
             'QUERY Or PROCEDURE SUCCEEDED
             Return False
 
-            Else
-                Dim ConnectionText As String = If(Connection Is Nothing, String.Empty, Connection.Properties("DSN"))
+        Else
+            Dim ConnectionText As String = If(Connection Is Nothing, String.Empty, Connection.Properties("DSN"))
             Dim ScriptText As String = Regex.Replace(If(Text, String.Empty), "[\n\r]", vbNewLine)      'vbNewLine MAKES THE .txt FILE MUCH MORE READABLE
             Select Case Action
                 Case SaveAction.ChangeContent
@@ -652,7 +652,7 @@ End Class
                     .ItemText = Name,
                     .Image = If(Body.InstructionType = ExecutionType.DDL, My.Resources.DDL,
                              If(Body.InstructionType = ExecutionType.SQL, My.Resources.SQL,
-                             My.Resources.Question.ToBitmap)),
+                             My.Resources.QuestionMark)),
                     .Tag = Me,
                     .AllowDrop = True}
 
@@ -697,12 +697,12 @@ Public Class DataTool
     Private ReadOnly Message As New Prompt
     Private WithEvents TLP_PaneGrid As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 3, .RowCount = 1, .CellBorderStyle = TableLayoutPanelCellBorderStyle.Inset, .AllowDrop = True, .Margin = New Padding(0)}
     Private WithEvents TLP_Objects As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 1, .RowCount = 3, .CellBorderStyle = TableLayoutPanelCellBorderStyle.Inset, .Margin = New Padding(0)}
-    Friend WithEvents Script_Tabs As New Tabs With {.Dock = DockStyle.Fill, .UserCanAdd = True, .UserCanReorder = True, .MouseOverSelection = True, .AddNewTabColor = Color.Black, .Font = Segoe, .Alignment = TabAlignment.Top, .Multiline = True, .Margin = New Padding(0)}
+    Friend WithEvents Script_Tabs As New Tabs With {.Dock = DockStyle.Fill, .UserCanAdd = True, .UserCanReorder = True, .MouseOverSelection = True, .AddNewTabColor = Color.Black, .Font = Segoe, .Alignment = TabAlignment.Top, .Multiline = True, .Margin = New Padding(0), .SelectedTabColor = Color.Black}
     Private WithEvents Script_Grid As New DataViewer With {.Dock = DockStyle.Fill, .Font = Segoe, .AllowDrop = True, .Margin = New Padding(0), .ContextMenuStrip = CMS_GridOptions}
     Private WithEvents Button_ObjectsSync As New Button With {.Dock = DockStyle.Fill, .Text = String.Empty, .TextImageRelation = TextImageRelation.Overlay, .Image = My.Resources.Sync, .ImageAlign = ContentAlignment.MiddleLeft, .Margin = New Padding(0)}
     Private WithEvents IC_ObjectsSearch As New ImageCombo With {.Dock = DockStyle.Fill, .Text = String.Empty, .HintText = "Search Database", .Image = My.Resources.View, .Margin = New Padding(0)}
     Private WithEvents Button_ObjectsClose As New Button With {.Dock = DockStyle.Fill, .Text = String.Empty, .TextImageRelation = TextImageRelation.Overlay, .Image = My.Resources.Close.ToBitmap, .ImageAlign = ContentAlignment.MiddleCenter, .Margin = New Padding(0)}
-    Private WithEvents BTV_Objects As New TreeViewer With {.Name = "Database Objects", .Dock = DockStyle.Fill, .Margin = New Padding(0), .DropHighlightColor = Color.Gold, .CheckBoxes = TreeViewer.CheckState.Mixed, .MultiSelect = True}
+    Private WithEvents Tree_Objects As New TreeViewer With {.Name = "Database Objects", .Dock = DockStyle.Fill, .Margin = New Padding(0), .DropHighlightColor = Color.Gold, .CheckBoxes = TreeViewer.CheckState.Mixed, .MultiSelect = True}
     Private WithEvents TSDD_SaveAs As New ToolStripDropDown With {.AutoClose = False, .Padding = New Padding(0), .DropShadowEnabled = True, .BackColor = Color.Firebrick}
     Private WithEvents IC_SaveAs As New ImageCombo With {.Image = My.Resources.Save, .HintText = "Save Or Save As", .Size = New Size(200, 28)}
     Private ReadOnly SaveAsHost As New ToolStripControlHost(IC_SaveAs)
@@ -711,7 +711,7 @@ Public Class DataTool
     Private WithEvents TLP_ClosedScripts As New TableLayoutPanel With {.Size = New Size(200, 200), .ColumnCount = 1, .RowCount = 1}
     Private ReadOnly TLPCSCS As Integer = TLP_ClosedScripts.ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 300})
     Private ReadOnly TLPCSRS As Integer = TLP_ClosedScripts.RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 600})
-    Private WithEvents BTV_ClosedScripts As New TreeViewer With {.Name = "Scripts", .AutoSize = True, .Margin = New Padding(0), .MouseOverExpandsNode = False}
+    Private WithEvents Tree_ClosedScripts As New TreeViewer With {.Name = "Scripts", .AutoSize = True, .Margin = New Padding(0), .MouseOverExpandsNode = False}
     Private WithEvents TT_Tabs As New ToolTip With {.ToolTipIcon = ToolTipIcon.Info}
     Private WithEvents TT_GridTip As New ToolTip With {.ToolTipIcon = ToolTipIcon.Info}
     Private WithEvents CMS_ExcelSheets As New ContextMenuStrip With {.AutoClose = False, .AutoSize = True, .Margin = New Padding(0), .DropShadowEnabled = False, .BackColor = Color.WhiteSmoke, .ForeColor = Color.DarkViolet, .Font = Segoe}
@@ -833,8 +833,8 @@ Public Class DataTool
                 .Controls.Add(Button_ObjectsClose, 2, 0)
             End With
             .Controls.Add(TLP_ObjectsHeader, 0, 0)
-            .Controls.Add(BTV_Objects, 0, 1)
-            BTV_Objects.AllowDrop = True
+            .Controls.Add(Tree_Objects, 0, 1)
+            Tree_Objects.AllowDrop = True
         End With
         With TLP_PaneGrid
             .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 0})
@@ -860,7 +860,7 @@ Public Class DataTool
             End With
         End With
         With TLP_ClosedScripts
-            .Controls.Add(BTV_ClosedScripts, 0, 0)
+            .Controls.Add(Tree_ClosedScripts, 0, 0)
             Dim TSCH_ClosedScripts As New ToolStripControlHost(TLP_ClosedScripts)
             TSDD_ClosedScripts.Items.Add(TSCH_ClosedScripts)
         End With
@@ -985,7 +985,7 @@ Public Class DataTool
     Private Sub ViewerAlerts(sender As Object, e As AlertEventArgs) Handles Script_Grid.Alert
         RaiseEvent Alert(sender, e)
     End Sub
-    Private Sub TreeViewerAlerts(sender As Object, e As AlertEventArgs) Handles BTV_ClosedScripts.Alert, BTV_Objects.Alert
+    Private Sub TreeViewerAlerts(sender As Object, e As AlertEventArgs) Handles Tree_ClosedScripts.Alert, Tree_Objects.Alert
         RaiseEvent Alert(sender, e)
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
@@ -1141,7 +1141,7 @@ Public Class DataTool
         End If
 
     End Sub
-    Private Sub OnPanelLeave(sender As Object, e As EventArgs) Handles TLP_PaneGrid.Leave, BTV_Objects.Enter, BTV_Objects.MouseMove
+    Private Sub OnPanelLeave(sender As Object, e As EventArgs) Handles TLP_PaneGrid.Leave, Tree_Objects.Enter, Tree_Objects.MouseMove
 
         If ForceCapture Then
         Else
@@ -1151,7 +1151,7 @@ Public Class DataTool
     End Sub
 #End Region
 
-#Region " Manage Toolstrip Visibility {TSDD_SaveAs ( IC_SaveAs ) + TSDD_ClosedScripts ( BTV_ClosedScripts )} "
+#Region " Manage Toolstrip Visibility {TSDD_SaveAs ( IC_SaveAs ) + TSDD_ClosedScripts ( Tree_ClosedScripts )} "
     'Mouseover Tab close [X] shows SaveAs, if text has changed. Exit right stays visible. Exit left closes
     'Mouseover AddTab shows ClosedScripts. Exit right stays visible. Exit left closes
     Private Sub TabDirection(TabItem As Tab)
@@ -1228,7 +1228,7 @@ Public Class DataTool
         With DirectCast(sender, Timer)
             RemoveHandler .Tick, AddressOf HideTimer_ClosedScripts
             .Stop()
-            If CursorOverControl(BTV_ClosedScripts) Or BTV_ClosedScripts.OptionsOpen Then
+            If CursorOverControl(Tree_ClosedScripts) Or Tree_ClosedScripts.OptionsOpen Then
                 AddHandler .Tick, AddressOf HideTimer_ClosedScripts
                 .Start()
             Else
@@ -1256,19 +1256,19 @@ Public Class DataTool
     End Sub
 #End Region
 
-#Region " BTV_ClosedScripts EVENTS "
+#Region " Tree_ClosedScripts EVENTS "
     Private Sub ClosedScripts_SizeChanged(sender As Object, e As EventArgs)
 
         With TLP_ClosedScripts
-            .ColumnStyles(0).Width = {BTV_ClosedScripts.Width, WorkingArea.Width - TSDD_ClosedScripts.Left}.Min
-            .RowStyles(0).Height = {BTV_ClosedScripts.Height, WorkingArea.Height - TSDD_ClosedScripts.Top}.Min
+            .ColumnStyles(0).Width = {Tree_ClosedScripts.Width, WorkingArea.Width - TSDD_ClosedScripts.Left}.Min
+            .RowStyles(0).Height = {Tree_ClosedScripts.Height, WorkingArea.Height - TSDD_ClosedScripts.Top}.Min
             .Width = Convert.ToInt32(.ColumnStyles(0).Width + 3)
             .Height = Convert.ToInt32(.RowStyles(0).Height + 3)
             TSDD_ClosedScripts.Size = .Size
         End With
 
     End Sub
-    Private Sub ClosedScript_NodeStartDrag(sender As Object, e As NodeEventArgs) Handles BTV_ClosedScripts.NodeDragStart
+    Private Sub ClosedScript_NodeStartDrag(sender As Object, e As NodeEventArgs) Handles Tree_ClosedScripts.NodeDragStart
 
         DragNode = e.Node
         ActivePane.AllowDrop = True
@@ -1293,29 +1293,40 @@ Public Class DataTool
     Private Sub ClosedScript_NodeDroppedPane(sender As Object, e As DragEventArgs) Handles ActivePane_.DragDrop
         Pane_NodeDropped(e)
     End Sub
-    Private Sub ClosedScript_NodeClicked(sender As Object, e As NodeEventArgs) Handles BTV_ClosedScripts.NodeClicked
+    Private Sub ClosedScript_NodeClicked(sender As Object, e As NodeEventArgs) Handles Tree_ClosedScripts.NodeClicked
         If e.Node Is OpenFileNode Then
             OpenFile.Tag = Nothing
             OpenFile.ShowDialog()
         End If
     End Sub
     'Open Closed Script
-    Private Sub ClosedScript_NodeDoubleClicked(sender As Object, e As NodeEventArgs) Handles BTV_ClosedScripts.NodeDoubleClicked
+    Private Sub ClosedScript_NodeDoubleClicked(sender As Object, e As NodeEventArgs) Handles Tree_ClosedScripts.NodeDoubleClicked
 
+        Hide_DropDowns()
         If e.Node.Tag IsNot Nothing Then
-            Hide_DropDowns()
-            Dim NodeScript As Script = DirectCast(e.Node.Tag, Script)
-            NodeScript.State = Script.ViewState.OpenSaved
+            If e.Node.Tag.GetType Is GetType(Connection) Then
+                'New Pane with Connection
+                Scripts.Add(New Script With {
+                            ._Tabs = Script_Tabs,
+                            .Connection = DirectCast(e.Node.Tag, Connection),
+                            .State = Script.ViewState.OpenDraft})
+
+            ElseIf e.Node.Tag.GetType Is GetType(Script) Then
+                'Opening a Closed Script
+                Dim NodeScript As Script = DirectCast(e.Node.Tag, Script)
+                NodeScript.State = Script.ViewState.OpenSaved
+
+            End If
         End If
 
     End Sub
-    Private Sub ClosedScript_NodeRemoveClicked(sender As Object, e As NodeEventArgs) Handles BTV_ClosedScripts.NodeAfterRemoved
+    Private Sub ClosedScript_NodeRemoveClicked(sender As Object, e As NodeEventArgs) Handles Tree_ClosedScripts.NodeAfterRemoved
 
         Dim RemoveScript As Script = DirectCast(e.Node.Tag, Script)
         RemoveScript.State = Script.ViewState.None
 
     End Sub
-    Private Sub ClosedScript_NodeEditClicked(sender As Object, e As NodeEventArgs) Handles BTV_ClosedScripts.NodeEdited
+    Private Sub ClosedScript_NodeEditClicked(sender As Object, e As NodeEventArgs) Handles Tree_ClosedScripts.NodeEdited
 
         Using cb As New CursorBusy
             'USING Now.ToLongTimeString ENSURE NAME<>value AND ACTION IS TAKEN
@@ -1323,12 +1334,12 @@ Public Class DataTool
             ClosedScript.Name = Join({DateTimeToString(Now), e.ProposedText}, Delimiter)
             If ClosedScript.Name = e.ProposedText Then e.Node.Text = e.ProposedText     'Script.Name will only change if it can
             e.Node.Parent.SortChildren()
-            BTV_ClosedScripts.Refresh()
+            Tree_ClosedScripts.Refresh()
         End Using
 
     End Sub
-    Private Sub Nodes_Changed(sender As Object, e As NodeEventArgs) Handles BTV_ClosedScripts.NodesChanged
-        Stop
+    Private Sub Nodes_Changed(sender As Object, e As NodeEventArgs) Handles Tree_ClosedScripts.NodesChanged
+
     End Sub
 #End Region
 #Region " SCRIPT CONTROL EVENTS "
@@ -2171,10 +2182,10 @@ Public Class DataTool
 #End Region
 
 #Region " OBJECT EVENTS "
-#Region " BTV_Objects POPULATION "
+#Region " Tree_Objects POPULATION "
     Private ReadOnly Property SelectedConnections As List(Of Connection)
         Get
-            Return (From n In BTV_Objects.SelectedNodes Where n Is n.Root Select DirectCast(n.Tag, Connection)).ToList
+            Return (From n In Tree_Objects.SelectedNodes Where n Is n.Root Select DirectCast(n.Tag, Connection)).ToList
         End Get
     End Property
     Private RequestInitiated As Boolean
@@ -2199,7 +2210,7 @@ Public Class DataTool
                     For Each DataSource In OwnersNames
                         Dim SyncWorker = New BackgroundWorker With {.WorkerReportsProgress = True, .WorkerSupportsCancellation = False}
                         Dim DB_Alias As String = Aliases(DataSource.Server)
-                        Dim SyncNode As Node = BTV_Objects.Nodes.Item(DB_Alias)
+                        Dim SyncNode As Node = Tree_Objects.Nodes.Item(DB_Alias)
                         Dim Connection As Connection = DirectCast(SyncNode.Tag, Connection)
                         SyncWorkers.Add(DB_Alias, SyncWorker)
                         SyncSet.Add(DB_Alias, Nothing)
@@ -2220,7 +2231,7 @@ Public Class DataTool
 
         With DirectCast(sender, SQL)
             RemoveHandler .Completed, AddressOf SyncSQL_Completed
-            Dim SyncNode As Node = BTV_Objects.Nodes.Item(.Name)
+            Dim SyncNode As Node = Tree_Objects.Nodes.Item(.Name)
             SyncNode.Separator = Node.SeparatorPosition.Above
             If e.Succeeded Then
                 Dim NodeConnection As Connection = DirectCast(SyncNode.Tag, Connection)
@@ -2235,7 +2246,7 @@ Public Class DataTool
 
         If Not SyncWorkers.Any Then
             SpinTimer.Stop()
-            BTV_Objects.BackgroundImage = Nothing
+            Tree_Objects.BackgroundImage = Nothing
             Using ObjectsTable As DataTable = SystemObjects.ToDataTable
                 Dim GroupedTables = From ot In ObjectsTable.AsEnumerable Group ot By _Name = ot("DataSource").ToString Into SourceGrp = Group
                                     Select New With {.Name = _Name, .Table = SourceGrp.CopyToDataTable}
@@ -2271,7 +2282,7 @@ Public Class DataTool
                     End If
                 Next
                 SystemObjects.RemoveDuplicates()
-                For Each Level1Node In BTV_Objects.Nodes
+                For Each Level1Node In Tree_Objects.Nodes
                     Level1Node.Nodes.Clear()
                 Next
                 RequestInitiated = False
@@ -2283,14 +2294,14 @@ Public Class DataTool
     Private Sub SpinTimer_Tick() Handles SpinTimer.Tick
 
         Dim SpinImageIndex As Integer = DirectCast(SpinTimer.Tag, Integer) Mod 8
-        If SpinImageIndex = 0 Then BTV_Objects.BackgroundImage = My.Resources.Spin1
-        If SpinImageIndex = 1 Then BTV_Objects.BackgroundImage = My.Resources.Spin2
-        If SpinImageIndex = 2 Then BTV_Objects.BackgroundImage = My.Resources.Spin3
-        If SpinImageIndex = 3 Then BTV_Objects.BackgroundImage = My.Resources.Spin4
-        If SpinImageIndex = 4 Then BTV_Objects.BackgroundImage = My.Resources.Spin5
-        If SpinImageIndex = 5 Then BTV_Objects.BackgroundImage = My.Resources.Spin6
-        If SpinImageIndex = 6 Then BTV_Objects.BackgroundImage = My.Resources.Spin7
-        If SpinImageIndex = 7 Then BTV_Objects.BackgroundImage = My.Resources.Spin8
+        If SpinImageIndex = 0 Then Tree_Objects.BackgroundImage = My.Resources.Spin1
+        If SpinImageIndex = 1 Then Tree_Objects.BackgroundImage = My.Resources.Spin2
+        If SpinImageIndex = 2 Then Tree_Objects.BackgroundImage = My.Resources.Spin3
+        If SpinImageIndex = 3 Then Tree_Objects.BackgroundImage = My.Resources.Spin4
+        If SpinImageIndex = 4 Then Tree_Objects.BackgroundImage = My.Resources.Spin5
+        If SpinImageIndex = 5 Then Tree_Objects.BackgroundImage = My.Resources.Spin6
+        If SpinImageIndex = 6 Then Tree_Objects.BackgroundImage = My.Resources.Spin7
+        If SpinImageIndex = 7 Then Tree_Objects.BackgroundImage = My.Resources.Spin8
         SpinTimer.Tag = SpinImageIndex + 1
 
     End Sub
@@ -2319,7 +2330,7 @@ Public Class DataTool
                     If Not LoadFromSettings Then ObjectsSet.Tables.Add(ConnectionTable)
                     SuccessCount += 1
                     Dim DatabaseColor As Color = If(Connection Is Nothing, Color.Blue, Connection.BackColor)
-                    BTV_Objects.Nodes.Add(New Node With {.Text = Connection.DataSource,
+                    Tree_Objects.Nodes.Add(New Node With {.Text = Connection.DataSource,
                                                     .Name = .Text,
                                                     .Image = ChangeImageColor(My.Resources.Sync, Color.FromArgb(255, 64, 64, 64), DatabaseColor),
                                                     .Separator = Node.SeparatorPosition.Above,
@@ -2385,7 +2396,7 @@ Public Class DataTool
             Stop_Watch.Restart()
         End If
 #Region " LOAD OBJECT TREEVIEW - FROM SYSTEM OBJECTS ( NOT DATASOURCE ) "
-        With BTV_Objects
+        With Tree_Objects
             For Each DataSource In ObjectsDictionary.Keys
                 Dim SourceNode = .Nodes.Item(Aliases(DataSource))
                 SourceNode.Name = Aliases(DataSource)
@@ -2438,8 +2449,8 @@ Public Class DataTool
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 #End Region
-#Region " BTV_Objects.NodeDrag + Drop ==> PANE Or GRID "
-    Private Sub ObjectNode_StartDrag(sender As Object, e As NodeEventArgs) Handles BTV_Objects.NodeDragStart
+#Region " Tree_Objects.NodeDrag + Drop ==> PANE Or GRID "
+    Private Sub ObjectNode_StartDrag(sender As Object, e As NodeEventArgs) Handles Tree_Objects.NodeDragStart
 
         'Root=DataSource, Level 1=Owner, Level 2=Name + Image {Trigger, Table, View, Routine}
         If ActivePane IsNot Nothing And e.Node.Level = 2 Then
@@ -2480,7 +2491,7 @@ Public Class DataTool
             ActivePane.Text = CreateTableText(TableColumns)
         End With
         SpinTimer.Stop()
-        BTV_Objects.BackgroundImage = Nothing
+        Tree_Objects.BackgroundImage = Nothing
 
     End Sub
     Private Sub Pane_NodeDropped(e As DragEventArgs)
@@ -2489,10 +2500,10 @@ Public Class DataTool
         Dim DroppedNode As Node = DirectCast(e.Data.GetData(GetType(Node)), Node)
         If DroppedNode IsNot Nothing Then
             With DroppedNode
-                If .TreeViewer Is BTV_Objects Then
+                If .TreeViewer Is Tree_Objects Then
                     AutoWidth(ActivePane)
 
-                ElseIf .TreeViewer Is BTV_ClosedScripts Then
+                ElseIf .TreeViewer Is Tree_ClosedScripts Then
                     If .Tag.GetType = GetType(Script) Then
                         Dim ClosedScript As Script = DirectCast(.Tag, Script)
                         Dim PanesNoText As New List(Of Script)(From S In Scripts Where S.State = Script.ViewState.OpenDraft And Not S.Body.HasText)
@@ -2512,9 +2523,9 @@ Public Class DataTool
 
         Dim DroppedNode As Node = DirectCast(e.Data.GetData(GetType(Node)), Node)
         With DroppedNode
-            If .TreeViewer Is BTV_Objects Then
+            If .TreeViewer Is Tree_Objects Then
 
-            ElseIf .TreeViewer Is BTV_ClosedScripts Then
+            ElseIf .TreeViewer Is Tree_ClosedScripts Then
                 Dim _Script As Script = DirectCast(.Tag, Script)
                 RunScript(_Script)
 
@@ -2544,7 +2555,7 @@ Public Class DataTool
     End Function
 #End Region
 #Region " MAKE CHANGES TO / SEARCH THE DATABASE "
-    Private Sub ObjectNodeRemoveRequested(sender As Object, e As NodeEventArgs) Handles BTV_Objects.NodeBeforeRemoved
+    Private Sub ObjectNodeRemoveRequested(sender As Object, e As NodeEventArgs) Handles Tree_Objects.NodeBeforeRemoved
 
         Dim _Connection As Connection = DirectCast(e.Node.Root.Tag, Connection)
         Dim NodeObject As SystemObject = DirectCast(e.Node.Tag, SystemObject)
@@ -2605,11 +2616,11 @@ Public Class DataTool
     End Sub
 #End Region
 #Region " MAKE CHANGES TO SYSTEMOBJECTS FILE - 2 SOURCES {BULK IMPORT Or RunQuery RESULTS} "
-    Private Sub ObjectNode_Checked(sender As Object, e As NodeEventArgs) Handles BTV_Objects.NodeChecked
+    Private Sub ObjectNode_Checked(sender As Object, e As NodeEventArgs) Handles Tree_Objects.NodeChecked
 
         'Root=DataSource, Level 1=Owner, Level 2=Type {Trigger, Table, View, Routine}, Level 3=Name
 
-        Dim BaseNodes = BTV_Objects.Nodes.All.Where(Function(n) n.Level = 2 And n.Checked)
+        Dim BaseNodes = Tree_Objects.Nodes.All.Where(Function(n) n.Level = 2 And n.Checked)
         Dim CheckedObjects As New List(Of SystemObject)(BaseNodes.Select(Function(n) DirectCast(n.Tag, SystemObject)))
         Dim CheckedStrings As String() = (From CO In CheckedObjects Select CO.ToString & String.Empty).ToArray
         Dim CheckedString As String = Join(CheckedStrings, vbNewLine)
@@ -2673,29 +2684,29 @@ Public Class DataTool
     End Function
     Private Sub ExpandCollapseOnOff(Action As HandlerAction)
         If Action = HandlerAction.Add Then
-            AddHandler BTV_Objects.NodeExpanded, AddressOf ObjectsTreeview_AutoWidth
-            AddHandler BTV_Objects.NodeExpanded, AddressOf ObjectsTreeview_AutoWidth
+            AddHandler Tree_Objects.NodeExpanded, AddressOf ObjectsTreeview_AutoWidth
+            AddHandler Tree_Objects.NodeExpanded, AddressOf ObjectsTreeview_AutoWidth
         Else
-            RemoveHandler BTV_Objects.NodeExpanded, AddressOf ObjectsTreeview_AutoWidth
-            RemoveHandler BTV_Objects.NodeExpanded, AddressOf ObjectsTreeview_AutoWidth
+            RemoveHandler Tree_Objects.NodeExpanded, AddressOf ObjectsTreeview_AutoWidth
+            RemoveHandler Tree_Objects.NodeExpanded, AddressOf ObjectsTreeview_AutoWidth
         End If
     End Sub
-    Private Sub PaneText_DroppedOnTreeView(sender As Object, e As EventArgs) Handles BTV_Objects.DragDrop
+    Private Sub PaneText_DroppedOnTreeView(sender As Object, e As EventArgs) Handles Tree_Objects.DragDrop
         ObjectTreeview_ETL(ActiveScript, DirectCast(DropNode.Tag, SystemObject))
     End Sub
     Private Sub Tab_DroppedOnTreeView(sender As Object, e As EventArgs) Handles ActiveTab_.DragDrop
         ObjectTreeview_ETL(ActiveScript, DirectCast(DropNode.Tag, SystemObject))
     End Sub
-    Private Sub ObjectNode_DroppedOnTreeView(sender As Object, e As NodeEventArgs) Handles BTV_Objects.NodeDropped
+    Private Sub ObjectNode_DroppedOnTreeView(sender As Object, e As NodeEventArgs) Handles Tree_Objects.NodeDropped
 
         Dim DropNode As Node = e.Node
         If DragNode Is Nothing Then
 
-        ElseIf DragNode.TreeViewer Is BTV_Objects Then
+        ElseIf DragNode.TreeViewer Is Tree_Objects Then
             If Not DragNode Is DropNode Then
 
             End If
-        ElseIf DragNode.TreeViewer Is BTV_ClosedScripts Then
+        ElseIf DragNode.TreeViewer Is Tree_ClosedScripts Then
             REM /// FUTURE OPTION TO SCHEDULE JOBS
             Dim SourceScript As Script = DirectCast(DragNode.Tag, Script)
             Dim DestinationObject As SystemObject = DirectCast(DropNode.Tag, SystemObject)
@@ -2726,7 +2737,7 @@ Public Class DataTool
     End Sub
     Private Sub ObjectsTreeview_AutoWidth(sender As Object, e As NodeEventArgs)
 
-        With BTV_Objects
+        With Tree_Objects
             .AutoWidth()
             ObjectsWidth = 3 + .TotalSize.Width + 3
             TLP_PaneGrid.ColumnStyles(0).Width = ObjectsWidth
@@ -2902,7 +2913,7 @@ Public Class DataTool
                     .Info = ObjectInfo, .Columns = NameGrp}}}
 
                 For Each _SourceNode In Nodes
-                    Dim SourceNode As Node = BTV_Objects.Nodes.Item(Aliases(_SourceNode.DateSource))
+                    Dim SourceNode As Node = Tree_Objects.Nodes.Item(Aliases(_SourceNode.DateSource))
                     For Each _OwnerNode In _SourceNode.Owners
                         Dim OwnerNode As Node = SourceNode.Nodes.Item(_OwnerNode.Owner)
                         If OwnerNode Is Nothing Then
@@ -3088,17 +3099,17 @@ Public Class DataTool
         End If
 
     End Sub
-    Private Sub BTVObjects_DragOver(sender As Object, e As DragEventArgs) Handles BTV_Objects.DragOver
+    Private Sub BTVObjects_DragOver(sender As Object, e As DragEventArgs) Handles Tree_Objects.DragOver
 
         Dim Grid = Data.GetData(GetType(DataTool))
         If Grid IsNot Nothing Then
-            If BTV_Objects.DropHighlightNode IsNot Nothing Then
-                _DropNode = BTV_Objects.DropHighlightNode
+            If Tree_Objects.DropHighlightNode IsNot Nothing Then
+                _DropNode = Tree_Objects.DropHighlightNode
             End If
         End If
 
     End Sub
-    Private Sub BTVObjects_DragDrop(sender As Object, e As DragEventArgs) Handles BTV_Objects.DragDrop
+    Private Sub BTVObjects_DragDrop(sender As Object, e As DragEventArgs) Handles Tree_Objects.DragDrop
 
         Dim Grid = Data.GetData(GetType(DataTool))
         If Grid IsNot Nothing AndAlso DropNode IsNot Nothing Then
@@ -3307,52 +3318,27 @@ Public Class DataTool
     End Sub
 #End Region
 
-    Private Sub Script_AddedRemoved(sender As Object, e As ScriptsEventArgs) Handles Scripts_.CollectionChanged
+    Private Sub Scripts_Changed(sender As Object, e As ScriptsEventArgs) Handles Scripts_.CollectionChanged
 
-        If e.State = CollectionChangeAction.Add Then
-            AddHandler e.Item.StateChanged, AddressOf Script_StateChanged
-            AddHandler e.Item.NameChanged, AddressOf Script_NameChanged
-            With BTV_ClosedScripts
-                Dim ConnectionName As String = If(e.Item.Connection Is Nothing, "Undetermined", e.Item.Connection.DataSource)
-                Dim DatabaseColor As Color = If(e.Item.Connection Is Nothing, Color.Blue, e.Item.Connection.BackColor)
-                Dim Database_Image As Image = ChangeImageColor(My.Resources.Sync, Color.FromArgb(255, 64, 64, 64), DatabaseColor)
-
-                If Not .Nodes.Exists(Function(n) n.Name = ConnectionName) Then
-                    .Nodes.Add(New Node With {
-                                .Text = ConnectionName,
-                                .Name = ConnectionName,
-                                .Image = Database_Image,
-                                .AllowAdd = False,
-                                .AllowDragDrop = False,
-                                .AllowEdit = False,
-                                .AllowRemove = False,
-                                .Separator = Node.SeparatorPosition.Above})
-                End If
-                Dim ConnectionNode As Node = .Nodes.Item(ConnectionName)
-                If e.Item.Connection Is Nothing Then ConnectionNode.BackColor = Color.FromArgb(128, Color.Gainsboro)
-                ConnectionNode.Nodes.Add(New Node With {.Text = e.Item.Name,
-                                                        .Name = e.Item.Name,
-                                                        .Image = If(e.Item.Body.InstructionType = ExecutionType.DDL, My.Resources.DDL, My.Resources.SQL),
-                                                        .AllowAdd = False,
-                                                        .AllowEdit = True,
-                                                        .AllowRemove = True,
-                                                        .Tag = e.Item})
-                ConnectionNode.Nodes.SortOrder = SortOrder.Ascending
-            End With
-
-        ElseIf e.State = CollectionChangeAction.Refresh Then
+        If e.State = CollectionChangeAction.Refresh Then
             'RemoveHandler ActivePane_.SelectionChanged, AddressOf ActivePane_SelectionChanged
             'AddHandler ActivePane_.SelectionChanged, AddressOf ActivePane_SelectionChanged
-            RemoveHandler BTV_ClosedScripts.SizeChanged, AddressOf ClosedScripts_SizeChanged
-            AddHandler BTV_ClosedScripts.SizeChanged, AddressOf ClosedScripts_SizeChanged
-            With BTV_ClosedScripts
+            RemoveHandler Tree_ClosedScripts.SizeChanged, AddressOf ClosedScripts_SizeChanged
+            AddHandler Tree_ClosedScripts.SizeChanged, AddressOf ClosedScripts_SizeChanged
+            For Each Script In Scripts
+                ScriptToNode(Script)
+            Next
+            With Tree_ClosedScripts
                 .Nodes.SortOrder = SortOrder.Ascending
                 .Nodes.Insert(0, OpenFileNode)
             End With
             ScriptsInitialized = True
 
+        ElseIf e.State = CollectionChangeAction.Add Then
+            If ScriptsInitialized Then ScriptToNode(e.Item)
+
         ElseIf e.State = CollectionChangeAction.Remove Then
-            Dim RemoveNode As Node = BTV_ClosedScripts.Nodes.ItemByTag(e.Item)
+            Dim RemoveNode As Node = Tree_ClosedScripts.Nodes.ItemByTag(e.Item)
             If RemoveNode IsNot Nothing Then
                 RemoveNode.Parent.Nodes.Remove(RemoveNode)
             End If
@@ -3362,10 +3348,44 @@ Public Class DataTool
         End If
 
     End Sub
+    Private Sub ScriptToNode(Item As Script)
+
+        AddHandler Item.StateChanged, AddressOf Script_StateChanged
+        AddHandler Item.NameChanged, AddressOf Script_NameChanged
+        With Tree_ClosedScripts
+            Dim ConnectionName As String = If(Item.Connection Is Nothing, "Undetermined", Item.Connection.DataSource)
+            Dim DatabaseColor As Color = If(Item.Connection Is Nothing, Color.Blue, Item.Connection.BackColor)
+            Dim Database_Image As Image = ChangeImageColor(My.Resources.Sync, Color.FromArgb(255, 64, 64, 64), DatabaseColor)
+
+            If Not .Nodes.Exists(Function(n) n.Name = ConnectionName) Then
+                .Nodes.Add(New Node With {
+                            .Text = ConnectionName,
+                            .Name = ConnectionName,
+                            .Image = Database_Image,
+                            .AllowAdd = False,
+                            .AllowDragDrop = False,
+                            .AllowEdit = False,
+                            .AllowRemove = False,
+                            .Separator = Node.SeparatorPosition.Above,
+                            .Tag = Item.Connection})
+            End If
+            Dim ConnectionNode As Node = .Nodes.Item(ConnectionName)
+            If Item.Connection Is Nothing Then ConnectionNode.BackColor = Color.FromArgb(128, Color.Gainsboro)
+            ConnectionNode.Nodes.Add(New Node With {.Text = Item.Name,
+                                                    .Name = Item.Name,
+                                                    .Image = If(Item.Body.InstructionType = ExecutionType.DDL, My.Resources.DDL, My.Resources.SQL),
+                                                    .AllowAdd = False,
+                                                    .AllowEdit = True,
+                                                    .AllowRemove = True,
+                                                    .Tag = Item})
+            ConnectionNode.Nodes.SortOrder = SortOrder.Ascending
+        End With
+
+    End Sub
     Private Sub Script_StateChanged(sender As Object, e As ScriptStateChangedEventArgs)
 
         Dim ScriptItem As Script = DirectCast(sender, Script)
-        Dim ScriptNode As Node = BTV_ClosedScripts.Nodes.ItemByTag(ScriptItem)
+        Dim ScriptNode As Node = Tree_ClosedScripts.Nodes.ItemByTag(ScriptItem)
 
         If e.FormerState = Script.ViewState.OpenSaved And (e.CurrentState = Script.ViewState.ClosedSaved Or e.CurrentState = Script.ViewState.ClosedNotSaved) Then
             'Closing
@@ -3395,7 +3415,7 @@ Public Class DataTool
 
     End Sub
     Private Sub Script_NameChanged(sender As Object, e As ScriptNameChangedEventArgs)
-        BTV_ClosedScripts.Nodes.ItemByTag(sender).Text = e.CurrentName
+        Tree_ClosedScripts.Nodes.ItemByTag(sender).Text = e.CurrentName
     End Sub
 
     Private Sub TSMI_FontClicked() Handles TSMI_Font.Click

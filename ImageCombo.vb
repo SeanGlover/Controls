@@ -1007,105 +1007,100 @@ Public Class ImageComboDropDown
     Protected Overrides Sub OnPaint(ByVal e As PaintEventArgs)
 
         If e IsNot Nothing Then
-            Try
-                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
-                e.Graphics.FillRectangle(New SolidBrush(BackColor), ComboItemRectangle)
-                Using GP As New GraphicsPath
-                    Dim Colors() As Color = {BackColor, ShadeColor}
-                    GP.AddRectangle(ComboItemRectangle)
-                    Using PathBrush As New PathGradientBrush(GP)
-                        PathBrush.SurroundColors = Colors
-                        PathBrush.CenterColor = Color.FromArgb(128, Color.WhiteSmoke)
-                        e.Graphics.FillPath(PathBrush, GP)
-                    End Using
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+            e.Graphics.FillRectangle(New SolidBrush(BackColor), ComboItemRectangle)
+            Using GP As New GraphicsPath
+                Dim Colors() As Color = {BackColor, ShadeColor}
+                GP.AddRectangle(ComboItemRectangle)
+                Using PathBrush As New PathGradientBrush(GP)
+                    PathBrush.SurroundColors = Colors
+                    PathBrush.CenterColor = Color.FromArgb(128, Color.WhiteSmoke)
+                    e.Graphics.FillPath(PathBrush, GP)
                 End Using
-                For Each ComboItem In VisibleComboItems
-                    With ComboItem
-                        Dim Bounds As Rectangle = .Bounds
-                        Bounds.Offset(0, -VScroll.Value)
-                        e.Graphics.FillRectangle(New SolidBrush(Color.FromArgb(64, BackColor)), .Bounds)
-                        If CheckBoxes Then
-                            Dim CheckBounds As Rectangle = .CheckBounds
-                            CheckBounds.Offset(0, -VScroll.Value)
-                            ControlPaint.DrawCheckBox(e.Graphics, CheckBounds, If(.Checked, ButtonState.Checked, ButtonState.Normal))
-                        End If
-                        If Not IsNothing(.Image) Then
-                            Dim ImageBounds As Rectangle = .ImageBounds
-                            ImageBounds.Offset(0, -VScroll.Value)
-                            e.Graphics.DrawImage(.Image, ImageBounds)
-                        End If
-                        If .Selected Then
-                            Using Brush As New LinearGradientBrush(Bounds, Color.FromArgb(20, SelectionColor), Color.FromArgb(60, SelectionColor), linearGradientMode:=LinearGradientMode.Vertical)
-                                e.Graphics.FillRectangle(Brush, Brush.Rectangle)
-                            End Using
-                            Using Pen As New Pen(SelectionColor)
-                                e.Graphics.DrawRectangle(Pen, Bounds)
-                            End Using
-                        End If
-                        Dim TextBounds As Rectangle = .TextBounds
-                        TextBounds.Offset(0, -VScroll.Value)
-
-                        TextRenderer.DrawText(e.Graphics, Replace(.Text, "&", "&&"), Font, TextBounds, Color.Black, TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
-                        If ComboItem.Separator Then e.Graphics.DrawLine(Pens.Black, New Point(0, TextBounds.Bottom), New Point(TextBounds.Right, TextBounds.Bottom))
-
-                        If ComboItem.Index = MouseRowIndex Then
-                            Using Brush As New LinearGradientBrush(Bounds, Color.FromArgb(20, Color.DarkSlateGray), Color.FromArgb(60, Color.DarkSlateGray), linearGradientMode:=LinearGradientMode.Vertical)
-                                e.Graphics.FillRectangle(Brush, Brush.Rectangle)
-                            End Using
-                            Using Pen As New Pen(Color.DarkSlateGray)
-                                e.Graphics.DrawRectangle(Pen, Bounds)
-                            End Using
-                        End If
-
-                    End With
-                Next ComboItem
-
-                Using BMP_Right As New Bitmap(ShadowRight.Width, ShadowRight.Height)
-                    e.Graphics.DrawImage(BMP_Shadow, ShadowRight.Left, 0, ShadowRight, GraphicsUnit.Pixel)
-                End Using
-                Using BMP_Bottom As New Bitmap(ShadowBottom.Width, ShadowBottom.Height)
-                    e.Graphics.DrawImage(BMP_Shadow, 0, ShadowBottom.Top, ShadowBottom, GraphicsUnit.Pixel)
-                End Using
-                If VScroll.Visible Then
-                    e.Graphics.FillRectangle(Brushes.GhostWhite, VScroll.Bounds)
-                    ControlPaint.DrawBorder3D(e.Graphics, VScroll.Bounds, Border3DStyle.RaisedInner)
-                    e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
-                    If VScroll.Lines Then
-                        Using Pen As New Pen(VScroll.Color, 1)
-                            For Each Page As Integer In VScroll.Pages
-                                e.Graphics.DrawLine(Pen, VScroll.TrackBounds.Left, Page, VScroll.TrackBounds.Right - 2, Page)
-                            Next
+            End Using
+            For Each ComboItem In VisibleComboItems
+                With ComboItem
+                    Dim Bounds As Rectangle = .Bounds
+                    Bounds.Offset(0, -VScroll.Value)
+                    e.Graphics.FillRectangle(New SolidBrush(Color.FromArgb(64, BackColor)), .Bounds)
+                    If CheckBoxes Then
+                        Dim CheckBounds As Rectangle = .CheckBounds
+                        CheckBounds.Offset(0, -VScroll.Value)
+                        ControlPaint.DrawCheckBox(e.Graphics, CheckBounds, If(.Checked, ButtonState.Checked, ButtonState.Normal))
+                    End If
+                    If Not IsNothing(.Image) Then
+                        Dim ImageBounds As Rectangle = .ImageBounds
+                        ImageBounds.Offset(0, -VScroll.Value)
+                        e.Graphics.DrawImage(.Image, ImageBounds)
+                    End If
+                    If .Selected Then
+                        Using Brush As New LinearGradientBrush(Bounds, Color.FromArgb(20, SelectionColor), Color.FromArgb(60, SelectionColor), linearGradientMode:=LinearGradientMode.Vertical)
+                            e.Graphics.FillRectangle(Brush, Brush.Rectangle)
+                        End Using
+                        Using Pen As New Pen(SelectionColor)
+                            e.Graphics.DrawRectangle(Pen, Bounds)
                         End Using
                     End If
-                    Using Pen As New Pen(Brushes.Black, 1)
-                        e.Graphics.DrawLine(Pen, VScroll.UpBounds.Left, VScroll.UpBounds.Bottom, VScroll.UpBounds.Right - 2, VScroll.UpBounds.Bottom)
-                        e.Graphics.DrawLine(Pen, VScroll.DownBounds.Left, VScroll.DownBounds.Top, VScroll.DownBounds.Right - 2, VScroll.DownBounds.Top)
-                    End Using
-                    Using Brush As New SolidBrush(Color.FromArgb(VScroll.UpAlpha, VScroll.Color))
-                        e.Graphics.FillRectangle(Brush, VScroll.UpBounds)
-                    End Using
-                    Using Brush As New SolidBrush(Color.FromArgb(VScroll.DownAlpha, VScroll.Color))
-                        e.Graphics.FillRectangle(Brush, VScroll.DownBounds)
-                    End Using
-                    Dim ArrowWidth As Integer = 8, ArrowHeight As Integer = 4, ArrowCenter As Integer = Convert.ToInt32((VScroll.UpBounds.Height - ArrowHeight) / 2)
-                    Dim TriangeTop As Integer = VScroll.UpBounds.Top + ArrowCenter
-                    Dim TriangleLeft As Integer = VScroll.Bounds.Left + 1, TRight As Integer = TriangleLeft + ArrowWidth, TMid As Integer = TriangleLeft + Convert.ToInt32(ArrowWidth / 2)
-                    Dim Triangle As Point() = {New Point(TMid, TriangeTop), New Point(TRight, TriangeTop + ArrowHeight), New Point(TriangleLeft, TriangeTop + ArrowHeight)}
-                    Using Brush As New SolidBrush(Color.FromArgb(255, VScroll.Color))
-                        e.Graphics.FillPolygon(Brush, Triangle)
-                    End Using
-                    Triangle = {New Point(TriangleLeft, VScroll.DownBounds.Top + ArrowCenter), New Point(TRight, VScroll.DownBounds.Top + ArrowCenter), New Point(TMid, VScroll.DownBounds.Top + ArrowCenter + ArrowHeight)}
-                    Using Brush As New SolidBrush(Color.FromArgb(255, VScroll.Color))
-                        e.Graphics.FillPolygon(Brush, Triangle)
-                    End Using
-                    Using Brush As New SolidBrush(Color.FromArgb(VScroll.Alpha, VScroll.Color))
-                        e.Graphics.FillRectangle(Brush, VScroll.BarBounds)
+                    Dim TextBounds As Rectangle = .TextBounds
+                    TextBounds.Offset(0, -VScroll.Value)
+
+                    TextRenderer.DrawText(e.Graphics, Replace(.Text, "&", "&&"), Font, TextBounds, Color.Black, TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
+                    If ComboItem.Separator Then e.Graphics.DrawLine(Pens.Black, New Point(0, TextBounds.Bottom), New Point(TextBounds.Right, TextBounds.Bottom))
+
+                    If ComboItem.Index = MouseRowIndex Then
+                        Using Brush As New LinearGradientBrush(Bounds, Color.FromArgb(20, Color.DarkSlateGray), Color.FromArgb(60, Color.DarkSlateGray), linearGradientMode:=LinearGradientMode.Vertical)
+                            e.Graphics.FillRectangle(Brush, Brush.Rectangle)
+                        End Using
+                        Using Pen As New Pen(Color.DarkSlateGray)
+                            e.Graphics.DrawRectangle(Pen, Bounds)
+                        End Using
+                    End If
+
+                End With
+            Next ComboItem
+
+            Using BMP_Right As New Bitmap(ShadowRight.Width, ShadowRight.Height)
+                e.Graphics.DrawImage(BMP_Shadow, ShadowRight.Left, 0, ShadowRight, GraphicsUnit.Pixel)
+            End Using
+            Using BMP_Bottom As New Bitmap(ShadowBottom.Width, ShadowBottom.Height)
+                e.Graphics.DrawImage(BMP_Shadow, 0, ShadowBottom.Top, ShadowBottom, GraphicsUnit.Pixel)
+            End Using
+            If VScroll.Visible Then
+                e.Graphics.FillRectangle(Brushes.GhostWhite, VScroll.Bounds)
+                ControlPaint.DrawBorder3D(e.Graphics, VScroll.Bounds, Border3DStyle.RaisedInner)
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+                If VScroll.Lines Then
+                    Using Pen As New Pen(VScroll.Color, 1)
+                        For Each Page As Integer In VScroll.Pages
+                            e.Graphics.DrawLine(Pen, VScroll.TrackBounds.Left, Page, VScroll.TrackBounds.Right - 2, Page)
+                        Next
                     End Using
                 End If
-
-            Catch ex As Exception
-
-            End Try
+                Using Pen As New Pen(Brushes.Black, 1)
+                    e.Graphics.DrawLine(Pen, VScroll.UpBounds.Left, VScroll.UpBounds.Bottom, VScroll.UpBounds.Right - 2, VScroll.UpBounds.Bottom)
+                    e.Graphics.DrawLine(Pen, VScroll.DownBounds.Left, VScroll.DownBounds.Top, VScroll.DownBounds.Right - 2, VScroll.DownBounds.Top)
+                End Using
+                Using Brush As New SolidBrush(Color.FromArgb(VScroll.UpAlpha, VScroll.Color))
+                    e.Graphics.FillRectangle(Brush, VScroll.UpBounds)
+                End Using
+                Using Brush As New SolidBrush(Color.FromArgb(VScroll.DownAlpha, VScroll.Color))
+                    e.Graphics.FillRectangle(Brush, VScroll.DownBounds)
+                End Using
+                Dim ArrowWidth As Integer = 8, ArrowHeight As Integer = 4, ArrowCenter As Integer = Convert.ToInt32((VScroll.UpBounds.Height - ArrowHeight) / 2)
+                Dim TriangeTop As Integer = VScroll.UpBounds.Top + ArrowCenter
+                Dim TriangleLeft As Integer = VScroll.Bounds.Left + 1, TRight As Integer = TriangleLeft + ArrowWidth, TMid As Integer = TriangleLeft + Convert.ToInt32(ArrowWidth / 2)
+                Dim Triangle As Point() = {New Point(TMid, TriangeTop), New Point(TRight, TriangeTop + ArrowHeight), New Point(TriangleLeft, TriangeTop + ArrowHeight)}
+                Using Brush As New SolidBrush(Color.FromArgb(255, VScroll.Color))
+                    e.Graphics.FillPolygon(Brush, Triangle)
+                End Using
+                Triangle = {New Point(TriangleLeft, VScroll.DownBounds.Top + ArrowCenter), New Point(TRight, VScroll.DownBounds.Top + ArrowCenter), New Point(TMid, VScroll.DownBounds.Top + ArrowCenter + ArrowHeight)}
+                Using Brush As New SolidBrush(Color.FromArgb(255, VScroll.Color))
+                    e.Graphics.FillPolygon(Brush, Triangle)
+                End Using
+                Using Brush As New SolidBrush(Color.FromArgb(VScroll.Alpha, VScroll.Color))
+                    e.Graphics.FillRectangle(Brush, VScroll.BarBounds)
+                End Using
+            End If
         End If
 
     End Sub
