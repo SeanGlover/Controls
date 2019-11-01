@@ -80,6 +80,20 @@ Public Class CookieCollection
         End If
 
     End Function
+    Public Function Items(Hosts As String()) As List(Of Cookie)
+
+        If Hosts IsNot Nothing Then
+            Dim Cookies As New List(Of Cookie)(Where(Function(c) Hosts.Contains(c.host_key)))
+            If Cookies.Any Then
+                Return Cookies
+            Else
+                Return Nothing
+            End If
+        Else
+            Return Nothing
+        End If
+
+    End Function
 End Class
 Public Structure Cookie
     Implements IEquatable(Of Cookie)
