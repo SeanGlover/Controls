@@ -2,44 +2,60 @@
 Option Explicit On
 Imports Microsoft.Data.Sqlite
 #Region " COOKIES "
+Public Enum BrowserName
+    Chrome
+    Edge
+    FireFox
+End Enum
 Public Class CookieCollection
     Inherits List(Of Cookie)
     Public ReadOnly Property CookiePath As String
         Get
-            Return Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\Google\Chrome\User Data\Default\Cookies"
+            If Browser = BrowserName.Chrome Then
+                Return Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\Google\Chrome\User Data\Default\Cookies"
+
+            ElseIf Browser = BrowserName.Edge Then
+                Return Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\Packages\Microsoft.MicrosoftEdge_8wekyb3d8bbwe\AC\MicrosoftEdge\Cookies"
+                'C:\Users\SEANGlover\AppData\Local\Packages\Microsoft.MicrosoftEdge_8wekyb3d8bbwe\AC\MicrosoftEdge\Cookies
+
+            ElseIf Browser = BrowserName.FireFox Then
+                Return Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\Mozilla\Firefox\Profiles\"
+
+            Else
+                Return Environment.GetFolderPath(Environment.SpecialFolder.Cookies)
+
+            End If
         End Get
     End Property
     Friend ReadOnly Property Properties As Dictionary(Of String, Integer)
-    Public Sub New(Optional Browser As String = "Chrome")
+    Friend ReadOnly Property Browser As BrowserName = BrowserName.Chrome
+    Public Sub New(Optional Browser As BrowserName = BrowserName.Chrome)
 
-        If Browser = "Chrome" Then
-            If CookiePath.Any Then
-                Dim RowIndex As Integer
-                Using conn As New SqliteConnection("Data Source=" + CookiePath)
-                    conn.Open()
-                    Using cmd As New SqliteCommand("SELECT * FROM Cookies", conn)
-                        Dim reader As SqliteDataReader = cmd.ExecuteReader
-                        While reader.Read
-                            If RowIndex = 0 Then Properties = Enumerable.Range(0, reader.FieldCount - 1).ToDictionary(Function(c) reader.GetName(c), Function(i) i)
-                            Dim Cookie As Cookie = New Cookie(Me, reader)
-                            Add(Cookie)
-                            RowIndex += 1
-                        End While
-                        conn.Close()
-                    End Using
+        Me.Browser = Browser
+        If CookiePath.Any AndAlso IO.File.Exists(CookiePath) Then
+            Dim RowIndex As Integer
+            Using conn As New SqliteConnection("Data Source=" + CookiePath)
+                conn.Open()
+                Using cmd As New SqliteCommand("SELECT * FROM Cookies", conn)
+                    Dim reader As SqliteDataReader = cmd.ExecuteReader
+                    While reader.Read
+                        If RowIndex = 0 Then Properties = Enumerable.Range(0, reader.FieldCount - 1).ToDictionary(Function(c) reader.GetName(c), Function(i) i)
+                        Dim Cookie As Cookie = New Cookie(Me, reader)
+                        Add(Cookie)
+                        RowIndex += 1
+                    End While
+                    conn.Close()
                 End Using
-                Sort(Function(f1, f2)
-                         Dim Level1 = String.Compare(f1.host_key, f2.host_key, StringComparison.InvariantCulture)
-                         If Level1 <> 0 Then
-                             Return Level1
-                         Else
-                             Dim Level2 = String.Compare(f1.name, f2.name, StringComparison.InvariantCulture)
-                             Return Level2
-                         End If
-                     End Function)
-            End If
-        Else
-
+            End Using
+            Sort(Function(f1, f2)
+                     Dim Level1 = String.Compare(f1.host_key, f2.host_key, StringComparison.InvariantCulture)
+                     If Level1 <> 0 Then
+                         Return Level1
+                     Else
+                         Dim Level2 = String.Compare(f1.name, f2.name, StringComparison.InvariantCulture)
+                         Return Level2
+                     End If
+                 End Function)
         End If
 
     End Sub
@@ -93,6 +109,10 @@ Public Class CookieCollection
             Return Nothing
         End If
 
+    End Function
+    Public Function ToCookiesString(Items As String()) As String
+        Dim Cookies As New List(Of String)(From c In Me Where Items.Contains(c.host_key) Select c.ToCookieString)
+        Return Microsoft.VisualBasic.Join(Cookies.ToArray, "; ")
     End Function
 End Class
 Public Structure Cookie
@@ -158,7 +178,10 @@ Public Structure Cookie
     Friend ReadOnly priority As Boolean
     Friend ReadOnly encrypted_value As List(Of Byte)
     Public Overrides Function ToString() As String
-        Return Join({name, value}, BlackOut)
+        Return Join({host_key, name, value}, BlackOut)
+    End Function
+    Public Function ToCookieString() As String
+        Return Join({name, value}, "=")
     End Function
 End Structure
 #End Region
