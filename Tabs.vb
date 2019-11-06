@@ -439,10 +439,13 @@ Public Class Tabs
         End Get
     End Property
     Public ReadOnly Property AddTab As Tab
-    Public Overloads ReadOnly Property SelectedTab As Tab
+    Public Overloads Property SelectedTab As Tab
         Get
             Return TabPages.Item(SelectedIndex)
         End Get
+        Set(value As Tab)
+            SelectedIndex = If(value Is Nothing, -1, value.Index)
+        End Set
     End Property
 End Class
 

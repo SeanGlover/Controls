@@ -50,7 +50,7 @@ Public Class ScriptCollection
         End With
         Dim FileScripts = GetFiles(Scripts_DirectoryInfo.FullName, ".txt")
         '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
-        Dim Testing As Boolean = True
+        Dim Testing As Boolean = False
         '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
         For Each FileScript In FileScripts.Take(If(Testing, 10, 1000))
             Dim NewScript As New Script(FileScript)
@@ -3029,7 +3029,9 @@ Public Class DataTool
     Private Sub CopyCells(sender As Object, e As EventArgs)
 
         With Script_Grid.MouseData
-            Clipboard.SetText(.Row.Cell(.Column).ToString)
+            If .Row IsNot Nothing AndAlso .Column IsNot Nothing Then
+                Clipboard.SetText(.Row.Cell(.Column).ToString)
+            End If
         End With
 
     End Sub

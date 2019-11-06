@@ -33,20 +33,29 @@ Public Class CookieCollection
 
         Me.Browser = Browser
         If CookiePath.Any AndAlso IO.File.Exists(CookiePath) Then
-            Dim RowIndex As Integer
-            Using conn As New SqliteConnection("Data Source=" + CookiePath)
-                conn.Open()
-                Using cmd As New SqliteCommand("SELECT * FROM Cookies", conn)
-                    Dim reader As SqliteDataReader = cmd.ExecuteReader
-                    While reader.Read
-                        If RowIndex = 0 Then Properties = Enumerable.Range(0, reader.FieldCount - 1).ToDictionary(Function(c) reader.GetName(c), Function(i) i)
-                        Dim Cookie As Cookie = New Cookie(Me, reader)
-                        Add(Cookie)
-                        RowIndex += 1
-                    End While
-                    conn.Close()
+            If Browser = BrowserName.Chrome Then
+                'Chrome stores all cookies in one SQLLite database whereas Microsoft, Firefox store in separate .txt files
+                Dim RowIndex As Integer
+                Using conn As New SqliteConnection("Data Source=" + CookiePath)
+                    conn.Open()
+                    Using cmd As New SqliteCommand("SELECT * FROM Cookies", conn)
+                        Dim reader As SqliteDataReader = cmd.ExecuteReader
+                        While reader.Read
+                            If RowIndex = 0 Then Properties = Enumerable.Range(0, reader.FieldCount - 1).ToDictionary(Function(c) reader.GetName(c), Function(i) i)
+                            Dim Cookie As Cookie = New Cookie(Me, reader)
+                            Add(Cookie)
+                            RowIndex += 1
+                        End While
+                        conn.Close()
+                    End Using
                 End Using
-            End Using
+            ElseIf Browser = BrowserName.Edge Then
+
+            ElseIf Browser = BrowserName.FireFox Then
+
+            Else
+
+            End If
             Sort(Function(f1, f2)
                      Dim Level1 = String.Compare(f1.host_key, f2.host_key, StringComparison.InvariantCulture)
                      If Level1 <> 0 Then

@@ -1247,7 +1247,7 @@ Namespace Pdf2Text
                     sw.WriteLine(Content)
                 End Using
 
-            Catch ex As ExternalException
+            Catch ex As java.io.IOException
                 _Succeeded = False
                 _Content = String.Empty
 
