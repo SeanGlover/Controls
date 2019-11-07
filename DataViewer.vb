@@ -130,13 +130,11 @@ Public Class DataViewer
 #End Region
 #Region " DRAWING "
     'HEADER / ROW PROPERTIES...USE A TEMPLATE LIKE MS AND APPLY TO CELL, ROW, HEADER...{V/H ALIGNMENT, FONT, FORCOLOR, BACKCOLOR, ETC}
-    Private PaintCount As Integer = 0
     Protected Overrides Sub OnPaint(ByVal e As PaintEventArgs)
 
         SetupScrolls()
         If e IsNot Nothing Then
             e.Graphics.FillRectangle(New SolidBrush(BackColor), ClientRectangle)
-            PaintCount += 1
 #Region " DRAW HEADERS "
             With Columns
                 Dim HeadFullBounds As New Rectangle(0, 0, {1, .HeadBounds.Width}.Max, .HeadBounds.Height)
@@ -228,7 +226,7 @@ Public Class DataViewer
                     Dim IsOddRow As Boolean
                     Dim RowStart As Integer = RowIndex(VScroll.Value)
                     VisibleRows.Clear()
-                    For RowIndex As Integer = RowStart To {RowStart + 40, Rows.Count - 1}.Min
+                    For RowIndex As Integer = RowStart To {RowStart + VisibleRowCount, Rows.Count - 1}.Min
                         Dim Row = Rows(RowIndex)
                         IsOddRow = RowIndex Mod 2 = 1
                         Dim MouseOverRow As Boolean = _MouseData.Row Is Row And _MouseData.CurrentAction = MouseInfo.Action.MouseOverGrid
@@ -461,6 +459,11 @@ Public Class DataViewer
         End Get
     End Property
     Public ReadOnly Property VisibleRows As New Dictionary(Of Row, Rectangle)
+    Public ReadOnly Property VisibleRowCount As Integer
+        Get
+            Return CInt(Math.Ceiling(Height - HeaderHeight) / RowHeight)
+        End Get
+    End Property
     Private SingleSelect_ As Boolean = True
     Public Property SingleSelect As Boolean
         Get
@@ -543,7 +546,7 @@ Public Class DataViewer
             _Waiting = value
             With TSDD_Spin
                 Bar_Spin.Value = Bar_Spin.Minimum
-                If _Waiting Then
+                If _Waiting And Visible Then
                     Bar_Spin.Maximum = Columns.Count
                     .BackColor = VisibleColor
                     .Size = New Size(PB_Spin.Width, PB_Spin.Height + Bar_Spin.Height)
@@ -815,10 +818,10 @@ Public Class DataViewer
                         End With
                         Invalidate()
                     Else
-                        Dim Bullets As New List(Of String) From {"Paint Count=" & PaintCount,
-                        "Rows Count=" & Rows.Count,
-                        "Bounds=" & VisibleRows.First.Value.ToString}
-                        ColumnHeadTip.SetToolTip(Me, Bulletize(Bullets.ToArray))
+                        'Dim Bullets As New List(Of String) From {"Paint Count=" & PaintCount,
+                        '"Rows Count=" & Rows.Count,
+                        '"Bounds=" & VisibleRows.First.Value.ToString}
+                        'ColumnHeadTip.SetToolTip(Me, Bulletize(Bullets.ToArray))
                     End If
 
                 ElseIf .CurrentAction = MouseInfo.Action.MouseOverHeadEdge Then
@@ -1485,7 +1488,7 @@ End Class
     ReadOnly Property HeadBounds As New Rectangle(0, 0, 0, 0)
     Public ReadOnly Property GridBounds As New Rectangle(0, 0, 0, 0)
     ReadOnly Property EdgeBounds As New Rectangle(0, 0, 0, 0)
-    Private _Format As New KeyValuePair(Of String, String)(String.Empty, String.Empty)
+    Private _Format As New KeyValuePair(Of String, String)("Text", String.Empty)
     Property Format() As KeyValuePair(Of String, String)
         Get
             Return _Format
