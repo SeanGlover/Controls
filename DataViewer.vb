@@ -461,6 +461,23 @@ Public Class DataViewer
         End Get
     End Property
     Public ReadOnly Property VisibleRows As New Dictionary(Of Row, Rectangle)
+    Private SingleSelect_ As Boolean = True
+    Public Property SingleSelect As Boolean
+        Get
+            Return SingleSelect_
+        End Get
+        Set(value As Boolean)
+            If value <> SingleSelect_ Then
+                SingleSelect_ = value
+                If value Then
+                    For Each SelectedRow In Rows.Selected.Skip(1)
+                        SelectedRow.Selected = False
+                    Next
+                    Invalidate()
+                End If
+            End If
+        End Set
+    End Property
     Public ReadOnly Property TotalSize As Size
         Get
             Return New Size(Columns.Select(Function(c) c.Width).Sum, Rows.Count * Rows.RowHeight)
@@ -719,6 +736,7 @@ Public Class DataViewer
                     If MouseColumns.Any Then
                         .Column = MouseColumns.First
                     End If
+                    Dim Redraw As Boolean = False
                     If Columns.HeadBounds.Contains(e.Location) Then
 #Region " HEADER REGION "
                         Dim VisibleEdges As New Dictionary(Of Column, Rectangle)
@@ -742,12 +760,15 @@ Public Class DataViewer
                         If MouseRows.Any Then
                             .Row = MouseRows.First.Key
                             .CurrentAction = MouseInfo.Action.MouseOverGrid
-                            If Not Rows.SingleSelect And _LastMouseRow IsNot .Row And ControlKeyDown Then .Row.Selected = e.Button = MouseButtons.Left
+                            If Not SingleSelect And ControlKeyDown And .Row IsNot _LastMouseRow Then
+                                .Row.Selected = e.Button = MouseButtons.Left
+                                Redraw = True
+                            End If
                             .Bounds = VisibleRows(.Row)
                         End If
 #End Region
                     End If
-                    If Columns.HeadBounds.Contains(e.Location) Or .Column IsNot _LastMouseColumn Or .Row IsNot _LastMouseRow Then
+                    If Redraw Or Columns.HeadBounds.Contains(e.Location) Or .Column IsNot _LastMouseColumn Or .Row IsNot _LastMouseRow Then
                         Invalidate()
                     End If
                 End If
@@ -1603,78 +1624,77 @@ End Class
 End Class
 '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 Public Class RowCollection
-        Inherits List(Of Row)
-        Implements IDisposable
-        Public Sub New(Viewer As DataViewer)
-            _Parent = Viewer
-        End Sub
-        Friend _Parent As DataViewer
-        Public ReadOnly Property Parent As DataViewer
-            Get
-                Return _Parent
-            End Get
-        End Property
-        Friend Event Loaded()
-        Private WithEvents AddTimer As New Timer With {.Interval = 200}
-        Private Sub AddTimerTick() Handles AddTimer.Tick
-            AddTimer.Stop()
-            RaiseEvent Loaded()
-        End Sub
-        Private WithEvents HeaderStyle_ As New CellStyle With {.BackColor = Color.Silver, .ShadeColor = Color.Gainsboro, .ForeColor = Color.White, .Font = New Font("Century Gothic", 9)}
-        Public Property HeaderStyle As CellStyle
-            Get
-                Return HeaderStyle_
-            End Get
-            Set(value As CellStyle)
-                If HeaderStyle_ IsNot value Then
-                    HeaderStyle_ = value
-                    ReBoundsHead(Nothing, Nothing)
-                End If
-            End Set
-        End Property
-        Private WithEvents RowStyle_ As New CellStyle With {.BackColor = Color.Transparent, .ShadeColor = Color.White, .ForeColor = Color.Black, .Font = New Font("Century Gothic", 8)}
-        Public Property RowStyle As CellStyle
-            Get
-                Return RowStyle_
-            End Get
-            Set(value As CellStyle)
-                If RowStyle_ IsNot value Then
-                    RowStyle_ = value
-                    ReBoundsEven(Nothing, Nothing)
-                End If
-            End Set
-        End Property
-        Private WithEvents AlternatingRowStyle_ As New CellStyle With {.BackColor = Color.Silver, .ShadeColor = Color.Lavender, .ForeColor = Color.Black, .Font = New Font("Century Gothic", 8)}
-        Public Property AlternatingRowStyle As CellStyle
-            Get
-                Return AlternatingRowStyle_
-            End Get
-            Set(value As CellStyle)
-                If AlternatingRowStyle_ IsNot value Then
-                    AlternatingRowStyle_ = value
-                    ReBoundsOdd(Nothing, Nothing)
-                End If
-            End Set
-        End Property
-        Private WithEvents SelectionRowStyle_ As New CellStyle With {.BackColor = Color.DarkSlateGray, .ShadeColor = Color.Gray, .ForeColor = Color.White, .Font = New Font("Century Gothic", 8)}
-        Public Property SelectionRowStyle As CellStyle
-            Get
-                Return SelectionRowStyle_
-            End Get
-            Set(value As CellStyle)
-                If SelectionRowStyle_ IsNot value Then
-                    SelectionRowStyle_ = value
-                End If
-            End Set
-        End Property
-        Public ReadOnly Property EvenRowHeight As Integer = 16
-        Public ReadOnly Property OddRowHeight As Integer = 16
-        Public ReadOnly Property RowHeight As Integer
-            Get
-                Return {_EvenRowHeight, _OddRowHeight}.Max
-            End Get
-        End Property
-    Public Property SingleSelect As Boolean = True
+    Inherits List(Of Row)
+    Implements IDisposable
+    Public Sub New(Viewer As DataViewer)
+        _Parent = Viewer
+    End Sub
+    Friend _Parent As DataViewer
+    Public ReadOnly Property Parent As DataViewer
+        Get
+            Return _Parent
+        End Get
+    End Property
+    Friend Event Loaded()
+    Private WithEvents AddTimer As New Timer With {.Interval = 200}
+    Private Sub AddTimerTick() Handles AddTimer.Tick
+        AddTimer.Stop()
+        RaiseEvent Loaded()
+    End Sub
+    Private WithEvents HeaderStyle_ As New CellStyle With {.BackColor = Color.Silver, .ShadeColor = Color.Gainsboro, .ForeColor = Color.White, .Font = New Font("Century Gothic", 9)}
+    Public Property HeaderStyle As CellStyle
+        Get
+            Return HeaderStyle_
+        End Get
+        Set(value As CellStyle)
+            If HeaderStyle_ IsNot value Then
+                HeaderStyle_ = value
+                ReBoundsHead(Nothing, Nothing)
+            End If
+        End Set
+    End Property
+    Private WithEvents RowStyle_ As New CellStyle With {.BackColor = Color.Transparent, .ShadeColor = Color.White, .ForeColor = Color.Black, .Font = New Font("Century Gothic", 8)}
+    Public Property RowStyle As CellStyle
+        Get
+            Return RowStyle_
+        End Get
+        Set(value As CellStyle)
+            If RowStyle_ IsNot value Then
+                RowStyle_ = value
+                ReBoundsEven(Nothing, Nothing)
+            End If
+        End Set
+    End Property
+    Private WithEvents AlternatingRowStyle_ As New CellStyle With {.BackColor = Color.Silver, .ShadeColor = Color.Lavender, .ForeColor = Color.Black, .Font = New Font("Century Gothic", 8)}
+    Public Property AlternatingRowStyle As CellStyle
+        Get
+            Return AlternatingRowStyle_
+        End Get
+        Set(value As CellStyle)
+            If AlternatingRowStyle_ IsNot value Then
+                AlternatingRowStyle_ = value
+                ReBoundsOdd(Nothing, Nothing)
+            End If
+        End Set
+    End Property
+    Private WithEvents SelectionRowStyle_ As New CellStyle With {.BackColor = Color.DarkSlateGray, .ShadeColor = Color.Gray, .ForeColor = Color.White, .Font = New Font("Century Gothic", 8)}
+    Public Property SelectionRowStyle As CellStyle
+        Get
+            Return SelectionRowStyle_
+        End Get
+        Set(value As CellStyle)
+            If SelectionRowStyle_ IsNot value Then
+                SelectionRowStyle_ = value
+            End If
+        End Set
+    End Property
+    Public ReadOnly Property EvenRowHeight As Integer = 16
+    Public ReadOnly Property OddRowHeight As Integer = 16
+    Public ReadOnly Property RowHeight As Integer
+        Get
+            Return {_EvenRowHeight, _OddRowHeight}.Max
+        End Get
+    End Property
     Public ReadOnly Property Selected As List(Of Row)
         Get
             Return Where(Function(r) r.Selected).ToList
@@ -1693,19 +1713,19 @@ Public Class RowCollection
             Return NewRow
 
         End Function
-        Private Sub ReBoundsHead(sender As Object, e As StyleEventArgs) Handles HeaderStyle_.PropertyChanged
+    Private Sub ReBoundsHead(sender As Object, e As StyleEventArgs) Handles HeaderStyle_.PropertyChanged
 
-        End Sub
-        Private Sub ReBoundsEven(sender As Object, e As StyleEventArgs) Handles RowStyle_.PropertyChanged
-            _EvenRowHeight = TextRenderer.MeasureText("XXXXXXXXXXX".ToString(InvariantCulture), RowStyle.Font).Height
-            Parent.Invalidate()
-        End Sub
-        Private Sub ReBoundsOdd(sender As Object, e As StyleEventArgs) Handles AlternatingRowStyle_.PropertyChanged
-            _OddRowHeight = TextRenderer.MeasureText("XXXXXXXXXXX".ToString(InvariantCulture), AlternatingRowStyle.Font).Height
-            Parent.Invalidate()
-        End Sub
+    End Sub
+    Private Sub ReBoundsEven(sender As Object, e As StyleEventArgs) Handles RowStyle_.PropertyChanged
+        _EvenRowHeight = TextRenderer.MeasureText("XXXXXXXXXXX".ToString(InvariantCulture), RowStyle.Font).Height
+        Parent.Invalidate()
+    End Sub
+    Private Sub ReBoundsOdd(sender As Object, e As StyleEventArgs) Handles AlternatingRowStyle_.PropertyChanged
+        _OddRowHeight = TextRenderer.MeasureText("XXXXXXXXXXX".ToString(InvariantCulture), AlternatingRowStyle.Font).Height
+        Parent.Invalidate()
+    End Sub
 #Region "IDisposable Support"
-        Private DisposedValue As Boolean ' To detect redundant calls IDisposable
+    Private DisposedValue As Boolean ' To detect redundant calls IDisposable
         Protected Overridable Sub Dispose(disposing As Boolean)
             If Not DisposedValue Then
                 If disposing Then
@@ -1801,13 +1821,17 @@ Public Class RowCollection
         End Get
         Set(value As Boolean)
             If _Selected <> value Then
-                If value And Parent.SingleSelect And Parent.Where(Function(r) r.Selected).Any Then
-                    For Each Row In Parent.Except({Me}).Where(Function(r) r.Selected)
-                        Row.Selected = False
-                    Next
-                End If
                 _Selected = value
-                Parent.Parent.Invalidate()
+                If value Then
+                    With Parent
+                        If .Parent.SingleSelect Then
+                            For Each Row In .Except({Me}).Where(Function(r) r.Selected)
+                                Row.Selected = False
+                            Next
+                        End If
+                        .Parent.Invalidate()
+                    End With
+                End If
             End If
         End Set
     End Property

@@ -1247,7 +1247,7 @@ Namespace Pdf2Text
                     sw.WriteLine(Content)
                 End Using
 
-            Catch ex As java.io.IOException
+            Catch ex As Exception       ' java.io.IOException
                 _Succeeded = False
                 _Content = String.Empty
 
@@ -2182,6 +2182,15 @@ Public Class VerticalScrollBar
 End Class
 Public NotInheritable Class CustomRenderer
     Inherits ToolStripProfessionalRenderer
+    Public Enum ColorTheme
+        Brown
+        Green
+        Blue
+        Red
+        Gray
+        Yellow
+    End Enum
+    Public Property Theme As ColorTheme
     Protected Overrides Sub OnRenderImageMargin(ByVal e As ToolStripRenderEventArgs)
 
         MyBase.OnRenderImageMargin(e)
@@ -2211,11 +2220,19 @@ Public NotInheritable Class CustomRenderer
         If e IsNot Nothing Then
             If e.Item.Selected Then
                 Using Brush As New Drawing2D.LinearGradientBrush(e.Item.ContentRectangle, Color.FromArgb(255, 227, 224, 215), Color.White, Drawing2D.LinearGradientMode.Vertical)
-                    'e.Graphics.FillRectangle(Brush, e.Item.ContentRectangle)
+                    e.Graphics.FillRectangle(Brush, e.Item.ContentRectangle)
+                End Using
+                Dim RoundRectangle As Rectangle = e.Item.ContentRectangle
+                RoundRectangle.Inflate(-2, -2)
+                RoundRectangle.Offset(0, -2)
+                Using GP As Drawing2D.GraphicsPath = DrawRoundedRectangle(e.Item.ContentRectangle)
+                    Using PathPen As New Pen(Color.Peru, 1)
+                        e.Graphics.DrawPath(PathPen, GP)
+                    End Using
                 End Using
             Else
-                Using Brush As New Drawing2D.LinearGradientBrush(e.Item.ContentRectangle, Color.FromArgb(255, 227, 224, 215), Color.White, Drawing2D.LinearGradientMode.Vertical)
-                    'e.Graphics.FillRectangle(Brush, e.Item.ContentRectangle)
+                Using Brush As New SolidBrush(Color.FromArgb(255, 227, 224, 215))
+                    e.Graphics.FillRectangle(Brush, e.Item.ContentRectangle)
                 End Using
             End If
         End If
