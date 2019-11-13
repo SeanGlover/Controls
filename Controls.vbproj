@@ -466,9 +466,6 @@
     <None Include="Resources\Data.ico" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\Question.ico" />
-  </ItemGroup>
-  <ItemGroup>
     <None Include="Resources\Warning.ico" />
   </ItemGroup>
   <ItemGroup>
@@ -516,6 +513,18 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\ButtonNo.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Error.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Error.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Question.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Warning_.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

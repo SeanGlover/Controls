@@ -88,7 +88,7 @@ Public Class Prompt
             If Icon_ Is Nothing Then
                 Select Case Type
                     Case IconOption.Critical
-                        Return SystemIcons.Error
+                        Return My.Resources._Error
 
                     Case IconOption.OK
                         Return My.Resources.Check
@@ -97,10 +97,10 @@ Public Class Prompt
                         Return My.Resources.Clock
 
                     Case IconOption.Warning
-                        Return SystemIcons.Warning
+                        Return My.Resources.Warning_
 
                     Case IconOption.YesNo
-                        Return SystemIcons.Question
+                        Return My.Resources.Question
 
                     Case Else
                         Return SystemIcons.Shield
@@ -254,11 +254,12 @@ Public Class Prompt
             End If
 
             REM /// DRAW ICON IN THE UPPER LEFT CORNER
+            'e.Graphics.FillRectangle(Brushes.Gainsboro, IconBounds)
             e.Graphics.DrawIcon(Icon, IconBounds)
 
             REM /// DRAW TEXT IN EACH RECTANGLE
             For Each TextBound In TextBounds.Keys
-                TextRenderer.DrawText(e.Graphics, TextBounds(TextBound), PreferredFont, TextBound, TextColor, TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
+                TextRenderer.DrawText(e.Graphics, TextBounds(TextBound), PreferredFont, TextBound, Color.Black, TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
             Next
             If Not Type = IconOption.TimedMessage Then
                 Using ButtonBarBrush As New SolidBrush(Color.FromArgb(32, BackgroundColor))
@@ -375,8 +376,8 @@ Public Class Prompt
                 _AlternatingRowColor = Color.DarkGray
                 _BackgroundColor = Color.Gainsboro
                 _TextColor = Color.White
-                _ShadeColor = Color.Gray
-                _AccentColor = Color.Black
+                _ShadeColor = Color.Silver
+                _AccentColor = Color.Gray
                 BorderColor = Color.Black
 
             Case StyleOption.Earth
@@ -452,7 +453,12 @@ Public Class Prompt
         RowBWidth = CInt(y * x2yRatio)
         '==============================
         'Ensure extra long words are considered
+        Dim WordDictionary As New Dictionary(Of Integer, String)
         Dim Words As New List(Of Integer)(From rm In RegexMatches(BodyMessage, "[^ ]{1,}", RegexOptions.None) Select MeasureText(rm.Value, Font).Width)
+        If Words.Max > RowBWidth Then
+            'If a word is wider than the derived width the expand the width but if the word appears in the RowsA section, then add IconZoneWH as this value is subtracted below: Dim LinesA = WrapWords(BodyMessage, Font, RowBWidth - *** IconZoneWH *** )
+            'Dim LinesA = WrapWords(BodyMessage, Font, RowBWidth - IconZoneWH) makes an empty String if too long ... so remove empty strings - easy fix
+        End If
         RowBWidth = {RowBWidth, SideBorderWidths + Words.Max + SideBorderWidths}.Max
 #End Region
         Dim RowsABHeight As Integer = 0
@@ -466,7 +472,7 @@ Public Class Prompt
         Dim LineIndex As Integer = 0
         Dim WidenText As Boolean = False
 
-        For Each Line In LinesA
+        For Each Line In LinesA.Where(Function(l) l.Value.Any)
             If LineIndex * LineHeight >= IconZoneWH Then
                 Dim RemainingText = Join(LinesA.Values.Skip(LineIndex).ToArray)
                 LinesB = WrapWords(RemainingText, Font, RowBWidth)
@@ -506,7 +512,6 @@ Public Class Prompt
             Else
                 'Text height in top rows matches the height of the Icon
                 _IconBounds = New Rectangle(IconPadding, IconPadding, Icon.Width, Icon.Height)
-
             End If
         End If
 

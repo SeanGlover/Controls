@@ -39,14 +39,14 @@ Public Class CookieCollection
                 Using conn As New SqliteConnection("Data Source=" + CookiePath)
                     conn.Open()
                     Using cmd As New SqliteCommand("SELECT * FROM Cookies", conn)
-                        Dim reader As SqliteDataReader = cmd.ExecuteReader
-                        While reader.Read
-                            If RowIndex = 0 Then Properties = Enumerable.Range(0, reader.FieldCount - 1).ToDictionary(Function(c) reader.GetName(c), Function(i) i)
-                            Dim Cookie As Cookie = New Cookie(Me, reader)
-                            Add(Cookie)
-                            RowIndex += 1
-                        End While
-                        conn.Close()
+                        Using reader As SqliteDataReader = cmd.ExecuteReader
+                            While reader.Read
+                                If RowIndex = 0 Then Properties = Enumerable.Range(0, reader.FieldCount - 1).ToDictionary(Function(c) reader.GetName(c), Function(i) i)
+                                Dim Cookie As Cookie = New Cookie(Me, reader)
+                                Add(Cookie)
+                                RowIndex += 1
+                            End While
+                        End Using
                     End Using
                 End Using
             ElseIf Browser = BrowserName.Edge Then
