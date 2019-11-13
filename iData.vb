@@ -35,6 +35,7 @@ Public Structure Errors
     Public Enum AccessResponse
         OK
         Revoked
+        PasswordMissing
         PasswordExpired
         PasswordIncorrect
     End Enum
@@ -56,6 +57,9 @@ Public Structure Errors
                 _ErrorType = Type.Access
                 If ExceptionMessage.ToUpperInvariant.Contains("EXPIRED") Then
                     _Access = AccessResponse.PasswordExpired
+
+                ElseIf ExceptionMessage.ToUpperInvariant.Contains("MISSING") Then
+                    _Access = AccessResponse.PasswordMissing
 
                 ElseIf ExceptionMessage.ToUpperInvariant.Contains("PASSWORD INVALID") Or ExceptionMessage.Contains("LDAP authentication failed For user") Then
                     '[IBM][CLI DRIVER] SQL30082N  SECURITY PROCESSING FAILED WITH REASON "24" ("USERNAME AND/OR PASSWORD INVALID").  SQLSTATE=08001
@@ -230,6 +234,14 @@ Friend Class ResponseFailure
                         .ForeColor = Color.White
                     End With
                     PT = "Your password {Password} for {Database} is incorrect. You must submit another value.".ToString(InvariantCulture)
+
+                Case Errors.AccessResponse.PasswordMissing
+                    With IssueClose
+                        .Text = "Password missing!".ToString(InvariantCulture)
+                        .BackColor = Color.Orange
+                        .ForeColor = Color.White
+                    End With
+                    PT = "Your password {Password} for {Database} is missing. You must provide a value.".ToString(InvariantCulture)
 
                 Case Errors.AccessResponse.Revoked
                     With IssueClose
@@ -618,6 +630,7 @@ Public Class BodyElements
     Private Const SelectPattern As String = "SELECT[^■]{1,}?(?=FROM)"
     Private Const CommentPattern As String = "--[^\r\n]{1,}(?=\r|\n|$)"
     Private Const ObjectPattern As String = "([A-Z0-9!%{}^~_@#$]{1,}([.][A-Z0-9!%{}^~_@#$]{1,}){0,2})"     'DataSource.Owner.Name
+    'Private Const OrderByPattern As String = "ORDER\s+BY\s+" & ObjectPattern & "(,\s+" & ObjectPattern & "){0,}"           * U N U S E D - BUT USEFUL
     Private Const FromJoinCommaPattern As String = "(?<=FROM |JOIN )[\s]{0,}[A-Z0-9!%{}^~_@#$♥]{1,}([.][A-Z0-9!%{}^~_@#$♥]{1,}){0,2}([\s]{1,}[A-Z0-9!%{}^~_@#$]{1,}){0,1}|(?<=,)[\s]{0,}[A-Z0-9!%{}^~_@#$♥]{1,}([.][A-Z0-9!%{}^~_@#$♥]{1,}){0,2}([\s]{1,}[A-Z0-9!%{}^~_@#$]{1,}){0,1}"
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
@@ -1701,7 +1714,7 @@ Public NotInheritable Class ConnectionCollection
                 Next
             End With
             Message.Datasource = DT
-            Message.Show("Connections Count=" & Count, "Current Connections", Prompt.IconOption.Warning, Prompt.StyleOption.Dark)
+            Message.Show("Connections Count=" & Count, "Current Connections", Prompt.IconOption.Warning, Prompt.StyleOption.Grey)
         End Using
     End Sub
     Public Sub Save()
@@ -2320,7 +2333,7 @@ Public NotInheritable Class SystemObjectCollection
                 Next
             End With
             Message.Datasource = DT
-            Message.Show("Objects Count=" & Count, "Current Objects", Prompt.IconOption.Warning, Prompt.StyleOption.Dark)
+            Message.Show("Objects Count=" & Count, "Current Objects", Prompt.IconOption.Warning, Prompt.StyleOption.Grey)
         End Using
     End Sub
     Public Sub Save()
@@ -2587,7 +2600,7 @@ Public Class JobCollection
                 .Columns.Add(New DataColumn With {.ColumnName = "SCHEDULE", .DataType = GetType(Date)})
             End With
             Message.Datasource = DT
-            Message.Show("Jobs Count=" & Count, "Current Jobs", Prompt.IconOption.Warning, Prompt.StyleOption.Dark)
+            Message.Show("Jobs Count=" & Count, "Current Jobs", Prompt.IconOption.Warning, Prompt.StyleOption.Grey)
         End Using
     End Sub
     Public Sub Save()
@@ -3090,6 +3103,7 @@ Public Class SQL
                         xTable.Locale = CultureInfo.InvariantCulture
                         xTable.Namespace = "<DB2>"
                         _Ended = Now
+                        _Table = xTable
                         _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, xTable, Ended - Started)
 
                     Catch ADODB_RunError As ExternalException
@@ -4680,7 +4694,7 @@ Public Module iData
         With DirectCast(sender, BackgroundWorker)
             RemoveHandler .RunWorkerCompleted, AddressOf ExcelWorker_End
             If .WorkerReportsProgress Then
-                Using Message As New Prompt(Prompt.StyleOption.Bright)
+                Using Message As New Prompt()
                     Message.Show("File saved", ExcelPath_, Prompt.IconOption.TimedMessage)
                 End Using
             End If

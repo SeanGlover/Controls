@@ -2,7 +2,6 @@
 Option Explicit On
 Imports System.Drawing.Drawing2D
 Imports System.Text.RegularExpressions
-Imports System.Text
 Imports System.Drawing
 Imports System.Windows.Forms
 Public Class Prompt
@@ -10,16 +9,12 @@ Public Class Prompt
     Private Const WM_NCACTIVATE As Integer = &H86
     Private Const WM_NCPAINT As Integer = &H85
     Private Const ButtonBarHeight As Integer = 36
-    Private Const HeaderHeight As Integer = 26
-    Private Const RowHeight As Integer = 21
-    Private ReadOnly Segoe As New Font("Segoe UI", 9)
-    Private WithEvents Table As New DataGridView With {.Font = Segoe, .Visible = True, .Size = New Size(600, 400), .AllowUserToAddRows = False, .RowHeadersVisible = False}
-    Private WithEvents OK As New Button With {.Text = "OK", .Font = Segoe, .Margin = New Padding(0), .Size = New Size(100, ButtonBarHeight - 6), .ImageAlign = ContentAlignment.MiddleLeft, .Image = My.Resources.OK}
-    Private WithEvents YES As New Button With {.Text = "Yes", .Font = Segoe, .Margin = New Padding(0), .Size = New Size(100, ButtonBarHeight - 6), .ImageAlign = ContentAlignment.MiddleLeft, .Image = My.Resources.OK}
-    Private WithEvents NO As New Button With {.Text = "No", .Font = Segoe, .Margin = New Padding(0), .Size = New Size(100, ButtonBarHeight - 6), .ImageAlign = ContentAlignment.MiddleLeft, .Image = My.Resources.Hand.ToBitmap}
+    Private WithEvents Table As New DataViewer With {.Font = PreferredFont, .Visible = True, .Dock = DockStyle.Fill}
+    Private WithEvents OK As New Button With {.Text = "OK", .Font = PreferredFont, .Margin = New Padding(0), .Size = New Size(100, ButtonBarHeight - 6), .ImageAlign = ContentAlignment.MiddleLeft, .Image = My.Resources.ButtonYes, .BackColor = Color.GhostWhite, .ForeColor = Color.Black, .FlatStyle = FlatStyle.Popup}
+    Private WithEvents YES As New Button With {.Text = "Yes", .Font = PreferredFont, .Margin = New Padding(0), .Size = New Size(100, ButtonBarHeight - 6), .ImageAlign = ContentAlignment.MiddleLeft, .Image = My.Resources.ButtonYes, .BackColor = Color.GhostWhite, .ForeColor = Color.Black, .FlatStyle = FlatStyle.Popup}
+    Private WithEvents NO As New Button With {.Text = "No", .Font = PreferredFont, .Margin = New Padding(0), .Size = New Size(100, ButtonBarHeight - 6), .ImageAlign = ContentAlignment.MiddleLeft, .Image = My.Resources.ButtonNo, .BackColor = Color.GhostWhite, .ForeColor = Color.Black, .FlatStyle = FlatStyle.Popup}
     Private WithEvents PromptTimer As New Timer With {.Interval = 5000}
     Private WorkingSpace As Rectangle = Screen.PrimaryScreen.Bounds
-    Private ReadOnly TextBounds As New Dictionary(Of Rectangle, String)
     Public Enum IconOption
 
         Critical
@@ -30,16 +25,16 @@ Public Class Prompt
 
     End Enum
     Public Enum StyleOption
-
-        UseNew
-        BlueTones
+        Plain
+        BlackGold
+        Blue
         Bright
-        Dark
+        Grey
+        RedBrown
         Earth
         Psychedelic
-
     End Enum
-    Public Sub New(Optional Style As StyleOption = StyleOption.BlueTones)
+    Public Sub New()
 
         SetStyle(ControlStyles.AllPaintingInWmPaint, True)
         SetStyle(ControlStyles.ContainerControl, True)
@@ -51,18 +46,18 @@ Public Class Prompt
         SetStyle(ControlStyles.UserMouse, True)
         BackColor = SystemColors.ControlLight
         FormBorderStyle = FormBorderStyle.Fixed3D
-        Font = Segoe
+        Font = PreferredFont
         TopMost = True
-        ColorStyle = Style
         MinimizeBox = False
         MaximizeBox = False
-        MinimumSize = New Size(256, 128)
+        MinimumSize = New Size(200, 3 + 32 + 3)     'IconHeight + Padding
         MaximumSize = New Size(Convert.ToInt32(0.7 * WorkingSpace.Width), Convert.ToInt32(0.7 * WorkingSpace.Height))
         Controls.Add(Table)
         Controls.AddRange({OK, YES, NO})
 
     End Sub
 #Region " PROPERTIES "
+    Private ReadOnly Property PreferredFont As New Font("Segoe UI", 9)
     Private _DataSource As Object
     Public Property Datasource As Object
         Set(value As Object)
@@ -73,15 +68,52 @@ Public Class Prompt
             Return _DataSource
         End Get
     End Property
-    Public Property ColorStyle As StyleOption
+    Public Property ColorStyle As StyleOption = StyleOption.Plain
+    Private ReadOnly Property AlternatingRowColor As Color
+    Private ReadOnly Property BackgroundColor As Color
+    Private ReadOnly Property TextColor As Color
+    Private ReadOnly Property ShadeColor As Color
+    Private ReadOnly Property AccentColor As Color
     Public Property TitleMessage As String
     Public Property TitleBarImageLeft As Boolean = True
+    Public Property TitleBarImage As Image = My.Resources.Info_White
     Public Property BodyMessage As String
     Public Property BorderColor As Color = Color.Black
     Public Property BorderForeColor As Color = Color.White
     Private PathColors As New List(Of Color)({Color.Chocolate, Color.SaddleBrown, Color.Peru})
     Public Property Image As Image = SystemIcons.Information.ToBitmap
-    Public Overloads Property Icon As Icon = SystemIcons.Question
+    Private Icon_ As Icon = Nothing
+    Public Overloads Property Icon As Icon
+        Get
+            If Icon_ Is Nothing Then
+                Select Case Type
+                    Case IconOption.Critical
+                        Return SystemIcons.Error
+
+                    Case IconOption.OK
+                        Return My.Resources.Check
+
+                    Case IconOption.TimedMessage
+                        Return My.Resources.Clock
+
+                    Case IconOption.Warning
+                        Return SystemIcons.Warning
+
+                    Case IconOption.YesNo
+                        Return SystemIcons.Question
+
+                    Case Else
+                        Return SystemIcons.Shield
+
+                End Select
+            Else
+                Return Icon_
+            End If
+        End Get
+        Set(value As Icon)
+            Icon_ = value
+        End Set
+    End Property
     Public Property Type As IconOption = IconOption.OK
     Private ReadOnly Property SideBorderWidths As Integer
         Get
@@ -106,7 +138,9 @@ Public Class Prompt
             Return New Rectangle(0, 0, Width, TitleBarHeight)
         End Get
     End Property
-    Private ReadOnly Property IconBounds As New Rectangle(10, 10, Icon.Width, Icon.Height)
+    Private Const IconPadding As Integer = 3
+    Private ReadOnly Property IconBounds As New Rectangle(IconPadding, IconPadding, Icon.Width, Icon.Height)
+    Private ReadOnly Property TextBounds As New Dictionary(Of Rectangle, String)
     Private ReadOnly Property GridBounds As Rectangle
         Get
             Dim GridTop As Integer = {If(TextBounds.Keys.Any, TextBounds.Keys.Last.Bottom, 10), IconBounds.Bottom + 16}.Max
@@ -115,19 +149,19 @@ Public Class Prompt
                 Table.Size = New Size(1, 1)
                 Return New Rectangle(0, GridTop, 0, 0)
             Else
-                Dim GridColumns As New List(Of DataGridViewColumn)(From C In Table.Columns Select DirectCast(C, DataGridViewColumn))
-                Table.Width = GridColumns.Sum(Function(x) x.Width + 1)
+                Table.Width = Table.Columns.Sum(Function(x) x.Width + 1)
                 Table.Visible = True
-                Table.Height = {3 + HeaderHeight + (RowHeight * {1, Table.Rows.Count}.Max), 360}.Min
+                Table.Height = {3 + Table.Columns.HeadBounds.Height + (Table.Rows.RowHeight * {1, Table.Rows.Count}.Max), 360}.Min
                 Return New Rectangle(0, 4 + GridTop, Table.Width, Table.Height)
             End If
         End Get
     End Property
-    Private Property ButtonBarBounds As Rectangle
+    Private ReadOnly Property ButtonBarBounds As Rectangle
+    Private ReadOnly Property MainWindow As Process
 #End Region
 
 #Region " PAINT "
-    Protected Overrides Sub WndProc(ByRef m As System.Windows.Forms.Message)
+    Protected Overrides Sub WndProc(ByRef m As Message)
 
         If m.Msg = WM_NCPAINT Then
             DrawTitleBar(True)
@@ -147,7 +181,7 @@ Public Class Prompt
         Using g As Graphics = Graphics.FromHdc(hdc)
             g.SmoothingMode = SmoothingMode.AntiAlias
             If DrawForm Then
-                Using BC As New SolidBrush(Color.Black)
+                Using BC As New SolidBrush(BorderColor)
                     g.FillRectangle(BC, New Rectangle(0, 0, Width, Height))
                 End Using
                 Using bm As New Bitmap(Width, Height)
@@ -155,29 +189,40 @@ Public Class Prompt
                     g.DrawImage(bm, 0, 0, Width, Height)
                 End Using
             End If
-            Using BC As New SolidBrush(Color.FromArgb(32, 32, 32))
+            Using BC As New SolidBrush(BorderColor)     'Color.FromArgb(32, 32, 32)
                 g.FillRectangle(BC, New Rectangle(0, 0, Width, Height))
             End Using
 
-            Dim BarIcon As Image = My.Resources.Info_White
+            If If(TitleMessage, String.Empty).Any Then
+                Dim horizontalPadding As Integer = 2
+                Dim MaxImageHeight As Integer = TitleBarBounds.Height - 4
+                Dim ImageHeight As Integer = If(TitleBarImage.Height > MaxImageHeight, MaxImageHeight, TitleBarImage.Height)
+                Dim ImageWidth As Integer = ImageHeight     'Default SQUARE
 
-            Dim ImageWidth As Integer = Convert.ToInt32(BarIcon.Width)
-            Dim ImageHeight As Integer = Convert.ToInt32(BarIcon.Height)
+                If TitleBarImage.Width = TitleBarImage.Height Then
+                    'Square, so no fancy calcs
 
-            Dim Padding As Integer = Convert.ToInt32((TitleBarBounds.Height - ImageHeight) / 2)
+                Else
+                    Dim TextSize As Size = MeasureText(TitleMessage, PreferredFont)
+                    Dim MaxImageWidth As Integer = TitleBarBounds.Width - (horizontalPadding + TextSize.Width + horizontalPadding)
+                    ImageWidth = If(TitleBarImage.Width > MaxImageWidth, MaxImageWidth, TitleBarImage.Width)
 
-            Dim ImageBounds As Rectangle = Nothing
-            Dim TextBounds As Rectangle = Nothing
+                End If
 
-            If TitleBarImageLeft Then
-                ImageBounds = New Rectangle(Padding, Padding, ImageWidth, ImageHeight)
-                TextBounds = New Rectangle(ImageWidth + Padding, 0, Width - (ImageWidth + Padding), TitleBarBounds.Height)
-            Else
-                TextBounds = New Rectangle(Padding, 0, Width - (ImageWidth + Padding), TitleBarBounds.Height)
-                ImageBounds = New Rectangle(TextBounds.Width + Padding, Padding, ImageWidth, ImageHeight)
+                Dim yOffset As Integer = Convert.ToInt32((TitleBarBounds.Height - ImageHeight) / 2)
+                Dim ImageBounds As Rectangle = Nothing
+                Dim TextBounds As Rectangle = Nothing
+
+                If TitleBarImageLeft Then
+                    ImageBounds = New Rectangle(horizontalPadding, yOffset, ImageWidth, ImageHeight)
+                    TextBounds = New Rectangle(ImageWidth + horizontalPadding, 0, Width - (ImageWidth + horizontalPadding), TitleBarBounds.Height)
+                Else
+                    TextBounds = New Rectangle(horizontalPadding, 0, Width - (ImageWidth + horizontalPadding), TitleBarBounds.Height)
+                    ImageBounds = New Rectangle(TextBounds.Width + horizontalPadding, yOffset, ImageWidth, ImageHeight)
+                End If
+                g.DrawImage(TitleBarImage, ImageBounds)
+                TextRenderer.DrawText(g, TitleMessage, PreferredFont, TextBounds, Color.White, BorderColor, TextFormatFlags.VerticalCenter Or TextFormatFlags.Left)
             End If
-            g.DrawImage(BarIcon, ImageBounds)
-            TextRenderer.DrawText(g, TitleMessage, Segoe, TextBounds, Color.White, Color.Black, TextFormatFlags.VerticalCenter Or TextFormatFlags.Left)
 
         End Using
         Dim Result = NativeMethods.ReleaseDC(Handle, hdc)
@@ -208,37 +253,18 @@ Public Class Prompt
 
             End If
 
-            Dim Testing As Boolean = False
-
             REM /// DRAW ICON IN THE UPPER LEFT CORNER
             e.Graphics.DrawIcon(Icon, IconBounds)
 
             REM /// DRAW TEXT IN EACH RECTANGLE
             For Each TextBound In TextBounds.Keys
-                If Testing Then
-                    Dim TextRectangle As Rectangle = New Rectangle(TextBound.Left, TextBound.Top, TextBound.Width - 1, TextBound.Height)
-                    Using Pen As New Pen(Brushes.White, 1)
-                        Pen.DashStyle = DashStyle.DashDot
-                        e.Graphics.DrawRectangle(Pen, TextRectangle)
-                    End Using
-                End If
-                TextRenderer.DrawText(e.Graphics, TextBounds(TextBound), Segoe, TextBound, ForeColor, TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
+                TextRenderer.DrawText(e.Graphics, TextBounds(TextBound), PreferredFont, TextBound, TextColor, TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
             Next
-            If Testing Then
-                Using Pen As New Pen(Brushes.White, 1)
-                    Pen.DashStyle = DashStyle.DashDot
-                    e.Graphics.DrawRectangle(Pen, GridBounds)
+            If Not Type = IconOption.TimedMessage Then
+                Using ButtonBarBrush As New SolidBrush(Color.FromArgb(32, BackgroundColor))
+                    e.Graphics.FillRectangle(ButtonBarBrush, ButtonBarBounds)
+                    ControlPaint.DrawBorder3D(e.Graphics, ButtonBarBounds)
                 End Using
-                Using Pen As New Pen(Brushes.White, 1)
-                    Pen.DashStyle = DashStyle.DashDot
-                    e.Graphics.DrawRectangle(Pen, ButtonBarBounds)
-                End Using
-            End If
-
-            If Type = IconOption.TimedMessage Then
-            Else
-                e.Graphics.FillRectangle(Brushes.GhostWhite, ButtonBarBounds)
-                ControlPaint.DrawBorder3D(e.Graphics, ButtonBarBounds)
             End If
         End If
 
@@ -266,6 +292,7 @@ Public Class Prompt
         PromptTimer.Stop()
         DialogResult = DialogResult.None
         Hide()
+        NativeMethods.SetForegroundWindow(MainWindow.Handle)
 
     End Sub
     Private Sub Message_Closing(sender As Object, e As System.ComponentModel.CancelEventArgs) Handles MyBase.Closing
@@ -277,107 +304,128 @@ Public Class Prompt
         Size = New Size(200, 200)
 
     End Sub
+    Protected Overrides Sub OnFontChanged(e As EventArgs)
+
+        Table.Font = Font
+        YES.Font = Font
+        NO.Font = Font
+        _PreferredFont = Font
+        MyBase.OnFontChanged(e)
+
+    End Sub
 #End Region
-    Public Overloads Function Show(TitleMessage As String, BodyMessage As List(Of String), Optional Type As IconOption = IconOption.OK, Optional Style As StyleOption = StyleOption.UseNew, Optional WaitTime As Integer = 3) As DialogResult
+
+    Public Overloads Function Show(BodyMessage As String, Optional Type As IconOption = IconOption.OK, Optional ColorTheme As StyleOption = StyleOption.Plain, Optional AutoCloseSeconds As Integer = 3) As DialogResult
+        Return Show(String.Empty, If(BodyMessage, String.Empty), Type, ColorTheme, AutoCloseSeconds)
+    End Function
+    Public Overloads Function Show(TitleMessage As String, BodyMessage As List(Of String), Optional Type As IconOption = IconOption.OK, Optional ColorTheme As StyleOption = StyleOption.Plain, Optional AutoCloseSeconds As Integer = 3) As DialogResult
 
         If BodyMessage Is Nothing Then
-            Return Show(TitleMessage, String.Empty, Type, Style, WaitTime)
+            Return Show(TitleMessage, String.Empty, Type, ColorTheme, AutoCloseSeconds)
         Else
-            Return Show(TitleMessage, Join(BodyMessage.ToArray, vbNewLine), Type, Style, WaitTime)
+            Return Show(TitleMessage, Join(BodyMessage.ToArray, vbNewLine), Type, ColorTheme, AutoCloseSeconds)
         End If
 
     End Function
-    Public Overloads Function Show(TitleMessage As String, BodyMessage As String(), Optional Type As IconOption = IconOption.OK, Optional Style As StyleOption = StyleOption.UseNew, Optional WaitTime As Integer = 3) As DialogResult
-        Return Show(TitleMessage, Join(BodyMessage, vbNewLine), Type, Style, WaitTime)
+    Public Overloads Function Show(TitleMessage As String, BodyMessage As String(), Optional Type As IconOption = IconOption.OK, Optional ColorTheme As StyleOption = StyleOption.Plain, Optional AutoCloseSeconds As Integer = 3) As DialogResult
+        Return Show(TitleMessage, Join(BodyMessage, vbNewLine), Type, ColorTheme, AutoCloseSeconds)
     End Function
-    Public Overloads Function Show(TitleMessage As String, BodyMessage As String, Optional Type As IconOption = IconOption.OK, Optional Style As StyleOption = StyleOption.UseNew, Optional WaitTime As Integer = 3) As DialogResult
+    Public Overloads Function Show(TitleMessage As String, BodyMessage As String, Optional Type As IconOption = IconOption.OK, Optional ColorTheme As StyleOption = StyleOption.Plain, Optional AutoCloseSeconds As Integer = 3) As DialogResult
+
+        _MainWindow = Process.GetCurrentProcess
 
         ControlBox = False
-        Table.ColumnHeadersHeight = HeaderHeight
-        Table.RowTemplate.Height = RowHeight
         Me.TitleMessage = TitleMessage
         Text = TitleMessage
+        PromptTimer.Interval = 1000 * AutoCloseSeconds
 
         BodyMessage = If(BodyMessage, String.Empty)
         Me.BodyMessage = Regex.Replace(Regex.Replace(BodyMessage, "[\n\r]{1,}", " "), "[\s]{2,}", " ")
         If BodyMessage.Length = 0 Then Me.BodyMessage = "No Message"
 
-        Select Case Type
-            Case IconOption.Critical
-                Icon = SystemIcons.Error
-
-            Case IconOption.OK
-                Icon = My.Resources.Check
-
-            Case IconOption.TimedMessage
-                Icon = My.Resources.Clock
-                PromptTimer.Interval = (1000 * WaitTime)
-
-            Case IconOption.Warning
-                Icon = SystemIcons.Warning
-
-            Case IconOption.YesNo
-                Icon = SystemIcons.Question
-
-        End Select
-
         Me.Type = Type
-        REM /// IF NEW WAS SETUP WITH STYLE OTHER THAN THE DEFAULT SHOW (BLUETONES) THEN 
-        Dim SelectedStyle As StyleOption = Style
-        If Style = StyleOption.UseNew Then SelectedStyle = ColorStyle
-        Dim AlternatingRowColor As Color, BackColor As Color, ForeColor As Color, ShadeColor As Color, AccentColor As Color
-        Select Case SelectedStyle
-            Case StyleOption.BlueTones
-                AlternatingRowColor = Color.LightSkyBlue
-                BackColor = Color.CornflowerBlue
-                ForeColor = Color.White
-                ShadeColor = Color.DarkBlue
-                AccentColor = Color.DarkSlateBlue
+        ColorStyle = ColorTheme
+
+        Select Case ColorTheme
+            Case StyleOption.BlackGold
+                _AlternatingRowColor = Color.Gold
+                _BackgroundColor = Color.Black
+                _TextColor = Color.White
+                _ShadeColor = Color.DarkKhaki
+                _AccentColor = Color.DarkGoldenrod
+                BorderColor = Color.Black
+
+            Case StyleOption.Blue
+                _AlternatingRowColor = Color.LightSkyBlue
+                _BackgroundColor = Color.CornflowerBlue
+                _TextColor = Color.White
+                _ShadeColor = Color.DarkBlue
+                _AccentColor = Color.DarkSlateBlue
+                BorderColor = Color.RoyalBlue
 
             Case StyleOption.Bright
-                AlternatingRowColor = Color.Gold
-                BackColor = Color.HotPink
-                ForeColor = Color.White
-                ShadeColor = Color.Fuchsia
-                AccentColor = Color.DarkOrchid
+                _AlternatingRowColor = Color.Gold
+                _BackgroundColor = Color.HotPink
+                _TextColor = Color.White
+                _ShadeColor = Color.Fuchsia
+                _AccentColor = Color.DarkOrchid
+                BorderColor = Color.DarkMagenta
 
-            Case StyleOption.Dark
-                AlternatingRowColor = Color.DarkGray
-                BackColor = Color.Gainsboro
-                ForeColor = Color.White
-                ShadeColor = Color.DarkSlateGray
-                AccentColor = Color.Black
+            Case StyleOption.Grey
+                _AlternatingRowColor = Color.DarkGray
+                _BackgroundColor = Color.Gainsboro
+                _TextColor = Color.White
+                _ShadeColor = Color.Gray
+                _AccentColor = Color.Black
+                BorderColor = Color.Black
 
             Case StyleOption.Earth
-                AlternatingRowColor = Color.Beige
-                BackColor = Color.Green
-                ForeColor = Color.White
-                ShadeColor = Color.DarkGreen
-                AccentColor = Color.DarkOliveGreen
+                _AlternatingRowColor = Color.Beige
+                _BackgroundColor = Color.Green
+                _TextColor = Color.White
+                _ShadeColor = Color.DarkGreen
+                _AccentColor = Color.DarkOliveGreen
+                BorderColor = Color.Maroon
 
             Case StyleOption.Psychedelic
-                AlternatingRowColor = Color.Lavender
+                _AlternatingRowColor = Color.Lavender
+                _BackgroundColor = Color.Fuchsia
                 BackgroundImageLayout = ImageLayout.Stretch
-                ForeColor = Color.White
-                ShadeColor = Color.Gainsboro
-                AccentColor = Color.DarkOrange
+                _TextColor = Color.White
+                _ShadeColor = Color.Gainsboro
+                _AccentColor = Color.DarkOrange
+                BorderColor = Color.YellowGreen
+
+            Case StyleOption.Plain
+                _AlternatingRowColor = Color.Gainsboro
+                _BackgroundColor = Color.Gray
+                _TextColor = Color.White
+                _ShadeColor = Color.DarkGray
+                _AccentColor = Color.Gainsboro
+                BorderColor = Color.Black
+
+            Case StyleOption.RedBrown
+                _AlternatingRowColor = Color.Chocolate
+                _BackgroundColor = Color.Orange
+                _TextColor = Color.White
+                _ShadeColor = Color.Crimson
+                _AccentColor = Color.Peru
+                BorderColor = Color.SaddleBrown
 
         End Select
 
         With Table
-            .AlternatingRowsDefaultCellStyle = New DataGridViewCellStyle With {.BackColor = AlternatingRowColor, .ForeColor = Color.Black}
-            .RowsDefaultCellStyle = New DataGridViewCellStyle With {.BackColor = Color.GhostWhite, .ForeColor = Color.Black}
-            With .RowHeadersDefaultCellStyle
-                .BackColor = BackColor
-                .ForeColor = ForeColor
-            End With
+            .Columns.HeaderStyle = New CellStyle With {.BackColor = ShadeColor, .ShadeColor = ShadeColor, .ForeColor = TextColor}
+            .Rows.AlternatingRowStyle = New CellStyle With {.BackColor = AlternatingRowColor, .ForeColor = Color.Black}
+            .Rows.RowStyle = New CellStyle With {.BackColor = Color.GhostWhite, .ForeColor = Color.Black}
         End With
-        Me.ForeColor = ForeColor
-        PathColors = {Color.Gray, BackColor, ShadeColor, AccentColor}.ToList
-        For Each Button In (From B In Controls Where Not IsNothing(TryCast(B, Button)) Select DirectCast(B, Button))
-            Button.BackColor = Color.Black
-            Button.ForeColor = Color.White
+        For Each InputButton As Button In {YES, NO, OK}
+            InputButton.ForeColor = TextColor
+            InputButton.BackColor = BorderColor
         Next
+
+        ForeColor = TextColor
+        PathColors = {Color.Gray, BackColor, ShadeColor, AccentColor}.ToList
         ResizeMe()
         Hide()
         ShowDialog()
@@ -390,73 +438,109 @@ Public Class Prompt
     End Sub
     Private Sub ResizeMe()
 
-        REM //////////// DRAW ICON IN UPPER LEFT CORNER OF BOX, OFFSET(10,10)
-        Dim Words As String() = Split(BodyMessage, " ")
-        Dim Padding As Integer = 4
-        Dim LinearTextSize As Size = TextRenderer.MeasureText(BodyMessage, Segoe)
-        Dim LinearHeaderTextSize As Size = TextRenderer.MeasureText(TitleMessage, Segoe)
-        Dim WindowRatio As Double = (WorkingSpace.Width / WorkingSpace.Height)
-        Dim RelativeHeight As Integer = Convert.ToInt32(Math.Sqrt((LinearTextSize.Width * LinearTextSize.Height) / WindowRatio))
-        Dim RelativeWidth As Integer = {{Convert.ToInt32(RelativeHeight * WindowRatio), MinimumSize.Width + (2 * SideBorderWidths), (2 * SideBorderWidths) + LinearHeaderTextSize.Width, GridBounds.Width}.Max, MaximumSize.Width + (2 * SideBorderWidths)}.Min
-        If Words.Count = 1 Then RelativeWidth = LinearTextSize.Width + 60
-        Dim ImageTextRowCount As Integer = Convert.ToInt32(Math.Ceiling(IconBounds.Bottom / {LinearTextSize.Height, 16}.Max))
+        Dim RowBWidth As Integer = 0
+        Dim IconZoneWH As Integer = IconPadding * 2 + Icon.Height
 
-        REM ////////////
-        Me.TextBounds.Clear()
-        Dim TextBounds As New Dictionary(Of Rectangle, String)
-        Dim LineBuilder As New StringBuilder
-        Dim LineWidth As Integer = 0
-        Dim ImageRow As Boolean = False
-        For Each Word As String In Words
-            ImageRow = (TextBounds.Count < ImageTextRowCount)
-            LineWidth = (RelativeWidth - (Padding + If(ImageRow, IconBounds.Right, 0)))
-            Dim NewLineWidth As Integer = TextRenderer.MeasureText(LineBuilder.ToString & " " & Word, Segoe).Width
-            If NewLineWidth > LineWidth Then
-                TextBounds.Add(New Rectangle(Padding + If(ImageRow, IconBounds.Right, 0), (TextBounds.Count * LinearTextSize.Height), LineWidth, LinearTextSize.Height), LineBuilder.ToString)
-                LineBuilder.Clear()
+#Region " #1 - Get TextWidth "
+        'a) Width & Height as a Rectangle based on total area...if there are long words wider than the Rectangle, it will need expanding below =============
+        Dim TextSize As Size = MeasureText(BodyMessage, Font)
+        Dim TextArea As Integer = TextSize.Width * TextSize.Height
+
+        Dim x2yRatio As Double = 3
+        'x * y = TextArea, x is x2yRatio larger than y ∴ ( y * x2yRatio ) * y = TextArea ∴ y² = TextArea ÷ x2yRatio ∴ y=√ ( TextArea ÷ x2yRatio )
+        Dim y As Double = Math.Sqrt(TextArea / x2yRatio)
+        RowBWidth = CInt(y * x2yRatio)
+        '==============================
+        'Ensure extra long words are considered
+        Dim Words As New List(Of Integer)(From rm In RegexMatches(BodyMessage, "[^ ]{1,}", RegexOptions.None) Select MeasureText(rm.Value, Font).Width)
+        RowBWidth = {RowBWidth, SideBorderWidths + Words.Max + SideBorderWidths}.Max
+#End Region
+        Dim RowsABHeight As Integer = 0
+#Region " #1 - Get TextHeight "
+        Dim RowsA As New Dictionary(Of Rectangle, String)
+        Dim RowsB As New Dictionary(Of Rectangle, String)
+        Dim LinesA = WrapWords(BodyMessage, Font, RowBWidth - IconZoneWH)
+        Dim LinesB As New Dictionary(Of Integer, String)
+
+        Dim LineHeight As Integer = MeasureText("|".ToUpperInvariant, Font).Height
+        Dim LineIndex As Integer = 0
+        Dim WidenText As Boolean = False
+
+        For Each Line In LinesA
+            If LineIndex * LineHeight >= IconZoneWH Then
+                Dim RemainingText = Join(LinesA.Values.Skip(LineIndex).ToArray)
+                LinesB = WrapWords(RemainingText, Font, RowBWidth)
+                Exit For
+
             Else
+                Dim TopRightIconPoint As New Point(IconZoneWH, LineIndex * LineHeight)
+                RowsA.Add(New Rectangle(TopRightIconPoint, New Size(If(WidenText, SideBorderWidths, 0) + RowBWidth - TopRightIconPoint.X, LineHeight)), Line.Value)
+                TextBounds.Add(RowsA.Last.Key, RowsA.Last.Value)
+
             End If
-            LineBuilder.Append(Word & " ")
+            LineIndex += 1
         Next
-        REM /// ADD THE LAST WRAPPED ROW- SELDOM NO LAST ROW
-        If LineBuilder.Length = 0 Then
-        Else
-            ImageRow = (TextBounds.Count < ImageTextRowCount)
-            TextBounds.Add(New Rectangle(Padding + If(ImageRow, IconBounds.Right, 0), (TextBounds.Count * LinearTextSize.Height), LineWidth, LinearTextSize.Height), LineBuilder.ToString)
+        For Each Line In LinesB
+            RowsB.Add(New Rectangle(New Point(0, LineIndex * LineHeight), New Size(If(WidenText, SideBorderWidths, 0) + RowBWidth, LineHeight)), Line.Value)
+            TextBounds.Add(RowsB.Last.Key, RowsB.Last.Value)
+            LineIndex += 1
+        Next
+        RowsABHeight = (RowsA.Count + RowsB.Count) * LineHeight
+#End Region
+        If RowsA.Any Then
+            Dim RowsABottom As Integer = RowsA.Last.Key.Bottom
+            If RowsABottom > IconZoneWH Then
+                'Center Icon between Text Rows
+                Dim yOffset = CInt((RowsABottom - Icon.Height) / 2)
+                _IconBounds = New Rectangle(IconPadding, yOffset, Icon.Width, Icon.Height)
+
+            ElseIf IconZoneWH > RowsABottom And Not RowsB.Any Then
+                'Center Text between IconZone
+                Dim RowOffset As Integer = CInt((IconZoneWH - RowsABottom) / 2)
+                TextBounds.Clear()
+                For Each Row In RowsA
+                    TextBounds.Add(New Rectangle(Row.Key.X, Row.Key.Y + RowOffset, Row.Key.Width, Row.Key.Height), Row.Value)
+                Next
+                _IconBounds = New Rectangle(IconPadding, IconPadding, Icon.Width, Icon.Height)
+
+            Else
+                'Text height in top rows matches the height of the Icon
+                _IconBounds = New Rectangle(IconPadding, IconPadding, Icon.Width, Icon.Height)
+
+            End If
         End If
 
-        If TextBounds.Count < ImageTextRowCount Then
-            For Each TextBound In TextBounds.Keys
-                Dim RowHeight As Integer = Convert.ToInt32(Icon.Height / TextBounds.Count)
-                Me.TextBounds.Add(New Rectangle(TextBound.Left, IconBounds.Top + (RowHeight * Me.TextBounds.Count), TextBound.Width, RowHeight), TextBounds(TextBound))
-            Next
-        Else
-            For Each TextBound In TextBounds.Keys
-                Me.TextBounds.Add(New Rectangle(TextBound.Left, TextBound.Top, TextBounds.Max(Function(x) x.Key.Right) - TextBound.Left, TextBound.Height), TextBounds(TextBound))
-            Next
+        Width = (SideBorderWidths * 2) + {TextBounds.Max(Function(x) x.Key.Right), GridBounds.Right}.Max
+        Dim ButtonBarTop As Integer = IconPadding + {TextBounds.Keys.Last.Bottom, IconBounds.Bottom}.Max
+
+#Region " GRID WIDTH / HEIGHT / PLACEMENT  / VISIBILITY "
+        If Table.DataSource IsNot Nothing Then
+            Dim TLP_Table As New TableLayoutPanel With {.ColumnCount = 1, .RowCount = 1, .CellBorderStyle = TableLayoutPanelCellBorderStyle.None, .BorderStyle = BorderStyle.None}
+            With TLP_Table
+                .Left = 0
+                Dim GridWidth As Integer = Width - (SideBorderWidths * 2)
+                .Width = GridWidth
+                .Top = GridBounds.Top
+                Dim GridHeight As Integer = Table.Columns.HeadBounds.Height + Table.Rows.Take(15).Count * Table.Rows.RowHeight      ' 15 Rows MAXIMUM
+                .Height = GridHeight
+                .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = GridWidth})
+                .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = GridHeight})
+                .Controls.Add(Table)
+                Table.Columns.DistibuteWidths()
+            End With
+            Controls.Add(TLP_Table)
+            ButtonBarTop = TLP_Table.Bottom
         End If
+#End Region
 
-        Width = (SideBorderWidths * 2) + {Me.TextBounds.Max(Function(x) x.Key.Right), GridBounds.Right}.Max
+        _ButtonBarBounds = New Rectangle(0, ButtonBarTop, ClientSize.Width - 1, If(Type = IconOption.TimedMessage, 0, ButtonBarHeight))
+        Height = TitleBarHeight + ButtonBarBounds.Bottom + BottomBorderHeight
 
-        REM /// GRID WIDTH, HEIGHT, PLACEMENT
-        Table.Top = GridBounds.Top
-        Table.Left = Convert.ToInt32((ClientSize.Width - GridBounds.Width) / 2)
-        Table.Invalidate()
-
-        If Type = IconOption.TimedMessage Then
-            ButtonBarBounds = New Rectangle(0, Padding + {TextBounds.Keys.Last.Bottom, GridBounds.Bottom}.Max, ClientSize.Width - 1, 0)
-        Else
-            ButtonBarBounds = New Rectangle(0, Padding + {TextBounds.Keys.Last.Bottom, GridBounds.Bottom}.Max, ClientSize.Width - 1, ButtonBarHeight)
-        End If
-
-        Height = TitleBarHeight + ButtonBarBounds.Bottom + 1 + BottomBorderHeight
-
-        REM /// BUTTON PLACEMENT / VISIBILITY
+#Region " BUTTON PLACEMENT / VISIBILITY "
         For Each Button In {YES, NO, OK}
             Button.Visible = False
             Button.Top = ButtonBarBounds.Top + Convert.ToInt32((ButtonBarBounds.Height - Button.Height) / 2)
         Next
-
         Select Case Type
             Case IconOption.Critical, IconOption.OK, IconOption.Warning
                 OK.Visible = True
@@ -473,8 +557,9 @@ Public Class Prompt
                 NO.Left = YES.Bounds.Right + ButtonSpacing
 
         End Select
+#End Region
+
         Invalidate()
-        ''If TitleMessage = "Are you sure?" Then Stop
         CenterToScreen()
 
     End Sub

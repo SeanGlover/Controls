@@ -505,6 +505,18 @@
   <ItemGroup>
     <None Include="Resources\QuestionMark.png" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Chrome.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Button_Bright.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\ButtonYes.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\ButtonNo.png" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>

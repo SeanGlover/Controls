@@ -225,7 +225,7 @@ Public Class ScriptCollection
                 End With
                 Message.Datasource = DT
             End Using
-            Message.Show("Scripts Count=" & Count, "Saved Scripts", Prompt.IconOption.Warning, Prompt.StyleOption.Dark)
+            Message.Show("Scripts Count=" & Count, "Saved Scripts", Prompt.IconOption.Warning, Prompt.StyleOption.Grey)
         End Using
 
     End Sub
@@ -456,7 +456,7 @@ End Class
                         Dim Directory = IO.Path.GetDirectoryName(SourcePath)
                         Dim DestinationPath As String = IO.Path.Combine(Directory, NewName)
                         Using message As New Prompt
-                            If File.Exists(DestinationPath) AndAlso message.Show("File already exists", Join({"Replace", NewName, "with", FormerName, "?"}), Prompt.IconOption.YesNo, Prompt.StyleOption.BlueTones) = DialogResult.No Then
+                            If File.Exists(DestinationPath) AndAlso message.Show("File already exists", Join({"Replace", NewName, "with", FormerName, "?"}), Prompt.IconOption.YesNo, Prompt.StyleOption.Blue) = DialogResult.No Then
                                 'CANCELLED...UNDO NAME CHANGE
                                 _Name = FormerName
                             Else
@@ -703,11 +703,11 @@ Public Class DataTool
     Private WithEvents IC_ObjectsSearch As New ImageCombo With {.Dock = DockStyle.Fill, .Text = String.Empty, .HintText = "Search Database", .Image = My.Resources.View, .Margin = New Padding(0)}
     Private WithEvents Button_ObjectsClose As New Button With {.Dock = DockStyle.Fill, .Text = String.Empty, .TextImageRelation = TextImageRelation.Overlay, .Image = My.Resources.Close.ToBitmap, .ImageAlign = ContentAlignment.MiddleCenter, .Margin = New Padding(0)}
     Private WithEvents Tree_Objects As New TreeViewer With {.Name = "Database Objects", .Dock = DockStyle.Fill, .Margin = New Padding(0), .DropHighlightColor = Color.Gold, .CheckBoxes = TreeViewer.CheckState.Mixed, .MultiSelect = True}
-    Private WithEvents TSDD_SaveAs As New ToolStripDropDown With {.AutoClose = False, .Padding = New Padding(0), .DropShadowEnabled = True, .BackColor = Color.Firebrick}
+    Private WithEvents TSDD_SaveAs As New ToolStripDropDown With {.AutoClose = False, .Padding = New Padding(0), .DropShadowEnabled = True, .BackColor = Color.Firebrick, .Renderer = New CustomRenderer}
     Private WithEvents IC_SaveAs As New ImageCombo With {.Image = My.Resources.Save, .HintText = "Save Or Save As", .Size = New Size(200, 28)}
     Private ReadOnly SaveAsHost As New ToolStripControlHost(IC_SaveAs)
     Private ReadOnly SaveAsItem As Integer = TSDD_SaveAs.Items.Add(SaveAsHost)
-    Private WithEvents TSDD_ClosedScripts As New ToolStripDropDown With {.AutoSize = False, .AutoClose = False, .Padding = New Padding(0), .DropShadowEnabled = True, .BackColor = Color.Transparent}
+    Private WithEvents TSDD_ClosedScripts As New ToolStripDropDown With {.AutoSize = False, .AutoClose = False, .Padding = New Padding(0), .DropShadowEnabled = True, .BackColor = Color.Transparent, .Renderer = New CustomRenderer}
     Private WithEvents TLP_ClosedScripts As New TableLayoutPanel With {.Size = New Size(200, 200), .ColumnCount = 1, .RowCount = 1}
     Private ReadOnly TLPCSCS As Integer = TLP_ClosedScripts.ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 300})
     Private ReadOnly TLPCSRS As Integer = TLP_ClosedScripts.RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 600})
@@ -2136,9 +2136,9 @@ Public Class DataTool
                     REM /// DSN HAS NOT YET BEEN SET. CLICKING THE TAB IS AUTO-SELECT
                     Dim Tables = ActiveScript.Body.TablesFullName   '<======== NOT SURE ABOUT THIS
                     If Tables.Any Then
-                        Message.Show("Datasource not found. One must be selected.", "The following tables do not exist in your saved items: " & vbNewLine & Join(Tables.ToArray, ","), Prompt.IconOption.Critical, Prompt.StyleOption.BlueTones)
+                        Message.Show("Datasource not found. One must be selected.", "The following tables do not exist in your saved items: " & vbNewLine & Join(Tables.ToArray, ","), Prompt.IconOption.Critical, Prompt.StyleOption.Blue)
                     Else
-                        Message.Show("Datasource not found.", "One must be selected.", Prompt.IconOption.Critical, Prompt.StyleOption.BlueTones)
+                        Message.Show("Datasource not found.", "One must be selected.", Prompt.IconOption.Critical, Prompt.StyleOption.Blue)
                     End If
                 Else
                     REM /// DSN HAS BEEN SET. USE CURRENT VALUE. USER CAN CHANGE FROM ScriptPane_Run_DSNs (TSMI)
@@ -2155,7 +2155,7 @@ Public Class DataTool
                             'NO CHANGES...DO NOTHING
                             .State = Script.ViewState.ClosedNotSaved
                         Else
-                            If Message.Show(.Body.InstructionType.ToString & " has changed", "Save your work?", Prompt.IconOption.YesNo, Prompt.StyleOption.BlueTones) = DialogResult.No Then
+                            If Message.Show(.Body.InstructionType.ToString & " has changed", "Save your work?", Prompt.IconOption.YesNo, Prompt.StyleOption.Blue) = DialogResult.No Then
                                 'DO NOT WANT CHANGES SAVED...TEXT NEEDS TO REVERT TO FILE TEXT
                                 .State = Script.ViewState.ClosedNotSaved
                             Else
@@ -2165,7 +2165,7 @@ Public Class DataTool
                         End If
 
                     ElseIf .Body.HasText Then
-                        If Message.Show("You have unsaved work. Continue?", "[Yes] to discard, [No] to cancel", Prompt.IconOption.YesNo, Prompt.StyleOption.BlueTones) = DialogResult.No Then
+                        If Message.Show("You have unsaved work. Continue?", "[Yes] to discard, [No] to cancel", Prompt.IconOption.YesNo, Prompt.StyleOption.Blue) = DialogResult.No Then
                             'DO NOTHING AND LEAVE TAB OPEN
                         Else
                             'NO FILE, WITH TEXT...DISCARD EMPTY TAB
@@ -2567,7 +2567,7 @@ Public Class DataTool
 
         Dim Remove_OK As Boolean = False
 
-        If Message.Show("Proceed with removal from " & _Connection.DataSource & "?", Remove_Message, Prompt.IconOption.YesNo, Prompt.StyleOption.BlueTones) = DialogResult.Yes Then
+        If Message.Show("Proceed with removal from " & _Connection.DataSource & "?", Remove_Message, Prompt.IconOption.YesNo, Prompt.StyleOption.Blue) = DialogResult.Yes Then
             Dim SQL_Dependants As String = My.Resources.SQL_DEPENDANTS
             SQL_Dependants = Replace(SQL_Dependants, "//OWNER//", Remove_Owner)
             SQL_Dependants = Replace(SQL_Dependants, "//NAME//", Remove_Name)
@@ -2591,11 +2591,11 @@ Public Class DataTool
                 If Message.Show("Are you certain? Other dependant objects will be dropped too", Join(Dependant_Message.ToArray, vbNewLine), Prompt.IconOption.YesNo) = DialogResult.Yes Then
                     Remove_OK = True
                 Else
-                    Message.Show("Operation cancelled", "No change to " & _Connection.DataSource, Prompt.IconOption.TimedMessage, Prompt.StyleOption.BlueTones)
+                    Message.Show("Operation cancelled", "No change to " & _Connection.DataSource, Prompt.IconOption.TimedMessage, Prompt.StyleOption.Blue)
                 End If
             End If
         Else
-            Message.Show("Operation cancelled", "No change to " & _Connection.DataSource, Prompt.IconOption.TimedMessage, Prompt.StyleOption.BlueTones)
+            Message.Show("Operation cancelled", "No change to " & _Connection.DataSource, Prompt.IconOption.TimedMessage, Prompt.StyleOption.Blue)
         End If
         If Remove_OK Then
             Dim Drop_DDL As String = Join({"DROP", Remove_Type, NodeObject.FullName})
@@ -2781,10 +2781,10 @@ Public Class DataTool
                         Dim Items As New List(Of String)
                         If _Script.Connection.MissingUserID Then Items.Add("userid")
                         If _Script.Connection.MissingPassword Then Items.Add("password")
-                        Message.Show("Can not connect", "Connection is missing " & Join(Items.ToArray, " and "), Prompt.IconOption.Critical, Prompt.StyleOption.BlueTones)
+                        Message.Show("Can not connect", "Connection is missing " & Join(Items.ToArray, " and "), Prompt.IconOption.Critical, Prompt.StyleOption.Blue)
                     End If
                 Else
-                    Message.Show("No datasource found or selected", "Please set your connection", Prompt.IconOption.Critical, Prompt.StyleOption.BlueTones)
+                    Message.Show("No datasource found or selected", "Please set your connection", Prompt.IconOption.Critical, Prompt.StyleOption.Blue)
                 End If
             End With
         End With

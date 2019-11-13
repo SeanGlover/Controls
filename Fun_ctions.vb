@@ -405,6 +405,48 @@ Public Module Functions
     Public Function TrimReturn(InputString As String) As String
         Return Trim(Regex.Replace(InputString, "[\n\r]", String.Empty, RegexOptions.None))
     End Function
+    Public Function WrapWords(InText As String, InFont As Font, Width As Integer) As Dictionary(Of Integer, String)
+
+        If Not If(InText, String.Empty).Any Or InFont Is Nothing Or Width <= 0 Then
+            Return Nothing
+
+        Else
+            Dim Words As New List(Of String)(From rm In RegexMatches(InText, "[^ ]{1,}", RegexOptions.None) Select rm.Value)
+            Dim LineBuilder As New Dictionary(Of Integer, String) From {
+                {0, String.Empty}
+                }
+            Dim SpaceWidth As Integer = MeasureText(" ", InFont).Width
+            For Each Word In Words
+                Dim Line As String = LineBuilder.Last.Value
+                Dim LineLength As Integer = MeasureText(Line, InFont).Width
+                Dim WordSize As Size = TextRenderer.MeasureText(Word, InFont)
+                If LineLength + SpaceWidth + WordSize.Width < Width Then
+                    LineBuilder(LineBuilder.Last.Key) &= " " & Word
+                Else
+                    LineBuilder.Add(LineBuilder.Count, Word)
+                End If
+            Next
+            Return LineBuilder
+
+        End If
+
+    End Function
+    Public Function MeasureText(Text As String, TextFont As Font) As Size
+
+        If Not If(Text, String.Empty).Any Or TextFont Is Nothing Then
+            Return New Size(0, 0)
+
+        Else
+            Dim gTextSize As SizeF
+            Using g As Graphics = Graphics.FromImage(My.Resources.Plus)
+                Dim sf As New StringFormat With {.Trimming = StringTrimming.None}
+                gTextSize = g.MeasureString(Text, TextFont, RectangleF.Empty.Size, sf)
+            End Using
+            Return New Size(CInt(gTextSize.Width), CInt(gTextSize.Height))
+
+        End If
+
+    End Function
     Public Function WrapText(Paragraphs As List(Of String), MaxSentenceLength As Integer) As List(Of String)
 
         If Paragraphs Is Nothing Then
@@ -696,6 +738,22 @@ Public Module Functions
         Return Graphix
 
     End Function
+    Friend Function SetOpacity(ByVal image As Image, ByVal opacity As Single) As Image
+
+        Dim output = New Bitmap(image.Width, image.Height)
+        Dim colorMatrix = New ColorMatrix With {
+            .Matrix33 = opacity
+        }
+        Using imageAttributes As New ImageAttributes
+            imageAttributes.SetColorMatrix(colorMatrix, ColorMatrixFlag.Default, ColorAdjustType.Bitmap)
+            Using gfx = Graphics.FromImage(output)
+                gfx.SmoothingMode = Drawing.Drawing2D.SmoothingMode.AntiAlias
+                gfx.DrawImage(image, New Rectangle(0, 0, image.Width, image.Height), 0, 0, image.Width, image.Height, GraphicsUnit.Pixel, imageAttributes)
+            End Using
+        End Using
+        Return output
+
+    End Function
     Public Function KeyIsDown(Key As Keys) As Boolean
         '-32767=Down
         '0 Up
@@ -809,6 +867,14 @@ Public Module Functions
         Dim ResourceSet As Resources.ResourceSet = Manager.GetResourceSet(CultureInfo.CurrentCulture, True, True)
         Dim Resources As New List(Of DictionaryEntry)(ResourceSet.OfType(Of DictionaryEntry).Where(Function(x) x.Value.GetType Is GetType(Bitmap)))
         Return Resources.ToDictionary(Function(x) x.Key.ToString, Function(y) DirectCast(y.Value, Image))
+
+    End Function
+    Public Function MyIcons(Optional Manager As Resources.ResourceManager = Nothing) As Dictionary(Of String, Icon)
+
+        Manager = If(Manager, My.Resources.ResourceManager)
+        Dim ResourceSet As Resources.ResourceSet = Manager.GetResourceSet(CultureInfo.CurrentCulture, True, True)
+        Dim Resources As New List(Of DictionaryEntry)(ResourceSet.OfType(Of DictionaryEntry).Where(Function(x) x.Value.GetType Is GetType(Icon)))
+        Return Resources.ToDictionary(Function(x) x.Key.ToString, Function(y) DirectCast(y.Value, Icon))
 
     End Function
     Public Function GetFiles(Path As String, Extension As String) As List(Of String)
@@ -2394,7 +2460,8 @@ Friend NotInheritable Class NativeMethods
     Friend Shared Function DeleteObject(ByVal hObject As IntPtr) As Boolean
     End Function
     Friend Declare Auto Function GetSystemMetrics Lib "user32.dll" (ByVal smIndex As Integer) As Integer
-    Public Declare Function GetKeyState Lib "user32.dll" (ByVal nVirtKey As Integer) As Short
+    Friend Declare Function GetKeyState Lib "user32.dll" (ByVal nVirtKey As Integer) As Short
+    Friend Declare Function SetForegroundWindow Lib "user32.dll" (ByVal hwnd As IntPtr) As Integer
 End Class
 #End Region
 

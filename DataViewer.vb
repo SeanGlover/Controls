@@ -40,6 +40,7 @@ Public Structure MouseInfo
     Public Property Column As Column
     Public Property MouseOver As Column
     Public Property Row As Row
+    Public Property RowDown As Row
     Public Property Bounds As Rectangle
     Public Property Point As Point
     Public Property CurrentAction As Action
@@ -319,7 +320,7 @@ Public Class DataViewer
                             Top += RowHeight
                         End With
                     Next
-                    If Rows.Count < 20 And VisibleRows.Count <> Rows.Count Then Stop
+                    'If Rows.Count < 20 And VisibleRows.Count <> Rows.Count Then Stop
                 End If
 #End Region
 #Region " xxx "
@@ -516,7 +517,7 @@ Public Class DataViewer
             Return TotalSize.Height > ClientRectangle.Height
         End Get
     End Property
-    Private ReadOnly Property HScrollVisible As Boolean
+    Friend ReadOnly Property HScrollVisible As Boolean
         Get
             Return TotalSize.Width > ClientRectangle.Width
         End Get
@@ -830,6 +831,7 @@ Public Class DataViewer
 
                 ElseIf .CurrentAction = MouseInfo.Action.MouseOverGrid And e.Button = MouseButtons.Left Then
                     MouseData.Row.Selected = Not MouseData.Row.Selected
+                    _MouseData.RowDown = MouseData.Row
                     RaiseEvent RowClicked(Me, New ViewerEventArgs(MouseData))
 
                 End If
@@ -1086,6 +1088,28 @@ Public Class ColumnCollection
     Public Sub AutoSize()
         RaiseEvent CollectionSizingStart(Me, Nothing)
         ColumnsWorker.RunWorkerAsync()
+    End Sub
+    Public Sub DistibuteWidths()
+
+        'If Viewer.Width>Columns.Width ... Then share extra space among columns
+        Dim ExtraWidth = CInt((Parent.Width - HeadBounds.Width) / Count)
+        If ExtraWidth >= 1 Then
+            'Space to spare
+            Dim VisibleColumns As New List(Of Column)
+            For Each Column In Me
+                If Column.Visible Then
+                    VisibleColumns.Add(Column)
+                    Column.Width += ExtraWidth
+                End If
+            Next
+            If VisibleColumns.Any Then
+                Do While Parent.HScrollVisible
+                    VisibleColumns.Last.Width -= 1
+                    Parent.Invalidate()
+                Loop
+            End If
+        End If
+
     End Sub
     Private Sub FormatSizeWorker_Start(sender As Object, e As DoWorkEventArgs) Handles ColumnsWorker.DoWork
 

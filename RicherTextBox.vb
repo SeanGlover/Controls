@@ -264,6 +264,27 @@ Public NotInheritable Class RicherTextBox
             End If
         End Get
     End Property
+    Public ReadOnly Property IdealHeight(Optional ReturnZero As Boolean = False) As Integer
+        Get
+            Using InvisibleTextBox As New RicherTextBox With {.Font = Font, .Text = Text, .Width = IdealWidth, .Height = 10000, .Margin = New Padding(0)}
+                With InvisibleTextBox
+                    Dim R = .Rows
+                    Return .Rows.Count * .LineHeight
+                End With
+            End Using
+        End Get
+    End Property
+    Public ReadOnly Property Rows As Dictionary(Of Integer, String)
+        Get
+            Dim Ys As New Dictionary(Of Integer, List(Of String))
+            For l = 0 To Text.Length - 1
+                Dim Y = GetPositionFromCharIndex(l).Y
+                If Not Ys.ContainsKey(Y) Then Ys.Add(Y, New List(Of String))
+                Ys(Y).Add(Text.Substring(l, 1))
+            Next
+            Return Ys.ToDictionary(Function(k) k.Key, Function(v) Join(v.Value.ToArray, String.Empty))
+        End Get
+    End Property
     Private _AutoSize As Boolean
     Public Overrides Property AutoSize As Boolean
         Get
