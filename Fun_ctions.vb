@@ -775,35 +775,50 @@ Public Module Functions
         End If
 
     End Sub
-    Public Sub WriteText(FilePathOrName As String, List As List(Of String))
+    Public Function WriteText(FilePathOrName As String, List As List(Of String)) As Boolean
 
-        If List IsNot Nothing Then
+        If List Is Nothing Then
+            Return False
+        Else
             Dim Content As String = Join(List.ToArray, vbNewLine)
-            WriteText(FilePathOrName, Content)
+            Return WriteText(FilePathOrName, Content)
         End If
 
-    End Sub
-    Public Sub WriteText(FilePathOrName As String, Items As String())
+    End Function
+    Public Function WriteText(FilePathOrName As String, Items As String()) As Boolean
 
-        If Items IsNot Nothing Then
+        If Items Is Nothing Then
+            Return False
+        Else
             Dim Content As String = Join(Items, vbNewLine)
-            WriteText(FilePathOrName, Content)
+            Return WriteText(FilePathOrName, Content)
         End If
 
-    End Sub
-    Public Sub WriteText(FilePathOrName As String, Content As String)
+    End Function
+    Public Function WriteText(FilePathOrName As String, Content As String) As Boolean
 
         If IsFile(FilePathOrName) Then
-            Using SW As New StreamWriter(FilePathOrName)
-                SW.Write(Content)
-            End Using
+            If File.Exists(FilePathOrName) Then
+                Using SW As New StreamWriter(FilePathOrName)
+                    SW.Write(Content)
+                End Using
+                Return True
+            Else
+                Return False
+            End If
         Else
-            Using SW As New StreamWriter(Desktop & "\" & FilePathOrName & ".txt")
-                SW.Write(Content)
-            End Using
+            Dim TryDesktop As String = Desktop & "\" & FilePathOrName & ".txt"
+            If File.Exists(TryDesktop) Then
+                Using SW As New StreamWriter(TryDesktop)
+                    SW.Write(Content)
+                End Using
+                Return True
+            Else
+                Return False
+            End If
         End If
 
-    End Sub
+    End Function
     Public Function ReadText(FilePathOrName As String) As String
 
         Dim CanRead As Boolean = IsFile(FilePathOrName) And File.Exists(FilePathOrName)

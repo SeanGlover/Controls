@@ -192,5 +192,10 @@ Public Structure Cookie
     Public Function ToCookieString() As String
         Return Join({name, value}, "=")
     End Function
+    Public ReadOnly Property HasValue As Boolean
+        Get
+            Return Parent IsNot Nothing
+        End Get
+    End Property
 End Structure
 #End Region
