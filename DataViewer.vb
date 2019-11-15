@@ -92,7 +92,8 @@ End Class
 Public Class DataViewer
     Inherits Control
 #Region " GENERAL DECLARATIONS "
-    Private ReadOnly BindingSource As New BindingSource
+    Private WithEvents BindingSource As New BindingSource
+    Private WithEvents RowTimer As New Timer With {.Interval = 250}
     Private WithEvents SpinTimer As New Timer With {.Interval = 150, .Tag = 0}
     Private WithEvents TSDD_Spin As New ToolStripDropDown With {.AutoClose = False, .AutoSize = False, .Padding = New Padding(0), .DropShadowEnabled = False, .BackColor = Color.Transparent}
     Private WithEvents PB_Spin As New PictureBox With {.Size = My.Resources.Spin1.Size, .Margin = New Padding(0), .BackColor = Color.Transparent, .BorderStyle = BorderStyle.None}
@@ -257,61 +258,62 @@ Public Class DataViewer
                                     Dim CellBounds As New Rectangle(.HeadBounds.Left, RowBounds.Top, .HeadBounds.Width, RowBounds.Height)
                                     CellBounds.Offset(-HScroll.Value, 0)
                                     Dim CellValue As Object = Row.Cell(.Name)
-                                    Dim CellString = Format(CellValue, .Format.Value)
                                     Dim CellIsDBNull As Boolean = IsDBNull(Row.DataRow(.Name))
-                                    'Boolean, Image, Text, Decimal, Date, Time, Integer
-                                    If CellIsDBNull Then
-                                        CellString = "Null"
 
-                                    ElseIf .Format.Key = "Date" Then
-                                        Dim CellDate As Date
-                                        Dim DateParse As Boolean = Date.TryParse(CellValue.ToString, CellDate)
-                                        CellString = CellDate.ToString(.Format.Value, InvariantCulture)
-
-                                    ElseIf .Format.Key = "Time" Then
-                                        Dim CellDate As Date
-                                        Dim TimeParse As Boolean = Date.TryParse(CellValue.ToString, CellDate)
-                                        CellString = CellDate.ToString(.Format.Value, InvariantCulture)
-
-                                    ElseIf .Format.Key = "Decimal" Then
-                                        Dim CellNumber As Double
-                                        Dim DoubleParse As Boolean = Double.TryParse(CellValue.ToString, CellNumber)
-                                        CellString = CellNumber.ToString(.Format.Value, InvariantCulture)
-
-                                    End If
-                                    If .Format.Key = "Boolean" Then
-                                        Dim CheckBounds As New Rectangle(CellBounds.X + 2, CellBounds.Top + Convert.ToInt32((CellBounds.Height - 14) / 2), 14, 14)
-                                        e.Graphics.DrawImage(Base64ToImage(If(Convert.ToBoolean(CellString, InvariantCulture), CheckString, UnCheckString)), CheckBounds)
-                                        If MouseOverRow Then
-                                            Using CheckBrush As New SolidBrush(Color.FromArgb(128, Color.Yellow))
-                                                e.Graphics.FillRectangle(CheckBrush, CheckBounds)
-                                            End Using
-                                        End If
-                                    ElseIf .Format.Key = "Image" Then
-                                        Dim CellImage As Image = Base64ToImage(CellValue.ToString)
-                                        Dim xOffset As Integer = Convert.ToInt32((CellBounds.Width - CellImage.Width) / 2)
-                                        Dim yOffset As Integer = Convert.ToInt32((CellBounds.Height - CellImage.Height) / 2)
-                                        Dim ImageBounds As New Rectangle(CellBounds.X + xOffset, CellBounds.Y + yOffset, CellImage.Width, CellImage.Height)
-                                        e.Graphics.DrawImage(CellImage, ImageBounds)
-
-                                    Else
-                                        Dim RowFont As Font = If(IsOddRow, Rows.AlternatingRowStyle.Font, Rows.RowStyle.Font)
-                                        If MouseOverRow Then RowFont = New Font(RowFont, FontStyle.Underline)
-                                        If Row.Selected Then
-                                            TextRenderer.DrawText(e.Graphics, CellString, RowFont, CellBounds, Rows.SelectionRowStyle.ForeColor, Color.Transparent, .Alignment)
-                                        Else
-                                            If IsOddRow Then
-                                                TextRenderer.DrawText(e.Graphics, CellString, RowFont, CellBounds, Rows.AlternatingRowStyle.ForeColor, Color.Transparent, .Alignment)
-                                            Else
-                                                TextRenderer.DrawText(e.Graphics, CellString, RowFont, CellBounds, Rows.RowStyle.ForeColor, Color.Transparent, .Alignment)
-                                            End If
-                                        End If
-
-                                    End If
                                     If CellIsDBNull Then
                                         Using NullBrush As New SolidBrush(Color.FromArgb(128, Color.Gainsboro))
                                             e.Graphics.FillRectangle(NullBrush, CellBounds)
                                         End Using
+                                    Else
+                                        Dim CellString As String = Nothing
+                                        If .Format.Key = Column.TypeGroup.Booleans Then
+                                            Dim CheckBounds As New Rectangle(CellBounds.X + 2, CellBounds.Top + Convert.ToInt32((CellBounds.Height - 14) / 2), 14, 14)
+                                            e.Graphics.DrawImage(Base64ToImage(If(CBool(CellValue), CheckString, UnCheckString)), CheckBounds)
+                                            If MouseOverRow Then
+                                                Using CheckBrush As New SolidBrush(Color.FromArgb(128, Color.Yellow))
+                                                    e.Graphics.FillRectangle(CheckBrush, CheckBounds)
+                                                End Using
+                                            End If
+
+                                        ElseIf .Format.Key = Column.TypeGroup.Images Then
+                                            Dim CellImage As Image = If(.DataType Is GetType(Image), DirectCast(CellValue, Image), Base64ToImage(CellValue.ToString))
+                                            Dim xOffset As Integer = Convert.ToInt32((CellBounds.Width - CellImage.Width) / 2)
+                                            Dim yOffset As Integer = Convert.ToInt32((CellBounds.Height - CellImage.Height) / 2)
+                                            Dim ImageBounds As New Rectangle(CellBounds.X + xOffset, CellBounds.Y + yOffset, CellImage.Width, CellImage.Height)
+                                            e.Graphics.DrawImage(CellImage, ImageBounds)
+
+                                        ElseIf .Format.Key = Column.TypeGroup.Strings Then
+                                            CellString = Format(CellValue, .Format.Value)
+
+                                        ElseIf .Format.Key = Column.TypeGroup.Dates Or .Format.Key = Column.TypeGroup.Times Then
+                                            Dim CellDate As Date
+                                            Dim DateParse As Boolean = Date.TryParse(CellValue.ToString, CellDate)
+                                            CellString = CellDate.ToString(.Format.Value, InvariantCulture)
+
+                                        ElseIf .Format.Key = Column.TypeGroup.Decimals Then
+                                            Dim CellNumber As Double
+                                            Dim DoubleParse As Boolean = Double.TryParse(CellValue.ToString, CellNumber)
+                                            CellString = CellNumber.ToString(.Format.Value, InvariantCulture)
+
+                                        ElseIf .Format.Key = Column.TypeGroup.Integers Then
+                                            Dim CellNumber As Integer
+                                            Dim IntegerParse As Boolean = Integer.TryParse(CellValue.ToString, CellNumber)
+                                            CellString = CellNumber.ToString(.Format.Value, InvariantCulture)
+
+                                        End If
+                                        If CellString IsNot Nothing Then
+                                            Dim RowFont As Font = If(IsOddRow, Rows.AlternatingRowStyle.Font, Rows.RowStyle.Font)
+                                            If MouseOverRow Then RowFont = New Font(RowFont, FontStyle.Underline)
+                                            If Row.Selected Then
+                                                TextRenderer.DrawText(e.Graphics, CellString, RowFont, CellBounds, Rows.SelectionRowStyle.ForeColor, Color.Transparent, .Alignment)
+                                            Else
+                                                If IsOddRow Then
+                                                    TextRenderer.DrawText(e.Graphics, CellString, RowFont, CellBounds, Rows.AlternatingRowStyle.ForeColor, Color.Transparent, .Alignment)
+                                                Else
+                                                    TextRenderer.DrawText(e.Graphics, CellString, RowFont, CellBounds, Rows.RowStyle.ForeColor, Color.Transparent, .Alignment)
+                                                End If
+                                            End If
+                                        End If
                                     End If
                                     ControlPaint.DrawBorder3D(e.Graphics, CellBounds, Border3DStyle.SunkenOuter)
                                 End With
@@ -445,7 +447,12 @@ Public Class DataViewer
     Public Event Alert(sender As Object, e As AlertEventArgs)
 #End Region
 #Region " PROPERTIES - FUNCTIONS - METHODS "
+    Private WithEvents Table_ As DataTable
     Public ReadOnly Property Table As DataTable
+        Get
+            Return Table_
+        End Get
+    End Property
     Private WithEvents Columns_ As New ColumnCollection(Me)
     Public ReadOnly Property Columns As ColumnCollection
         Get
@@ -610,14 +617,16 @@ Public Class DataViewer
         Set(value As Object)
             If value IsNot _DataSource Then
                 Clear()
-                _Table = New DataTable
+                Table_ = New DataTable
                 _DataSource = value
                 BindingSource.DataSource = value
 #Region " FILL TABLE "
                 If DataSource Is Nothing Then
                     Exit Property
+
                 ElseIf TypeOf DataSource Is String Then
                     Exit Property
+
                 ElseIf TypeOf DataSource Is IEnumerable Then
 #Region " UNSTRUCTURED "
                     Select Case DataSource.GetType
@@ -627,10 +636,10 @@ Public Class DataViewer
                             If Rows IsNot Nothing Then
                                 Dim ColumnCount As Integer = (From C In Rows Select C.Count).Max
                                 For Column As Integer = 1 To ColumnCount
-                                    Table.Columns.Add(New DataColumn With {.ColumnName = "Column" & Column, .DataType = GetType(String)})
+                                    Table_.Columns.Add(New DataColumn With {.ColumnName = "Column" & Column, .DataType = GetType(String)})
                                 Next
                                 For Each Row As String() In Rows
-                                    Table.Rows.Add(Row)
+                                    Table_.Rows.Add(Row)
                                 Next
                             End If
 #End Region
@@ -640,10 +649,10 @@ Public Class DataViewer
                             If Rows IsNot Nothing Then
                                 Dim ColumnCount As Integer = (From C In Rows Select C.Count).Max
                                 For Column As Integer = 1 To ColumnCount
-                                    Table.Columns.Add(New DataColumn With {.ColumnName = "Column" & Column, .DataType = GetType(String)})
+                                    Table_.Columns.Add(New DataColumn With {.ColumnName = "Column" & Column, .DataType = GetType(String)})
                                 Next
                                 For Each Row As String() In Rows
-                                    Table.Rows.Add(Row)
+                                    Table_.Rows.Add(Row)
                                 Next
                             End If
 #End Region
@@ -652,38 +661,59 @@ Public Class DataViewer
                     End Select
 #End Region
                 ElseIf DataSource.GetType Is GetType(DataTable) Then
-                    _Table = DirectCast(DataSource, DataTable)
+                    Table_ = DirectCast(DataSource, DataTable)
+
                 End If
 #End Region
                 For Each DataColumn As DataColumn In Table.Columns
                     Dim NewColumn = Columns.Add(New Column(DataColumn))
+                    Columns.SizeColumn(NewColumn)
                 Next
-                If Table.AsEnumerable.Any Then
+                If Table_.AsEnumerable.Any Then
                     Bar_Spin.Value = 0
                     RaiseEvent RowsLoading(Me, Nothing)
-                    Dim RowIndex As Integer = 0
                     For Each _DataRow As DataRow In Table.Rows
-                        Rows.Add(New Row(_DataRow))
-                        For Column = 0 To Table.Columns.Count - 1
-                            Dim CellValue = _DataRow(Column)
-                            'VALUES DICTIONARY IS USED TO DETERMINE COLUMN TYPE AND FORMATTING
-                            'TRIAL LIMITING TO 250 NON-EMPTY VALUES FOR SPEED
-                            If IsDBNull(CellValue) Then
-                                'Columns(Column).Values.Add(RowIndex, Nothing)
-                            Else
-                                If Columns(Column).Values.Count <= 250 Then Columns(Column).Values.Add(RowIndex, CellValue)
-                            End If
-                        Next
-                        RowIndex += 1
+                        AddRow(_DataRow)
                     Next
                     RaiseEvent RowsLoaded(Me, Nothing)
-                    Invalidate()
                     Columns.AutoSize()
                 End If
             End If
 
         End Set
     End Property
+    Private Sub AddRow(NewRow As DataRow)
+
+        Rows.Add(New Row(NewRow))
+        For Column = 0 To Table.Columns.Count - 1
+            Dim CellValue = NewRow(Column)
+            'VALUES DICTIONARY IS USED TO DETERMINE COLUMN TYPE AND FORMATTING
+            'TRIAL LIMITING TO 250 NON-EMPTY VALUES FOR SPEED
+            If IsDBNull(CellValue) Then
+                'Columns(Column).Values.Add(RowIndex, Nothing)
+            Else
+                If Columns(Column).Values.Count <= 250 Then Columns(Column).Values.Add(Rows.Count, CellValue)
+            End If
+        Next
+
+    End Sub
+    Private Sub TableRowAdd(sender As Object, e As DataRowChangeEventArgs) Handles Table_.RowChanged
+
+        If e.Action = DataRowAction.Add Then
+            AddRow(e.Row)
+            RowTimer.Start()
+        End If
+
+    End Sub
+    Private Sub RowTimer_Tick() Handles RowTimer.Tick
+        RowTimer.Stop()
+        Columns.AutoSize()
+        Invalidate()
+    End Sub
+    Private Sub BindingSource_Changed(sender As Object, e As EventArgs) Handles BindingSource.CurrentChanged
+
+    End Sub
+
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Public Sub Clear()
         'Columns_.Dispose()
@@ -721,7 +751,7 @@ Public Class DataViewer
                         With .Column
                             .Width += Delta
                             Dim Bullets As New Dictionary(Of String, List(Of String)) From {
-                            { .Text, {"Type is " & .Format.Key, "Width=" & .HeadBounds.Width, "Content Width=" & .ContentWidth, "Row Count=" & Rows.Count, "Sort Order is " & .SortOrder.ToString}.ToList}
+                            { .Text, {"Type is " & .Format.Key.ToString, "Width=" & .HeadBounds.Width, "Content Width=" & .ContentWidth, "Row Count=" & Rows.Count, "Sort Order is " & .SortOrder.ToString, "Alignment is " & .Alignment.ToString}.ToList}
                         }
                             ColumnHeadTip.SetToolTip(Me, Bulletize(Bullets))
                         End With
@@ -794,24 +824,24 @@ Public Class DataViewer
                                 .SortOrder = SortOrder.Ascending
                             End If
                             Select Case .Format.Key
-                                Case "Text", "Image"
+                                Case Column.TypeGroup.Strings, Column.TypeGroup.Images
                                     If .SortOrder = SortOrder.Ascending Then Rows.Sort(Function(x, y) String.Compare(Convert.ToString(x.Cell(.Name), InvariantCulture), Convert.ToString(y.Cell(.Name), InvariantCulture), StringComparison.Ordinal))
                                     If .SortOrder = SortOrder.Descending Then Rows.Sort(Function(y, x) String.Compare(Convert.ToString(x.Cell(.Name), InvariantCulture), Convert.ToString(y.Cell(.Name), InvariantCulture), StringComparison.Ordinal))
 
-                                Case "Integer"
+                                Case Column.TypeGroup.Integers
                                     If .SortOrder = SortOrder.Ascending Then Rows.Sort(Function(x, y) Convert.ToInt64(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToInt64(y.Cell(.Name), InvariantCulture)))
                                     If .SortOrder = SortOrder.Descending Then Rows.Sort(Function(y, x) Convert.ToInt64(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToInt64(y.Cell(.Name), InvariantCulture)))
 
 
-                                Case "Decimal"
+                                Case Column.TypeGroup.Decimals
                                     If .SortOrder = SortOrder.Ascending Then Rows.Sort(Function(x, y) Convert.ToDecimal(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToDecimal(y.Cell(.Name), InvariantCulture)))
                                     If .SortOrder = SortOrder.Descending Then Rows.Sort(Function(y, x) Convert.ToDecimal(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToDecimal(y.Cell(.Name), InvariantCulture)))
 
-                                Case "Date", "Time"
+                                Case Column.TypeGroup.Dates, Column.TypeGroup.Times
                                     If .SortOrder = SortOrder.Ascending Then Rows.Sort(Function(x, y) Convert.ToDateTime(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToDateTime(y.Cell(.Name), InvariantCulture)))
                                     If .SortOrder = SortOrder.Descending Then Rows.Sort(Function(y, x) Convert.ToDateTime(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToDateTime(y.Cell(.Name), InvariantCulture)))
 
-                                Case "Boolean"
+                                Case Column.TypeGroup.Booleans
                                     If .SortOrder = SortOrder.Ascending Then Rows.Sort(Function(x, y) Convert.ToBoolean(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToBoolean(y.Cell(.Name), InvariantCulture)))
                                     If .SortOrder = SortOrder.Descending Then Rows.Sort(Function(y, x) Convert.ToBoolean(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToBoolean(y.Cell(.Name), InvariantCulture)))
 
@@ -1085,9 +1115,14 @@ Public Class ColumnCollection
 
     End Sub
     Private WithEvents ColumnsWorker As New BackgroundWorker With {.WorkerReportsProgress = True, .WorkerSupportsCancellation = True}
-    Public Sub AutoSize()
+    Friend Sub FormatSize()             ' I N I T I A L  F O R M A T + S I Z I N G
         RaiseEvent CollectionSizingStart(Me, Nothing)
         ColumnsWorker.RunWorkerAsync()
+    End Sub
+    Public Sub AutoSize()
+        For Each Column In Me
+            SizeColumn(Column)
+        Next
     End Sub
     Public Sub DistibuteWidths()
 
@@ -1116,69 +1151,7 @@ Public Class ColumnCollection
         If Not IsBusy Then
             _IsBusy = True
             For Each Column In Where(Function(c) c.Visible)
-                With Column
-                    ._DataType = GetDataType(.Values.Values.ToList)
-                    .DataStart = Now
-                    .Formatted_ = False
-#Region " ALIGNMENT "
-                    Select Case .DataType
-                        Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long), GetType(Date)
-                            .GridStyle.Alignment = ContentAlignment.MiddleCenter
-
-                        Case GetType(Decimal), GetType(Double)
-                            .GridStyle.Alignment = ContentAlignment.MiddleRight
-
-                        Case GetType(String), GetType(Boolean)
-                            .GridStyle.Alignment = ContentAlignment.MiddleLeft
-
-                    End Select
-#End Region
-#Region " FORMAT "
-                    Select Case .DataType
-                        Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)
-                            .Format = New KeyValuePair(Of String, String)("Integer", String.Empty)
-                            .DefaultValue = 0
-
-                        Case GetType(Date)
-                            Dim DateValue As Date
-                            Dim Dates As New List(Of Date)(From D In .Values Where Date.TryParse(Convert.ToString(D.Value, InvariantCulture), DateValue) Select Date.Parse(D.Value.ToString, InvariantCulture))
-                            REM /// TEST IF ALWAYS MIDNIGHT
-                            Dim CultureInfo = Threading.Thread.CurrentThread.CurrentCulture
-                            If Dates.Count = (From D In Dates Where D.TimeOfDay.Ticks = 0 Select D).Count Then
-                                .Format = New KeyValuePair(Of String, String)("Date", CultureInfo.DateTimeFormat.ShortDatePattern)
-                            Else
-                                .Format = New KeyValuePair(Of String, String)("Time", Microsoft.VisualBasic.Join({CultureInfo.DateTimeFormat.ShortDatePattern, "@", CultureInfo.DateTimeFormat.ShortTimePattern}))
-                            End If
-                            .DefaultValue = New Date
-
-                        Case GetType(Decimal), GetType(Double)
-                            .Format = New KeyValuePair(Of String, String)("Decimal", "C2")
-                            .DefaultValue = 0
-
-                        Case GetType(String)
-                            .Format = New KeyValuePair(Of String, String)("Text", String.Empty)
-                            Dim BooleanValue As Boolean
-                            Dim Booleans As New List(Of Boolean)(From N In .Values Select Boolean.TryParse(Convert.ToString(N.Value, InvariantCulture), BooleanValue))
-                            Booleans = Booleans.Distinct.ToList
-                            Dim Images = From N In .Values Where Convert.ToString(N.Value, InvariantCulture).StartsWith("iVBORw0KGgo", StringComparison.InvariantCulture)
-                            If Booleans.Count = 1 AndAlso Booleans.First = True Then
-                                .Format = New KeyValuePair(Of String, String)("Boolean", String.Empty)
-                            ElseIf Images.Any Then
-                                .Format = New KeyValuePair(Of String, String)("Image", String.Empty)
-                            Else
-                                .Format = New KeyValuePair(Of String, String)("Text", String.Empty)
-                            End If
-                            .DefaultValue = String.Empty
-
-                        Case GetType(Boolean)
-                            .Format = New KeyValuePair(Of String, String)("Boolean", String.Empty)
-                            .DefaultValue = False
-
-                    End Select
-#End Region
-                    .DataEnd = Now
-                    .Formatted_ = True
-                End With
+                Column.Format = Column.Get_kvpFormat(GetDataType(Column.Values.Values.ToList))
                 SizeColumn(Column, True)
                 If ColumnsWorker.CancellationPending Then Exit For
             Next
@@ -1188,17 +1161,19 @@ Public Class ColumnCollection
     Friend Sub SizeColumn(ColumnItem As Column, Optional BackgroundProcess As Boolean = False)
 
         With ColumnItem
-            .SizeStart = Now
             If .Values.Any Then
-                If .Format.Key = "Image" Then
-                    .ContentWidth = (From V In .Values Select Base64ToImage(V.Value.ToString).Width).Max
+                If .Format.Key = Column.TypeGroup.Images Then
+                    If .DataType Is GetType(Image) Then
+                        .ContentWidth = (From V In .Values Select TryCast(V.Value, Image).Width).Max
+                    Else
+                        .ContentWidth = (From V In .Values Select Base64ToImage(V.Value.ToString).Width).Max
+                    End If
                 Else
                     .ContentWidth = (From V In .Values Select TextRenderer.MeasureText(Format(V.Value, .Format.Value), If(V.Key Mod 2 = 0, Parent.Rows.RowStyle.Font, Parent.Rows.AlternatingRowStyle.Font)).Width).Max
                 End If
             End If
             .Width = { .HeadWidth, .ContentWidth, .MinimumWidth}.Max
             ColumnsLeft()
-            .SizeEnd = Now
         End With
         If BackgroundProcess Then ColumnsWorker.ReportProgress({0, ColumnItem.Index}.Max)
 
@@ -1246,16 +1221,56 @@ End Class
 '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 <Serializable()> Public Class Column
     Implements IDisposable
+    Friend Enum TypeGroup
+        Booleans
+        Decimals
+        Integers
+        Dates
+        Times
+        Images
+        Strings
+        None
+    End Enum
     Public Sub New(NewColumn As DataColumn)
 
         If NewColumn IsNot Nothing Then
             With NewColumn
                 Name = .ColumnName
                 Table = .Table
+                _DataType = NewColumn.DataType
+                Format = Get_kvpFormat(NewColumn.DataType)
             End With
         End If
 
     End Sub
+    Friend Function Get_kvpFormat(ColumnDataType As Type) As KeyValuePair(Of TypeGroup, String)
+
+        Select Case ColumnDataType
+            Case GetType(Boolean)
+                Return New KeyValuePair(Of TypeGroup, String)(TypeGroup.Booleans, String.Empty)
+
+            Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)
+                Return New KeyValuePair(Of TypeGroup, String)(TypeGroup.Integers, String.Empty)
+
+            Case GetType(Date)
+                Dim CultureInfo = Threading.Thread.CurrentThread.CurrentCulture
+                Return New KeyValuePair(Of TypeGroup, String)(TypeGroup.Dates, CultureInfo.DateTimeFormat.ShortDatePattern)
+
+            Case GetType(Decimal), GetType(Double)
+                Return New KeyValuePair(Of TypeGroup, String)(TypeGroup.Decimals, "C2")
+
+            Case GetType(Image), GetType(Bitmap), GetType(Icon)
+                Return New KeyValuePair(Of TypeGroup, String)(TypeGroup.Images, String.Empty)
+
+            Case GetType(String)
+                Return New KeyValuePair(Of TypeGroup, String)(TypeGroup.Strings, String.Empty)
+
+            Case Else
+                Return New KeyValuePair(Of TypeGroup, String)(TypeGroup.None, String.Empty)
+
+        End Select
+
+    End Function
     Public Property DefaultValue As Object
     <NonSerialized> Friend Parent_ As ColumnCollection
     Public ReadOnly Property Parent As ColumnCollection
@@ -1265,41 +1280,6 @@ End Class
     End Property
     Public ReadOnly Property Table As DataTable
     Public ReadOnly Property Alignment As TextFormatFlags
-        Get
-            Select Case GridStyle.Alignment
-                Case ContentAlignment.BottomCenter
-                    Return TextFormatFlags.Bottom Or TextFormatFlags.HorizontalCenter
-
-                Case ContentAlignment.BottomLeft
-                    Return TextFormatFlags.Bottom Or TextFormatFlags.Left
-
-                Case ContentAlignment.BottomRight
-                    Return TextFormatFlags.Bottom Or TextFormatFlags.Right
-
-                Case ContentAlignment.MiddleCenter
-                    Return TextFormatFlags.VerticalCenter Or TextFormatFlags.HorizontalCenter
-
-                Case ContentAlignment.MiddleLeft
-                    Return TextFormatFlags.VerticalCenter Or TextFormatFlags.Left
-
-                Case ContentAlignment.MiddleRight
-                    Return TextFormatFlags.VerticalCenter Or TextFormatFlags.Right
-
-                Case ContentAlignment.TopCenter
-                    Return TextFormatFlags.Top Or TextFormatFlags.HorizontalCenter
-
-                Case ContentAlignment.TopLeft
-                    Return TextFormatFlags.Top Or TextFormatFlags.Left
-
-                Case ContentAlignment.TopRight
-                    Return TextFormatFlags.Top Or TextFormatFlags.Right
-
-                Case Else
-                    Return TextFormatFlags.VerticalCenter Or TextFormatFlags.HorizontalCenter
-
-            End Select
-        End Get
-    End Property
     Friend _Index As Integer = 0
     Public ReadOnly Property Index As Integer
         Get
@@ -1421,7 +1401,7 @@ End Class
             End If
         End Get
         Set(value As Integer)
-            If _Width <> value Then
+            If _Width <> value And Visible Then
                 If value < 2 Then value = 2
                 'value = {value, MinimumWidth}.Max
                 _Width = value
@@ -1512,14 +1492,73 @@ End Class
     ReadOnly Property HeadBounds As New Rectangle(0, 0, 0, 0)
     Public ReadOnly Property GridBounds As New Rectangle(0, 0, 0, 0)
     ReadOnly Property EdgeBounds As New Rectangle(0, 0, 0, 0)
-    Private _Format As New KeyValuePair(Of String, String)("Text", String.Empty)
-    Property Format() As KeyValuePair(Of String, String)
+    Private _Format As New KeyValuePair(Of TypeGroup, String)(TypeGroup.None, String.Empty)
+    Friend Property Format() As KeyValuePair(Of TypeGroup, String)
         Get
             Return _Format
         End Get
-        Set(ByVal value As KeyValuePair(Of String, String))
+        Set(ByVal value As KeyValuePair(Of TypeGroup, String))
             If _Format.Key <> value.Key Then
                 _Format = value
+                Select Case Format.Key
+                    Case TypeGroup.Booleans
+                        GridStyle.Alignment = ContentAlignment.MiddleCenter
+                        DefaultValue = String.Empty
+
+                    Case TypeGroup.Dates, TypeGroup.Times
+                        GridStyle.Alignment = ContentAlignment.MiddleCenter
+                        DefaultValue = New Date
+
+                    Case TypeGroup.Decimals
+                        GridStyle.Alignment = ContentAlignment.MiddleRight
+                        DefaultValue = 0
+
+                    Case TypeGroup.Images
+                        GridStyle.Alignment = ContentAlignment.MiddleCenter
+                        DefaultValue = Nothing
+
+                    Case TypeGroup.Integers
+                        GridStyle.Alignment = ContentAlignment.MiddleCenter
+                        DefaultValue = 0
+
+                    Case TypeGroup.Strings
+                        GridStyle.Alignment = ContentAlignment.MiddleLeft
+                        DefaultValue = String.Empty
+
+                End Select
+                Select Case GridStyle.Alignment
+                    Case ContentAlignment.BottomCenter
+                        _Alignment = TextFormatFlags.Bottom Or TextFormatFlags.HorizontalCenter
+
+                    Case ContentAlignment.BottomLeft
+                        _Alignment = TextFormatFlags.Bottom Or TextFormatFlags.Left
+
+                    Case ContentAlignment.BottomRight
+                        _Alignment = TextFormatFlags.Bottom Or TextFormatFlags.Right
+
+                    Case ContentAlignment.MiddleCenter
+                        _Alignment = TextFormatFlags.VerticalCenter Or TextFormatFlags.HorizontalCenter
+
+                    Case ContentAlignment.MiddleLeft
+                        _Alignment = TextFormatFlags.VerticalCenter Or TextFormatFlags.Left
+
+                    Case ContentAlignment.MiddleRight
+                        _Alignment = TextFormatFlags.VerticalCenter Or TextFormatFlags.Right
+
+                    Case ContentAlignment.TopCenter
+                        _Alignment = TextFormatFlags.Top Or TextFormatFlags.HorizontalCenter
+
+                    Case ContentAlignment.TopLeft
+                        _Alignment = TextFormatFlags.Top Or TextFormatFlags.Left
+
+                    Case ContentAlignment.TopRight
+                        _Alignment = TextFormatFlags.Top Or TextFormatFlags.Right
+
+                    Case Else
+                        _Alignment = TextFormatFlags.VerticalCenter Or TextFormatFlags.HorizontalCenter
+
+                End Select
+                ViewerInvalidate()
             End If
         End Set
     End Property
@@ -1569,7 +1608,7 @@ End Class
         End If
         HeadWidth = SortBounds.Right - Left
 
-        If Not Formatted Then _Width = HeadWidth
+        'If Not Formatted Then _Width = HeadWidth
 
         If ImageBounds.Height > Height Then
             Height = ImageBounds.Height
@@ -1603,16 +1642,6 @@ End Class
         End If
 
     End Sub
-    Friend Formatted_ As Boolean = False
-    Friend ReadOnly Property Formatted As Boolean
-        Get
-            Return Formatted_
-        End Get
-    End Property
-    Friend Property DataStart As Date
-    Friend Property DataEnd As Date
-    Friend Property SizeStart As Date
-    Friend Property SizeEnd As Date
     Public Sub AutoSize()
         If Parent IsNot Nothing Then Parent.SizeColumn(Me)
     End Sub
@@ -1719,7 +1748,7 @@ Public Class RowCollection
     Public ReadOnly Property OddRowHeight As Integer = 16
     Public ReadOnly Property RowHeight As Integer
         Get
-            Return {_EvenRowHeight, _OddRowHeight}.Max
+            Return {_EvenRowHeight, _OddRowHeight, ImageRowHeight}.Max
         End Get
     End Property
     Public ReadOnly Property Selected As List(Of Row)
@@ -1730,27 +1759,29 @@ Public Class RowCollection
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Public Shadows Function Add(ByVal NewRow As Row) As Row
 
-            If NewRow IsNot Nothing Then
-                NewRow._Parent = Me
-                If Count = 0 Then _EvenRowHeight = TextRenderer.MeasureText("XXXXXXXXXXX".ToString(InvariantCulture), RowStyle.Font).Height
-                If Count = 1 Then _OddRowHeight = TextRenderer.MeasureText("XXXXXXXXXXX".ToString(InvariantCulture), AlternatingRowStyle.Font).Height
-                MyBase.Add(NewRow)
-                AddTimer.Start()
-            End If
-            Return NewRow
+        If NewRow IsNot Nothing Then
+            NewRow._Parent = Me
+            If Count = 0 Then _EvenRowHeight = TextRenderer.MeasureText("XXXXXXXXXXX".ToString(InvariantCulture), RowStyle.Font).Height
+            If Count = 1 Then _OddRowHeight = TextRenderer.MeasureText("XXXXXXXXXXX".ToString(InvariantCulture), AlternatingRowStyle.Font).Height
+            If NewRow.ImageHeight > ImageRowHeight Then ImageRowHeight = NewRow.ImageHeight
+            MyBase.Add(NewRow)
+            AddTimer.Start()
+        End If
+        Return NewRow
 
         End Function
     Private Sub ReBoundsHead(sender As Object, e As StyleEventArgs) Handles HeaderStyle_.PropertyChanged
 
     End Sub
     Private Sub ReBoundsEven(sender As Object, e As StyleEventArgs) Handles RowStyle_.PropertyChanged
-        _EvenRowHeight = TextRenderer.MeasureText("XXXXXXXXXXX".ToString(InvariantCulture), RowStyle.Font).Height
+        _EvenRowHeight = {ImageRowHeight, TextRenderer.MeasureText("XXXXXXXXXXX".ToString(InvariantCulture), RowStyle.Font).Height}.Max
         Parent.Invalidate()
     End Sub
     Private Sub ReBoundsOdd(sender As Object, e As StyleEventArgs) Handles AlternatingRowStyle_.PropertyChanged
-        _OddRowHeight = TextRenderer.MeasureText("XXXXXXXXXXX".ToString(InvariantCulture), AlternatingRowStyle.Font).Height
+        _OddRowHeight = {ImageRowHeight, TextRenderer.MeasureText("XXXXXXXXXXX".ToString(InvariantCulture), AlternatingRowStyle.Font).Height}.Max
         Parent.Invalidate()
     End Sub
+    Private ImageRowHeight As Integer = RowHeight
 #Region "IDisposable Support"
     Private DisposedValue As Boolean ' To detect redundant calls IDisposable
         Protected Overridable Sub Dispose(disposing As Boolean)
@@ -1786,9 +1817,12 @@ Public Class RowCollection
         If NewDataRow IsNot Nothing Then
             _DataRow = NewDataRow
             Table = NewDataRow.Table
+            Dim ImageHeights As New List(Of Integer)((From c In NewDataRow.ItemArray Where c.GetType Is GetType(Image) Or c.GetType Is GetType(Bitmap) Select TryCast(c, Image).Height))
+            If ImageHeights.Any Then ImageHeight = 2 + ImageHeights.Max + 2
         End If
 
     End Sub
+    Friend ReadOnly Property ImageHeight As Integer
     <NonSerialized> Friend _Parent As RowCollection
     Public ReadOnly Property Parent As RowCollection
         Get
