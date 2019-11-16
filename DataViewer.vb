@@ -167,7 +167,7 @@ Public Class DataViewer
                             If Not IsNothing(.Image) Then e.Graphics.DrawImage(.Image, ImageBounds)
 #End Region
 #Region " DRAW HEADER TEXT "
-                            Dim TextBounds As Rectangle = .TextBounds
+                            Dim TextBounds As Rectangle = New Rectangle(.TextBounds.X, .TextBounds.Top, .HeadBounds.Width - .FilterBounds.Width - .SortBounds.Width, .TextBounds.Height)
                             TextBounds.Offset(-HScroll.Value, 0)
                             TextRenderer.DrawText(e.Graphics, .Text, .HeaderStyle.Font, TextBounds, .HeaderStyle.ForeColor, Color.Transparent, TextFormatFlags.VerticalCenter Or TextFormatFlags.HorizontalCenter)
 #End Region
@@ -447,6 +447,38 @@ Public Class DataViewer
     Public Event Alert(sender As Object, e As AlertEventArgs)
 #End Region
 #Region " PROPERTIES - FUNCTIONS - METHODS "
+    Public Sub SortBy(Column As Column)
+
+        If Column IsNot Nothing Then
+            With Column
+                Select Case .Format.Key
+                    Case Column.TypeGroup.Strings, Column.TypeGroup.Images
+                        If .SortOrder = SortOrder.Ascending Then Rows.Sort(Function(x, y) String.Compare(Convert.ToString(x.Cell(.Name), InvariantCulture), Convert.ToString(y.Cell(.Name), InvariantCulture), StringComparison.Ordinal))
+                        If .SortOrder = SortOrder.Descending Then Rows.Sort(Function(y, x) String.Compare(Convert.ToString(x.Cell(.Name), InvariantCulture), Convert.ToString(y.Cell(.Name), InvariantCulture), StringComparison.Ordinal))
+
+                    Case Column.TypeGroup.Integers
+                        If .SortOrder = SortOrder.Ascending Then Rows.Sort(Function(x, y) Convert.ToInt64(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToInt64(y.Cell(.Name), InvariantCulture)))
+                        If .SortOrder = SortOrder.Descending Then Rows.Sort(Function(y, x) Convert.ToInt64(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToInt64(y.Cell(.Name), InvariantCulture)))
+
+
+                    Case Column.TypeGroup.Decimals
+                        If .SortOrder = SortOrder.Ascending Then Rows.Sort(Function(x, y) Convert.ToDecimal(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToDecimal(y.Cell(.Name), InvariantCulture)))
+                        If .SortOrder = SortOrder.Descending Then Rows.Sort(Function(y, x) Convert.ToDecimal(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToDecimal(y.Cell(.Name), InvariantCulture)))
+
+                    Case Column.TypeGroup.Dates, Column.TypeGroup.Times
+                        If .SortOrder = SortOrder.Ascending Then Rows.Sort(Function(x, y) Convert.ToDateTime(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToDateTime(y.Cell(.Name), InvariantCulture)))
+                        If .SortOrder = SortOrder.Descending Then Rows.Sort(Function(y, x) Convert.ToDateTime(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToDateTime(y.Cell(.Name), InvariantCulture)))
+
+                    Case Column.TypeGroup.Booleans
+                        If .SortOrder = SortOrder.Ascending Then Rows.Sort(Function(x, y) Convert.ToBoolean(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToBoolean(y.Cell(.Name), InvariantCulture)))
+                        If .SortOrder = SortOrder.Descending Then Rows.Sort(Function(y, x) Convert.ToBoolean(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToBoolean(y.Cell(.Name), InvariantCulture)))
+
+                End Select
+            End With
+            Invalidate()
+        End If
+
+    End Sub
     Private WithEvents Table_ As DataTable
     Public ReadOnly Property Table As DataTable
         Get
@@ -817,37 +849,15 @@ Public Class DataViewer
             With _MouseData
                 If e IsNot Nothing And .CurrentAction = MouseInfo.Action.MouseOverHead And .Column IsNot Nothing Then
                     If e.Button = MouseButtons.Left Then
-                        With .Column
-                            If .SortOrder = SortOrder.Ascending Then
-                                .SortOrder = SortOrder.Descending
-                            Else
-                                .SortOrder = SortOrder.Ascending
-                            End If
-                            Select Case .Format.Key
-                                Case Column.TypeGroup.Strings, Column.TypeGroup.Images
-                                    If .SortOrder = SortOrder.Ascending Then Rows.Sort(Function(x, y) String.Compare(Convert.ToString(x.Cell(.Name), InvariantCulture), Convert.ToString(y.Cell(.Name), InvariantCulture), StringComparison.Ordinal))
-                                    If .SortOrder = SortOrder.Descending Then Rows.Sort(Function(y, x) String.Compare(Convert.ToString(x.Cell(.Name), InvariantCulture), Convert.ToString(y.Cell(.Name), InvariantCulture), StringComparison.Ordinal))
+                        'Change the sort order
+                        If .Column.SortOrder = SortOrder.Ascending Then
+                            .Column.SortOrder = SortOrder.Descending
 
-                                Case Column.TypeGroup.Integers
-                                    If .SortOrder = SortOrder.Ascending Then Rows.Sort(Function(x, y) Convert.ToInt64(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToInt64(y.Cell(.Name), InvariantCulture)))
-                                    If .SortOrder = SortOrder.Descending Then Rows.Sort(Function(y, x) Convert.ToInt64(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToInt64(y.Cell(.Name), InvariantCulture)))
+                        Else
+                            .Column.SortOrder = SortOrder.Ascending
 
-
-                                Case Column.TypeGroup.Decimals
-                                    If .SortOrder = SortOrder.Ascending Then Rows.Sort(Function(x, y) Convert.ToDecimal(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToDecimal(y.Cell(.Name), InvariantCulture)))
-                                    If .SortOrder = SortOrder.Descending Then Rows.Sort(Function(y, x) Convert.ToDecimal(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToDecimal(y.Cell(.Name), InvariantCulture)))
-
-                                Case Column.TypeGroup.Dates, Column.TypeGroup.Times
-                                    If .SortOrder = SortOrder.Ascending Then Rows.Sort(Function(x, y) Convert.ToDateTime(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToDateTime(y.Cell(.Name), InvariantCulture)))
-                                    If .SortOrder = SortOrder.Descending Then Rows.Sort(Function(y, x) Convert.ToDateTime(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToDateTime(y.Cell(.Name), InvariantCulture)))
-
-                                Case Column.TypeGroup.Booleans
-                                    If .SortOrder = SortOrder.Ascending Then Rows.Sort(Function(x, y) Convert.ToBoolean(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToBoolean(y.Cell(.Name), InvariantCulture)))
-                                    If .SortOrder = SortOrder.Descending Then Rows.Sort(Function(y, x) Convert.ToBoolean(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToBoolean(y.Cell(.Name), InvariantCulture)))
-
-                            End Select
-                        End With
-                        Invalidate()
+                        End If
+                        SortBy(.Column)
                     Else
                         'Dim Bullets As New List(Of String) From {"Paint Count=" & PaintCount,
                         '"Rows Count=" & Rows.Count,
@@ -953,7 +963,7 @@ Public Class ColumnCollection
             End If
         End Get
     End Property
-    Private HeaderStyle_ As New CellStyle With {.BackColor = Color.Black, .ShadeColor = Color.Purple, .ForeColor = Color.White, .Font = New Font("Century Gothic", 9)}
+    Private HeaderStyle_ As New CellStyle With {.BackColor = Color.Black, .ShadeColor = Color.Purple, .ForeColor = Color.White, .Font = New Font("Century Gothic", 9, FontStyle.Bold)}
     Public Property HeaderStyle As CellStyle
         Get
             Return HeaderStyle_

@@ -453,69 +453,73 @@ Public Class Prompt
         RowBWidth = CInt(y * x2yRatio)
         '==============================
         'Ensure extra long words are considered
-        Dim WordDictionary As New Dictionary(Of Integer, String)
         Dim Words As New List(Of Integer)(From rm In RegexMatches(BodyMessage, "[^ ]{1,}", RegexOptions.None) Select MeasureText(rm.Value, Font).Width)
         If Words.Max > RowBWidth Then
             'If a word is wider than the derived width the expand the width but if the word appears in the RowsA section, then add IconZoneWH as this value is subtracted below: Dim LinesA = WrapWords(BodyMessage, Font, RowBWidth - *** IconZoneWH *** )
             'Dim LinesA = WrapWords(BodyMessage, Font, RowBWidth - IconZoneWH) makes an empty String if too long ... so remove empty strings - easy fix
         End If
-        RowBWidth = {RowBWidth, SideBorderWidths + Words.Max + SideBorderWidths}.Max
 #End Region
+
+        Dim Attempts As Integer
         Dim RowsABHeight As Integer = 0
+        Do
+            RowBWidth = {RowBWidth, SideBorderWidths + Words.Max + SideBorderWidths, MinimumSize.Width}.Max
 #Region " #1 - Get TextHeight "
-        Dim RowsA As New Dictionary(Of Rectangle, String)
-        Dim RowsB As New Dictionary(Of Rectangle, String)
-        Dim LinesA = WrapWords(BodyMessage, Font, RowBWidth - IconZoneWH)
-        Dim LinesB As New Dictionary(Of Integer, String)
+            Dim RowsA As New Dictionary(Of Rectangle, String)
+            Dim RowsB As New Dictionary(Of Rectangle, String)
+            Dim LinesA = WrapWords(BodyMessage, Font, RowBWidth - IconZoneWH)
+            Dim LinesB As New Dictionary(Of Integer, String)
 
-        Dim LineHeight As Integer = MeasureText("|".ToUpperInvariant, Font).Height
-        Dim LineIndex As Integer = 0
-        Dim WidenText As Boolean = False
+            Dim LineHeight As Integer = MeasureText("|".ToUpperInvariant, Font).Height
+            Dim LineIndex As Integer = 0
+            Dim WidenText As Boolean = False
 
-        For Each Line In LinesA.Where(Function(l) l.Value.Any)
-            If LineIndex * LineHeight >= IconZoneWH Then
-                Dim RemainingText = Join(LinesA.Values.Skip(LineIndex).ToArray)
-                LinesB = WrapWords(RemainingText, Font, RowBWidth)
-                Exit For
+            For Each Line In LinesA.Where(Function(l) l.Value.Any)
+                If LineIndex * LineHeight >= IconZoneWH Then
+                    Dim RemainingText = Join(LinesA.Values.Skip(LineIndex).ToArray)
+                    LinesB = WrapWords(RemainingText, Font, RowBWidth)
+                    Exit For
 
-            Else
-                Dim TopRightIconPoint As New Point(IconZoneWH, LineIndex * LineHeight)
-                RowsA.Add(New Rectangle(TopRightIconPoint, New Size(If(WidenText, SideBorderWidths, 0) + RowBWidth - TopRightIconPoint.X, LineHeight)), Line.Value)
-                TextBounds.Add(RowsA.Last.Key, RowsA.Last.Value)
+                Else
+                    Dim TopRightIconPoint As New Point(IconZoneWH, LineIndex * LineHeight)
+                    RowsA.Add(New Rectangle(TopRightIconPoint, New Size(If(WidenText, SideBorderWidths, 0) + RowBWidth - TopRightIconPoint.X, LineHeight)), Line.Value)
+                    TextBounds.Add(RowsA.Last.Key, RowsA.Last.Value)
 
-            End If
-            LineIndex += 1
-        Next
-        For Each Line In LinesB
-            RowsB.Add(New Rectangle(New Point(0, LineIndex * LineHeight), New Size(If(WidenText, SideBorderWidths, 0) + RowBWidth, LineHeight)), Line.Value)
-            TextBounds.Add(RowsB.Last.Key, RowsB.Last.Value)
-            LineIndex += 1
-        Next
-        RowsABHeight = (RowsA.Count + RowsB.Count) * LineHeight
+                End If
+                LineIndex += 1
+            Next
+            For Each Line In LinesB
+                RowsB.Add(New Rectangle(New Point(0, LineIndex * LineHeight), New Size(If(WidenText, SideBorderWidths, 0) + RowBWidth, LineHeight)), Line.Value)
+                TextBounds.Add(RowsB.Last.Key, RowsB.Last.Value)
+                LineIndex += 1
+            Next
+            RowsABHeight = (RowsA.Count + RowsB.Count) * LineHeight
 #End Region
-        If RowsA.Any Then
-            Dim RowsABottom As Integer = RowsA.Last.Key.Bottom
-            If RowsABottom > IconZoneWH Then
-                'Center Icon between Text Rows
-                Dim yOffset = CInt((RowsABottom - Icon.Height) / 2)
-                _IconBounds = New Rectangle(IconPadding, yOffset, Icon.Width, Icon.Height)
+            If RowsA.Any Then
+                Dim RowsABottom As Integer = RowsA.Last.Key.Bottom
+                If RowsABottom > IconZoneWH Then
+                    'Center Icon between Text Rows
+                    Dim yOffset = CInt((RowsABottom - Icon.Height) / 2)
+                    _IconBounds = New Rectangle(IconPadding, yOffset, Icon.Width, Icon.Height)
 
-            ElseIf IconZoneWH > RowsABottom And Not RowsB.Any Then
-                'Center Text between IconZone
-                Dim RowOffset As Integer = CInt((IconZoneWH - RowsABottom) / 2)
-                TextBounds.Clear()
-                For Each Row In RowsA
-                    TextBounds.Add(New Rectangle(Row.Key.X, Row.Key.Y + RowOffset, Row.Key.Width, Row.Key.Height), Row.Value)
-                Next
-                _IconBounds = New Rectangle(IconPadding, IconPadding, Icon.Width, Icon.Height)
+                ElseIf IconZoneWH > RowsABottom And Not RowsB.Any Then
+                    'Center Text between IconZone
+                    Dim RowOffset As Integer = CInt((IconZoneWH - RowsABottom) / 2)
+                    TextBounds.Clear()
+                    For Each Row In RowsA
+                        TextBounds.Add(New Rectangle(Row.Key.X, Row.Key.Y + RowOffset, Row.Key.Width, Row.Key.Height), Row.Value)
+                    Next
+                    _IconBounds = New Rectangle(IconPadding, IconPadding, Icon.Width, Icon.Height)
 
-            Else
-                'Text height in top rows matches the height of the Icon
-                _IconBounds = New Rectangle(IconPadding, IconPadding, Icon.Width, Icon.Height)
+                Else
+                    'Text height in top rows matches the height of the Icon
+                    _IconBounds = New Rectangle(IconPadding, IconPadding, Icon.Width, Icon.Height)
+                End If
             End If
-        End If
-
-        Width = (SideBorderWidths * 2) + {TextBounds.Max(Function(x) x.Key.Right), GridBounds.Right}.Max
+            Width = (SideBorderWidths * 2) + {TextBounds.Max(Function(x) x.Key.Right), GridBounds.Right}.Max
+            RowBWidth += CInt(Words.Average)
+            Attempts += 1
+        Loop While attempts < 7 Or RowBWidth / {RowsABHeight, 1}.max < 2
         Dim ButtonBarTop As Integer = IconPadding + {TextBounds.Keys.Last.Bottom, IconBounds.Bottom}.Max
 
 #Region " GRID WIDTH / HEIGHT / PLACEMENT  / VISIBILITY "
