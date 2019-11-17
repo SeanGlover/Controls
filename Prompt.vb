@@ -54,6 +54,7 @@ Public Class Prompt
         MaximumSize = New Size(Convert.ToInt32(0.7 * WorkingSpace.Width), Convert.ToInt32(0.7 * WorkingSpace.Height))
         Controls.Add(Table)
         Controls.AddRange({OK, YES, NO})
+        KeyPreview = True
 
     End Sub
 #Region " PROPERTIES "
@@ -314,6 +315,14 @@ Public Class Prompt
         MyBase.OnFontChanged(e)
 
     End Sub
+    Private Sub Keyed(sender As Object, e As KeyEventArgs) Handles Me.KeyDown
+
+        If e.KeyCode = Keys.C AndAlso Control.ModifierKeys = Keys.Control Then
+            Clipboard.Clear()
+            Clipboard.SetText(BodyMessage)
+        End If
+
+    End Sub
 #End Region
 
     Public Overloads Function Show(BodyMessage As String, Optional Type As IconOption = IconOption.OK, Optional ColorTheme As StyleOption = StyleOption.Plain, Optional AutoCloseSeconds As Integer = 3) As DialogResult
@@ -516,10 +525,11 @@ Public Class Prompt
                     _IconBounds = New Rectangle(IconPadding, IconPadding, Icon.Width, Icon.Height)
                 End If
             End If
-            Width = (SideBorderWidths * 2) + {TextBounds.Max(Function(x) x.Key.Right), GridBounds.Right}.Max
             RowBWidth += CInt(Words.Average)
             Attempts += 1
-        Loop While attempts < 7 Or RowBWidth / {RowsABHeight, 1}.max < 2
+        Loop While attempts < 1 Or RowBWidth / {RowsABHeight, 1}.max < 2
+
+        Width = (SideBorderWidths * 2) + {TextBounds.Max(Function(x) x.Key.Right), GridBounds.Right}.Max
         Dim ButtonBarTop As Integer = IconPadding + {TextBounds.Keys.Last.Bottom, IconBounds.Bottom}.Max
 
 #Region " GRID WIDTH / HEIGHT / PLACEMENT  / VISIBILITY "
