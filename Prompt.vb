@@ -374,8 +374,8 @@ Public Class Prompt
     Private Sub MouseClicked(sender As Object, e As MouseEventArgs) Handles Me.MouseClick
 
         If LastBounds.Contains(e.Location) Then
-            Dim Programs = GetFiles("C:\Program Files", ".exe")
-            Stop
+            'Dim Programs = GetFiles("C:\Program Files", ".exe")
+            'Stop
             Process.Start("C:\Program Files\Internet Explorer\IExplore.exe", AddressBounds(LastBounds))
         End If
 
