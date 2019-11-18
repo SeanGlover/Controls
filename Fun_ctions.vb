@@ -411,19 +411,22 @@ Public Module Functions
             Return Nothing
 
         Else
-            Dim Words As New List(Of String)(From rm In RegexMatches(InText, "[^ ]{1,}", RegexOptions.None) Select rm.Value)
+            Dim Words As New List(Of String)(From rm In RegexMatches(InText, "\s{0,1}[^\s]{1,}", RegexOptions.None) Select rm.Value)
             Dim LineBuilder As New Dictionary(Of Integer, String) From {
                 {0, String.Empty}
                 }
-            Dim SpaceWidth As Integer = MeasureText(" ", InFont).Width
             For Each Word In Words
                 Dim Line As String = LineBuilder.Last.Value
                 Dim LineLength As Integer = MeasureText(Line, InFont).Width
                 Dim WordSize As Size = TextRenderer.MeasureText(Word, InFont)
-                If LineLength + SpaceWidth + WordSize.Width < Width Then
-                    LineBuilder(LineBuilder.Last.Key) &= " " & Word
+
+                Dim PrecededByCrb As Boolean = Regex.Match(Word, "(?<=[\n\r])[^\s]{1,}", RegexOptions.None).Success
+                Dim TooLong As Boolean = LineLength + WordSize.Width > Width
+
+                If PrecededByCrb Or TooLong Then
+                    LineBuilder.Add(LineBuilder.Count, Regex.Match(Word, "[^\s]{1,}", RegexOptions.None).Value)      'Start of a new line...remove preceding space
                 Else
-                    LineBuilder.Add(LineBuilder.Count, Word)
+                    LineBuilder(LineBuilder.Last.Key) &= Word
                 End If
             Next
             Return LineBuilder

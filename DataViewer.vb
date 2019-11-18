@@ -27,12 +27,12 @@ Public Structure PointStruct
             Return False
         End If
     End Function
-    Public Shared Operator =(ByVal point1 As PointStruct, ByVal point2 As PointStruct) As Boolean
-        Return point1.Equals(point2)
+    Public Shared Operator =(ByVal value1 As PointStruct, ByVal value2 As PointStruct) As Boolean
+        Return value1.Equals(value2)
     End Operator
-    Public Shared Operator <>(ByVal point1 As PointStruct,
-      ByVal point2 As PointStruct) As Boolean
-        Return Not (point1 = point2)
+    Public Shared Operator <>(ByVal value1 As PointStruct,
+      ByVal value2 As PointStruct) As Boolean
+        Return Not value1 = value2
     End Operator
 End Structure
 Public Structure MouseInfo

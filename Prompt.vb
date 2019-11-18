@@ -59,6 +59,7 @@ Public Class Prompt
     End Sub
 #Region " PROPERTIES "
     Private ReadOnly Property PreferredFont As New Font("Segoe UI", 9)
+    Private PathColors As New List(Of Color)({Color.Chocolate, Color.SaddleBrown, Color.Peru})
     Private _DataSource As Object
     Public Property Datasource As Object
         Set(value As Object)
@@ -76,13 +77,11 @@ Public Class Prompt
     Private ReadOnly Property ShadeColor As Color
     Private ReadOnly Property AccentColor As Color
     Public Property TitleMessage As String
-    Public Property TitleBarImageLeft As Boolean = True
+    Public Property TitleBarImageLeftSide As Boolean = True
     Public Property TitleBarImage As Image = My.Resources.Info_White
     Public Property BodyMessage As String
     Public Property BorderColor As Color = Color.Black
     Public Property BorderForeColor As Color = Color.White
-    Private PathColors As New List(Of Color)({Color.Chocolate, Color.SaddleBrown, Color.Peru})
-    Public Property Image As Image = SystemIcons.Information.ToBitmap
     Private Icon_ As Icon = Nothing
     Public Overloads Property Icon As Icon
         Get
@@ -214,7 +213,7 @@ Public Class Prompt
                 Dim ImageBounds As Rectangle = Nothing
                 Dim TextBounds As Rectangle = Nothing
 
-                If TitleBarImageLeft Then
+                If TitleBarImageLeftSide Then
                     ImageBounds = New Rectangle(horizontalPadding, yOffset, ImageWidth, ImageHeight)
                     TextBounds = New Rectangle(ImageWidth + horizontalPadding, 0, Width - (ImageWidth + horizontalPadding), TitleBarBounds.Height)
                 Else
@@ -350,7 +349,7 @@ Public Class Prompt
         PromptTimer.Interval = 1000 * AutoCloseSeconds
 
         BodyMessage = If(BodyMessage, String.Empty)
-        Me.BodyMessage = Regex.Replace(Regex.Replace(BodyMessage, "[\n\r]{1,}", " "), "[\s]{2,}", " ")
+        Me.BodyMessage = BodyMessage
         If BodyMessage.Length = 0 Then Me.BodyMessage = "No Message"
 
         Me.Type = Type
@@ -478,15 +477,14 @@ Public Class Prompt
             Dim RowsB As New Dictionary(Of Rectangle, String)
             Dim LinesA = WrapWords(BodyMessage, Font, RowBWidth - IconZoneWH)
             Dim LinesB As New Dictionary(Of Integer, String)
-
             Dim LineHeight As Integer = MeasureText("|".ToUpperInvariant, Font).Height
             Dim LineIndex As Integer = 0
             Dim WidenText As Boolean = False
 
             For Each Line In LinesA.Where(Function(l) l.Value.Any)
                 If LineIndex * LineHeight >= IconZoneWH Then
-                    Dim RemainingText = Join(LinesA.Values.Skip(LineIndex).ToArray)
-                    LinesB = WrapWords(RemainingText, Font, RowBWidth)
+                    Dim RemainingLines = Join(LinesA.Values.Skip(LineIndex).ToArray, vbNewLine)
+                    LinesB = WrapWords(RemainingLines, Font, RowBWidth)
                     Exit For
 
                 Else
