@@ -158,6 +158,8 @@ Public Class Prompt
     End Property
     Private ReadOnly Property ButtonBarBounds As Rectangle
     Private ReadOnly Property MainWindow As Process
+    Private AddressBounds As New Dictionary(Of Rectangle, String)
+    Private LastBounds As New Rectangle
 #End Region
 
 #Region " PAINT "
@@ -258,8 +260,38 @@ Public Class Prompt
             e.Graphics.DrawIcon(Icon, IconBounds)
 
             REM /// DRAW TEXT IN EACH RECTANGLE
+            AddressBounds.Clear()
             For Each TextBound In TextBounds.Keys
-                TextRenderer.DrawText(e.Graphics, TextBounds(TextBound), PreferredFont, TextBound, Color.Black, TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
+                Dim Line = TextBounds(TextBound)
+                If Regex.Match(Line, "https{0,1}:[^ ]{1,}", RegexOptions.None).Success Then     'Line hass URL
+                    Dim Words = RegexMatches(Line, "[^\s]{1,}", RegexOptions.None)
+                    Dim WordRectangles As New List(Of Rectangle)
+                    Dim LastRight As Integer = TextBound.Left
+                    For Each Word In Words
+                        Dim WordWidth As Integer = MeasureText(Word.Value, PreferredFont).Width
+                        Dim WordRectangle As New Rectangle(LastRight, TextBound.Top, WordWidth, TextBound.Height)
+                        WordRectangles.Add(WordRectangle)
+                        LastRight = WordRectangle.Right
+                        Dim WordIsAddress As Boolean = Regex.Match(Word.Value, "https{0,1}:[^ ]{1,}", RegexOptions.None).Success
+                        'e.Graphics.DrawRectangle(Pens.Red, WordRectangle)
+                        If WordIsAddress Then
+                            AddressBounds.Add(WordRectangle, Word.Value)
+                            If WordRectangle = LastBounds Then
+                                Using Underline As New Font(PreferredFont.FontFamily, PreferredFont.Size, FontStyle.Underline)
+                                    TextRenderer.DrawText(e.Graphics, Word.Value, Underline, WordRectangle, Color.Blue, TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
+                                End Using
+                            Else
+                                TextRenderer.DrawText(e.Graphics, Word.Value, PreferredFont, WordRectangle, Color.Blue, TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
+                            End If
+                        Else
+                            TextRenderer.DrawText(e.Graphics, Word.Value, PreferredFont, WordRectangle, Color.Black, TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
+                        End If
+                    Next
+
+                Else
+                    TextRenderer.DrawText(e.Graphics, Line, PreferredFont, TextBound, Color.Black, TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
+
+                End If
             Next
             If Not Type = IconOption.TimedMessage Then
                 Using ButtonBarBrush As New SolidBrush(Color.FromArgb(32, BackgroundColor))
@@ -319,6 +351,32 @@ Public Class Prompt
         If e.KeyCode = Keys.C AndAlso Control.ModifierKeys = Keys.Control Then
             Clipboard.Clear()
             Clipboard.SetText(BodyMessage)
+        End If
+
+    End Sub
+    Private Sub MouseOver(sender As Object, e As MouseEventArgs) Handles Me.MouseMove
+
+        If LastBounds.Contains(e.Location) Then
+        Else
+            LastBounds = Nothing
+            Cursor = Cursors.Default
+            Invalidate()
+            For Each address In AddressBounds.Keys
+                If address.Contains(e.Location) Then
+                    LastBounds = address
+                    Cursor = Cursors.Hand
+                    Invalidate()
+                End If
+            Next
+        End If
+
+    End Sub
+    Private Sub MouseClicked(sender As Object, e As MouseEventArgs) Handles Me.MouseClick
+
+        If LastBounds.Contains(e.Location) Then
+            Dim Programs = GetFiles("C:\Program Files", ".exe")
+            Stop
+            Process.Start("C:\Program Files\Internet Explorer\IExplore.exe", AddressBounds(LastBounds))
         End If
 
     End Sub
