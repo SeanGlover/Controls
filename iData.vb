@@ -4649,6 +4649,9 @@ Public Module iData
             Try
                 Book.Close(True, ExcelPath)
             Catch ex As ExternalException
+                Using MESSAGE As New Prompt
+                    MESSAGE.Show("Error!", ex.Message, Prompt.IconOption.Critical)
+                End Using
             End Try
 
             ReleaseObject(Book)
@@ -4785,7 +4788,14 @@ Public Module iData
                 End With
             End With
 #Region " CLEANUP "
-            Book.Close(True, ExcelPath)
+            Try
+                Book.Close(True, ExcelPath)
+            Catch ex As ExternalException
+                Using MESSAGE As New Prompt
+                    MESSAGE.Show("Error!", ex.Message, Prompt.IconOption.Critical)
+                End Using
+            End Try
+
             ReleaseObject(Book)
 
             'Release the Application object

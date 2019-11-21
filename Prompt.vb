@@ -505,6 +505,7 @@ Public Class Prompt
     End Sub
     Private Sub ResizeMe()
 
+        TextBounds.Clear()
         Dim RowBWidth As Integer = 0
         Dim IconZoneWH As Integer = IconPadding * 2 + Icon.Height
 
