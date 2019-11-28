@@ -5,36 +5,6 @@ Imports System.Drawing
 Imports System.ComponentModel
 Imports System.Drawing.Drawing2D
 #Region " STRUCTURES + ENUMERATIONS "
-Public Structure PointStruct
-    'https://www.infoq.com/articles/Equality-Overloading-DotNET/
-    Implements IEquatable(Of PointStruct)
-    Public ReadOnly Property X() As Integer
-    Public ReadOnly Property Y() As Integer
-    Public Sub New(ByVal x As Integer, ByVal y As Integer)
-        Me.X = x
-        Me.Y = y
-    End Sub
-    Public Overrides Function GetHashCode() As Integer
-        Return X.GetHashCode Xor Y.GetHashCode
-    End Function
-    Public Overloads Function Equals(ByVal other As PointStruct) As Boolean Implements IEquatable(Of PointStruct).Equals
-        Return X = other.X AndAlso Y = other.Y
-    End Function
-    Public Overrides Function Equals(ByVal obj As Object) As Boolean
-        If TypeOf obj Is PointStruct Then
-            Return CType(obj, PointStruct) = Me
-        Else
-            Return False
-        End If
-    End Function
-    Public Shared Operator =(ByVal value1 As PointStruct, ByVal value2 As PointStruct) As Boolean
-        Return value1.Equals(value2)
-    End Operator
-    Public Shared Operator <>(ByVal value1 As PointStruct,
-      ByVal value2 As PointStruct) As Boolean
-        Return Not value1 = value2
-    End Operator
-End Structure
 Public Structure MouseInfo
     Implements IEquatable(Of MouseInfo)
     Public Property Column As Column
