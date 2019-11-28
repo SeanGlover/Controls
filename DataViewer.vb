@@ -268,7 +268,13 @@ Public Class DataViewer
                                         Dim CellString As String = Nothing
                                         If .Format.Key = Column.TypeGroup.Booleans Then
                                             Dim CheckBounds As New Rectangle(CellBounds.X + 2, CellBounds.Top + Convert.ToInt32((CellBounds.Height - 14) / 2), 14, 14)
-                                            e.Graphics.DrawImage(Base64ToImage(If(CBool(CellValue), CheckString, UnCheckString)), CheckBounds)
+                                            Dim CellValueIsTrue As Boolean
+                                            If .DataType = GetType(String) Then
+                                                CellValueIsTrue = If(CellValue, "FALSE").ToString.ToUpperInvariant = "TRUE"
+                                            Else
+                                                CellValueIsTrue = CBool(CellValue)
+                                            End If
+                                            e.Graphics.DrawImage(Base64ToImage(If(CellValueIsTrue, CheckString, UnCheckString)), CheckBounds)
                                             If MouseOverRow Then
                                                 Using CheckBrush As New SolidBrush(Color.FromArgb(128, Color.Yellow))
                                                     e.Graphics.FillRectangle(CheckBrush, CheckBounds)
@@ -276,11 +282,24 @@ Public Class DataViewer
                                             End If
 
                                         ElseIf .Format.Key = Column.TypeGroup.Images Then
-                                            Dim CellImage As Image = If(.DataType Is GetType(Image), DirectCast(CellValue, Image), Base64ToImage(CellValue.ToString))
-                                            Dim xOffset As Integer = Convert.ToInt32((CellBounds.Width - CellImage.Width) / 2)
-                                            Dim yOffset As Integer = Convert.ToInt32((CellBounds.Height - CellImage.Height) / 2)
-                                            Dim ImageBounds As New Rectangle(CellBounds.X + xOffset, CellBounds.Y + yOffset, CellImage.Width, CellImage.Height)
-                                            e.Graphics.DrawImage(CellImage, ImageBounds)
+                                            Dim CellImage As Image = Nothing
+                                            Dim CellType As Type = CellValue.GetType
+                                            If CellType Is GetType(Bitmap) Or CellType Is GetType(Image) Then CellImage = DirectCast(CellValue, Image)
+                                            If CellType Is GetType(Icon) Then CellImage = DirectCast(CellValue, Icon).ToBitmap
+                                            If CellImage Is Nothing Then
+                                                CellString = CellValue.ToString
+
+                                            Else
+                                                Dim EdgePadding As Integer = 1 'all sides to ensure Image doesn't touch the edge of the Cell Rectangle
+                                                Dim MaxImageWidth As Integer = CellBounds.Width - EdgePadding * 2
+                                                Dim MaxImageHeight As Integer = CellBounds.Height - EdgePadding * 2
+                                                Dim ImageWidth As Integer = {CellImage.Width, MaxImageWidth}.Min
+                                                Dim ImageHeight As Integer = {CellImage.Height, MaxImageHeight}.Min
+                                                Dim xOffset As Integer = CInt((CellBounds.Width - ImageWidth) / 2)
+                                                Dim yOffset As Integer = CInt((CellBounds.Height - ImageHeight) / 2)
+                                                Dim ImageBounds As New Rectangle(CellBounds.X + xOffset, CellBounds.Y + yOffset, ImageWidth, ImageHeight)
+                                                e.Graphics.DrawImage(CellImage, ImageBounds)
+                                            End If
 
                                         ElseIf .Format.Key = Column.TypeGroup.Strings Then
                                             CellString = Format(CellValue, .Format.Value)
@@ -453,8 +472,8 @@ Public Class DataViewer
             With Column
                 Select Case .Format.Key
                     Case Column.TypeGroup.Strings, Column.TypeGroup.Images
-                        If .SortOrder = SortOrder.Ascending Then Rows.Sort(Function(x, y) String.Compare(Convert.ToString(x.Cell(.Name), InvariantCulture), Convert.ToString(y.Cell(.Name), InvariantCulture), StringComparison.Ordinal))
-                        If .SortOrder = SortOrder.Descending Then Rows.Sort(Function(y, x) String.Compare(Convert.ToString(x.Cell(.Name), InvariantCulture), Convert.ToString(y.Cell(.Name), InvariantCulture), StringComparison.Ordinal))
+                        If .SortOrder = SortOrder.Ascending Then Rows.Sort(Function(x, y) String.Compare(ImageToBase64(TryCast(x.Cell(.Name), Image)), ImageToBase64(TryCast(y.Cell(.Name), Image)), StringComparison.Ordinal))
+                        If .SortOrder = SortOrder.Descending Then Rows.Sort(Function(y, x) String.Compare(ImageToBase64(TryCast(x.Cell(.Name), Image)), ImageToBase64(TryCast(y.Cell(.Name), Image)), StringComparison.Ordinal))
 
                     Case Column.TypeGroup.Integers
                         If .SortOrder = SortOrder.Ascending Then Rows.Sort(Function(x, y) Convert.ToInt64(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToInt64(y.Cell(.Name), InvariantCulture)))
@@ -708,23 +727,23 @@ Public Class DataViewer
                         AddRow(_DataRow)
                     Next
                     RaiseEvent RowsLoaded(Me, Nothing)
-                    Columns.AutoSize()
+                    'Columns.AutoSize()
+                    Columns.FormatSize()
                 End If
             End If
 
         End Set
     End Property
-    Private Sub AddRow(NewRow As DataRow)
+    Private Sub AddRow(NewDataRow As DataRow)
 
-        Rows.Add(New Row(NewRow))
+        Dim NewRow = Rows.Add(New Row(NewDataRow))
         For Column = 0 To Table.Columns.Count - 1
-            Dim CellValue = NewRow(Column)
+            Dim CellValue = NewDataRow(Column)
             'VALUES DICTIONARY IS USED TO DETERMINE COLUMN TYPE AND FORMATTING
             'TRIAL LIMITING TO 250 NON-EMPTY VALUES FOR SPEED
-            If IsDBNull(CellValue) Then
-                'Columns(Column).Values.Add(RowIndex, Nothing)
-            Else
-                If Columns(Column).Values.Count <= 250 Then Columns(Column).Values.Add(Rows.Count, CellValue)
+            If Not (IsDBNull(CellValue) Or CellValue Is Nothing) Then
+                'Only NonEmpty values go in ... for sizing
+                If Columns(Column).NonNullValues.Count <= 250 Then Columns(Column).NonNullValues.Add(NewRow, CellValue)
             End If
         Next
 
@@ -783,7 +802,13 @@ Public Class DataViewer
                         With .Column
                             .Width += Delta
                             Dim Bullets As New Dictionary(Of String, List(Of String)) From {
-                            { .Text, {"Type is " & .Format.Key.ToString, "Width=" & .HeadBounds.Width, "Content Width=" & .ContentWidth, "Row Count=" & Rows.Count, "Sort Order is " & .SortOrder.ToString, "Alignment is " & .Alignment.ToString}.ToList}
+                            { .Text, {"Type is " & .Format.Key.ToString,
+                            "Width=" & .HeadBounds.Width,
+                            "Content Width=" & .ContentWidth,
+                            "Row Count=" & Rows.Count,
+                            "Row Height=" & RowHeight,
+                            "Sort Order is " & .SortOrder.ToString,
+                            "Alignment is " & .Alignment.ToString}.ToList}
                         }
                             ColumnHeadTip.SetToolTip(Me, Bulletize(Bullets))
                         End With
@@ -1133,6 +1158,7 @@ Public Class ColumnCollection
         For Each Column In Me
             SizeColumn(Column)
         Next
+        RaiseEvent CollectionSizingEnd(Me, Nothing)
     End Sub
     Public Sub DistibuteWidths()
 
@@ -1161,7 +1187,9 @@ Public Class ColumnCollection
         If Not IsBusy Then
             _IsBusy = True
             For Each Column In Where(Function(c) c.Visible)
-                Column.Format = Column.Get_kvpFormat(GetDataType(Column.Values.Values.ToList))
+                Dim Values As New List(Of Object)(Column.NonNullValues.Values)
+                Dim ColumnType As Type = GetDataType(Values)
+                Column.Format = Column.Get_kvpFormat(ColumnType)
                 SizeColumn(Column, True)
                 If ColumnsWorker.CancellationPending Then Exit For
             Next
@@ -1171,15 +1199,22 @@ Public Class ColumnCollection
     Friend Sub SizeColumn(ColumnItem As Column, Optional BackgroundProcess As Boolean = False)
 
         With ColumnItem
-            If .Values.Any Then
+            If .NonNullValues.Any Then
                 If .Format.Key = Column.TypeGroup.Images Then
-                    If .DataType Is GetType(Image) Then
-                        .ContentWidth = (From V In .Values Select TryCast(V.Value, Image).Width).Max
-                    Else
-                        .ContentWidth = (From V In .Values Select Base64ToImage(V.Value.ToString).Width).Max
+                    If {GetType(Bitmap), GetType(Image)}.Contains(.DataType) Then
+                        .ContentWidth = (From nnv In .NonNullValues Select TryCast(nnv.Value, Image).Width).Max
+
+                    ElseIf .DataType Is GetType(Icon) Then
+                        .ContentWidth = (From nnv In .NonNullValues Select TryCast(nnv.Value, Icon).Width).Max
+
+                    ElseIf .DataType Is GetType(String) Then
+                        .ContentWidth = (From nnv In .NonNullValues Select Base64ToImage(nnv.Value.ToString).Width).Max
+
                     End If
                 Else
-                    .ContentWidth = (From V In .Values Select TextRenderer.MeasureText(Format(V.Value, .Format.Value), If(V.Key Mod 2 = 0, Parent.Rows.RowStyle.Font, Parent.Rows.AlternatingRowStyle.Font)).Width).Max
+                    Using rowFont = Parent.Rows.RowStyle.Font ', Parent.Rows.AlternatingRowStyle.Font)
+                        .ContentWidth = (From nnv In .NonNullValues Select TextRenderer.MeasureText(Format(nnv.Value, .Format.Value), rowFont).Width).Max
+                    End Using
                 End If
             End If
             .Width = { .HeadWidth, .ContentWidth, .MinimumWidth}.Max
@@ -1241,19 +1276,21 @@ End Class
         Strings
         None
     End Enum
+    <NonSerialized> Private WithEvents DrawTimer As New Timer With {.Interval = 100}
     Public Sub New(NewColumn As DataColumn)
 
         If NewColumn IsNot Nothing Then
             With NewColumn
                 Name = .ColumnName
-                Table = .Table
+                DTable = .Table
                 _DataType = NewColumn.DataType
                 Format = Get_kvpFormat(NewColumn.DataType)
+                DColumn = NewColumn
             End With
         End If
 
     End Sub
-    Friend Function Get_kvpFormat(ColumnDataType As Type) As KeyValuePair(Of TypeGroup, String)
+    Friend Shared Function Get_kvpFormat(ColumnDataType As Type) As KeyValuePair(Of TypeGroup, String)
 
         Select Case ColumnDataType
             Case GetType(Boolean)
@@ -1281,14 +1318,14 @@ End Class
         End Select
 
     End Function
-    Public Property DefaultValue As Object
+    <NonSerialized> Private ReadOnly DTable As DataTable
+    <NonSerialized> Private DColumn As DataColumn
     <NonSerialized> Friend Parent_ As ColumnCollection
     Public ReadOnly Property Parent As ColumnCollection
         Get
             Return Parent_
         End Get
     End Property
-    Public ReadOnly Property Table As DataTable
     Public ReadOnly Property Alignment As TextFormatFlags
     Friend _Index As Integer = 0
     Public ReadOnly Property Index As Integer
@@ -1328,7 +1365,7 @@ End Class
         Set(value As CellStyle)
             If value IsNot HeaderStyle_ Then
                 HeaderStyle_ = value
-                ViewerInvalidate()
+                'ViewerInvalidate()
             End If
         End Set
     End Property
@@ -1462,7 +1499,7 @@ End Class
         Set(ByVal value As String)
             If _Text <> value Then
                 _Text = value
-                ViewerInvalidate()
+                HeaderStyle_PropertyChanged(Nothing, Nothing)
             End If
         End Set
     End Property
@@ -1509,33 +1546,38 @@ End Class
         End Get
         Set(ByVal value As KeyValuePair(Of TypeGroup, String))
             If _Format.Key <> value.Key Then
-                _Format = value
-                Select Case Format.Key
+                Dim NewType As Type
+                Select Case value.Key
                     Case TypeGroup.Booleans
                         GridStyle.Alignment = ContentAlignment.MiddleCenter
-                        DefaultValue = String.Empty
+                        NewType = GetType(Boolean)
 
                     Case TypeGroup.Dates, TypeGroup.Times
                         GridStyle.Alignment = ContentAlignment.MiddleCenter
-                        DefaultValue = New Date
+                        NewType = GetType(Date)
 
                     Case TypeGroup.Decimals
                         GridStyle.Alignment = ContentAlignment.MiddleRight
-                        DefaultValue = 0
+                        NewType = GetType(Double)
 
                     Case TypeGroup.Images
                         GridStyle.Alignment = ContentAlignment.MiddleCenter
-                        DefaultValue = Nothing
+                        NewType = GetType(Image)
 
                     Case TypeGroup.Integers
                         GridStyle.Alignment = ContentAlignment.MiddleCenter
-                        DefaultValue = 0
+                        NewType = GetType(Long)
 
                     Case TypeGroup.Strings
                         GridStyle.Alignment = ContentAlignment.MiddleLeft
-                        DefaultValue = String.Empty
+                        NewType = GetType(String)
+
+                    Case Else
+                        GridStyle.Alignment = ContentAlignment.MiddleLeft
+                        NewType = GetType(String)
 
                 End Select
+                _Format = value
                 Select Case GridStyle.Alignment
                     Case ContentAlignment.BottomCenter
                         _Alignment = TextFormatFlags.Bottom Or TextFormatFlags.HorizontalCenter
@@ -1572,7 +1614,7 @@ End Class
             End If
         End Set
     End Property
-    Public ReadOnly Property Values As New Dictionary(Of Integer, Object)
+    Friend ReadOnly Property NonNullValues As New Dictionary(Of Row, Object)
     Public Property Visible As Boolean = True
     Private Sub ReBounds()
 
@@ -1643,23 +1685,42 @@ End Class
         End With
 
     End Sub
-    Private Sub ViewerInvalidate() Handles HeaderStyle_.PropertyChanged
-
+    Private Sub HeaderStyle_PropertyChanged(sender As Object, e As StyleEventArgs) Handles HeaderStyle_.PropertyChanged
         _TextSize = TextRenderer.MeasureText(Text, HeaderStyle.Font)
-        If Parent IsNot Nothing Then
-            ReBounds()
-            Parent.Parent.Invalidate()
-        End If
-
+        ViewerInvalidate()
+    End Sub
+    Private Sub ViewerInvalidate()
+        ReBounds()
+        DrawTimer.Start()
+    End Sub
+    Private Sub DrawTimer_Tick(sender As Object, e As EventArgs) Handles DrawTimer.Tick
+        DrawTimer.Stop()
+        If Parent IsNot Nothing Then Parent.Parent.Invalidate()
     End Sub
     Public Sub AutoSize()
         If Parent IsNot Nothing Then Parent.SizeColumn(Me)
     End Sub
     Friend _DataType As Type
-    Public ReadOnly Property DataType As Type
+    Public Property DataType As Type
         Get
             Return _DataType
         End Get
+        Set(value As Type)
+            If value IsNot Nothing Then
+                Dim valueFormat = Column.Get_kvpFormat(value)
+                If valueFormat.Key <> Format.Key Then
+                    NonNullValues.Clear()
+                    _DataType = value
+                    Format = valueFormat
+                    Dim ColumnOridinal As Integer = DColumn.Ordinal
+                    DTable.Columns.Remove(DColumn)
+                    Dim NewColumn As DataColumn = New DataColumn With {.DataType = value, .ColumnName = DColumn.ColumnName}
+                    DTable.Columns.Add(NewColumn)
+                    NewColumn.SetOrdinal(ColumnOridinal)
+                    DColumn = NewColumn
+                End If
+            End If
+        End Set
     End Property
 #Region "IDisposable Support"
     Private DisposedValue As Boolean ' To detect redundant calls IDisposable
@@ -1668,6 +1729,10 @@ End Class
             If disposing Then
                 ' TODO: dispose managed state (managed objects).
                 _Image.Dispose()
+                DrawTimer.Dispose()
+                HeaderStyle_.Dispose()
+                GridStyle_.Dispose()
+                DColumn.Dispose()
             End If
             ' TODO: free unmanaged resources (unmanaged objects) and override Finalize() below.
             ' TODO: set large fields to null.
@@ -1701,11 +1766,10 @@ Public Class RowCollection
             Return _Parent
         End Get
     End Property
-    Friend Event Loaded()
-    Private WithEvents AddTimer As New Timer With {.Interval = 200}
-    Private Sub AddTimerTick() Handles AddTimer.Tick
-        AddTimer.Stop()
-        RaiseEvent Loaded()
+    Private WithEvents DrawTimer As New Timer With {.Interval = 100}
+    Private Sub DrawTimer_Tick() Handles DrawTimer.Tick
+        DrawTimer.Stop()
+        Parent.Invalidate()
     End Sub
     Private WithEvents HeaderStyle_ As New CellStyle With {.BackColor = Color.Silver, .ShadeColor = Color.Gainsboro, .ForeColor = Color.White, .Font = New Font("Century Gothic", 9)}
     Public Property HeaderStyle As CellStyle
@@ -1715,7 +1779,7 @@ Public Class RowCollection
         Set(value As CellStyle)
             If HeaderStyle_ IsNot value Then
                 HeaderStyle_ = value
-                ReBoundsHead(Nothing, Nothing)
+                RowStyle_PropertyChanged(Nothing, Nothing)
             End If
         End Set
     End Property
@@ -1727,7 +1791,7 @@ Public Class RowCollection
         Set(value As CellStyle)
             If RowStyle_ IsNot value Then
                 RowStyle_ = value
-                ReBoundsEven(Nothing, Nothing)
+                RowStyle_PropertyChanged(Nothing, Nothing)
             End If
         End Set
     End Property
@@ -1739,7 +1803,7 @@ Public Class RowCollection
         Set(value As CellStyle)
             If AlternatingRowStyle_ IsNot value Then
                 AlternatingRowStyle_ = value
-                ReBoundsOdd(Nothing, Nothing)
+                RowStyle_PropertyChanged(Nothing, Nothing)
             End If
         End Set
     End Property
@@ -1754,11 +1818,9 @@ Public Class RowCollection
             End If
         End Set
     End Property
-    Public ReadOnly Property EvenRowHeight As Integer = 16
-    Public ReadOnly Property OddRowHeight As Integer = 16
     Public ReadOnly Property RowHeight As Integer
         Get
-            Return {_EvenRowHeight, _OddRowHeight, ImageRowHeight}.Max
+            Return {RowStyle.Height, AlternatingRowStyle.Height}.Max
         End Get
     End Property
     Public ReadOnly Property Selected As List(Of Row)
@@ -1771,35 +1833,31 @@ Public Class RowCollection
 
         If NewRow IsNot Nothing Then
             NewRow._Parent = Me
-            If Count = 0 Then _EvenRowHeight = TextRenderer.MeasureText("XXXXXXXXXXX".ToString(InvariantCulture), RowStyle.Font).Height
-            If Count = 1 Then _OddRowHeight = TextRenderer.MeasureText("XXXXXXXXXXX".ToString(InvariantCulture), AlternatingRowStyle.Font).Height
-            If NewRow.ImageHeight > ImageRowHeight Then ImageRowHeight = NewRow.ImageHeight
+            If RowStyle.ImageScaling = Scaling.GrowParent Or AlternatingRowStyle.ImageScaling = Scaling.GrowParent Then
+                Dim RowCells As Object() = NewRow.DataRow.ItemArray
+                Dim ImageHeights As New List(Of Integer)(From c In RowCells Where c.GetType Is GetType(Bitmap) Or c.GetType Is GetType(Image) Select TryCast(c, Image).Height)
+                ImageHeights.AddRange(From c In RowCells Where c.GetType Is GetType(Icon) Select TryCast(c, Icon).Height)
+                RowStyle.Height = ImageHeights.Max
+                AlternatingRowStyle.Height = RowStyle.Height
+            End If
             MyBase.Add(NewRow)
-            AddTimer.Start()
+            DrawTimer.Start()
         End If
         Return NewRow
 
-        End Function
-    Private Sub ReBoundsHead(sender As Object, e As StyleEventArgs) Handles HeaderStyle_.PropertyChanged
-
+    End Function
+    Private Sub RowStyle_PropertyChanged(sender As Object, e As StyleEventArgs) Handles RowStyle_.PropertyChanged, AlternatingRowStyle_.PropertyChanged, HeaderStyle_.PropertyChanged
+        DrawTimer.Start()
     End Sub
-    Private Sub ReBoundsEven(sender As Object, e As StyleEventArgs) Handles RowStyle_.PropertyChanged
-        _EvenRowHeight = {ImageRowHeight, TextRenderer.MeasureText("XXXXXXXXXXX".ToString(InvariantCulture), RowStyle.Font).Height}.Max
-        Parent.Invalidate()
-    End Sub
-    Private Sub ReBoundsOdd(sender As Object, e As StyleEventArgs) Handles AlternatingRowStyle_.PropertyChanged
-        _OddRowHeight = {ImageRowHeight, TextRenderer.MeasureText("XXXXXXXXXXX".ToString(InvariantCulture), AlternatingRowStyle.Font).Height}.Max
-        Parent.Invalidate()
-    End Sub
-    Private ImageRowHeight As Integer = RowHeight
 #Region "IDisposable Support"
     Private DisposedValue As Boolean ' To detect redundant calls IDisposable
         Protected Overridable Sub Dispose(disposing As Boolean)
             If Not DisposedValue Then
                 If disposing Then
-                    ' TODO: dispose managed state (managed objects).
-
-                End If
+                ' TODO: dispose managed state (managed objects).
+                RowStyle_.Dispose()
+                AlternatingRowStyle_.Dispose()
+            End If
                 ' TODO: free unmanaged resources (unmanaged objects) and override Finalize() below.
                 ' TODO: set large fields to null.
             End If
@@ -1827,12 +1885,9 @@ Public Class RowCollection
         If NewDataRow IsNot Nothing Then
             _DataRow = NewDataRow
             Table = NewDataRow.Table
-            Dim ImageHeights As New List(Of Integer)((From c In NewDataRow.ItemArray Where c.GetType Is GetType(Image) Or c.GetType Is GetType(Bitmap) Select TryCast(c, Image).Height))
-            If ImageHeights.Any Then ImageHeight = 2 + ImageHeights.Max + 2
         End If
 
     End Sub
-    Friend ReadOnly Property ImageHeight As Integer
     <NonSerialized> Friend _Parent As RowCollection
     Public ReadOnly Property Parent As RowCollection
         Get
@@ -1846,45 +1901,98 @@ Public Class RowCollection
             Return _DataRow
         End Get
     End Property
-    Public Function Cell(Column As Column) As Object
-
-        If Column IsNot Nothing Then
-            Try
-                If IsDBNull(DataRow(Column.Name)) Then
-                    Return Nothing
-                Else
-                    Return DataRow(Column.Name)
-                End If
-            Catch ex As KeyNotFoundException
-                Return Nothing
-            End Try
-        Else
-            Return Nothing
-        End If
-
-    End Function
-    Public Function Cell(Column As String) As Object
-
-        If DataRow.Table.Columns.Contains(Column) Then
-            If IsDBNull(DataRow(Column)) Then
+    Public Property Cell(ColumnName As String) As Object
+        Get
+            If ColumnName Is Nothing Then
                 Return Nothing
             Else
-                Return DataRow(Column)
+                Try
+                    If IsDBNull(DataRow(ColumnName)) Then
+                        Return Nothing
+                    Else
+                        Return DataRow(ColumnName)
+                    End If
+                Catch ex As KeyNotFoundException
+                    Return Nothing
+                End Try
+                'If DataRow.Table.Columns.Contains(Column) Then ... TryCatch MUCH faster than DataRow.Table.Columns.Contains
+                'Else
+                '    Return Nothing
+                'End If
             End If
-        Else
-            Return Nothing
-        End If
+        End Get
+        Set(value As Object)
+            If ColumnName IsNot Nothing Then
+                DataRow(ColumnName) = value
+                Dim valueColumn As Column = Parent.Parent.Columns.Item(ColumnName)
+                If valueColumn IsNot Nothing Then
+                    If value Is Nothing Or IsDBNull(value) Then
+                        If valueColumn.NonNullValues.ContainsKey(Me) Then valueColumn.NonNullValues.Remove(Me)
 
-    End Function
-    Public Function Cell(ColumnIndex As Integer) As Object
+                    Else
+                        If valueColumn.NonNullValues.ContainsKey(Me) Then
+                            valueColumn.NonNullValues(Me) = value
+                        Else
+                            valueColumn.NonNullValues.Add(Me, value)
+                        End If
+                        If valueColumn.Format.Key = Column.TypeGroup.Images And Parent.RowStyle.ImageScaling = Scaling.GrowParent Or Parent.RowStyle.ImageScaling = Scaling.GrowParent Then
+                            'Adjust the height when an Image is set to a Cell
+                            Dim ImageHeight As Integer
+                            If value.GetType Is GetType(Bitmap) Or value.GetType Is GetType(Image) Then
+                                ImageHeight = {ImageHeight, DirectCast(value, Image).Height}.Max
 
-        If ColumnIndex < Table.Columns.Count Then
-            Return Cell(Table.Columns(ColumnIndex).ColumnName)
-        Else
-            Return Nothing
-        End If
+                            ElseIf value.GetType Is GetType(Icon) Then
+                                ImageHeight = {ImageHeight, DirectCast(value, Icon).Height}.Max
 
-    End Function
+                            Else
+                                ImageHeight = {Parent.RowStyle.Height, Parent.RowStyle.Height}.Max
+
+                            End If
+                            Parent.RowStyle.Height = ImageHeight
+                            Parent.AlternatingRowStyle.Height = ImageHeight
+                        End If
+                    End If
+                End If
+            End If
+        End Set
+    End Property
+    Public Property Cell(ColumnIndex As Integer) As Object
+        Get
+            If ColumnIndex >= 0 And ColumnIndex < Table.Columns.Count Then
+                Dim ColumnName As String = Table.Columns(ColumnIndex).ColumnName
+                Return Cell(ColumnName)
+            Else
+                Return Nothing
+            End If
+        End Get
+        Set(value As Object)
+            If ColumnIndex >= 0 And ColumnIndex < Table.Columns.Count Then
+                Dim ColumnName As String = Table.Columns(ColumnIndex).ColumnName
+                Cell(ColumnName) = value
+            End If
+        End Set
+    End Property
+    Public Property Cell(Column As Column) As Object
+        Get
+            If Column IsNot Nothing Then
+                Return Cell(Column.Name)
+            Else
+                Return Nothing
+            End If
+        End Get
+        Set(value As Object)
+            If Column IsNot Nothing Then Cell(Column.Name) = value
+        End Set
+    End Property
+    Public ReadOnly Property Index As Integer
+        Get
+            If Parent Is Nothing Then
+                Return -1
+            Else
+                Return Parent.IndexOf(Me)
+            End If
+        End Get
+    End Property
     Private _Selected As Boolean
     Public Property Selected As Boolean
         Get
@@ -1945,11 +2053,12 @@ End Class
     Implements IDisposable
     Public Event PropertyChanged(sender As Object, e As StyleEventArgs)
     Public Sub New()
+        Height = RecommendedHeight
     End Sub
     <Browsable(True)>
     <DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)>
     <Category("Color")>
-    <Description("Specifies the object Type")>
+    <Description("Specifies the object BackColor")>
     <RefreshProperties(RefreshProperties.All)>
     Private _BackColor As Color = Color.Gainsboro
     Public Property BackColor As Color
@@ -1966,7 +2075,7 @@ End Class
     <Browsable(True)>
     <DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)>
     <Category("Appearance")>
-    <Description("Specifies the object Type")>
+    <Description("Specifies the object Font")>
     <RefreshProperties(RefreshProperties.All)>
     Private _Font As New Font("Century Gothic", 9)
     Public Property Font As Font
@@ -1983,7 +2092,7 @@ End Class
     <Browsable(True)>
     <DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)>
     <Category("Color")>
-    <Description("Specifies the object Type")>
+    <Description("Specifies the object ForeColor")>
     <RefreshProperties(RefreshProperties.All)>
     Private _ForeColor As Color = Color.Black
     Public Property ForeColor As Color
@@ -2000,7 +2109,7 @@ End Class
     <Browsable(True)>
     <DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)>
     <Category("Color")>
-    <Description("Specifies the object Type")>
+    <Description("Specifies the object Shading color")>
     <RefreshProperties(RefreshProperties.All)>
     Private _ShadeColor As Color = Color.WhiteSmoke
     Public Property ShadeColor As Color
@@ -2017,7 +2126,7 @@ End Class
     <Browsable(True)>
     <DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)>
     <Category("Layout")>
-    <Description("Specifies the object Type")>
+    <Description("Specifies the object Alignment")>
     <RefreshProperties(RefreshProperties.All)>
     Private _Alignment As ContentAlignment = ContentAlignment.MiddleCenter
     Public Property Alignment As ContentAlignment
@@ -2030,6 +2139,53 @@ End Class
                 RaiseEvent PropertyChanged(Me, New StyleEventArgs("Alignment"))
             End If
         End Set
+    End Property
+    <Browsable(True)>
+    <DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)>
+    <Category("Layout")>
+    <Description("Specifies the object Grow style")>
+    <RefreshProperties(RefreshProperties.All)>
+    Private _ImageScaling As Scaling = Scaling.ShrinkChild
+    Public Property ImageScaling As Scaling
+        Get
+            Return _ImageScaling
+        End Get
+        Set(ByVal value As Scaling)
+            If value <> _ImageScaling Then
+                _ImageScaling = value
+                If value = Scaling.GrowParent Then Height = RecommendedHeight
+                RaiseEvent PropertyChanged(Me, New StyleEventArgs("Scaling"))
+            End If
+        End Set
+    End Property
+    <Browsable(True)>
+    <DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)>
+    <Category("Layout")>
+    <Description("Specifies the object Height")>
+    <RefreshProperties(RefreshProperties.All)>
+    Private _Height As Integer
+    Public Property Height As Integer
+        Get
+            Return _Height
+        End Get
+        Set(ByVal value As Integer)
+            If value <> _Height Then
+                _Height = value
+                RaiseEvent PropertyChanged(Me, New StyleEventArgs("Height"))
+            End If
+        End Set
+    End Property
+    Public ReadOnly Property RecommendedHeight As Integer
+        Get
+            Dim FontHeight As Integer = TextRenderer.MeasureText("XXXXXXXXXXX".ToString(InvariantCulture), Font).Height
+            If ImageScaling = Scaling.ShrinkChild Then
+                'ie) Shrink Image
+                Return FontHeight
+            Else
+                'ie) Allow larger size
+                Return {FontHeight, Height}.Max
+            End If
+        End Get
     End Property
     <Browsable(True)>
     <DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)>

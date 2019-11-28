@@ -50,7 +50,7 @@ Public Class ScriptCollection
         End With
         Dim FileScripts = GetFiles(Scripts_DirectoryInfo.FullName, ".txt")
         '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
-        Dim Testing As Boolean = False
+        Dim Testing As Boolean = Parent.TestMode
         '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
         For Each FileScript In FileScripts.Take(If(Testing, 10, 1000))
             Dim NewScript As New Script(FileScript)
@@ -65,7 +65,7 @@ Public Class ScriptCollection
         With DirectCast(sender, BackgroundWorker)
             Initialized = True
             RemoveHandler .RunWorkerCompleted, AddressOf NewWorkEnd
-            RaiseEvent Alert(Me, New AlertEventArgs("All scripts loaded"))
+            RaiseEvent Alert(Me, New AlertEventArgs(Count & " scripts loaded"))
             RaiseEvent CollectionChanged(Me, New ScriptsEventArgs(Nothing, CollectionChangeAction.Refresh))
         End With
     End Sub
@@ -786,7 +786,7 @@ Public Class DataTool
 #Region " ***************************************************************** NEW ************************************************************************** "
 #End Region
 #Region " ************************************************************************************************************************************************ "
-    Public Sub New()
+    Public Sub New(Optional TestMode As Boolean = False)
 
         'Sync populates a Treeview with Checkmarks...those selected are imported. Submit how?
         'Interface to add, change, or remove a connection
@@ -794,6 +794,7 @@ Public Class DataTool
         'Casting using Select Min(Length(Trim(Field))), Max(Length(Trim(Field)))...Where Length(Trim(Field))>0
 
         Dock = DockStyle.Fill
+        Me.TestMode = TestMode
 
         Connections.SortCollection()
         'Connections.View()
@@ -978,6 +979,7 @@ Public Class DataTool
             Return Script_Grid
         End Get
     End Property
+    Public Property TestMode As Boolean = False
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ ALERTS
     Private Sub ScriptAlerts(sender As Object, e As AlertEventArgs) Handles Scripts_.Alert
         RaiseEvent Alert(sender, e)

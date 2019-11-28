@@ -1033,6 +1033,14 @@ Public Module Functions
             ElseIf Types.Intersect({GetType(Byte), GetType(Short), GetType(Integer), GetType(Long), GetType(Double), GetType(Decimal)}).Count = Types.Count Then
                 Return GetType(Double)
 #End Region
+#Region " EACH TYPE IS EITHER BITMAP Or IMAGE "
+            ElseIf Types.Intersect({GetType(Bitmap), GetType(Image)}).Count = Types.Count Then
+                Return GetType(Image)
+#End Region
+#Region " EACH TYPE IS AN ICON "
+            ElseIf Types.Intersect({GetType(ICON)}).Count = Types.Count Then
+                Return GetType(Icon)
+#End Region
 #Region " MIXED TYPES "
             Else
                 Return GetType(String)
@@ -1046,25 +1054,30 @@ Public Module Functions
         If Values Is Nothing Then
             Return Nothing
         Else
-            Return GetDataType((From V In Values Where Not (IsDBNull(V) Or IsNothing(V)) Select GetDataType(V.ToString)).Distinct.ToList)
+            Dim Types = From V In Values Where Not (IsDBNull(V) Or IsNothing(V)) Select GetDataType(V.ToString)
+            Dim BlendedType = GetDataType(Types.Distinct)
+            'If (From v In Values Where v.GetType Is GetType(Bitmap)).Any Then Stop
+            'If (From t In Types Where t Is GetType(Image)).Any Then Stop
+            Return BlendedType
         End If
 
     End Function
-    Public Function GetDataType(Values As IEnumerable(Of Type)) As Type
+    Public Function GetDataType(Types As IEnumerable(Of Type)) As Type
 
-        If Values Is Nothing Then
+        If Types Is Nothing Then
             Return Nothing
         Else
-            Return GetDataType(Values.ToList)
+            'If (From t In Types Where t Is GetType(Image)).Any Then Stop
+            Return GetDataType(Types.ToList)
         End If
 
     End Function
-    Public Function GetDataType(Values As List(Of String)) As Type
+    Public Function GetDataType(Types As List(Of String)) As Type
 
-        If Values Is Nothing Then
+        If Types Is Nothing Then
             Return Nothing
         Else
-            Return GetDataType((From V In Values Select GetDataType(V)).Distinct.ToList)
+            Return GetDataType((From t In Types Select GetDataType(t)).Distinct.ToList)
         End If
 
     End Function
@@ -1077,70 +1090,84 @@ Public Module Functions
     End Function
     Public Function GetDataType(Value As String) As Type
 
-        Dim _Date As Date
-        Dim Formats() As String = {
-            "M/d/yyyy",
-            "M/d/yyyy h:mm",
-            "M/d/yyyy h:mm:ss",
-            "M/d/yyyy h:mm:ss tt"}
-        If Date.TryParseExact(Value, Formats, New Globalization.CultureInfo("en-US"), Globalization.DateTimeStyles.AllowWhiteSpaces, _Date) Then
-            Return _Date.GetType
+        If Value Is Nothing Then
+            Return GetType(String)
 
         Else
-            Dim _Boolean As Boolean
-            If Boolean.TryParse(Value, _Boolean) Then
-                Return _Boolean.GetType
+            If Value.Contains("Drawing.Bitmap") Or Value.Contains("Drawing.Image") Then
+                Return GetType(Image)
+
+            ElseIf Value.Contains("Drawing.Icon") Then
+                Return GetType(Icon)
 
             Else
-                If IsNumeric(Value) Then
-                    Dim _Decimal As Decimal
-                    If Decimal.TryParse(Value, _Decimal) Then
-                        REM /// NUMERIC+COULD BE DECIMAL Or INTEGER
-                        If Split(Value, ".").Count = 1 Then
-                            REM /// INTEGER
-                            REM /// MUST BE A WHOLE NUMBER. START WITH SMALLEST AND WORK UP
-                            Dim _Byte As Byte
-                            If Byte.TryParse(Value, _Byte) Then
-                                Return _Byte.GetType
+                Dim _Date As Date
+                Dim Formats() As String = {
+                    "M/d/yyyy",
+                    "M/d/yyyy h:mm",
+                    "M/d/yyyy h:mm:ss",
+                    "M/d/yyyy h:mm:ss tt"}
 
-                            Else
-                                Dim _Short As Short
-                                If Short.TryParse(Value, _Short) Then
-                                    Return _Short.GetType
+                If Date.TryParseExact(Value, Formats, New CultureInfo("en-US"), DateTimeStyles.AllowWhiteSpaces, _Date) Then
+                    Return _Date.GetType
 
-                                Else
-                                    Dim _Integer As Integer
-                                    If Integer.TryParse(Value, _Integer) Then
-                                        Return _Integer.GetType
+                Else
+                    Dim _Boolean As Boolean
+                    If Boolean.TryParse(Value, _Boolean) Or Value.ToUpperInvariant = "TRUE" Or Value.ToUpperInvariant = "FALSE" Then
+                        Return _Boolean.GetType
+
+                    Else
+                        If IsNumeric(Value) Then
+                            Dim _Decimal As Decimal
+                            If Decimal.TryParse(Value, _Decimal) Then
+                                REM /// NUMERIC+COULD BE DECIMAL Or INTEGER
+                                If Split(Value, ".").Count = 1 Then
+                                    REM /// INTEGER
+                                    REM /// MUST BE A WHOLE NUMBER. START WITH SMALLEST AND WORK UP
+                                    Dim _Byte As Byte
+                                    If Byte.TryParse(Value, _Byte) Then
+                                        Return _Byte.GetType
 
                                     Else
-                                        Dim _Long As Long
-                                        If Long.TryParse(Value, _Long) Then
-                                            Return _Long.GetType
+                                        Dim _Short As Short
+                                        If Short.TryParse(Value, _Short) Then
+                                            Return _Short.GetType
 
                                         Else
-                                            REM /// NOT DATE, BOOLEAN, DECIMAL, NOR INTEGER...DEFAULT TO STRING
-                                            Return GetType(String)
+                                            Dim _Integer As Integer
+                                            If Integer.TryParse(Value, _Integer) Then
+                                                Return _Integer.GetType
 
+                                            Else
+                                                Dim _Long As Long
+                                                If Long.TryParse(Value, _Long) Then
+                                                    Return _Long.GetType
+
+                                                Else
+                                                    REM /// NOT DATE, BOOLEAN, DECIMAL, NOR INTEGER...DEFAULT TO STRING
+                                                    Return GetType(String)
+
+                                                End If
+                                            End If
                                         End If
                                     End If
-                                End If
-                            End If
 
+                                Else
+                                    REM /// DECIMAL
+                                    Return _Decimal.GetType
+
+                                End If
+                            Else
+                                REM /// NUMERIC+COULD BE SCIENTIFIC *** NEED CODE TO CONVERT SCIENTIFIC STRING TO PROPER NUMBER, THEN FEED BACK INTO DECIMAL/INTEGER DETERMINATION
+                                Return GetType(String)
+
+                            End If
                         Else
-                            REM /// DECIMAL
-                            Return _Decimal.GetType
+                            REM /// NOT DATE, BOOLEAN, NOR NUMERIC...DEFAULT TO STRING
+                            Return GetType(String)
 
                         End If
-                    Else
-                        REM /// NUMERIC+COULD BE SCIENTIFIC *** NEED CODE TO CONVERT SCIENTIFIC STRING TO PROPER NUMBER, THEN FEED BACK INTO DECIMAL/INTEGER DETERMINATION
-                        Return GetType(String)
-
                     End If
-                Else
-                    REM /// NOT DATE, BOOLEAN, NOR NUMERIC...DEFAULT TO STRING
-                    Return GetType(String)
-
                 End If
             End If
         End If
@@ -2392,6 +2419,7 @@ Public NotInheritable Class AlertEventArgs
         Message = Value
     End Sub
 End Class
+
 #Region " DLLs "
 <StructLayout(LayoutKind.Sequential)>
 Public Structure SCROLLINFO
