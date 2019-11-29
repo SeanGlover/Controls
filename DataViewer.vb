@@ -285,8 +285,8 @@ Public Class DataViewer
                                             CellString = CellNumber.ToString(.Format.Value, InvariantCulture)
 
                                         ElseIf .Format.Key = Column.TypeGroup.Integers Then
-                                            Dim CellNumber As Integer
-                                            Dim IntegerParse As Boolean = Integer.TryParse(CellValue.ToString, CellNumber)
+                                            Dim CellNumber As Long
+                                            Dim IntegerParse As Boolean = Long.TryParse(CellValue.ToString, CellNumber)
                                             CellString = CellNumber.ToString(.Format.Value, InvariantCulture)
 
                                         End If
@@ -441,9 +441,13 @@ Public Class DataViewer
         If Column IsNot Nothing Then
             With Column
                 Select Case .Format.Key
-                    Case Column.TypeGroup.Strings, Column.TypeGroup.Images
+                    Case Column.TypeGroup.Images
                         If .SortOrder = SortOrder.Ascending Then Rows.Sort(Function(x, y) String.Compare(ImageToBase64(TryCast(x.Cell(.Name), Image)), ImageToBase64(TryCast(y.Cell(.Name), Image)), StringComparison.Ordinal))
                         If .SortOrder = SortOrder.Descending Then Rows.Sort(Function(y, x) String.Compare(ImageToBase64(TryCast(x.Cell(.Name), Image)), ImageToBase64(TryCast(y.Cell(.Name), Image)), StringComparison.Ordinal))
+
+                    Case Column.TypeGroup.Strings
+                        If .SortOrder = SortOrder.Ascending Then Rows.Sort(Function(x, y) String.Compare(CStr(x.Cell(.Name)), CStr(y.Cell(.Name)), StringComparison.Ordinal))
+                        If .SortOrder = SortOrder.Descending Then Rows.Sort(Function(y, x) String.Compare(CStr(x.Cell(.Name)), CStr(y.Cell(.Name)), StringComparison.Ordinal))
 
                     Case Column.TypeGroup.Integers
                         If .SortOrder = SortOrder.Ascending Then Rows.Sort(Function(x, y) Convert.ToInt64(x.Cell(.Name), InvariantCulture).CompareTo(Convert.ToInt64(y.Cell(.Name), InvariantCulture)))
@@ -468,6 +472,7 @@ Public Class DataViewer
         End If
 
     End Sub
+
     Private WithEvents Table_ As DataTable
     Public ReadOnly Property Table As DataTable
         Get

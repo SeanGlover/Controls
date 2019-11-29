@@ -47,6 +47,7 @@ Public Class Tabs
     Public Event TabWidthChanged(sender As Object, e As TabsEventArgs)
     Public Event TabMouseChange(sender As Object, e As TabsEventArgs)
     Public Event ZoneMouseChange(sender As Object, e As TabsEventArgs)
+    Public Event TabDragDrop(sender As Object, e As TabsEventArgs)
 
     Private MouseXY As Point
     Public Property ZoneColor As Color = Color.White
@@ -245,11 +246,14 @@ Public Class Tabs
 
         MouseXY = e.Location
         IsDragging = MouseXY <> DragXY And DragXY.X > 0 And DragXY.Y > 0 And e.Button = MouseButtons.Left
-        If IsDragging And UserCanReorder And e.Button = MouseButtons.Left And MouseTab IsNot AddTab Then
-            DragTab = MouseTab
-            Data.SetData(GetType(Tab), MouseTab)
-            MyBase.OnDragOver(New DragEventArgs(Data, 0, e.X, e.Y, DragDropEffects.Copy Or DragDropEffects.Move, DragDropEffects.All))
-            DoDragDrop(Data, DragDropEffects.Copy Or DragDropEffects.Move)
+        If IsDragging And e.Button = MouseButtons.Left And MouseTab IsNot AddTab Then
+            If UserCanReorder Then
+                DragTab = MouseTab
+                Data.SetData(GetType(Tab), MouseTab)
+                MyBase.OnDragOver(New DragEventArgs(Data, 0, e.X, e.Y, DragDropEffects.Copy Or DragDropEffects.Move, DragDropEffects.All))
+                DoDragDrop(Data, DragDropEffects.Copy Or DragDropEffects.Move)
+            End If
+            RaiseEvent TabDragDrop(Me, New TabsEventArgs(MouseTab, MouseZone))      'This fires when dropped!
         End If
         MouseOver(e.Location)
 

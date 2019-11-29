@@ -8,11 +8,15 @@ Imports System.ComponentModel
 
 #Region " IMPROVEMENTS "
 'SPEED - UPDATE ONLY WHEN NECESSARY AND USE THREADING
+
+'[0] MOVING DATA - DRAG n DROP NOT WORKING RIGHT
+
 '[1] PASTE LIST TO ACTIVEPANE
-'[2] ADD PARAMETERS AS: ?INPUTF
+'[2] ADD PARAMETERS AS: ?INPUT
 '[4] SEARCH DATABASE FOR TABLES Or COLUMNS WITH COLUMN / TABLE NAME
 '[5] CANCEL QUERY
-'[6] MODIFY, ADD, DELETE CONNECTIONS
+'[6] MODIFY, ADD, DELETE CONNECTIONS ... RIGHT CLICK PANE, ADD TO TSMI
+'[7] "DRIVER={IBM DB2 ODBC DRIVER};Database=DSNA1;Hostname=sbrysa1.somers.hqregion.ibm.com;Port=5000;Protocol=TCPIP;UID=C085365;PWD=Y0Y0Y0Y0"
 #End Region
 Public Class ScriptsEventArgs
     Inherits EventArgs
@@ -760,7 +764,8 @@ Public Class DataTool
     Private ReadOnly ConnectionsDictionary As New Dictionary(Of String, Boolean)
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 #Region " EXPORT DATA "
-    Private WithEvents CMS_GridOptions As New ContextMenuStrip With {.Name = "Export", .Text = "Export"}
+    Private WithEvents CMS_GridOptions As New ContextMenuStrip With {.Name = "Options", .Text = "Options"}
+    Private WithEvents Grid_Drag As ToolStripDropDownItem = DirectCast(CMS_GridOptions.Items.Add("Drag me", My.Resources.Move), ToolStripDropDownItem)
     Private ReadOnly Grid_FileExport As ToolStripDropDownItem = DirectCast(CMS_GridOptions.Items.Add("File", My.Resources.Folder), ToolStripDropDownItem)
     Private ReadOnly Grid_ExcelExport As ToolStripDropDownItem = DirectCast(Grid_FileExport.DropDownItems.Add("Excel", My.Resources.Excel, AddressOf MoveData), ToolStripDropDownItem)
     Private ReadOnly Grid_ExcelQueryExport As ToolStripDropDownItem = DirectCast(Grid_ExcelExport.DropDownItems.Add("+ Query", My.Resources.ExcelQuery, AddressOf MoveData), ToolStripDropDownItem)
@@ -1270,7 +1275,7 @@ Public Class DataTool
         End With
 
     End Sub
-    Private Sub ClosedScript_NodeStartDrag(sender As Object, e As NodeEventArgs) Handles Tree_ClosedScripts.NodeDragStart
+    Private Sub ClosedScript_NodeDragStart(sender As Object, e As NodeEventArgs) Handles Tree_ClosedScripts.NodeDragStart
 
         DragNode = e.Node
         ActivePane.AllowDrop = True
@@ -2451,11 +2456,18 @@ Public Class DataTool
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 #End Region
-#Region " Tree_Objects.NodeDrag + Drop ==> PANE Or GRID "
+
+#Region " Tree_Objects DRAG ONTO PANE Or GRID [ V I E W   S T R U C T U R E   Or   C O N T E N T ] "
     Private Sub ObjectNode_StartDrag(sender As Object, e As NodeEventArgs) Handles Tree_Objects.NodeDragStart
 
         'Root=DataSource, Level 1=Owner, Level 2=Name + Image {Trigger, Table, View, Routine}
-        If ActivePane IsNot Nothing And e.Node.Level = 2 Then
+        If ActivePane IsNot Nothing And e.Node.Level = 2 Then   'Dragging a Table, Routine, Trigger or View
+#Region " DRAG UP Or DOWN ON Tree_Objects "
+
+#End Region
+#Region " DRAGGED NODE EXITS Tree_Objects "
+
+#End Region
             Dim A_S = ActiveScript
             Dim NodeObject = NodeProperties(e.Node)
             ActivePane.AllowDrop = True
@@ -2483,18 +2495,9 @@ Public Class DataTool
         End If
 
     End Sub
-    Private Sub TableContentStructureRetrieved(sender As Object, e As ResponsesEventArgs)
 
-        With DirectCast(sender, JobCollection)
-            RemoveHandler .Completed, AddressOf TableContentStructureRetrieved
-            Script_Grid.DataSource = .Item("50 Row Sample").SQL.Table
-            Dim Columns = DataTableToListOfColumnsProperties(.Item("Table Structure").SQL.Table)
-            Dim TableColumns As String = ColumnPropertiesToTableViewProcedure(Columns)
-            ActivePane.Text = CreateTableText(TableColumns)
-        End With
-        SpinTimer.Stop()
-        Tree_Objects.BackgroundImage = Nothing
-
+    Private Sub Pane_DragEnter(sender As Object, e As DragEventArgs) Handles ActivePane_.DragEnter
+        'Stop
     End Sub
     Private Sub Pane_NodeDropped(e As DragEventArgs)
 
@@ -2521,6 +2524,7 @@ Public Class DataTool
         End If
 
     End Sub
+
     Private Sub Grid_NodeDropped(sender As Object, e As DragEventArgs) Handles Script_Grid.DragDrop
 
         Dim DroppedNode As Node = DirectCast(e.Data.GetData(GetType(Node)), Node)
@@ -2555,7 +2559,94 @@ Public Class DataTool
         End With
 
     End Function
+    Private Sub TableContentStructureRetrieved(sender As Object, e As ResponsesEventArgs)
+
+        With DirectCast(sender, JobCollection)
+            RemoveHandler .Completed, AddressOf TableContentStructureRetrieved
+            Script_Grid.DataSource = .Item("50 Row Sample").SQL.Table
+            Dim Columns = DataTableToListOfColumnsProperties(.Item("Table Structure").SQL.Table)
+            Dim TableColumns As String = ColumnPropertiesToTableViewProcedure(Columns)
+            ActivePane.Text = CreateTableText(TableColumns)
+        End With
+        SpinTimer.Stop()
+        Tree_Objects.BackgroundImage = Nothing
+
+    End Sub
 #End Region
+
+#Region " ActivePane.Text Or Script_Tabs.Tab Or Script_Grid DRAG ONTO Tree_Objects [ E T L ] "
+    Private ReadOnly Data As New DataObject
+    Private Sub Pane_StartDrag(sender As Object, e As DragEventArgs) Handles ActivePane_.DragStart
+        Data.SetData(ActivePane_.GetType, ActivePane_)
+    End Sub
+    Private Sub Tab_StartDrag(sender As Object, e As TabsEventArgs) Handles Script_Tabs.TabDragDrop
+        Data.SetData(Script_Tabs.GetType, Script_Tabs)
+    End Sub
+    Private ReadOnly Dragging As New Dictionary(Of Point, Boolean)
+    Private Sub Grid_StartDrag(sender As Object, e As MouseEventArgs) Handles Grid_Drag.MouseMove
+
+        If Not Dragging.ContainsKey(e.Location) Then Dragging.Add(e.Location, e.Button = MouseButtons.Left)
+        If (From d In Dragging.Skip(Dragging.Count - 10) Where d.Value).Count = 10 Then
+            Dim Data As New DataObject
+            Data.SetData(GetType(DataTable), Script_Grid.Table)
+        End If
+
+    End Sub
+    Private Sub Pane_DragOver() Handles ActivePane_.DragOver
+
+        Dim Grid = Data.GetData(GetType(DataTool))
+        If Grid IsNot Nothing Then
+            TLP_PaneGrid.ColumnStyles(0).Width = ObjectsWidth
+        End If
+
+    End Sub
+    Private Sub TreeObjects_DragDrop(sender As Object, e As DragEventArgs) Handles Tree_Objects.DragDrop
+
+        Dim DropNode As Node = Tree_Objects.HitTest(Tree_Objects.PointToClient(Cursor.Position)).Node
+        Dim DragObject As Object = Data.GetData(GetType(Object))
+
+        Dim Grid = Data.GetData(GetType(DataTool))
+        Stop
+        If Grid IsNot Nothing AndAlso DropNode IsNot Nothing Then
+            If DropNode.IsRoot Then
+                'Dropping to Database (Root Level)...Locate TableSpace + Create Table?
+                Dim ConnectionNode As Connection = DirectCast(DropNode.Tag, Connection)
+                With New SQL(ConnectionNode, Replace(My.Resources.SQL_DATAOBJECTS,
+                                                     "--WHERE OWNER='///OWNER///'",
+                                                     "WHERE TYPE='TABLE' AND OWNER=" & ValueToField(ConnectionNode.UserID)))
+                    AddHandler .Completed, AddressOf TableSpaces
+                    .Execute()
+                End With
+
+            ElseIf DropNode.Level = 1 Then
+                'Dropping to Owner Level...Create Table? TableSpace is known
+
+            ElseIf SameImage(DropNode.Image, My.Resources.Table) Then
+                'Dropping Data onto an Existing table...Clear Rows Or Add to Existing?
+
+            End If
+        End If
+
+    End Sub
+    Private Sub ObjectNode_DroppedOnTreeView(sender As Object, e As NodeEventArgs) Handles Tree_Objects.NodeDropped
+
+        Dim DropNode As Node = e.Node
+        If DragNode Is Nothing Then
+
+        ElseIf DragNode.TreeViewer Is Tree_Objects Then
+            If Not DragNode Is DropNode Then
+
+            End If
+        ElseIf DragNode.TreeViewer Is Tree_ClosedScripts Then
+            REM /// FUTURE OPTION TO SCHEDULE JOBS
+            Dim SourceScript As Script = DirectCast(DragNode.Tag, Script)
+            Dim DestinationObject As SystemObject = DirectCast(DropNode.Tag, SystemObject)
+            ObjectTreeview_ETL(SourceScript, DestinationObject)
+        End If
+
+    End Sub
+#End Region
+
 #Region " MAKE CHANGES TO / SEARCH THE DATABASE "
     Private Sub ObjectNodeRemoveRequested(sender As Object, e As NodeEventArgs) Handles Tree_Objects.NodeBeforeRemoved
 
@@ -2692,29 +2783,6 @@ Public Class DataTool
             RemoveHandler Tree_Objects.NodeExpanded, AddressOf ObjectsTreeview_AutoWidth
             RemoveHandler Tree_Objects.NodeExpanded, AddressOf ObjectsTreeview_AutoWidth
         End If
-    End Sub
-    Private Sub PaneText_DroppedOnTreeView(sender As Object, e As EventArgs) Handles Tree_Objects.DragDrop
-        ObjectTreeview_ETL(ActiveScript, DirectCast(DropNode.Tag, SystemObject))
-    End Sub
-    Private Sub Tab_DroppedOnTreeView(sender As Object, e As EventArgs) Handles ActiveTab_.DragDrop
-        ObjectTreeview_ETL(ActiveScript, DirectCast(DropNode.Tag, SystemObject))
-    End Sub
-    Private Sub ObjectNode_DroppedOnTreeView(sender As Object, e As NodeEventArgs) Handles Tree_Objects.NodeDropped
-
-        Dim DropNode As Node = e.Node
-        If DragNode Is Nothing Then
-
-        ElseIf DragNode.TreeViewer Is Tree_Objects Then
-            If Not DragNode Is DropNode Then
-
-            End If
-        ElseIf DragNode.TreeViewer Is Tree_ClosedScripts Then
-            REM /// FUTURE OPTION TO SCHEDULE JOBS
-            Dim SourceScript As Script = DirectCast(DragNode.Tag, Script)
-            Dim DestinationObject As SystemObject = DirectCast(DropNode.Tag, SystemObject)
-            ObjectTreeview_ETL(SourceScript, DestinationObject)
-        End If
-
     End Sub
     Private Sub ObjectTreeview_ETL(SourceScript As Script, DestinationObject As SystemObject)
 
@@ -3082,59 +3150,6 @@ Public Class DataTool
     End Sub
     Private Sub Grid_DatabaseExport_MouseDown(sender As Object, e As EventArgs) Handles Grid_DatabaseExport.MouseDown
 
-
-    End Sub
-    Private ReadOnly Data As New DataObject
-    Private ReadOnly Property DropNode As Node
-    Private Sub ScriptGrid_StartDrag(sender As Object, e As MouseEventArgs) Handles Script_Grid.MouseMove
-
-        If e.Button = MouseButtons.Left And Script_Grid.MouseData.CurrentAction = MouseInfo.Action.None Then
-            Data.SetData(GetType(DataTool), Script_Grid)
-            MyBase.OnDragOver(New DragEventArgs(Data, 0, e.X, e.Y, DragDropEffects.Copy Or DragDropEffects.Move, DragDropEffects.All))
-            DoDragDrop(Data, DragDropEffects.Copy Or DragDropEffects.Move)
-        End If
-
-    End Sub
-    Private Sub Pane_DragOver() Handles ActivePane_.DragOver
-
-        Dim Grid = Data.GetData(GetType(DataTool))
-        If Grid IsNot Nothing Then
-            TLP_PaneGrid.ColumnStyles(0).Width = ObjectsWidth
-        End If
-
-    End Sub
-    Private Sub BTVObjects_DragOver(sender As Object, e As DragEventArgs) Handles Tree_Objects.DragOver
-
-        Dim Grid = Data.GetData(GetType(DataTool))
-        If Grid IsNot Nothing Then
-            If Tree_Objects.DropHighlightNode IsNot Nothing Then
-                _DropNode = Tree_Objects.DropHighlightNode
-            End If
-        End If
-
-    End Sub
-    Private Sub BTVObjects_DragDrop(sender As Object, e As DragEventArgs) Handles Tree_Objects.DragDrop
-
-        Dim Grid = Data.GetData(GetType(DataTool))
-        If Grid IsNot Nothing AndAlso DropNode IsNot Nothing Then
-            If DropNode.IsRoot Then
-                'Dropping to Database (Root Level)...Locate TableSpace + Create Table?
-                Dim ConnectionNode As Connection = DirectCast(DropNode.Tag, Connection)
-                With New SQL(ConnectionNode, Replace(My.Resources.SQL_DATAOBJECTS,
-                                                     "--WHERE OWNER='///OWNER///'",
-                                                     "WHERE TYPE='TABLE' AND OWNER=" & ValueToField(ConnectionNode.UserID)))
-                    AddHandler .Completed, AddressOf TableSpaces
-                    .Execute()
-                End With
-
-            ElseIf DropNode.Level = 1 Then
-                'Dropping to Owner Level...Create Table? TableSpace is known
-
-            ElseIf SameImage(DropNode.Image, My.Resources.Table) Then
-                'Dropping Data onto an Existing table...Clear Rows Or Add to Existing?
-
-            End If
-        End If
 
     End Sub
     Private Sub TableSpaces(sender As Object, e As ResponseEventArgs)

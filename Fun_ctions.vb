@@ -678,7 +678,12 @@ Public Module Functions
         Return [Enum].GetNames(EnumType).ToList
     End Function
     Public Function ParseEnum(Of T)(ByVal value As String) As T
-        Return CType([Enum].Parse(GetType(T), value, True), T)
+        Dim Names As New List(Of String)(EnumNames(GetType(T)))
+        If Names.Contains(value) Then
+            Return CType([Enum].Parse(GetType(T), value, True), T)
+        Else
+            Return Nothing
+        End If
     End Function
 #End Region
     Public Function ColorImages() As Dictionary(Of String, Image)
@@ -986,6 +991,14 @@ Public Module Functions
         If Column IsNot Nothing Then Objects = (From r In Column.Table.AsEnumerable Select r(Column)).ToList
         Return Objects
 
+    End Function
+#End Region
+#Region " ENCRYPTION "
+    Public Function Krypt(TextIn As String) As String
+        Return Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(TextIn))
+    End Function
+    Public Function DeKrypt(TextIn As String) As String
+        Return System.Text.Encoding.Unicode.GetString(Convert.FromBase64String(TextIn))
     End Function
 #End Region
 #Region " VALUE TYPES "

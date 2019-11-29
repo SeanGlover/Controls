@@ -66,6 +66,9 @@ Public NotInheritable Class RicherTextBox
         InnerSizeHeight = Size.Height - ClientSize.Height
     End Sub
     Public Event ScrolledVertical(sender As Object, e As RicherEventArgs)
+    Public Event DragStart(sender As Object, e As DragEventArgs)
+
+    Private ReadOnly Dragging As New Dictionary(Of Point, Boolean)
     Protected Overrides Sub OnPaint(ByVal e As PaintEventArgs)
     End Sub
     Private Const SIF_RANGE As Integer = &H1
@@ -84,6 +87,7 @@ Public NotInheritable Class RicherTextBox
         End Set
     End Property
     Private Const SB_VERT As Integer = &H1
+
     Protected Overrides Sub OnMouseMove(e As MouseEventArgs)
 
         If e IsNot Nothing Then
@@ -127,10 +131,21 @@ Public NotInheritable Class RicherTextBox
                     .WordRectangle = New Rectangle(TextPoint.X, TextPoint.Y, WordWidth, LineHeight)
                     .Intersects = (.WordRectangle.Contains(e.Location))
                 End With
+                If Not Dragging.ContainsKey(e.Location) Then Dragging.Add(e.Location, e.Button = MouseButtons.Left)
+                If SelectionLength > 0 And (From d In Dragging.Skip(Dragging.Count - 10) Where d.Value).Count = 10 Then
+                    Dim Data As New DataObject
+                    Data.SetData(GetType(String), SelectedText)
+                    AllowDrop = True
+                    RaiseEvent DragStart(Me, New DragEventArgs(Data, e.Button, e.X, e.Y, DragDropEffects.All, DragDropEffects.All))
+                End If
             End If
             MyBase.OnMouseMove(e)
         End If
 
+    End Sub
+    Protected Overrides Sub OnMouseUp(e As MouseEventArgs)
+        Dragging.Clear()
+        MyBase.OnMouseUp(e)
     End Sub
     Public ReadOnly Property MouseWord As MouseData
     Public Property VScrollPos() As Integer
