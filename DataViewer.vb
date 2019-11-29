@@ -1812,8 +1812,10 @@ Public Class RowCollection
                 Dim RowCells As Object() = NewRow.DataRow.ItemArray
                 Dim ImageHeights As New List(Of Integer)(From c In RowCells Where c.GetType Is GetType(Bitmap) Or c.GetType Is GetType(Image) Select TryCast(c, Image).Height)
                 ImageHeights.AddRange(From c In RowCells Where c.GetType Is GetType(Icon) Select TryCast(c, Icon).Height)
-                RowStyle.Height = ImageHeights.Max
-                AlternatingRowStyle.Height = RowStyle.Height
+                If ImageHeights.Any Then
+                    RowStyle.Height = ImageHeights.Max
+                    AlternatingRowStyle.Height = RowStyle.Height
+                End If
             End If
             MyBase.Add(NewRow)
             DrawTimer.Start()

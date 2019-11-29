@@ -290,6 +290,9 @@ Public Module Functions
         Return (Join(Elements.ToArray, String.Empty))
 
     End Function
+    Public Function LastDay(InDate As Date) As Date
+        Return New Date(InDate.Year, InDate.Month, Date.DaysInMonth(InDate.Year, InDate.Month))
+    End Function
     Public Function DB2ColumnNamingConvention(ColumnName As String) As String
 
         'https://social.msdn.microsoft.com/Forums/sqlserver/en-US/154c19c4-95ba-4b6f-b6ca-479288feabfb/characters-that-are-not-allowed-in-table-name-amp-column-name-in-sql-server-
