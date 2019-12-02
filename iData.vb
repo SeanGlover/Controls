@@ -1860,7 +1860,15 @@ End Class
     Private ReadOnly _Properties As New Dictionary(Of String, String)
     Public ReadOnly Property Properties As Dictionary(Of String, String)
         Get
-            Return _Properties.Where(Function(x) x.Value.Length > 0).ToDictionary(Function(x) x.Key, Function(y) y.Value)
+            Return _Properties.Where(Function(x) x.Value.Any).ToDictionary(Function(x) x.Key, Function(y) y.Value)
+        End Get
+    End Property
+    Public Sub SetProperty(name As String, value As String)
+        If _Properties.ContainsKey(name) Then _Properties(name) = value
+    End Sub
+    Public ReadOnly Property PropertyList As List(Of String)
+        Get
+            Return _Properties.Keys.Except(Properties.Keys).ToList
         End Get
     End Property
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬

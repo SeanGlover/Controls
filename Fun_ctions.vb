@@ -1482,6 +1482,38 @@ Namespace TLP
             End If
 
         End Function
+        Public Function GetColumns(TLP As TableLayoutPanel) As Dictionary(Of Integer, List(Of Control))
+
+            If TLP Is Nothing Then
+                Return Nothing
+
+            Else
+                Dim Columns As New Dictionary(Of Integer, List(Of Control))
+                For Each Item As Control In TLP.Controls
+                    Dim xy As TableLayoutPanelCellPosition = TLP.GetCellPosition(Item)
+                    If Not Columns.Keys.Contains(xy.Column) Then Columns.Add(xy.Column, New List(Of Control))
+                    Columns(xy.Column).Add(Item)
+                Next
+                Return Columns
+            End If
+
+        End Function
+        Public Function GetRows(TLP As TableLayoutPanel) As Dictionary(Of Integer, List(Of Control))
+
+            If TLP Is Nothing Then
+                Return Nothing
+
+            Else
+                Dim Rows As New Dictionary(Of Integer, List(Of Control))
+                For Each Item As Control In TLP.Controls
+                    Dim xy As TableLayoutPanelCellPosition = TLP.GetCellPosition(Item)
+                    If Not Rows.Keys.Contains(xy.Row) Then Rows.Add(xy.Row, New List(Of Control))
+                    Rows(xy.Row).Add(Item)
+                Next
+                Return Rows
+            End If
+
+        End Function
         Public Sub SetSize(TLP As TableLayoutPanel)
             If TLP IsNot Nothing Then TLP.Size = GetSize(TLP)
         End Sub
@@ -2479,6 +2511,7 @@ End Structure
 Friend NotInheritable Class NativeMethods
     Private Sub New()
     End Sub
+    Friend Declare Function SetProcessDPIAware Lib "user32.dll" () As Boolean
     <DllImport("user32.dll", EntryPoint:="GetScrollInfo")>
     Friend Shared Function GetScrollInfo(ByVal hwnd As IntPtr, ByVal nBar As Integer, ByRef lpsi As SCROLLINFO) As <MarshalAs(UnmanagedType.Bool)> Boolean
     End Function
@@ -2520,6 +2553,9 @@ Friend NotInheritable Class NativeMethods
     End Function
     <DllImport("gdi32.dll")>
     Friend Shared Function DeleteObject(ByVal hObject As IntPtr) As Boolean
+    End Function
+    <DllImport("gdi32.dll")>
+    Friend Shared Function GetDeviceCaps(ByVal hdc As IntPtr, ByVal nIndex As Integer) As Integer
     End Function
     Friend Declare Auto Function GetSystemMetrics Lib "user32.dll" (ByVal smIndex As Integer) As Integer
     Friend Declare Function GetKeyState Lib "user32.dll" (ByVal nVirtKey As Integer) As Short

@@ -13,6 +13,10 @@ Public NotInheritable Class ImageComboEventArgs
 End Class
 Public NotInheritable Class ImageCombo
     Inherits Control
+
+    'Fixes:     Screen Scaling of 125, 150 distorts the CopyFromScreen in DropDown.Protected Overrides Sub OnVisibleChanged(e As EventArgs)
+
+
     Friend Toolstrip As New ToolStripDropDown With {.AutoClose = False, .AutoSize = False, .Padding = New Padding(0), .DropShadowEnabled = False, .BackColor = Color.Transparent}
     Friend Mouse_Region As New MouseRegion
     Private ImageBounds As New Rectangle
@@ -97,7 +101,7 @@ Public NotInheritable Class ImageCombo
             End If
 
             If ButtonMode Then
-#Region " BUTTON STYLE "
+#Region " BUTTON STYLE - NEEDS WORK "
                 Dim HighlightBounds As Rectangle = ClientRectangle
                 If InBounds Then
                     Using lgb As New LinearGradientBrush(HighlightBounds, Color.FromArgb(HighlightOpacity, ButtonHighlightColor), Color.FromArgb(16, ButtonHighlightColor), 2)
@@ -108,13 +112,13 @@ Public NotInheritable Class ImageCombo
 #End Region
             Else
 #Region " REGULAR PROPERTIES "
-                If Text.Length = 0 Then
-                    TextRenderer.DrawText(e.Graphics, HintText, Font, TextBounds, Color.LightGray, TextFormatFlags.VerticalCenter)
-                End If
+                If Not Text.Any Then TextRenderer.DrawText(e.Graphics, HintText, Font, TextBounds, Color.LightGray, TextFormatFlags.VerticalCenter)
 
-                e.Graphics.DrawImage(EyeImage, EyeBounds)
-                e.Graphics.DrawImage(ClearTextImage, ClearTextBounds)
-                e.Graphics.DrawImage(DropImage, DropBounds)
+                If Enabled Then
+                    e.Graphics.DrawImage(EyeImage, EyeBounds)
+                    e.Graphics.DrawImage(ClearTextImage, ClearTextBounds)
+                    e.Graphics.DrawImage(DropImage, DropBounds)
+                End If
 
                 If (PasswordProtected And Not TextIsVisible) Then
                     Using Brush As New HatchBrush(HatchStyle.LightUpwardDiagonal, Color.Black, BackColor)
@@ -128,24 +132,26 @@ Public NotInheritable Class ImageCombo
 
                 End If
 
-                Dim HighlightRectangle As Rectangle = Nothing
-                If Mouse_Region = MouseRegion.Image Then HighlightRectangle = New Rectangle(ImageBounds.X, 0, ImageBounds.Width, Height)
-                If Mouse_Region = MouseRegion.Eye Then HighlightRectangle = EyeDrawBounds
-                If Mouse_Region = MouseRegion.ClearText Then HighlightRectangle = ClearTextDrawBounds
-                If Mouse_Region = MouseRegion.DropDown Then HighlightRectangle = DropDrawBounds
-                Using Brush As New SolidBrush(Color.FromArgb(60, SelectionColor))
-                    e.Graphics.FillRectangle(Brush, HighlightRectangle)
-                End Using
+                If Enabled Then
+                    Dim HighlightRectangle As Rectangle = Nothing
+                    If Mouse_Region = MouseRegion.Image Then HighlightRectangle = New Rectangle(ImageBounds.X, 0, ImageBounds.Width, Height)
+                    If Mouse_Region = MouseRegion.Eye Then HighlightRectangle = EyeDrawBounds
+                    If Mouse_Region = MouseRegion.ClearText Then HighlightRectangle = ClearTextDrawBounds
+                    If Mouse_Region = MouseRegion.DropDown Then HighlightRectangle = DropDrawBounds
+                    Using Brush As New SolidBrush(Color.FromArgb(60, SelectionColor))
+                        e.Graphics.FillRectangle(Brush, HighlightRectangle)
+                    End Using
 
-                If _HasFocus And CursorShouldBeVisible Then
-                    Using Pen As New Pen(SelectionColor)
-                        e.Graphics.DrawLine(Pen, CursorBounds.X, CursorBounds.Y, CursorBounds.X, CursorBounds.Bottom)
+                    If _HasFocus And CursorShouldBeVisible Then
+                        Using Pen As New Pen(SelectionColor)
+                            e.Graphics.DrawLine(Pen, CursorBounds.X, CursorBounds.Y, CursorBounds.X, CursorBounds.Bottom)
+                        End Using
+                    End If
+
+                    Using Brush As New SolidBrush(Color.FromArgb(60, SelectionColor))
+                        e.Graphics.FillRectangle(Brush, SelectionBounds)
                     End Using
                 End If
-
-                Using Brush As New SolidBrush(Color.FromArgb(60, SelectionColor))
-                    e.Graphics.FillRectangle(Brush, SelectionBounds)
-                End Using
 #End Region
             End If
 
@@ -1297,8 +1303,12 @@ Public Class ImageComboDropDown
             ImageCombo.Toolstrip.Size = Size
             Top = -1
             Top = 0
+
+            'NativeMethods.SetProcessDPIAware
+
             Dim BitMap As New Bitmap(Width, Height)
             Using Graphics As Graphics = Graphics.FromImage(BitMap)
+                'Graphics.PageScale = Math.Min(fSize.Width / Graphics.DpiX / 1000, fSize.Height / Graphics.DpiY / 1000)
                 Dim Point As Point = PointToScreen(New Point(0, 0))
                 Graphics.CopyFromScreen(Point.X, Point.Y, 0, 0, BitMap.Size, CopyPixelOperation.SourceCopy)
                 For P = 0 To ShadowDepth - 1
@@ -1384,7 +1394,7 @@ Public Class ImageComboDropDown
                     End With
                 Next
 
-                Width = (From R In VisibleComboItems Select 3 + If(IsNothing(R.Image), 0, 1 + R.Image.Width) + TextRenderer.MeasureText(R.Text, Font).Width).Union({ .TextBounds.Left, .Width}).Max + ShadowDepth + If(VScroll.Visible, VScroll.Bounds.Width, 0)
+                Width = (From R In VisibleComboItems Select 3 + If(IsNothing(R.Image), 0, 1 + R.Image.Width) + R.CheckBounds.Width + TextRenderer.MeasureText(R.Text, Font).Width).Union({ .TextBounds.Left, .Width}).Max + ShadowDepth + If(VScroll.Visible, VScroll.Bounds.Width, 0)
                 _TotalHeight = VisibleComboItems.Count * ItemHeight
                 Height = { .MaxItems * ItemHeight, TotalHeight}.Min + ShadowDepth
                 VScroll.Height = ComboItemRectangle.Height
