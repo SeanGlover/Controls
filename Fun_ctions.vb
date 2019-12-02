@@ -1482,7 +1482,7 @@ Namespace TLP
             End If
 
         End Function
-        Public Sub Resize(TLP As TableLayoutPanel)
+        Public Sub SetSize(TLP As TableLayoutPanel)
             If TLP IsNot Nothing Then TLP.Size = GetSize(TLP)
         End Sub
     End Module

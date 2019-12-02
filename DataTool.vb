@@ -801,11 +801,71 @@ Public Class DataTool
         Dock = DockStyle.Fill
         Me.TestMode = TestMode
 
+#Region " CONNECTIONS "
         Connections.SortCollection()
         'Connections.View()
+
+        Dim ColorKeys = ColorImages()
         For Each Connection In Connections
+#Region " TOP LEVEL "
             AddHandler Connection.PasswordChanged, AddressOf ConnectionChanged
+            Dim ColorImage As Image = ColorKeys(Connection.BackColor.Name)
+            Dim ConnectionItem = TSMI_Connections.DropDownItems.Add(New ToolStripMenuItem With {
+                                                                        .Text = Connection.DataSource,
+                                                                        .Name = Connection.ToString,
+                                                                        .Image = ColorImage})
+            AddHandler TSMI_Connections.DropDownItems(ConnectionItem).Click, AddressOf DataSource_Clicked
+#End Region
+            Dim TLP_Split As New TableLayoutPanel With {.ColumnCount = 1, .RowCount = 2, .Margin = New Padding(0), .CellBorderStyle = TableLayoutPanelCellBorderStyle.None, .BorderStyle = BorderStyle.None}
+            Dim submitControl As New Button With {.Margin = New Padding(0), .Text = "S U B M I T".ToUpperInvariant, .Dock = DockStyle.Fill, .Height = 30}
+            TLP_Split.Controls.Add(submitControl)
+
+            Dim keySizes As New List(Of Size)(From cp In Connection.Properties.Keys Select TextRenderer.MeasureText(cp, Font))
+            Dim valueSizes As New List(Of Size)(From cp In Connection.Properties.Values Select TextRenderer.MeasureText(cp, Font))
+            Dim X_imageWidth As Integer = 3 + My.Resources.Close.Width + 3
+            Dim keyWidth As Integer = 3 + keySizes.Max(Function(ks) ks.Width) + X_imageWidth + 3
+            Dim valueWidth As Integer = 3 + valueSizes.Max(Function(vs) vs.Width) + X_imageWidth + 3
+            Dim kvHeight As Integer = 3 + keySizes.First.Height + 3
+            Dim TLP_Properties As New TableLayoutPanel With {.ColumnCount = 3,
+                .RowCount = 1 + Connection.Properties.Count,
+                .BorderStyle = BorderStyle.None,
+                .CellBorderStyle = TableLayoutPanelCellBorderStyle.None}
+            With TLP_Properties
+                .Tag = Connection
+                .Width = {3, X_imageWidth, keyWidth, valueWidth, 3}.Sum
+                .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = X_imageWidth})
+                .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = keyWidth})
+                .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = valueWidth})
+#Region " Add New Property row "
+                .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = {2, kvHeight, 2}.Sum})
+                Dim addControl As New Button With {.Dock = DockStyle.Fill, .Image = My.Resources.Plus, .Margin = New Padding(0)}
+                Dim addkeyControl As New ImageCombo With {.Dock = DockStyle.Fill, .Text = String.Empty, .Margin = New Padding(0), .HintText = "Name"}
+                Dim addvalueControl As New ImageCombo With {.Dock = DockStyle.Fill, .Text = String.Empty, .Margin = New Padding(0), .HintText = "Value"}
+                .Controls.AddRange({addControl, addkeyControl, addvalueControl})
+#End Region
+                Dim rowIndex As Integer = 1
+                For Each connectionProperty In Connection.Properties
+                    .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = {2, kvHeight, 2}.Sum})
+                    Dim deleteControl As New Button With {.Dock = DockStyle.Fill, .Image = My.Resources.Close.ToBitmap, .Margin = New Padding(0)}
+                    Dim keyControl As New ImageCombo With {.Dock = DockStyle.Fill, .Text = connectionProperty.Key, .Margin = New Padding(0), .Name = connectionProperty.Key}
+                    Dim valueControl As New ImageCombo With {.Dock = DockStyle.Fill, .Text = connectionProperty.Value, .Margin = New Padding(0), .Name = connectionProperty.Key}
+                    .Controls.Add(deleteControl, 0, rowIndex)
+                    .Controls.Add(keyControl, 1, rowIndex)
+                    .Controls.Add(valueControl, 2, rowIndex)
+                    AddHandler deleteControl.Click, AddressOf ConnectionProperty_delete
+                    AddHandler keyControl.TextChanged, AddressOf ConnectionProperty_textChanged
+                    AddHandler valueControl.TextChanged, AddressOf ConnectionProperty_textChanged
+                    rowIndex += 1
+                Next
+            End With
+            TLP.SetSize(TLP_Properties)
+            TLP_Split.Size = New Size(TLP_Properties.Width, TLP_Properties.Height + submitControl.Height)
+            TLP_Split.Controls.Add(TLP_Properties)
+            DirectCast(TSMI_Connections.DropDownItems(ConnectionItem), ToolStripMenuItem).DropDownItems.Add(New ToolStripControlHost(TLP_Split))
         Next
+        TSMI_Copy.DropDownItems.AddRange({TSMI_CopyPlainText, TSMI_CopyColorText})
+        TSMI_Divider.DropDownItems.AddRange({TSMI_DividerSingle, TSMI_DividerDouble})
+#End Region
 
         Jobs.SortCollection()
         'Jobs.View()
@@ -937,7 +997,9 @@ Public Class DataTool
 
     End Sub
 #End Region
+
     Public Event Alert(sender As Object, e As AlertEventArgs)
+
 #Region " PROPERTIES - FUNCTIONS - METHODS "
     Public Shared ReadOnly Connections As New ConnectionCollection
     Public Shared ReadOnly SystemObjects As New SystemObjectCollection
@@ -996,6 +1058,52 @@ Public Class DataTool
         RaiseEvent Alert(sender, e)
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+#End Region
+
+#Region " CONNECTION MANAGEMENT "
+    Private Sub ConnectionProperty_delete(sender As Object, e As EventArgs)
+
+    End Sub
+    Private Sub ConnectionProperty_textChanged(sender As Object, e As EventArgs)
+
+        Dim tlpProperties As TableLayoutPanel = DirectCast(DirectCast(sender, Control).Parent, TableLayoutPanel)
+        Dim Columns As New Dictionary(Of Integer, List(Of Control))
+        Dim Rows As New Dictionary(Of Integer, List(Of Control))
+
+        For Each Item As Control In tlpProperties.Controls
+            Dim xy As TableLayoutPanelCellPosition = tlpProperties.GetCellPosition(Item)
+            If xy.Row >= 0 Then
+                If Not Columns.Keys.Contains(xy.Column) Then Columns.Add(xy.Column, New List(Of Control))
+                Columns(xy.Column).Add(Item)
+                If Not Rows.Keys.Contains(xy.Row) Then Rows.Add(xy.Row, New List(Of Control))
+                Rows(xy.Row).Add(Item)
+            End If
+        Next
+
+        Dim keys_values As New List(Of KeyValuePair(Of String, String))
+        For Each row In Rows
+            keys_values.Add(New KeyValuePair(Of String, String)(row.Value(1).Text, row.Value(2).Text))
+        Next
+
+        Dim tlpConnection As TableLayoutPanel = DirectCast(tlpProperties.Parent, TableLayoutPanel)
+        Dim existingConnection As Connection = DirectCast(tlpProperties.Tag, Connection)
+        Dim newConnectionString As String = Join((From kv In keys_values Select Join({kv.Key, kv.Value}, "=")).ToArray, ";")
+
+        With DirectCast(tlpConnection.Controls(0), Button)      ' S U B M I T   B U T T O N
+            If newConnectionString = existingConnection.ToString Then
+                .BackgroundImage = Nothing
+                .FlatStyle = FlatStyle.System
+
+            Else
+                .BackgroundImage = My.Resources.Button_Bright
+                .BackgroundImageLayout = ImageLayout.Stretch
+                .FlatStyle = FlatStyle.Flat
+
+            End If
+        End With
+
+
+    End Sub
 #End Region
 
 #Region " TABLELAYOUTPANEL SIZING - PANE→|←GRID "
@@ -1379,104 +1487,84 @@ Public Class DataTool
     End Sub
     Private Sub ActivePane_MouseDown(sender As Object, e As MouseEventArgs) Handles ActivePane_.MouseDown
 
-        If e.Button = MouseButtons.Left Then
-            CMS_PaneOptions.AutoClose = True
-            CMS_PaneOptions.Hide()
+        With CMS_PaneOptions
+            If e.Button = MouseButtons.Left Then
+                .AutoClose = True
+                .Hide()
 
-        ElseIf e.Button = MouseButtons.Right Then
-            Dim TipText As String = Nothing
-            Dim TSMI_Connections As New ToolStripMenuItem With {.Text = "Connections".ToString(InvariantCulture), .Image = My.Resources.Database.ToBitmap}
-            Dim ColorKeys = ColorImages()
-            For Each Connection In Connections
-                Dim ColorImage As Image = ColorKeys(Connection.BackColor.Name)
-                Dim ConnectionItem = TSMI_Connections.DropDownItems.Add(New ToolStripMenuItem With {
-                                                                        .Text = Connection.DataSource,
-                                                                        .Name = Connection.ToString,
-                                                                        .Image = ColorImage})
-                AddHandler TSMI_Connections.DropDownItems(ConnectionItem).Click, AddressOf DataSource_Clicked
-            Next
-            With TSMI_Copy.DropDownItems
-                .Clear()
-                .AddRange({TSMI_CopyPlainText, TSMI_CopyColorText})
-            End With
-            With TSMI_Divider.DropDownItems
-                .Clear()
-                .AddRange({TSMI_DividerSingle, TSMI_DividerDouble})
-            End With
-            With TSMI_Font
-
-            End With
-            With CMS_PaneOptions.Items
-                .Clear()
+            ElseIf e.Button = MouseButtons.Right Then
+                .Show(Cursor.Position)
+                With .Items
+                    .Clear()
 #Region " LINE HAS A COMMENT? "
-                GetCommentMatch()
+                    GetCommentMatch()
 #End Region
-                If IsNothing(Pane_MouseObject.Highlight) Then
+                    If IsNothing(Pane_MouseObject.Highlight) Then
 #Region " RIGHTCLICKED UNDEFINED REGION "
-                    .AddRange({TSMI_Connections,
+                        .AddRange({TSMI_Connections,
                                                    TSMI_Comment,
                                                    TSMI_Copy,
                                                    TSMI_Divider,
                                                    TSMI_Font})
 #End Region
-                Else
+                    Else
 #Region " RIGHTCLICKED ON OBJECT "
-                    .AddRange({TSMI_ObjectType,
+                        .AddRange({TSMI_ObjectType,
                                                     TSMI_ObjectValue,
                                                     TSMI_TipSwitch})
 #End Region
-                    RemoveHandler IC_BackColor.SelectionChanged, AddressOf ColorSelected
-                    RemoveHandler IC_ForeColor.SelectionChanged, AddressOf ColorSelected
-                    With Pane_MouseObject
-                        If Not TLP_Type.Controls.Count = 0 Then
-                            REM /// INITIALIZE THEM
-                            With IC_BackColor
-                                .DropDown.CheckBoxes = False
-                                .ColorPicker = True
-                            End With
-                            With IC_ForeColor
-                                .DropDown.CheckBoxes = False
-                                .ColorPicker = True
-                            End With
-                            TLP_Type.Controls.Add(IC_BackColor)
-                            TLP_Type.Controls.Add(IC_ForeColor)
-                        End If
-                        Dim MouseWords As New List(Of StringData)(From M In Regex.Matches(.Highlight.Value, "[^\s]{1,}", RegexOptions.IgnoreCase) Select New StringData(M))
-                        Dim MouseWord As String = MouseWords.First.Value
-                        If MouseWord.Length < .Highlight.Value.Length Then MouseWord += "..."
-                        With TSMI_ObjectType
-                            .BackColor = Pane_MouseObject.Highlight.BackColor
-                            If .BackColor.IsKnownColor AndAlso IC_BackColor.Items.Any Then
-                                Dim BackColors = IC_BackColor.Items.Where(Function(x) x.Text = .BackColor.Name).Select(Function(y) y.Index)
-                                If BackColors.Any Then
-                                    IC_BackColor.SelectedIndex = BackColors.Max
+                        RemoveHandler IC_BackColor.SelectionChanged, AddressOf ColorSelected
+                        RemoveHandler IC_ForeColor.SelectionChanged, AddressOf ColorSelected
+                        With Pane_MouseObject
+                            If Not TLP_Type.Controls.Count = 0 Then
+                                REM /// INITIALIZE THEM
+                                With IC_BackColor
+                                    .DropDown.CheckBoxes = False
+                                    .ColorPicker = True
+                                End With
+                                With IC_ForeColor
+                                    .DropDown.CheckBoxes = False
+                                    .ColorPicker = True
+                                End With
+                                TLP_Type.Controls.Add(IC_BackColor)
+                                TLP_Type.Controls.Add(IC_ForeColor)
+                            End If
+                            Dim MouseWords As New List(Of StringData)(From M In Regex.Matches(.Highlight.Value, "[^\s]{1,}", RegexOptions.IgnoreCase) Select New StringData(M))
+                            Dim MouseWord As String = MouseWords.First.Value
+                            If MouseWord.Length < .Highlight.Value.Length Then MouseWord += "..."
+                            With TSMI_ObjectType
+                                .BackColor = Pane_MouseObject.Highlight.BackColor
+                                If .BackColor.IsKnownColor AndAlso IC_BackColor.Items.Any Then
+                                    Dim BackColors = IC_BackColor.Items.Where(Function(x) x.Text = .BackColor.Name).Select(Function(y) y.Index)
+                                    If BackColors.Any Then
+                                        IC_BackColor.SelectedIndex = BackColors.Max
+                                    End If
                                 End If
-                            End If
-                            .ForeColor = Pane_MouseObject.Highlight.ForeColor
-                            If .ForeColor.IsKnownColor AndAlso IC_ForeColor.Items.Any Then
-                                Dim ForeColors = IC_ForeColor.Items.Where(Function(x) x.Text = .ForeColor.Name).Select(Function(y) y.Index)
-                                If ForeColors.Any Then
-                                    IC_ForeColor.SelectedIndex = ForeColors.Max
+                                .ForeColor = Pane_MouseObject.Highlight.ForeColor
+                                If .ForeColor.IsKnownColor AndAlso IC_ForeColor.Items.Any Then
+                                    Dim ForeColors = IC_ForeColor.Items.Where(Function(x) x.Text = .ForeColor.Name).Select(Function(y) y.Index)
+                                    If ForeColors.Any Then
+                                        IC_ForeColor.SelectedIndex = ForeColors.Max
+                                    End If
                                 End If
-                            End If
-                            .Text = Pane_MouseObject.Source.ToString
+                                .Text = Pane_MouseObject.Source.ToString
+                            End With
+                            With TSMI_ObjectValue
+                                .Text = MouseWord
+                                .DropDownItems.Clear()
+                                If Pane_MouseObject.Source = InstructionElement.LabelName.SystemTable Then
+                                    .Image = My.Resources.Table
+                                Else
+                                    .Image = Nothing
+                                End If
+                            End With
                         End With
-                        With TSMI_ObjectValue
-                            .Text = MouseWord
-                            .DropDownItems.Clear()
-                            If Pane_MouseObject.Source = InstructionElement.LabelName.SystemTable Then
-                                .Image = My.Resources.Table
-                            Else
-                                .Image = Nothing
-                            End If
-                        End With
-                    End With
-                    AddHandler IC_BackColor.SelectionChanged, AddressOf ColorSelected
-                    AddHandler IC_ForeColor.SelectionChanged, AddressOf ColorSelected
-                End If
-                Pane_TipManager(TipText, Cursor.Position)
-            End With
-        End If
+                        AddHandler IC_BackColor.SelectionChanged, AddressOf ColorSelected
+                        AddHandler IC_ForeColor.SelectionChanged, AddressOf ColorSelected
+                    End If
+                End With
+            End If
+        End With
 
     End Sub
     Private Sub ActivePane_MouseEnter(sender As Object, e As EventArgs) Handles ActivePane_.MouseEnter

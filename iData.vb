@@ -272,7 +272,7 @@ Friend Class ResponseFailure
                     .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 36})
                     .Controls.Add(Password_New, 0, 2)
                 End If
-                TLP.Resize(TLP_IP)
+                TLP.SetSize(TLP_IP)
             End With
 
             With IssuePrompt
@@ -1572,7 +1572,8 @@ Public NotInheritable Class ConnectionCollection
                 SW.Write(My.Resources.Base_Connections)
             End Using
         End If
-        For Each ConnectionString In PathToList(Path)
+        Dim ConnectionStrings As New List(Of String)(PathToList(Path))
+        For Each ConnectionString As String In ConnectionStrings
             Add(New Connection(ConnectionString))
         Next
 
