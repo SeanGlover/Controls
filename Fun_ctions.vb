@@ -1476,7 +1476,7 @@ Namespace TLP
                     RowHeights = RowStyleAbsoluteHeights + RowStyleAutoHeights
                 End If
 
-                Return New Size(BorderThickness + ColumnWidths, BorderThickness + RowHeights)
+                Return New Size(2 * BorderThickness + ColumnWidths + 6, 2 * BorderThickness + RowHeights + 6)
             Else
                 Return Nothing
             End If

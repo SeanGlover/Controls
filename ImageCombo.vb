@@ -169,6 +169,9 @@ Public NotInheritable Class ImageCombo
     End Sub
 #End Region
 #Region " PROPERTIES "
+    Public Overrides Function ToString() As String
+        Return "ImageCombo.Text=""" & If(Text, String.Empty) & """"
+    End Function
     Private KeyedValue As String, LastValue As String
     Private ReadOnly BindingSource As New BindingSource
     Private _DataSource As Object
@@ -670,7 +673,7 @@ Public NotInheritable Class ImageCombo
                 KeyedValue = Text
                 Invalidate()
 
-            Catch ex As Exception
+            Catch ex As IndexOutOfRangeException
                 MsgBox(ex.Message & vbCrLf & ex.StackTrace)
 
             End Try
@@ -688,15 +691,19 @@ Public NotInheritable Class ImageCombo
                 If Asc(e.KeyChar) > 31 AndAlso Asc(e.KeyChar) < 127 Then
                     REM /// Printable characters
                     Dim ProposedText As String = Text
-                    If Selection.Length > 0 Then ProposedText = ProposedText.Remove(SelectionStart, Selection.Length)
-                    ProposedText = ProposedText.Insert(SelectionStart, e.KeyChar)
+                    If Selection.Any Then ProposedText = ProposedText.Remove(SelectionStart, Selection.Length)
+                    Try
+                        ProposedText = ProposedText.Insert(SelectionStart, e.KeyChar)
+                    Catch ex As IndexOutOfRangeException
+                        Stop
+                    End Try
                     _CursorIndex = SelectionStart + 1
                     _SelectionIndex = CursorIndex
                     Text = ProposedText
                     ShowMatches(Text)
                 End If
 
-            Catch ex As Exception
+            Catch ex As IndexOutOfRangeException
                 MsgBox(ex.Message & vbCrLf & ex.StackTrace)
 
             End Try
@@ -818,6 +825,7 @@ Public NotInheritable Class ImageCombo
         MyBase.OnParentVisibleChanged(e)
     End Sub
 #End Region
+
 #End Region
 #Region " FUNCTIONS + METHODS "
     Private Sub DropDownItemSelected() Handles Me.ItemSelected

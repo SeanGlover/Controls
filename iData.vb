@@ -1769,6 +1769,7 @@ End Class
         If IsFile Then
             _Properties.Add(ConnectionString, ConnectionString)
         Else
+            PropertyIndices = New Dictionary(Of String, Integer)
             IsNetezza = Regex.Match(ConnectionString, "DRIVER=\{(Netezza|NZ)SQL\}", RegexOptions.IgnoreCase).Success
             If IsNetezza Then
                 '********** CANNOT BE FIRST PROPERTY!!! ===> DRIVER={NZSQL}
@@ -1783,6 +1784,7 @@ End Class
                 Dim PropertyName As String = Split(Element, "=").First
                 Dim PropertyValue As String = Split(Element, "=").Last
                 If Not _Properties.ContainsKey(PropertyName) Then _Properties.Add(PropertyName, PropertyValue)
+                PropertyIndices.Add(PropertyName, PropertyIndices.Count)
             Next
             For Each ProvidedElement In Split(ConnectionString, ";")
                 Dim KeyValuePair() = Split(ProvidedElement, "=")
@@ -1866,11 +1868,12 @@ End Class
     Public Sub SetProperty(name As String, value As String)
         If _Properties.ContainsKey(name) Then _Properties(name) = value
     End Sub
-    Public ReadOnly Property PropertyList As List(Of String)
+    Public ReadOnly Property PropertiesEmpty As List(Of String)
         Get
             Return _Properties.Keys.Except(Properties.Keys).ToList
         End Get
     End Property
+    Public ReadOnly Property PropertyIndices As Dictionary(Of String, Integer)
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Public Shadows ReadOnly Property ToString As String
         Get

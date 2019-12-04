@@ -730,7 +730,7 @@ Public Class DataTool
     Private WithEvents CMS_PaneOptions As New ContextMenuStrip With {.AutoClose = False, .Padding = New Padding(0), .ImageScalingSize = New Size(15, 15), .DropShadowEnabled = True, .Renderer = New CustomRenderer, .BackColor = Color.Gainsboro}
     '-----------------------------------------
     Private WithEvents TSMI_Connections As New ToolStripMenuItem With {.Text = "Connections", .Image = My.Resources.Database.ToBitmap}
-    Private ReadOnly SubmitToolTip As New ToolTip With {.ShowAlways = True, .ToolTipTitle = "New connection:"}
+    Private ReadOnly TT_Submit As New ToolTip With {.ShowAlways = True, .ToolTipTitle = "New connection:"}
     Private WithEvents TSMI_Comment As New ToolStripMenuItem("Comment", My.Resources.Comment)
     '-----------------------------------------
     Private WithEvents TSMI_Copy As New ToolStripMenuItem("Copy", My.Resources.Clipboard)
@@ -802,7 +802,6 @@ Public Class DataTool
 #Region " CONNECTIONS "
         Connections.SortCollection()
         'Connections.View()
-
         For Each Connection In Connections
 #Region " TOP LEVEL "
             AddHandler Connection.PasswordChanged, AddressOf ConnectionChanged
@@ -816,65 +815,74 @@ Public Class DataTool
             AddHandler TSMI_Connections.DropDownItems(ConnectionItem).Click, AddressOf DataSource_Clicked
             AddHandler DirectCast(TSMI_Connections.DropDownItems(ConnectionItem), ToolStripMenuItem).DropDownOpening, AddressOf ConnectionProperties_Showing
 #End Region
-            Dim TLP_Connection As New TableLayoutPanel With {.ColumnCount = 1, .RowCount = 2, .Margin = New Padding(0), .CellBorderStyle = TableLayoutPanelCellBorderStyle.None, .BorderStyle = BorderStyle.None}
-            Dim submitControl As New Button With {.Margin = New Padding(0), .Text = "S U B M I T".ToUpperInvariant, .Dock = DockStyle.Fill, .Height = 30}
-            AddHandler submitControl.Click, AddressOf ConnectionProperty_Submitted
-            TLP_Connection.Controls.Add(submitControl)
-
-            Dim keySizes As New List(Of Size)(From cp In Connection.Properties.Keys Select TextRenderer.MeasureText(cp, Font))
-            Dim valueSizes As New List(Of Size)(From cp In Connection.Properties.Values Select TextRenderer.MeasureText(cp, Font))
-            Dim buttonWidth As Integer = 3 + My.Resources.Close.Width + 3
-            Dim keyWidth As Integer = 3 + keySizes.Max(Function(ks) ks.Width) + 3
-            Dim valueWidth As Integer = 3 + valueSizes.Max(Function(vs) vs.Width) + buttonWidth
-            Dim kvHeight As Integer = 3 + keySizes.First.Height + 3
-            Dim TLP_Properties As New TableLayoutPanel With {.ColumnCount = 3,
-                .RowCount = 1 + Connection.Properties.Count,
+            RaiseEvent Alert(Me, New AlertEventArgs("Initializing " & Connection.DataSource))
+            Dim tlpConnection As New TableLayoutPanel With {.ColumnCount = 1,
+                .RowCount = 2,
+                .Margin = New Padding(0),
+                .CellBorderStyle = TableLayoutPanelCellBorderStyle.None,
                 .BorderStyle = BorderStyle.None,
-                .CellBorderStyle = TableLayoutPanelCellBorderStyle.None}
-            With TLP_Properties
+                .Tag = Connection}
+            Dim buttonSubmit As New Button With {.Margin = New Padding(0), .Text = "S U B M I T".ToUpperInvariant, .Dock = DockStyle.Fill, .Height = 30}
+            With tlpConnection
+                .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 300})
+                .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 30})
+                .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 16})
+                .Controls.Add(buttonSubmit, 0, 0)
+            End With
+            AddHandler buttonSubmit.Click, AddressOf ConnectionProperty_Submitted
+
+            Dim tlpProperties As New TableLayoutPanel With {.ColumnCount = 3,
+                .RowCount = 1 + Connection.PropertyIndices.Count,
+                .BorderStyle = BorderStyle.None,
+                .CellBorderStyle = TableLayoutPanelCellBorderStyle.None,
+                .Tag = Connection}
+            With tlpProperties
                 .Tag = Connection
-                .Width = {3, buttonWidth, keyWidth, valueWidth, 3}.Sum
-                .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = buttonWidth})
-                .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = keyWidth})
-                .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = valueWidth})
-                Dim rowIndex As Integer = 0
+                .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 1})
+                .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 1})
+                .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 1})
 #Region " Add New Property row "
-                .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = {2, kvHeight, 2}.Sum})
+                .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 1})
                 Dim addControl As New Button With {.Dock = DockStyle.Fill, .Image = My.Resources.Plus, .Margin = New Padding(0)}
                 Dim addkeyControl As New ImageCombo With {.Dock = DockStyle.Fill, .Text = String.Empty, .Margin = New Padding(0), .HintText = "Name"}
                 addkeyControl.DropDown.CheckBoxes = False
-                Dim addvalueControl As New ImageCombo With {.Dock = DockStyle.Fill, .Text = String.Empty, .Margin = New Padding(0), .HintText = "Value"}
-                .Controls.Add(addControl, 0, rowIndex)
-                .Controls.Add(addkeyControl, 1, rowIndex)
-                .Controls.Add(addvalueControl, 2, rowIndex)
+                Dim addvalueControl As New ImageCombo With {.Dock = DockStyle.Fill, .Text = String.Empty, .Margin = New Padding(0), .HintText = "Value", .Enabled = False}
+                .Controls.Add(addControl, 0, 0)
+                .Controls.Add(addkeyControl, 1, 0)
+                .Controls.Add(addvalueControl, 2, 0)
                 AddHandler addkeyControl.TextChanged, AddressOf ConnectionProperty_Change
+                AddHandler addkeyControl.ValueSubmitted, AddressOf ConnectionProperty_Submitted
+                AddHandler addkeyControl.ValueChanged, AddressOf ConnectionNewKeyProperty_Selected
                 AddHandler addvalueControl.TextChanged, AddressOf ConnectionProperty_Change
+                AddHandler addvalueControl.ValueSubmitted, AddressOf ConnectionProperty_Submitted
 #End Region
-                For Each connectionProperty In Connection.Properties
-                    rowIndex += 1
-                    .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = {2, kvHeight, 2}.Sum})
+                Dim rowIndex As Integer = 1
+                For Each connectionProperty In Connection.PropertyIndices
+                    .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 1})
                     Dim deleteControl As New Button With {.Dock = DockStyle.Fill,
-                        .Image = My.Resources.Close.ToBitmap,
-                        .Margin = New Padding(0)}
+                        .Margin = New Padding(0),
+                        .FlatStyle = FlatStyle.Flat,
+                        .ImageAlign = ContentAlignment.MiddleCenter}
                     Dim keyControl As New ImageCombo With {.Dock = DockStyle.Fill,
                         .Text = connectionProperty.Key,
                         .Margin = New Padding(0),
                         .Enabled = False,
                         .Name = connectionProperty.Key}
                     Dim valueControl As New ImageCombo With {.Dock = DockStyle.Fill,
-                        .Text = connectionProperty.Value,
+                        .Text = String.Empty,
                         .Margin = New Padding(0)}
                     .Controls.Add(deleteControl, 0, rowIndex)
                     .Controls.Add(keyControl, 1, rowIndex)
                     .Controls.Add(valueControl, 2, rowIndex)
                     AddHandler deleteControl.Click, AddressOf ConnectionProperty_Change
                     AddHandler valueControl.TextChanged, AddressOf ConnectionProperty_Change
+                    AddHandler valueControl.ValueSubmitted, AddressOf ConnectionProperty_Submitted
+                    rowIndex += 1
                 Next
             End With
-            TLP.SetSize(TLP_Properties)
-            TLP_Connection.Size = New Size(TLP_Properties.Width, TLP_Properties.Height + submitControl.Height)
-            TLP_Connection.Controls.Add(TLP_Properties)
-            DirectCast(TSMI_Connections.DropDownItems(ConnectionItem), ToolStripMenuItem).DropDownItems.Add(New ToolStripControlHost(TLP_Connection))
+            tlpConnection.Controls.Add(tlpProperties, 0, 1)
+            ResizeConnections(tlpConnection, tlpProperties)
+            DirectCast(TSMI_Connections.DropDownItems(ConnectionItem), ToolStripMenuItem).DropDownItems.Add(New ToolStripControlHost(tlpConnection))
         Next
         TSMI_Copy.DropDownItems.AddRange({TSMI_CopyPlainText, TSMI_CopyColorText})
         TSMI_Divider.DropDownItems.AddRange({TSMI_DividerSingle, TSMI_DividerDouble})
@@ -1081,39 +1089,62 @@ Public Class DataTool
         Dim openingConnection As Connection = DirectCast(tsmi_Connection.Tag, Connection)
         Dim tlpConnection As TableLayoutPanel = DirectCast(DirectCast(tsmi_Connection.DropDownItems(0), ToolStripControlHost).Control, TableLayoutPanel)
         Dim tlpProperties As TableLayoutPanel = DirectCast(tlpConnection.GetControlFromPosition(0, 1), TableLayoutPanel)
-        Dim rows As Dictionary(Of Integer, List(Of Control)) = TLP.GetRows(tlpProperties)
+        Dim tlpRows As Dictionary(Of Integer, List(Of Control)) = TLP.GetRows(tlpProperties)
+        Dim newKey As ImageCombo = DirectCast(tlpRows(0)(1), ImageCombo)
+        With newKey
+            .Text = Nothing
+            newKey.DataSource = openingConnection.PropertiesEmpty
+            .HintText = "Property name"
+        End With
+        Dim newValue As ImageCombo = DirectCast(tlpRows(0)(2), ImageCombo)
+        With newValue
+            RemoveHandler .TextChanged, AddressOf ConnectionProperty_Change
+            .Text = Nothing
+            AddHandler .TextChanged, AddressOf ConnectionProperty_Change
+            .HintText = "Property value"
+        End With
 
-        Dim newKey As ImageCombo = DirectCast(rows(0)(1), ImageCombo)
-        Dim newValue As ImageCombo = DirectCast(rows(0)(2), ImageCombo)
-        newKey.DataSource = openingConnection.PropertyList
-
-        Dim rowIndex As Integer = 1
         Dim buttonSubmit As Button = DirectCast(tlpConnection.GetControlFromPosition(0, 0), Button)
         With buttonSubmit
             .BackgroundImage = Nothing
             .FlatStyle = FlatStyle.System
         End With
 
-        For Each connectionProperty In openingConnection.Properties
-            Dim deleteControl As Button = DirectCast(rows(rowIndex)(0), Button)
-            deleteControl.Image = My.Resources.Close.ToBitmap
-
-            Dim keyControl As ImageCombo = DirectCast(rows(rowIndex)(1), ImageCombo)
+        Dim rowIndex As Integer = 1
+        For Each connectionProperty As KeyValuePair(Of String, Integer) In openingConnection.PropertyIndices
+            Dim propertyIsUsed As Boolean = openingConnection.Properties.Keys.Contains(connectionProperty.Key)
+            Dim backColor As Color = If(propertyIsUsed, Color.White, Color.Gainsboro)
+            Dim foreColor As Color = If(propertyIsUsed, Color.Black, Color.DarkGray)
+            Dim deleteControl As Button = DirectCast(tlpRows(rowIndex)(0), Button)
+            Dim keyControl As ImageCombo = DirectCast(tlpRows(rowIndex)(1), ImageCombo)
             With keyControl
                 .Text = connectionProperty.Key
-                .BackColor = Color.White
-                .ForeColor = Color.Black
+                .BackColor = backColor
+                .ForeColor = foreColor
             End With
-            Dim valueControl As ImageCombo = DirectCast(rows(rowIndex)(2), ImageCombo)
+            Dim valueControl As ImageCombo = DirectCast(tlpRows(rowIndex)(2), ImageCombo)
             With valueControl
                 RemoveHandler .TextChanged, AddressOf ConnectionProperty_Change
-                .Text = connectionProperty.Value
-                .BackColor = Color.White
-                .ForeColor = Color.Black
+                .Enabled = propertyIsUsed
+                .Text = If(propertyIsUsed, openingConnection.Properties(connectionProperty.Key), String.Empty)
+                .BackColor = backColor
+                .ForeColor = foreColor
                 AddHandler .TextChanged, AddressOf ConnectionProperty_Change
+                deleteControl.Image = If(.Enabled, My.Resources.Close.ToBitmap, My.Resources.Plus)
             End With
             rowIndex += 1
         Next
+        ResizeConnections(tlpConnection, tlpProperties)
+
+    End Sub
+    Private Sub ConnectionNewKeyProperty_Selected(sender As Object, e As ImageComboEventArgs)
+
+        With DirectCast(sender, ImageCombo)
+            Dim tlpProperties As TableLayoutPanel = DirectCast(.Parent, TableLayoutPanel)
+            Dim newRow = TLP.GetRows(tlpProperties)(0)
+            newRow(2).Enabled = newRow(1).Text.Any
+            newRow(2).BackColor = If(newRow(2).Enabled, Color.White, Color.Gainsboro)
+        End With
 
     End Sub
     Private Sub ConnectionProperty_Change(sender As Object, e As EventArgs)
@@ -1123,82 +1154,59 @@ Public Class DataTool
         Dim tlpConnection As TableLayoutPanel = DirectCast(tlpProperties.Parent, TableLayoutPanel)
         Dim submitButton As Button = DirectCast(tlpConnection.Controls(0), Button) ' S U B M I T   B U T T O N
         Dim existingConnection As Connection = DirectCast(tlpProperties.Tag, Connection)
-        Dim Rows = TLP.GetRows(tlpProperties)
-        Dim senderRow As Integer = -1
+        Dim tlpRows = TLP.GetRows(tlpProperties)
+        Dim valueWidth As Integer = 0
+        Dim connectionProperties As New Dictionary(Of Integer, String)
 
-        For Each row As Integer In Rows.Keys
-            If Rows(row).Contains(senderControl) Then senderRow = row
+        For Each row In tlpRows
+            Dim rowButton As Button = DirectCast(row.Value(0), Button)
+            Dim rowKeyCombo As ImageCombo = DirectCast(row.Value(1), ImageCombo)
+            Dim rowValueCombo As ImageCombo = DirectCast(row.Value(2), ImageCombo)
+            Dim rowButtonClicked = rowButton Is senderControl
+            With rowValueCombo
+                RemoveHandler .TextChanged, AddressOf ConnectionProperty_Change
+                If rowButtonClicked Then
+                    .Enabled = Not .Enabled
+                    If .Enabled Then .Text = existingConnection.Properties(rowKeyCombo.Text)
+                Else
+                    .Enabled = rowKeyCombo.Text.Any And .Text.Any
+                End If
+                If .Enabled Then
+                    'Include in consideration ... but reset to default
+                    rowButton.Image = My.Resources.Close.ToBitmap
+                    .BackColor = Color.White
+                    .ForeColor = Color.Black
+
+                    If row.Key = 0 Then
+                        rowKeyCombo.DataSource = existingConnection.PropertiesEmpty
+                    Else
+                        rowKeyCombo.BackColor = Color.White
+                    End If
+
+                    Dim rowValueWidth As Integer = MeasureText(.Text, .Font).Width
+                    If valueWidth < rowValueWidth Then valueWidth = rowValueWidth
+                    connectionProperties.Add(existingConnection.PropertyIndices(rowKeyCombo.Text), Join({rowKeyCombo.Text, .Text}, "="))
+
+                ElseIf row.Key > 0 Then
+                    'Remove from consideration
+                    rowButton.Image = My.Resources.Plus
+                    rowKeyCombo.BackColor = Color.Gainsboro
+                    .BackColor = Color.Gainsboro
+                    .ForeColor = Color.DarkGray
+                End If
+                AddHandler .TextChanged, AddressOf ConnectionProperty_Change
+            End With
         Next
 
-        Dim rowControls As List(Of Control) = Rows(senderRow)
-        Dim rowButton As Button = DirectCast(rowControls(0), Button)
-        Dim rowKey As ImageCombo = DirectCast(rowControls(1), ImageCombo)
-        Dim rowValue As ImageCombo = DirectCast(rowControls(2), ImageCombo)
-
-        If senderControl.GetType Is GetType(Button) Then
-            'Button - Delete
-            If SameImage(My.Resources.Close.ToBitmap, rowButton.Image) Then
-                'Remove from consideration
-                rowButton.Image = My.Resources.Plus
-                With rowKey
-                    .ForeColor = Color.DarkGray
-                End With
-                With rowValue
-                    .Enabled = False
-                    .ForeColor = Color.DarkGray
-                End With
-
-            Else
-                'Include in consideration ... but reset to default
-                rowButton.Image = My.Resources.Close.ToBitmap
-                With rowKey
-                    .ForeColor = Color.Black
-                    .Text = .Name
-                End With
-                With rowValue
-                    .Enabled = True
-                    .ForeColor = Color.Black
-                    RemoveHandler .TextChanged, AddressOf ConnectionProperty_Change
-                    .Text = existingConnection.Properties(rowKey.Name)
-                    AddHandler .TextChanged, AddressOf ConnectionProperty_Change
-                End With
-
-            End If
-
-        Else
-            'ImageCombo - Modify
-            Dim keySizes As New List(Of Size)(From r In Rows Select TextRenderer.MeasureText(r.Value(1).Text, Font))
-            Dim buttonWidth As Integer = 3 + My.Resources.Close.Width + 3
-            Dim keyWidth As Integer = 3 + keySizes.Max(Function(ks) ks.Width) + 3
-            Dim valueSizes As New List(Of Size)(From r In Rows Select TextRenderer.MeasureText(r.Value(2).Text, Font))
-            Dim valueWidth As Integer = 3 + valueSizes.Max(Function(vs) vs.Width) + buttonWidth
-
-            Dim panelWidth As Integer = {3, buttonWidth, keyWidth, valueWidth, 3}.Sum
-
-            tlpConnection.Width = panelWidth
-            tlpProperties.Width = panelWidth
-            tlpProperties.ColumnStyles(2).Width = valueWidth
-            tlpConnection.Size = New Size(tlpProperties.Width, tlpProperties.Height + submitButton.Height)
-
+        If senderControl.GetType Is GetType(ImageCombo) Then
+            'ImageCombo text changing ... Modify width
+            ResizeConnections(tlpConnection, tlpProperties)
         End If
 
-        Dim keys_values As New List(Of KeyValuePair(Of String, String))
-        Dim newKey As ImageCombo = DirectCast(Rows(0)(1), ImageCombo)
-        Dim newValue As ImageCombo = DirectCast(Rows(0)(2), ImageCombo)
-        If newKey.Text.Any And newValue.Text.Any Then keys_values.Add(New KeyValuePair(Of String, String)(newKey.Text, newValue.Text))
-
-        Dim existingPropertyRows = Rows.Skip(1).Where(Function(r) SameImage(DirectCast(r.Value(0), Button).Image, My.Resources.Close.ToBitmap)).ToList
-        For Each row In existingPropertyRows
-            Dim valueControl As Control = row.Value(2)
-            valueControl.BackColor = If(valueControl.Text.Any, Color.White, Color.Gold)
-            If valueControl.BackColor = Color.White Then
-                keys_values.Add(New KeyValuePair(Of String, String)(row.Value(1).Text, valueControl.Text))
-            End If
-        Next
-
-        Dim newConnectionString As String = Join((From kv In keys_values Select Join({kv.Key, kv.Value}, "=")).ToArray, ";")
+        Dim orderedProperties As New List(Of String)(connectionProperties.OrderBy(Function(k) k.Key).Select(Function(v) v.Value))
+        Dim newConnectionString As String = Join(orderedProperties.ToArray, ";")
         With submitButton
-            SubmitToolTip.Hide(submitButton)
+            TT_Submit.Hide(submitButton)
             If newConnectionString = existingConnection.ToString Then
                 .BackgroundImage = Nothing
                 .FlatStyle = FlatStyle.System
@@ -1207,34 +1215,77 @@ Public Class DataTool
                 .BackgroundImage = My.Resources.Button_Bright
                 .BackgroundImageLayout = ImageLayout.Stretch
                 .FlatStyle = FlatStyle.Flat
-                SubmitToolTip.Show(newConnectionString, submitButton, New Point(-3, -(5 + submitButton.Height + 5)))
+                TT_Submit.Show(newConnectionString, submitButton, New Point(-3, -(5 + submitButton.Height + 5)))
             End If
+        End With
+
+    End Sub
+    Private Sub ConnectionProperty_Submitted(sender As Object, e As ImageComboEventArgs)
+
+        With DirectCast(sender, ImageCombo)
+            Dim tlpProperties As TableLayoutPanel = DirectCast(.Parent, TableLayoutPanel)
+            Dim tlpConnection As TableLayoutPanel = DirectCast(tlpProperties.Parent, TableLayoutPanel)
+            Dim submitButton As Button = DirectCast(tlpConnection.Controls(0), Button) ' S U B M I T   B U T T O N
+            ConnectionProperty_Submitted(submitButton, New EventArgs)
         End With
 
     End Sub
     Private Sub ConnectionProperty_Submitted(sender As Object, e As EventArgs)
 
-        Dim submitControl As Button = DirectCast(sender, Button)
-        Dim tlpConnection As TableLayoutPanel = DirectCast(submitControl.Parent, TableLayoutPanel)
+        Dim submitButton As Button = DirectCast(sender, Button)
+        Dim tlpConnection As TableLayoutPanel = DirectCast(submitButton.Parent, TableLayoutPanel)
         Dim tlpProperties As TableLayoutPanel = DirectCast(tlpConnection.GetControlFromPosition(0, 1), TableLayoutPanel)
         Dim connectionSubmitted As Connection = DirectCast(tlpProperties.Tag, Connection)
-        Dim Rows = TLP.GetRows(tlpProperties)
+        Dim tsmiConnection As ToolStripMenuItem = DirectCast(TSMI_Connections.DropDownItems(connectionSubmitted.ToString), ToolStripMenuItem)
+        Dim tlpRows = TLP.GetRows(tlpProperties).OrderByDescending(Function(r) r.Key)       'Make Descending since New property is position 0 and must override actual hidden property
 
-        Dim keys_values As New List(Of KeyValuePair(Of String, String))
-        Dim newKey As ImageCombo = DirectCast(Rows(0)(1), ImageCombo)
-        Dim newValue As ImageCombo = DirectCast(Rows(0)(2), ImageCombo)
-
-        If newKey.Text.Any And newValue.Text.Any Then
-            connectionSubmitted.Properties(newKey.Text) = newValue.Text
-            keys_values.Add(New KeyValuePair(Of String, String)(newKey.Text, newValue.Text))
-        End If
-
-        Dim existingPropertyRows = Rows.Skip(1).Where(Function(r) SameImage(DirectCast(r.Value(0), Button).Image, My.Resources.Close.ToBitmap)).ToList
-        For Each row In existingPropertyRows
-            Dim keyText As String = row.Value(1).Text
-            Dim valueText As String = row.Value(2).Text
-            connectionSubmitted.SetProperty(keyText, valueText)
+        For Each row In tlpRows
+            Dim keyControl As Control = row.Value(1)
+            Dim valueControl As Control = row.Value(2)
+            Dim useProperty As Boolean = valueControl.Enabled And keyControl.Text.Any And valueControl.Text.Any
+            connectionSubmitted.SetProperty(keyControl.Text, If(useProperty, valueControl.Text, String.Empty))
         Next
+
+        CMS_PaneOptions.AutoClose = True
+        CMS_PaneOptions.Hide()
+        TT_Submit.Hide(submitButton)
+        tsmiConnection.Name = connectionSubmitted.ToString
+        connectionSubmitted.Parent.Save()
+
+    End Sub
+
+    Private Sub ResizeConnections(tlpConnection As TableLayoutPanel, tlpProperties As TableLayoutPanel)
+
+        Dim connectionResize = DirectCast(tlpConnection.Tag, Connection)
+        Dim propertyRows = TLP.GetRows(tlpProperties)
+        Dim keyWidth As Integer = MeasureText("Property name".ToUpperInvariant, Font).Width
+        Dim valueWidth As Integer = MeasureText("Property value".ToUpperInvariant, Font).Width
+        Dim imageWH As Integer = {24, My.Resources.Close.Width, My.Resources.Plus.Width}.Max
+
+        For Each row In propertyRows
+            Dim buttonControl As Button = DirectCast(row.Value(0), Button)
+            Dim keyControl As Control = row.Value(1)
+            Dim valueControl As Control = row.Value(2)
+            keyWidth = {keyWidth, MeasureText(keyControl.Text.ToUpperInvariant, keyControl.Font).Width}.Max
+            valueWidth = {valueWidth, MeasureText(valueControl.Text.ToUpperInvariant, valueControl.Font).Width}.Max
+            Dim isVisible As Boolean = If(row.Key = 0, True, connectionResize.Properties.ContainsKey(keyControl.Text))
+            buttonControl.Image = If(isVisible, If(row.Key = 0, My.Resources.Plus, If(valueControl.Enabled, My.Resources.Close.ToBitmap, My.Resources.Plus)), Nothing)
+            tlpProperties.RowStyles(row.Key).Height = If(isVisible, imageWH, 0)
+        Next
+
+        With tlpProperties
+            .ColumnStyles(0).Width = imageWH
+            .ColumnStyles(1).Width = keyWidth
+            .ColumnStyles(2).Width = valueWidth + 16 ' [ X ] Clear Text Image width
+        End With
+        Dim sizeProperties As Size = TLP.GetSize(tlpProperties)
+        With tlpConnection
+            .ColumnStyles(0).Width = sizeProperties.Width
+            .RowStyles(0).Height = 30
+            .RowStyles(1).Height = sizeProperties.Height
+        End With
+        TLP.SetSize(tlpConnection)
+        tlpProperties.Size = sizeProperties
 
     End Sub
 #End Region
@@ -3054,6 +3105,7 @@ Public Class DataTool
                 If .HasText And Not IsNothing(_Script.Connection) Then
                     If _Script.Connection.CanConnect Then
                         If .InstructionType = ExecutionType.DDL Then
+#Region " D D L "
                             RaiseEvent Alert(Me, New AlertEventArgs("Running procedure " & _Script.Name))
                             Cursor.Current = Cursors.WaitCursor
                             With New DDL(_Script.Connection, .SystemText, True, True)
@@ -3061,11 +3113,39 @@ Public Class DataTool
                                 .Name = _Script.CreatedString
                                 .Execute()
                             End With
+#End Region
 
                         ElseIf .InstructionType = ExecutionType.SQL Then
+#Region " S Q L "
                             RaiseEvent Alert(Me, New AlertEventArgs("Running query " & _Script.Name))
-                            RunQuery(_Script)
+                            'https://www.ibm.com/support/knowledgecenter/SSEPEK_11.0.0/cattab/src/tpc/db2z_catalogtablesintro.html
+                            With _Script
+                                If .Connection.IsFile Then
+                                    For Each SheetName In SystemObjects
+                                        'SQL_Statement = Replace(SQL_Statement, SheetName.Name, "[" & SheetName.Name & "]")
+                                    Next
 
+                                Else
+                                    Script_Grid.Waiting(Color.Tomato) = True
+                                    Dim TablesNeed As String() = .Body.TablesNeedObject.ToArray
+                                    If TablesNeed.Any Then
+                                        RaiseEvent Alert(Me, New AlertEventArgs("Adding to profile: " & Join(TablesNeed, ",") & "-(RunQuery)"))
+                                        Dim TableColumnSQL As String = ColumnSQL(TablesNeed)
+                                        With New SQL(.Connection, TableColumnSQL)
+                                            AddHandler .Completed, AddressOf ColumnsSQL_Completed
+                                            .Execute()
+                                        End With
+                                    Else
+                                    End If
+                                    Dim BodyText As String = .Body.SystemText
+                                    With New SQL(.Connection, BodyText)
+                                        AddHandler .Completed, AddressOf Execute_Completed
+                                        .Name = _Script.CreatedString
+                                        .Execute()
+                                    End With
+                                End If
+                            End With
+#End Region
                         ElseIf .InstructionType = ExecutionType.Null Then
 
                         End If
@@ -3079,42 +3159,6 @@ Public Class DataTool
                     Message.Show("No datasource found or selected", "Please set your connection", Prompt.IconOption.Critical, Prompt.StyleOption.Blue)
                 End If
             End With
-        End With
-
-    End Sub
-    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Private Sub RunQuery(Optional _Script As Script = Nothing)
-
-        'https://www.ibm.com/support/knowledgecenter/SSEPEK_11.0.0/cattab/src/tpc/db2z_catalogtablesintro.html
-        If IsNothing(_Script) Then _Script = ActiveScript
-        With _Script
-            If Not IsNothing(.Connection) Then
-                If .Connection.IsFile Then
-                    For Each SheetName In SystemObjects
-                        'SQL_Statement = Replace(SQL_Statement, SheetName.Name, "[" & SheetName.Name & "]")
-                    Next
-
-                Else
-                    Cursor.Current = Cursors.WaitCursor
-                    Script_Grid.Waiting(Color.Tomato) = True
-                    Dim TablesNeed As String() = .Body.TablesNeedObject.ToArray
-                    If TablesNeed.Any Then
-                        RaiseEvent Alert(Me, New AlertEventArgs("Adding to profile: " & Join(TablesNeed, ",") & "-(RunQuery)"))
-                        Dim TableColumnSQL As String = ColumnSQL(TablesNeed)
-                        With New SQL(.Connection, TableColumnSQL)
-                            AddHandler .Completed, AddressOf ColumnsSQL_Completed
-                            .Execute()
-                        End With
-                    Else
-                    End If
-                    Dim BodyText As String = .Body.SystemText
-                    With New SQL(.Connection, BodyText)
-                        AddHandler .Completed, AddressOf Execute_Completed
-                        .Name = _Script.CreatedString
-                        .Execute()
-                    End With
-                End If
-            End If
         End With
 
     End Sub
