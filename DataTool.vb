@@ -814,6 +814,7 @@ Public Class DataTool
                                                                         .Tag = Connection})
             AddHandler TSMI_Connections.DropDownItems(ConnectionItem).Click, AddressOf DataSource_Clicked
             AddHandler DirectCast(TSMI_Connections.DropDownItems(ConnectionItem), ToolStripMenuItem).DropDownOpening, AddressOf ConnectionProperties_Showing
+            AddHandler DirectCast(TSMI_Connections.DropDownItems(ConnectionItem), ToolStripMenuItem).DropDownClosed, AddressOf ConnectionProperties_Closed
 #End Region
             RaiseEvent Alert(Me, New AlertEventArgs("Initializing " & Connection.DataSource))
             Dim tlpConnection As New TableLayoutPanel With {.ColumnCount = 1,
@@ -843,7 +844,12 @@ Public Class DataTool
                 .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 1})
 #Region " Add New Property row "
                 .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 1})
-                Dim addControl As New Button With {.Dock = DockStyle.Fill, .Image = My.Resources.Plus, .Margin = New Padding(0)}
+                Dim addControl As New Button With {.Dock = DockStyle.Fill,
+                    .Image = My.Resources.Plus,
+                    .Margin = New Padding(0),
+                    .ImageAlign = ContentAlignment.MiddleCenter,
+                    .FlatStyle = FlatStyle.Standard,
+                    .BackColor = Color.GhostWhite}
                 Dim addkeyControl As New ImageCombo With {.Dock = DockStyle.Fill, .Text = String.Empty, .Margin = New Padding(0), .HintText = "Name"}
                 addkeyControl.DropDown.CheckBoxes = False
                 Dim addvalueControl As New ImageCombo With {.Dock = DockStyle.Fill, .Text = String.Empty, .Margin = New Padding(0), .HintText = "Value", .Enabled = False}
@@ -861,8 +867,9 @@ Public Class DataTool
                     .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 1})
                     Dim deleteControl As New Button With {.Dock = DockStyle.Fill,
                         .Margin = New Padding(0),
-                        .FlatStyle = FlatStyle.Flat,
-                        .ImageAlign = ContentAlignment.MiddleCenter}
+                        .FlatStyle = FlatStyle.Standard,
+                        .ImageAlign = ContentAlignment.MiddleCenter,
+                        .BackColor = Color.GhostWhite}
                     Dim keyControl As New ImageCombo With {.Dock = DockStyle.Fill,
                         .Text = connectionProperty.Key,
                         .Margin = New Padding(0),
@@ -882,7 +889,7 @@ Public Class DataTool
             End With
             tlpConnection.Controls.Add(tlpProperties, 0, 1)
             ResizeConnections(tlpConnection, tlpProperties)
-            DirectCast(TSMI_Connections.DropDownItems(ConnectionItem), ToolStripMenuItem).DropDownItems.Add(New ToolStripControlHost(tlpConnection))
+            DirectCast(TSMI_Connections.DropDownItems(ConnectionItem), ToolStripMenuItem).DropDownItems.Add(New ToolStripControlHost(tlpConnection) With {.BackColor = Connection.BackColor})
         Next
         TSMI_Copy.DropDownItems.AddRange({TSMI_CopyPlainText, TSMI_CopyColorText})
         TSMI_Divider.DropDownItems.AddRange({TSMI_DividerSingle, TSMI_DividerDouble})
@@ -1232,8 +1239,8 @@ Public Class DataTool
     End Sub
     Private Sub ConnectionProperty_Submitted(sender As Object, e As EventArgs)
 
-        Dim submitButton As Button = DirectCast(sender, Button)
-        Dim tlpConnection As TableLayoutPanel = DirectCast(submitButton.Parent, TableLayoutPanel)
+        Dim buttonSubmit As Button = DirectCast(sender, Button)
+        Dim tlpConnection As TableLayoutPanel = DirectCast(buttonSubmit.Parent, TableLayoutPanel)
         Dim tlpProperties As TableLayoutPanel = DirectCast(tlpConnection.GetControlFromPosition(0, 1), TableLayoutPanel)
         Dim connectionSubmitted As Connection = DirectCast(tlpProperties.Tag, Connection)
         Dim tsmiConnection As ToolStripMenuItem = DirectCast(TSMI_Connections.DropDownItems(connectionSubmitted.ToString), ToolStripMenuItem)
@@ -1248,9 +1255,17 @@ Public Class DataTool
 
         CMS_PaneOptions.AutoClose = True
         CMS_PaneOptions.Hide()
-        TT_Submit.Hide(submitButton)
+        TT_Submit.Hide(buttonSubmit)
         tsmiConnection.Name = connectionSubmitted.ToString
         connectionSubmitted.Parent.Save()
+
+    End Sub
+    Private Sub ConnectionProperties_Closed(sender As Object, e As EventArgs)
+
+        Dim tsmi_Connection As ToolStripMenuItem = DirectCast(sender, ToolStripMenuItem)
+        Dim tlpConnection As TableLayoutPanel = DirectCast(DirectCast(tsmi_Connection.DropDownItems(0), ToolStripControlHost).Control, TableLayoutPanel)
+        Dim buttonSubmit As Button = DirectCast(tlpConnection.GetControlFromPosition(0, 0), Button)
+        TT_Submit.Hide(buttonSubmit)
 
     End Sub
 
