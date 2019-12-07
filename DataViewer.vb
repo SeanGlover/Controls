@@ -107,6 +107,7 @@ Public Class DataViewer
         SetupScrolls()
         If e IsNot Nothing Then
             e.Graphics.FillRectangle(New SolidBrush(BackColor), ClientRectangle)
+            If BackgroundImage IsNot Nothing Then e.Graphics.DrawImage(BackgroundImage, ClientRectangle)
 #Region " DRAW HEADERS "
             With Columns
                 Dim HeadFullBounds As New Rectangle(0, 0, {1, .HeadBounds.Width}.Max, .HeadBounds.Height)
@@ -1127,8 +1128,9 @@ Public Class ColumnCollection
     Private WithEvents ColumnsWorker As New BackgroundWorker With {.WorkerReportsProgress = True, .WorkerSupportsCancellation = True}
     Friend Sub FormatSize()             ' I N I T I A L  F O R M A T + S I Z I N G
         RaiseEvent CollectionSizingStart(Me, Nothing)
-        ColumnsWorker.RunWorkerAsync()
+        If Not ColumnsWorker.IsBusy Then ColumnsWorker.RunWorkerAsync()
     End Sub
+
     Public Sub AutoSize()
         For Each Column In Me
             SizeColumn(Column)

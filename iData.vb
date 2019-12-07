@@ -209,6 +209,9 @@ Friend Class ResponseFailure
     End Sub
     Private Sub Query_Procedure_Failed(e As ResponseEventArgs)
 
+        Dim errorConnection As New Connection(e.ConnectionString)
+        Dim errorDatasource As String = errorConnection.DataSource
+
         If e.RunError.ErrorType = Errors.Type.Access Then
 
 #Region " PASSWORD ISSUE "
@@ -291,11 +294,12 @@ Friend Class ResponseFailure
 #End Region
         ElseIf e.RunError.ErrorType = Errors.Type.Combatibility Then
 #Region " ARCHITECTURE MISMATCH 32 bit vs 64 bit "
-            Message.Show("Connection to " & e.Connection.DataSource & " is not currently possible", "Architecture Mismatch", Prompt.IconOption.TimedMessage, Prompt.StyleOption.Earth)
+
+            Message.Show("Connection to " & errorDatasource & " is not currently possible", "Architecture Mismatch", Prompt.IconOption.TimedMessage, Prompt.StyleOption.Earth)
 #End Region
         ElseIf e.RunError.ErrorType = Errors.Type.Requirement Then
 #Region " NOT RUNNING AS ADMINISTRATOR "
-            Message.Show("Connection to " & e.Connection.DataSource & " is not currently possible", "Administrator error. Reopen application running as administrator", Prompt.IconOption.TimedMessage, Prompt.StyleOption.Earth)
+            Message.Show("Connection to " & errorDatasource & " is not currently possible", "Administrator error. Reopen application running as administrator", Prompt.IconOption.TimedMessage, Prompt.StyleOption.Earth)
 #End Region
         ElseIf e.RunError.ErrorType = Errors.Type.RunTime Then
 #Region " RUNTIME (SCRIPT ERROR) "

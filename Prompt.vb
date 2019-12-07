@@ -33,6 +33,7 @@ Public Class Prompt
         RedBrown
         Earth
         Psychedelic
+        Custom
     End Enum
     Public Sub New()
 
@@ -50,7 +51,7 @@ Public Class Prompt
         TopMost = True
         MinimizeBox = False
         MaximizeBox = False
-        MinimumSize = New Size(200, 3 + 32 + 3)     'IconHeight + Padding
+        MinimumSize = New Size(300, 3 + 112 + 3)     'IconHeight + Padding
         MaximumSize = New Size(Convert.ToInt32(0.7 * WorkingSpace.Width), Convert.ToInt32(0.7 * WorkingSpace.Height))
         Controls.Add(Table)
         Controls.AddRange({OK, YES, NO})
@@ -284,7 +285,7 @@ Public Class Prompt
                                 TextRenderer.DrawText(e.Graphics, Word.Value, PreferredFont, WordRectangle, Color.Blue, TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
                             End If
                         Else
-                            TextRenderer.DrawText(e.Graphics, Word.Value, PreferredFont, WordRectangle, Color.Black, TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
+                            TextRenderer.DrawText(e.Graphics, Word.Value, PreferredFont, WordRectangle, TextColor, TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
                         End If
                     Next
 
@@ -394,6 +395,26 @@ Public Class Prompt
         End If
 
     End Function
+    Public Overloads Function Show(TitleMessage As String,
+                                    BodyMessage As String,
+                                    Type As IconOption,
+                                    AlternatingRowColor As Color,
+                                    BackgroundColor As Color,
+                                    TextColor As Color,
+                                    ShadeColor As Color,
+                                    AccentColor As Color,
+                                    BorderColor As Color) As DialogResult
+        _AlternatingRowColor = AlternatingRowColor
+        _BackgroundColor = BackgroundColor
+        _TextColor = TextColor
+        _ShadeColor = ShadeColor
+        _AccentColor = AccentColor
+        _BorderColor = BorderColor
+
+        ColorStyle = StyleOption.Custom
+        Return Show(TitleMessage, BodyMessage, Type, StyleOption.Custom)
+
+    End Function
     Public Overloads Function Show(TitleMessage As String, BodyMessage As String(), Optional Type As IconOption = IconOption.OK, Optional ColorTheme As StyleOption = StyleOption.Plain, Optional AutoCloseSeconds As Integer = 3) As DialogResult
         Return Show(TitleMessage, Join(BodyMessage, vbNewLine), Type, ColorTheme, AutoCloseSeconds)
     End Function
@@ -441,7 +462,7 @@ Public Class Prompt
             Case StyleOption.Grey
                 _AlternatingRowColor = Color.DarkGray
                 _BackgroundColor = Color.Gainsboro
-                _TextColor = Color.White
+                _TextColor = Color.Black
                 _ShadeColor = Color.Silver
                 _AccentColor = Color.Gray
                 BorderColor = Color.Black
@@ -465,11 +486,11 @@ Public Class Prompt
 
             Case StyleOption.Plain
                 _AlternatingRowColor = Color.Gainsboro
-                _BackgroundColor = Color.Gray
-                _TextColor = Color.White
+                _BackgroundColor = Color.LightGray
+                _TextColor = Color.Black
                 _ShadeColor = Color.DarkGray
                 _AccentColor = Color.Gainsboro
-                BorderColor = Color.Black
+                BorderColor = Color.Silver
 
             Case StyleOption.RedBrown
                 _AlternatingRowColor = Color.Chocolate
@@ -478,6 +499,8 @@ Public Class Prompt
                 _ShadeColor = Color.Crimson
                 _AccentColor = Color.Peru
                 BorderColor = Color.SaddleBrown
+
+            Case StyleOption.Custom
 
         End Select
 

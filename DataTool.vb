@@ -802,7 +802,7 @@ Public Class DataTool
 #Region " CONNECTIONS "
         Connections.SortCollection()
         'Connections.View()
-        For Each Connection In Connections
+        For Each Connection In Connections.Take(If(TestMode, 1, 10000))
 #Region " TOP LEVEL "
             AddHandler Connection.PasswordChanged, AddressOf ConnectionChanged
             Dim ColorKeys = ColorImages()
@@ -2433,7 +2433,7 @@ Public Class DataTool
                     If Tables.Any Then
                         Message.Show("Datasource not found. One must be selected.", "The following tables do not exist in your saved items: " & vbNewLine & Join(Tables.ToArray, ","), Prompt.IconOption.Critical, Prompt.StyleOption.Blue)
                     Else
-                        Message.Show("Datasource not found.", "One must be selected.", Prompt.IconOption.Critical, Prompt.StyleOption.Blue)
+                        Message.Show("Datasource not found.", "One must be selected.", Prompt.IconOption.Critical, Prompt.StyleOption.Grey)
                     End If
                 Else
                     REM /// DSN HAS BEEN SET. USE CURRENT VALUE. USER CAN CHANGE FROM ScriptPane_Run_DSNs (TSMI)
@@ -2450,7 +2450,7 @@ Public Class DataTool
                             'NO CHANGES...DO NOTHING
                             .State = Script.ViewState.ClosedNotSaved
                         Else
-                            If Message.Show(.Body.InstructionType.ToString & " has changed", "Save your work?", Prompt.IconOption.YesNo, Prompt.StyleOption.Blue) = DialogResult.No Then
+                            If Message.Show(.Body.InstructionType.ToString & " has changed", "Save your work?", Prompt.IconOption.YesNo, Prompt.StyleOption.Grey) = DialogResult.No Then
                                 'DO NOT WANT CHANGES SAVED...TEXT NEEDS TO REVERT TO FILE TEXT
                                 .State = Script.ViewState.ClosedNotSaved
                             Else
@@ -2460,12 +2460,23 @@ Public Class DataTool
                         End If
 
                     ElseIf .Body.HasText Then
-                        If Message.Show("You have unsaved work. Continue?", "[Yes] to discard, [No] to cancel", Prompt.IconOption.YesNo, Prompt.StyleOption.Blue) = DialogResult.No Then
-                            'DO NOTHING AND LEAVE TAB OPEN
-                        Else
-                            'NO FILE, WITH TEXT...DISCARD EMPTY TAB
-                            .State = Script.ViewState.None
-                        End If
+                        Using message As New Prompt With {.TitleBarImage = My.Resources.Warning_.ToBitmap}
+                            If message.Show("You have unsaved work. Continue?",
+                                            "[Yes] to discard, [No] to cancel",
+                                            Prompt.IconOption.YesNo,
+                                            Color.GhostWhite,
+                                            Color.DarkGray,
+                                            Color.White,
+                                            Color.GhostWhite,
+                                            Color.GhostWhite,
+                                            Color.DarkBlue) = DialogResult.No Then
+                                'DO NOTHING AND LEAVE TAB OPEN
+                            Else
+                                'NO FILE, WITH TEXT...DISCARD EMPTY TAB
+                                .State = Script.ViewState.None
+                            End If
+                        End Using
+
                     Else
                         'NO FILE, NO TEXT...DISCARD EMPTY TAB
                         .State = Script.ViewState.None
@@ -3201,6 +3212,7 @@ Public Class DataTool
         End If
 
         With TT_GridTip
+            .Show(String.Empty, ActivePane, 1)
             .Hide(Script_Grid)
             Dim BulletMessage As String = e.Message
             Dim FlatMessage As String
