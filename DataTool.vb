@@ -766,7 +766,6 @@ Public Class DataTool
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 #Region " EXPORT DATA "
     Private WithEvents CMS_GridOptions As New ContextMenuStrip With {.Name = "Options", .Text = "Options"}
-    Private WithEvents Grid_Drag As ToolStripDropDownItem = DirectCast(CMS_GridOptions.Items.Add("Drag me", My.Resources.Move), ToolStripDropDownItem)
     Private ReadOnly Grid_FileExport As ToolStripDropDownItem = DirectCast(CMS_GridOptions.Items.Add("File", My.Resources.Folder), ToolStripDropDownItem)
     Private ReadOnly Grid_ExcelExport As ToolStripDropDownItem = DirectCast(Grid_FileExport.DropDownItems.Add("Excel", My.Resources.Excel, AddressOf MoveData), ToolStripDropDownItem)
     Private ReadOnly Grid_ExcelQueryExport As ToolStripDropDownItem = DirectCast(Grid_ExcelExport.DropDownItems.Add("+ Query", My.Resources.ExcelQuery, AddressOf MoveData), ToolStripDropDownItem)
@@ -1470,48 +1469,50 @@ Public Class DataTool
     'Mouseover AddTab shows ClosedScripts. Exit right stays visible. Exit left closes
     Private Sub TabDirection(TabItem As Tab)
 
-        'Inside [X]=Show SaveAs ( if text has changed )
-        Dim RelativePosition As RelativeCursor = CursorToControlPosition(Script_Tabs, TabItem.Bounds)
-        Dim TabLocation As Point = Script_Tabs.PointToScreen(New Point(TabItem.Bounds.Right, 1))    'TabItem.Bounds.Top
+        If TabItem IsNot Nothing Then
+            'Inside [X]=Show SaveAs ( if text has changed )
+            Dim RelativePosition As RelativeCursor = CursorToControlPosition(Script_Tabs, TabItem.Bounds)
+            Dim TabLocation As Point = Script_Tabs.PointToScreen(New Point(TabItem.Bounds.Right, 1))    'TabItem.Bounds.Top
 
-        If RelativePosition = RelativeCursor.RightOf Then
-            If TabItem Is Script_Tabs.AddTab Then
-                TSDD_ClosedScripts.Location = TabLocation  'Upper-right corner
-                Show_DropDown(TSDD_ClosedScripts, TabLocation)
-                Hide_DropDown(TSDD_SaveAs)
-                'ClosedScripts changes Size so the Cursor may end up outside the bounds when a Node is collapsed. Allow a 2s window before closing
-                With New Timer With {.Interval = 2000}
-                    AddHandler .Tick, AddressOf HideTimer_ClosedScripts
-                    .Start()
-                End With
+            If RelativePosition = RelativeCursor.RightOf Then
+                If TabItem Is Script_Tabs.AddTab Then
+                    TSDD_ClosedScripts.Location = TabLocation  'Upper-right corner
+                    Show_DropDown(TSDD_ClosedScripts, TabLocation)
+                    Hide_DropDown(TSDD_SaveAs)
+                    'ClosedScripts changes Size so the Cursor may end up outside the bounds when a Node is collapsed. Allow a 2s window before closing
+                    With New Timer With {.Interval = 2000}
+                        AddHandler .Tick, AddressOf HideTimer_ClosedScripts
+                        .Start()
+                    End With
 
-            Else
-                Show_DropDown(TSDD_SaveAs, TabLocation)
-                Hide_DropDown(TSDD_ClosedScripts)
+                Else
+                    Show_DropDown(TSDD_SaveAs, TabLocation)
+                    Hide_DropDown(TSDD_ClosedScripts)
 
-            End If
-
-        ElseIf RelativePosition = RelativeCursor.Inside Then
-            If TabItem Is Script_Tabs.AddTab Then
-                If TSDD_SaveAs.Visible Then
-                    Return
                 End If
-                Show_DropDown(TSDD_ClosedScripts, TabLocation)
+
+            ElseIf RelativePosition = RelativeCursor.Inside Then
+                If TabItem Is Script_Tabs.AddTab Then
+                    If TSDD_SaveAs.Visible Then
+                        Return
+                    End If
+                    Show_DropDown(TSDD_ClosedScripts, TabLocation)
+
+                Else
+                    Show_DropDown(TSDD_SaveAs, TabLocation)
+                    Hide_DropDown(TSDD_ClosedScripts)
+
+                End If
 
             Else
-                Show_DropDown(TSDD_SaveAs, TabLocation)
-                Hide_DropDown(TSDD_ClosedScripts)
+                If TabItem Is Script_Tabs.AddTab Then
+                    Hide_DropDown(TSDD_ClosedScripts)
+                    If RelativePosition = RelativeCursor.LeftOf Then Show_DropDown(TSDD_SaveAs, TabLocation)
 
-            End If
+                Else
+                    Hide_DropDown(TSDD_SaveAs)
 
-        Else
-            If TabItem Is Script_Tabs.AddTab Then
-                Hide_DropDown(TSDD_ClosedScripts)
-                If RelativePosition = RelativeCursor.LeftOf Then Show_DropDown(TSDD_SaveAs, TabLocation)
-
-            Else
-                Hide_DropDown(TSDD_SaveAs)
-
+                End If
             End If
         End If
 
@@ -2882,15 +2883,6 @@ Public Class DataTool
         Data.SetData(Script_Tabs.GetType, Script_Tabs)
     End Sub
     Private ReadOnly Dragging As New Dictionary(Of Point, Boolean)
-    Private Sub Grid_StartDrag(sender As Object, e As MouseEventArgs) Handles Grid_Drag.MouseMove
-
-        If Not Dragging.ContainsKey(e.Location) Then Dragging.Add(e.Location, e.Button = MouseButtons.Left)
-        If (From d In Dragging.Skip(Dragging.Count - 10) Where d.Value).Count = 10 Then
-            Dim Data As New DataObject
-            Data.SetData(GetType(DataTable), Script_Grid.Table)
-        End If
-
-    End Sub
     Private Sub Pane_DragOver() Handles ActivePane_.DragOver
 
         Dim Grid = Data.GetData(GetType(DataTool))

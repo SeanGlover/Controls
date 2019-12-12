@@ -817,6 +817,7 @@ Public Module Functions
             Else
                 Return False
             End If
+
         Else
             Dim TryDesktop As String = Desktop & "\" & FilePathOrName & ".txt"
             If File.Exists(TryDesktop) Then
@@ -827,6 +828,7 @@ Public Module Functions
             Else
                 Return False
             End If
+
         End If
 
     End Function
@@ -1006,7 +1008,9 @@ Public Module Functions
 #End Region
 #Region " VALUE TYPES "
     Public Function GetDataType(Column As DataColumn) As Type
-        Return GetDataType(DataColumnToList(Column))
+        Dim values As New List(Of Object)(DataColumnToList(Column))
+        Dim valuesType As Type = GetDataType(values, If(Column Is Nothing, String.Empty, Column.ColumnName).EndsWith("_DATE", StringComparison.InvariantCulture))
+        Return valuesType
     End Function
     Public Function GetDataType(Types As List(Of Type)) As Type
 
@@ -1065,15 +1069,21 @@ Public Module Functions
         End If
 
     End Function
-    Public Function GetDataType(Values As List(Of Object)) As Type
+    Public Function GetDataType(Values As List(Of Object), Optional Test As Boolean = False) As Type
 
         If Values Is Nothing Then
             Return Nothing
         Else
-            Dim Types = From V In Values Where Not (IsDBNull(V) Or IsNothing(V)) Select GetDataType(V.ToString)
+            Dim Types As New List(Of Type)
+            For Each value In Values
+                If Not (IsDBNull(value) Or IsNothing(value)) Then
+                    Dim valueString As String = value.ToString
+                    Dim valueType As Type = GetDataType(valueString, Test)
+                    Types.Add(valueType)
+                    'If Test Then Stop
+                End If
+            Next
             Dim BlendedType = GetDataType(Types.Distinct)
-            'If (From v In Values Where v.GetType Is GetType(Bitmap)).Any Then Stop
-            'If (From t In Types Where t Is GetType(Image)).Any Then Stop
             Return BlendedType
         End If
 
@@ -1104,7 +1114,7 @@ Public Module Functions
             Return GetDataType(Value.ToString)
         End If
     End Function
-    Public Function GetDataType(Value As String) As Type
+    Public Function GetDataType(Value As String, Optional Test As Boolean = False) As Type
 
         If Value Is Nothing Then
             Return GetType(String)
@@ -1118,21 +1128,25 @@ Public Module Functions
 
             Else
                 Dim _Date As Date
-                Dim Formats() As String = {
+                Dim dateFormats() As String = {
                     "M/d/yyyy",
                     "M/d/yyyy h:mm",
                     "M/d/yyyy h:mm:ss",
-                    "M/d/yyyy h:mm:ss tt"}
+                    "M/d/yyyy h:mm:ss tt",
+                    "yyyy-M-d h:mm:ss tt"} '2019-11-06 12:00:00 AM
 
-                If Date.TryParseExact(Value, Formats, New CultureInfo("en-US"), DateTimeStyles.AllowWhiteSpaces, _Date) Then
+                If Date.TryParseExact(Value, dateFormats, New CultureInfo("en-US"), DateTimeStyles.AllowWhiteSpaces, _Date) Then
+                    'If Test Then Stop
                     Return _Date.GetType
 
                 Else
                     Dim _Boolean As Boolean
                     If Boolean.TryParse(Value, _Boolean) Or Value.ToUpperInvariant = "TRUE" Or Value.ToUpperInvariant = "FALSE" Then
+                        'If Test Then Stop
                         Return _Boolean.GetType
 
                     Else
+                        'If Test Then Stop
                         If IsNumeric(Value) Then
                             Dim _Decimal As Decimal
                             If Decimal.TryParse(Value, _Decimal) Then
