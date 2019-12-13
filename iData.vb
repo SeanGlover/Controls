@@ -256,6 +256,7 @@ Friend Class ResponseFailure
                     ShowPasswordBox = False
 
             End Select
+
             Dim SingleRowSize As Size = TextRenderer.MeasureText(PT, Segoe, New Size(300, 600), TextFormatFlags.Left)
             Dim MultiRowSize As Size = TextRenderer.MeasureText(PT, Segoe, New Size(300, 600), TextFormatFlags.WordBreak)
             Dim MessageLineCount As Integer = Convert.ToInt32(MultiRowSize.Height / SingleRowSize.Height)
@@ -3122,7 +3123,7 @@ Public Class SQL
                         _Table = xTable
                         _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, xTable, Ended - Started)
 
-                    Catch ADODB_RunError As ExternalException
+                    Catch ADODB_RunError As ExternalException    ' MUST BE A GENERIC 'EXCEPTION' ... THE 'ExternalException' message is unintelligible ( Unspecified error (Exception from HRESULT: 0x80004005 (E_FAIL)) ... )
                         _Ended = Now
                         _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, ADODB_RunError.Message, New Errors(ADODB_RunError.Message))
                     End Try
