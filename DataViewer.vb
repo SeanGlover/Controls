@@ -107,7 +107,7 @@ Public Class DataViewer
         SetupScrolls()
         If e IsNot Nothing Then
             e.Graphics.FillRectangle(New SolidBrush(BackColor), ClientRectangle)
-            If BackgroundImage IsNot Nothing Then e.Graphics.DrawImage(BackgroundImage, ClientRectangle)
+            If BackgroundImage IsNot Nothing Then e.Graphics.DrawImage(BackgroundImage, CenterItem(ClientRectangle.Size))
 #Region " DRAW HEADERS "
             With Columns
                 Dim HeadFullBounds As New Rectangle(0, 0, {1, .HeadBounds.Width}.Max, .HeadBounds.Height)
