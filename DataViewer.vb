@@ -107,7 +107,7 @@ Public Class DataViewer
         SetupScrolls()
         If e IsNot Nothing Then
             e.Graphics.FillRectangle(New SolidBrush(BackColor), ClientRectangle)
-            If BackgroundImage IsNot Nothing Then e.Graphics.DrawImage(BackgroundImage, CenterItem(ClientRectangle.Size))
+            If BackgroundImage IsNot Nothing Then e.Graphics.DrawImage(BackgroundImage, CenterItem(BackgroundImage.Size))
 #Region " DRAW HEADERS "
             With Columns
                 Dim HeadFullBounds As New Rectangle(0, 0, {1, .HeadBounds.Width}.Max, .HeadBounds.Height)
@@ -1177,17 +1177,15 @@ Public Class ColumnCollection
 
         With ColumnItem
             If .NonNullValues.Any Then
-                If .Format.Key = Column.TypeGroup.Images Then
-                    If {GetType(Bitmap), GetType(Image)}.Contains(.DataType) Then
-                        .ContentWidth = (From nnv In .NonNullValues Select TryCast(nnv.Value, Image).Width).Max
+                If {GetType(Bitmap), GetType(Image)}.Contains(.DataType) Then
+                    .ContentWidth = (From nnv In .NonNullValues Select TryCast(nnv.Value, Image).Width).Max
 
-                    ElseIf .DataType Is GetType(Icon) Then
-                        .ContentWidth = (From nnv In .NonNullValues Select TryCast(nnv.Value, Icon).Width).Max
+                ElseIf .DataType Is GetType(Icon) Then
+                    .ContentWidth = (From nnv In .NonNullValues Select TryCast(nnv.Value, Icon).Width).Max
 
-                    ElseIf .DataType Is GetType(String) Then
-                        .ContentWidth = (From nnv In .NonNullValues Select Base64ToImage(nnv.Value.ToString).Width).Max
+                ElseIf .DataType Is GetType(String) And .Format.Key = Column.TypeGroup.Images Then
+                    .ContentWidth = (From nnv In .NonNullValues Select Base64ToImage(nnv.Value.ToString).Width).Max
 
-                    End If
                 Else
                     Using rowFont = Parent.Rows.RowStyle.Font ', Parent.Rows.AlternatingRowStyle.Font)
                         .ContentWidth = (From nnv In .NonNullValues Select TextRenderer.MeasureText(Format(nnv.Value, .Format.Value), rowFont).Width).Max
