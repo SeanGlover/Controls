@@ -1340,6 +1340,7 @@ Namespace Pdf2Text
         Public ReadOnly Property Ended As New Date
         Public ReadOnly Property Succeeded As Boolean
         Public ReadOnly Property Content As String
+        Private WithEvents Worker As New BackgroundWorker With {.WorkerReportsProgress = False}
         Public Sub New(pdfPath As String)
 
             _PdfPath = pdfPath
@@ -1354,8 +1355,10 @@ Namespace Pdf2Text
         End Sub
         Public Sub Convert()
 
+            Dim Items = {PdfPath}
             If File.Exists(PdfPath) Then
-                With New BackgroundWorker
+                'Parallel.ForEach(Items.Where(Function(i) i.Any), 0 = 0, Console.Read)
+                With Worker
                     AddHandler .DoWork, AddressOf PdfWorker_DoWork
                     AddHandler .RunWorkerCompleted, AddressOf PdfWorker_Completed
                     Do While .IsBusy
@@ -1370,7 +1373,7 @@ Namespace Pdf2Text
             End If
 
         End Sub
-        Private Sub PdfWorker_DoWork(sender As Object, e As EventArgs)
+        Private Sub PdfWorker_DoWork(sender As Object, e As DoWorkEventArgs)
 
             _Started = Now
             With DirectCast(sender, BackgroundWorker)
@@ -1391,6 +1394,7 @@ Namespace Pdf2Text
             Catch ex As Exception       ' java.io.IOException
                 _Succeeded = False
                 _Content = String.Empty
+                Stop
 
             Finally
                 If doc IsNot Nothing Then

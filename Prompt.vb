@@ -159,7 +159,7 @@ Public Class Prompt
     End Property
     Private ReadOnly Property ButtonBarBounds As Rectangle
     Private ReadOnly Property MainWindow As Process
-    Private AddressBounds As New Dictionary(Of Rectangle, String)
+    Private ReadOnly AddressBounds As New Dictionary(Of Rectangle, String)
     Private LastBounds As New Rectangle
 #End Region
 
@@ -326,16 +326,15 @@ Public Class Prompt
         PromptTimer.Stop()
         DialogResult = DialogResult.None
         Hide()
-        NativeMethods.SetForegroundWindow(MainWindow.Handle)
 
     End Sub
     Private Sub Message_Closing(sender As Object, e As System.ComponentModel.CancelEventArgs) Handles MyBase.Closing
 
         Table.DataSource = Nothing
-        Size = MinimumSize
         TitleMessage = String.Empty
         BodyMessage = String.Empty
-        Size = New Size(200, 200)
+        Dim result As Integer = NativeMethods.SetForegroundWindow(MainWindow.Handle)
+        Stop
 
     End Sub
     Protected Overrides Sub OnFontChanged(e As EventArgs)
@@ -421,7 +420,13 @@ Public Class Prompt
     Public Overloads Function Show(TitleMessage As String, BodyMessage As String, Optional Type As IconOption = IconOption.OK, Optional ColorTheme As StyleOption = StyleOption.Plain, Optional AutoCloseSeconds As Integer = 3) As DialogResult
 
         _MainWindow = Process.GetCurrentProcess
-
+        Dim ProcessList As New List(Of Process)(Process.GetProcesses)
+        ProcessList.Sort(Function(p1, p2)
+                             Dim level1 = String.Compare(p1.MainWindowTitle, p2.MainWindowTitle, StringComparison.InvariantCulture)
+                             Return level1
+                         End Function)
+        Dim peanutMath = ProcessList.Where(Function(pm) pm.MainWindowTitle.ToUpperInvariant.Contains("PEANUT"))
+        Stop
         ControlBox = False
         Me.TitleMessage = TitleMessage
         Text = TitleMessage
@@ -523,9 +528,6 @@ Public Class Prompt
         Return DialogResult
 
     End Function
-    Public Shadows Sub Closing()
-        Datasource = Nothing
-    End Sub
     Private Sub ResizeMe()
 
         TextBounds.Clear()

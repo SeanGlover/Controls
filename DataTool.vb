@@ -3600,7 +3600,7 @@ Public Class DataTool
                         'Dim ConnectionString As String = String.Empty
                         'Dim SQL As String = String.Empty
                         'Dim WithQuery As Boolean = SaveFile.Title = "+ Query"
-                        DataTableToExcel(QueryTable, SaveFile.FileName, True, False, True, True)
+                        DataTableToExcel(QueryTable, SaveFile.FileName, True, False, False, True, True)
 
                     Case Extensions.Text
                         DataTableToTextFile(QueryTable, SaveFile.FileName)

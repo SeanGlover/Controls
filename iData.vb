@@ -4728,14 +4728,14 @@ Public Module iData
 
         If Table IsNot Nothing Then
             Dim App As New Excel.Application
+            Dim Book As Excel.Workbook = App.Workbooks.Open(ExcelPath)
+            Dim Sheet As Excel.Worksheet = DirectCast(Book.Sheets(SheetName), Excel.Worksheet)
+            Dim TableRange As String = String.Format(InvariantCulture, "A1:{0}{1}", ExcelColName(Table.Columns.Count), Table.Rows.Count + 1)
             With App
                 .DisplayAlerts = False
                 .ActiveWindow.SplitRow = 1
                 .ActiveWindow.FreezePanes = True
             End With
-            Dim Book As Excel.Workbook = App.Workbooks.Open(ExcelPath)
-            Dim Sheet As Excel.Worksheet = DirectCast(Book.Sheets(SheetName), Excel.Worksheet)
-            Dim TableRange As String = String.Format(InvariantCulture, "A1:{0}{1}", ExcelColName(Table.Columns.Count), Table.Rows.Count + 1)
             With Sheet
                 .Cells.VerticalAlignment = Excel.XlVAlign.xlVAlignCenter
                 With .Range(TableRange, Type.Missing)
@@ -4807,6 +4807,7 @@ Public Module iData
 #Region " CLEANUP "
             Try
                 Book.Close(True, ExcelPath)
+
             Catch ex As ExternalException
                 Using MESSAGE As New Prompt
                     MESSAGE.Show("Error!", ex.Message, Prompt.IconOption.Critical)
