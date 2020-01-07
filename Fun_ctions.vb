@@ -180,6 +180,14 @@ Public Module Functions
         End If
 
     End Function
+    Public Function QuotientRound(Dividend As Integer, Divisor As Integer) As Integer
+
+        'Dividend -The dividend Is the number you are dividing up
+        'Divisor -The divisor Is the number you are dividing by
+        'Quotient -The quotient Is the answer
+        Return Integer.Parse(Split(CDec(Dividend / Divisor).ToString(InvariantCulture), ".")(0), InvariantCulture)
+
+    End Function
 #End Region
     Public Enum RelativeCursor
         None
@@ -279,6 +287,17 @@ Public Module Functions
             "." + Format(ElapsedValue.Milliseconds, "0000000"),
             "'"}
         Return (Join(Elements.ToArray, String.Empty))
+
+    End Function
+    Public Function TimespanToString(remainingTime As TimeSpan, Optional x As Boolean = True) As String
+
+        If x Then
+            Dim seconds As Double = remainingTime.TotalSeconds
+            Dim minutes As Double = remainingTime.TotalMinutes
+            Return If(minutes >= 1, remainingTime.TotalMinutes & " minutes" & If(remainingTime.TotalSeconds = 0, String.Empty, ", " & remainingTime.TotalSeconds & " seconds"), remainingTime.TotalSeconds & " seconds")
+        Else
+            Return Nothing
+        End If
 
     End Function
     Public Function DateToAccessString(DateValue As Date) As String
@@ -1384,9 +1403,8 @@ Namespace Pdf2Text
             Try
                 doc = PDDocument.load(PdfPath)
                 Dim Stripper As New PDFTextStripper()
-                Dim txtString = Stripper.getText(doc)
+                _Content = Stripper.getText(doc)
                 _Succeeded = True
-                _Content = txtString
                 Using sw As StreamWriter = New StreamWriter(TxtPath)
                     sw.WriteLine(Content)
                 End Using

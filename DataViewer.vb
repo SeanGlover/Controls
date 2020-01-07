@@ -719,7 +719,7 @@ Public Class DataViewer
             'TRIAL LIMITING TO 250 NON-EMPTY VALUES FOR SPEED
             If Not (IsDBNull(CellValue) Or CellValue Is Nothing) Then
                 'Only NonEmpty values go in ... for sizing
-                If Columns(Column).NonNullValues.Count <= 250 Then Columns(Column).NonNullValues.Add(NewRow, CellValue)
+                Columns(Column).NonNullValues.Add(NewRow, CellValue)
             End If
         Next
 

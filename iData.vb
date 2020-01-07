@@ -4109,7 +4109,7 @@ Public Class ETL
                     Rows.Add(Rows.Count, Values)
                 Next Row
 
-                Dim Blocks = From R In Rows.Keys Select New With {.BlockNbr = Integer.Parse(Split(CDec(R / 254).ToString(InvariantCulture), ".")(0), InvariantCulture), .Index = R, .Select = "SELECT " + Join(Rows(R).ToArray, ",") + " FROM SYSIBM.SYSDUMMY1"}
+                Dim Blocks = From R In Rows.Keys Select New With {.BlockNbr = QuotientRound(R, 254), .Index = R, .Select = "SELECT " + Join(Rows(R).ToArray, ",") + " FROM SYSIBM.SYSDUMMY1"}
                 Dim Inserts = From B In Blocks Group B By BlockNbr = B.BlockNbr Into BlockGroup = Group Select New With {.Index = BlockNbr, .SQL = (From BG In BlockGroup Select BG.Select).ToArray}
                 Dim BlockIndex As Integer
 

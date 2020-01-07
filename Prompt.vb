@@ -334,7 +334,6 @@ Public Class Prompt
         TitleMessage = String.Empty
         BodyMessage = String.Empty
         Dim result As Integer = NativeMethods.SetForegroundWindow(MainWindow.Handle)
-        Stop
 
     End Sub
     Protected Overrides Sub OnFontChanged(e As EventArgs)
@@ -425,8 +424,7 @@ Public Class Prompt
                              Dim level1 = String.Compare(p1.MainWindowTitle, p2.MainWindowTitle, StringComparison.InvariantCulture)
                              Return level1
                          End Function)
-        Dim peanutMath = ProcessList.Where(Function(pm) pm.MainWindowTitle.ToUpperInvariant.Contains("PEANUT"))
-        Stop
+
         ControlBox = False
         Me.TitleMessage = TitleMessage
         Text = TitleMessage
