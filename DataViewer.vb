@@ -1176,6 +1176,9 @@ Public Class ColumnCollection
     Friend Sub SizeColumn(ColumnItem As Column, Optional BackgroundProcess As Boolean = False)
 
         With ColumnItem
+            Dim Values As New List(Of Object)(.NonNullValues.Values)
+            Dim ColumnType As Type = GetDataType(Values)
+            .Format = Column.Get_kvpFormat(ColumnType)
             If .NonNullValues.Any Then
                 If .Format.Key = Column.TypeGroup.Images Then
                     If {GetType(Bitmap), GetType(Image)}.Contains(.DataType) Then

@@ -3718,9 +3718,9 @@ Public Class ETL
             If disposing Then
                 Handle.Dispose()
                 ' Free any other managed objects here.
-                Table.Dispose()
-                Message.Dispose()
-                _DDL.Dispose()
+                If Table IsNot Nothing Then Table.Dispose()
+                If Message IsNot Nothing Then Message.Dispose()
+                If DDL IsNot Nothing Then _DDL.Dispose()
             End If
             disposed = True
         End Sub

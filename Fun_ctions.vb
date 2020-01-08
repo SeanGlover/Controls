@@ -188,6 +188,21 @@ Public Module Functions
         Return Integer.Parse(Split(CDec(Dividend / Divisor).ToString(InvariantCulture), ".")(0), InvariantCulture)
 
     End Function
+    Public Function DoubleSplit(Number As Double) As KeyValuePair(Of Long, Double)
+
+        Dim doubleString As String = Number.ToString(InvariantCulture)
+        Dim doubleElements As String() = Split(doubleString, ".")
+
+        If doubleElements.Count = 1 Then
+            'Integer...Decimals come thru as 0.234
+            Return New KeyValuePair(Of Long, Double)(Convert.ToInt64(Number), 0)
+        Else
+            Dim wholeNumber As Long = Convert.ToInt64(doubleElements.First, InvariantCulture)
+            Dim partNumber As Double = Convert.ToDouble("." & doubleElements.Last, InvariantCulture) * If(Number < 0, -1, 1)
+            Return New KeyValuePair(Of Long, Double)(wholeNumber, partNumber)
+        End If
+
+    End Function
 #End Region
     Public Enum RelativeCursor
         None
@@ -289,15 +304,51 @@ Public Module Functions
         Return (Join(Elements.ToArray, String.Empty))
 
     End Function
-    Public Function TimespanToString(remainingTime As TimeSpan, Optional x As Boolean = True) As String
+    Public Function TimespanToString(timeSpans As List(Of TimeSpan)) As String
 
-        If x Then
-            Dim seconds As Double = remainingTime.TotalSeconds
-            Dim minutes As Double = remainingTime.TotalMinutes
-            Return If(minutes >= 1, remainingTime.TotalMinutes & " minutes" & If(remainingTime.TotalSeconds = 0, String.Empty, ", " & remainingTime.TotalSeconds & " seconds"), remainingTime.TotalSeconds & " seconds")
-        Else
+        If timeSpans Is Nothing Then
             Return Nothing
+        Else
+            Dim fixedTime As Date = Now
+            Dim endTime As Date = fixedTime
+            For Each timeSpan In timeSpans
+                endTime = endTime.Add(timeSpan)
+            Next
+            Return TimespanToString(fixedTime, endTime)
         End If
+
+    End Function
+    Public Function TimespanToString(startTime As Date, endTime As Date) As String
+
+        Dim period As TimeSpan = endTime.Subtract(startTime)
+        With period
+            Dim minutesSeconds As KeyValuePair(Of Long, Double) = DoubleSplit(.TotalMinutes)
+            Dim minutes As Long = Math.Abs(minutesSeconds.Key)
+            Dim seconds As Integer = Math.Abs(Convert.ToInt32(Math.Ceiling(60 * minutesSeconds.Value)))
+            Select Case True
+                Case minutes = 0 And seconds = 0
+                    Return String.Empty
+
+                Case minutes = 0
+                    Return Join({seconds, "seconds"})
+
+                Case minutes = 1
+                    'Minutes is SINGULAR!
+                    If seconds = 0 Then
+                        Return Join({minutes, "minute"})
+                    Else
+                        Return Join({minutes, "minute"}) & ", " & Join({seconds, "seconds"})
+                    End If
+                Case Else
+                    'Minutes is PLURAL!
+                    If seconds = 0 Then
+                        Return Join({minutes, "minutes"})
+                    Else
+                        Return Join({minutes, "minutes"}) & ", " & Join({seconds, "seconds"})
+                    End If
+
+            End Select
+        End With
 
     End Function
     Public Function DateToAccessString(DateValue As Date) As String
