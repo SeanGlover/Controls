@@ -4109,7 +4109,7 @@ Public Class ETL
                     Rows.Add(Rows.Count, Values)
                 Next Row
 
-                Dim Blocks = From R In Rows.Keys Select New With {.BlockNbr = QuotientRound(R, 254), .Index = R, .Select = "SELECT " + Join(Rows(R).ToArray, ",") + " FROM SYSIBM.SYSDUMMY1"}
+                Dim Blocks = From R In Rows.Keys Select New With {.BlockNbr = QuotientRound(R, 254), .Select = "SELECT " + Join(Rows(R).ToArray, ",") + " FROM SYSIBM.SYSDUMMY1"}
                 Dim Inserts = From B In Blocks Group B By BlockNbr = B.BlockNbr Into BlockGroup = Group Select New With {.Index = BlockNbr, .SQL = (From BG In BlockGroup Select BG.Select).ToArray}
                 Dim BlockIndex As Integer
 
@@ -4131,7 +4131,7 @@ Public Class ETL
             With DirectCast(sender, DDL)
                 RemoveHandler .Completed, AddressOf Block_Completed
                 Blocks.Add(e)
-                RaiseEvent BlockInserted(Me, e)
+                RaiseEvent BlockInserted(sender, e)
                 Dim Index As Integer = Integer.Parse(Split(.Name, " ").First, InvariantCulture)
                 Dim Count As Integer = Integer.Parse(Split(.Name, " ").Last, InvariantCulture)
                 If Index = Count Then
@@ -4289,6 +4289,24 @@ Public Module iData
             SQL_Table = .Table
         End With
         Return SQL_Table
+
+    End Function
+    Public Function DictionaryToProcedures(Connection As Connection, TableName As String, Rows As Dictionary(Of Integer, List(Of Object))) As List(Of DDL)
+
+        Dim Procedures As New List(Of DDL)
+        If Connection Is Nothing Or TableName Is Nothing Or Rows Is Nothing Then
+        Else
+            Dim Blocks = From R In Rows.Keys Select New With {.BlockNbr = QuotientRound(R, 254), .Select = "SELECT " + Join(Rows(R).ToArray, ",") + " FROM SYSIBM.SYSDUMMY1"}
+            Dim Inserts = From B In Blocks Group B By BlockNbr = B.BlockNbr Into BlockGroup = Group Select New With {.Index = BlockNbr, .SQL = (From BG In BlockGroup Select BG.Select).ToArray}
+            Dim BlockIndex As Integer
+
+            For Each Block In Inserts
+                BlockIndex += 1
+                Dim Insert As String = "INSERT INTO " + TableName.ToUpperInvariant + vbNewLine + Join(Block.SQL, vbNewLine + "UNION ALL" + vbNewLine)
+                Procedures.Add(New DDL(Connection, Insert) With {.Name = Join({BlockIndex, "of", Inserts.Count})})
+            Next
+        End If
+        Return Procedures
 
     End Function
 #Region " DataTable <===> .txt "

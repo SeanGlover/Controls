@@ -2518,34 +2518,17 @@ Public Module ThreadHelperClass
         End If
 
     End Sub
-    'Public Sub SetSafeText(ByVal form As Form, ByVal text As String)
-    '    SetSafeText(form, form, text)
-    'End Sub
-    'Public Sub SetSafeText(ByVal form As Form, ByVal ctrl As Control, ByVal text As String)
 
-    '    If form Is Nothing Or ctrl Is Nothing Then
-    '    Else
-    '        If ctrl.InvokeRequired Then
-    '            Dim d As SetTextCallback = New SetTextCallback(AddressOf SetSafeText)
-    '            form.Invoke(d, New Object() {form, ctrl, text})
-    '        Else
-    '            ctrl.Text = text
-    '        End If
-    '    End If
+#Region " FUNCTIONING PARALLEL.FOREACH - BUT IS SLOOOOWW "
+    'Dim myOptions As ParallelOptions = New ParallelOptions With {
+    '    .MaxDegreeOfParallelism = Environment.ProcessorCount
+    '}
+    'Dim consolidatedProperties As New List(Of InvoicesResponse_Properties)
+    'Parallel.ForEach(tokenGroups, myOptions, Sub(tokenGroup)
+    '                                             consolidatedProperties.AddRange(Table_pdfs(tokenGroup.Rows, tokenGroup.token))
+    '                                         End Sub)
+#End Region
 
-    'End Sub
-    'Public Sub SetSafeControlText(ByVal ctrl As Control, ByVal text As String)
-
-    '    If ctrl IsNot Nothing Then
-    '        If ctrl.InvokeRequired Then
-    '            Dim d As SetControlTextCallback = New SetControlTextCallback(AddressOf SetSafeControlText)
-    '            ctrl.Invoke(d, New Object() {ctrl, text})
-    '        Else
-    '            ctrl.Text = text
-    '        End If
-    '    End If
-
-    'End Sub
 End Module
 Public NotInheritable Class AlertEventArgs
     Inherits EventArgs
@@ -2595,7 +2578,13 @@ Public Structure SCROLLINFO
         End If
     End Function
 End Structure
-Friend NotInheritable Class NativeMethods
+Public NotInheritable Class NativeMethods
+    Public Shared Sub WindowShow(hwnd As IntPtr, cmdShow As Integer)
+        ShowWindow(hwnd, cmdShow)
+    End Sub
+    Public Shared Sub WindowMove(HWND As IntPtr, x As Integer, Y As Integer, Width As Integer, Height As Integer, Repaint As Boolean)
+        MoveWindow(HWND, x, Y, Width, Height, Repaint)
+    End Sub
     Private Sub New()
     End Sub
     Friend Declare Function SetProcessDPIAware Lib "user32.dll" () As Boolean
@@ -2647,6 +2636,43 @@ Friend NotInheritable Class NativeMethods
     Friend Declare Auto Function GetSystemMetrics Lib "user32.dll" (ByVal smIndex As Integer) As Integer
     Friend Declare Function GetKeyState Lib "user32.dll" (ByVal nVirtKey As Integer) As Short
     Friend Declare Function SetForegroundWindow Lib "user32.dll" (ByVal hwnd As IntPtr) As Integer
+    Friend Declare Function GetWindowPlacement Lib "user32" (ByVal hwnd As IntPtr, ByRef lpwndpl As WindowPlacement) As Long
+    Friend Declare Function SetWindowPlacement Lib "user32" (ByVal hwnd As IntPtr, ByRef lpwndpl As WindowPlacement) As Long
+    Friend Declare Function GetWindowThreadProcessId Lib "User32" (ByVal HWND As Long, lpdwProcessId As Long) As Long
+    Friend Declare Function IsIconic Lib "User32" (ByVal HWND As Long) As Long
+    <DllImport("user32.dll", SetLastError:=True)> Private Shared Function ShowWindow(ByVal HWND As IntPtr, ByVal nCmdShow As Integer) As Long
+    End Function
+    Friend Declare Function AttachThreadInput Lib "User32" (ByVal idAttach As Long, ByVal idAttachTo As Long, ByVal fAttach As Long) As Long
+    Friend Declare Function GetForegroundWindow Lib "User32" () As Long
+    Friend Declare Function GetDesktopWindow Lib "User32" () As Long
+    Friend Declare Function GetWindowRect Lib "User32" (ByVal HWND As Long, lpRect As RECT) As Long
+    Friend Declare Function MoveWindow Lib "User32" (ByVal HWND As IntPtr, ByVal x As Integer, ByVal Y As Integer, ByVal nWidth As Integer, ByVal nHeight As Integer, ByVal bRepaint As Boolean) As Long
+    Friend Declare Function EnumWindows Lib "User32" (ByVal lpEnumFunc As Long, ByVal lParam As Long) As Long
+    Friend Declare Function EnumChildWindows Lib "User32" (ByVal hWndParent As Long, ByVal lpEnumFunc As Long, ByVal lParam As Long) As Long
+    Friend Declare Function EnumThreadWindows Lib "User32" (ByVal dwThreadId As Long, ByVal lpfn As Long, ByVal lParam As Long) As Long
+    Friend Declare Function BringWindowToTop Lib "User32" (ByVal HWND As Long) As Long
+    Friend Declare Function SetActiveWindow Lib "user32.dll" (ByVal HWND As Long) As Long
+    Friend Declare Function IsWindowVisible Lib "user32.dll" (ByVal HWND As Long) As Boolean
+    Friend Declare Function SendMessage Lib "User32" Alias "SendMessageA" (ByVal HWND As Long, ByVal wMsg As Long, ByVal wParam As Long, lParam As Long) As Long
+    Friend Declare Sub Mouse_Event Lib "user32.dll" Alias "mouse_event" (ByVal dwFlags As Integer, ByVal dx As Integer, ByVal dy As Integer, ByVal cButtons As Integer, ByVal dwExtraInfo As Integer)
+    Friend Structure WindowPlacement
+        Dim Length As Integer
+        Dim Flags As Integer
+        Dim ShowCmd As Integer
+        Dim ptMinPosition As POINTAPI
+        Dim ptMaxPosition As POINTAPI
+        Dim rcNormalPosition As RECT
+    End Structure
+    Friend Structure POINTAPI
+        Dim X As Integer
+        Dim Y As Integer
+    End Structure
+    Friend Structure RECT
+        Public Left As Integer
+        Public Top As Integer
+        Public Right As Integer
+        Public Bottom As Integer
+    End Structure
 End Class
 #End Region
 
