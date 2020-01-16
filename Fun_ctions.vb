@@ -351,6 +351,41 @@ Public Module Functions
         End With
 
     End Function
+    Public Function AverageSpan(Dates As List(Of Date)) As TimeSpan
+
+        If Dates Is Nothing Then
+            Return Nothing
+        Else
+            If Dates.Any Then
+                If Dates.Count = 1 Then
+                    Return Nothing
+                Else
+                    Dim diff = Dates.Max.Subtract(Dates.Min)
+                    Return TimeSpan.FromTicks(Convert.ToInt64(diff.Ticks / (Dates.Count - 1)))
+
+                End If
+            Else
+                Return Nothing
+            End If
+        End If
+
+    End Function
+    Public Function ApproximateEnd(RunningDates As List(Of Date), CollectionCount As Integer) As Date
+
+        If RunningDates Is Nothing Then
+            Return Nothing
+        Else
+            RunningDates.Sort()
+            Dim averageTimespan As TimeSpan = AverageSpan(RunningDates)
+            Dim firstDate As Date = RunningDates.First
+            CollectionCount = {1, CollectionCount}.Max
+            For d = {RunningDates.Count, CollectionCount}.Min To CollectionCount
+                firstDate = firstDate.Add(averageTimespan)
+            Next
+            Return firstDate
+        End If
+
+    End Function
     Public Function DateToAccessString(DateValue As Date) As String
 
         '#4/1/2012#
@@ -975,7 +1010,7 @@ Public Module Functions
         Return Resources.ToDictionary(Function(x) x.Key.ToString, Function(y) DirectCast(y.Value, Icon))
 
     End Function
-    Public Function GetFiles(Path As String, Extension As String) As List(Of String)
+    Public Function GetFiles(Path As String, Optional Extension As String = ".txt") As List(Of String)
 
         Return (From Folder In SafeWalk.EnumerateFiles(Path, "*" & Extension, SearchOption.AllDirectories)).ToList
 
@@ -2486,23 +2521,7 @@ Public NotInheritable Class CustomRenderer
     End Sub
 End Class
 Public Module ThreadHelperClass
-    'Delegate Sub SetTextCallback(ByVal f As Form, ByVal ctrl As Control, ByVal text As String)
-    'Delegate Sub SetControlTextCallback(ByVal ctrl As Control, ByVal text As String)
-    'Delegate Sub SetIconCallback(ByVal f As Form, ByVal icon As Icon)
     Delegate Sub SetPropertyCallback(ByVal c As Control, ByVal n As String, v As Object)
-    'Public Sub SetSafeIcon(ByVal form As Form, ByVal icon As Icon)
-
-    '    If form Is Nothing Then
-    '    Else
-    '        If form.InvokeRequired Then
-    '            Dim d As SetIconCallback = New SetIconCallback(AddressOf SetSafeIcon)
-    '            form.Invoke(d, New Object() {form, icon})
-    '        Else
-    '            form.Icon = icon
-    '        End If
-    '    End If
-
-    'End Sub
     Public Sub SetSafeControlPropertyValue(ByVal Item As Control, ByVal PropertyName As String, PropertyValue As Object)
 
         If Item Is Nothing Then
