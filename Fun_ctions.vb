@@ -290,9 +290,19 @@ Public Module Functions
 
     End Function
     Public Function DB2TimestampToDate(Timestamp As String) As Date
+
         '2019-01-14-14.31.45.000304'
-        Dim Values As New List(Of Integer)(From v In Regex.Matches(Timestamp, "[0-9]{2,}", RegexOptions.IgnoreCase) Select Integer.Parse(DirectCast(v, Match).Value, InvariantCulture))
-        Return New DateTime(Values(0), Values(1), Values(2), Values(3), Values(4), Values(5), Values(6), DateTimeKind.Local)
+        If Timestamp Is Nothing Then
+            Return Nothing
+        Else
+            If Regex.Match(Timestamp, "'20([0-9]{2}[-.]){6}[0-9]{6}'", RegexOptions.None).Success Then
+                Dim Values As New List(Of Integer)(From v In Regex.Matches(Timestamp, "[0-9]{2,}", RegexOptions.IgnoreCase) Select Integer.Parse(DirectCast(v, Match).Value, InvariantCulture))
+                Return New DateTime(Values(0), Values(1), Values(2), Values(3), Values(4), Values(5), Values(6), DateTimeKind.Local)
+            Else
+                Return Nothing
+            End If
+        End If
+
     End Function
     Public Function TimespanToString(ElapsedValue As TimeSpan) As String
 

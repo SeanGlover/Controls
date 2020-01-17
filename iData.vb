@@ -3814,14 +3814,15 @@ Public Class ETL
             End Get
         End Property
         Private ReadOnly Message As New Prompt
-        Public Sub Fill()
+        Friend Sub Fill()
 
             _Started = Now
             If IsFile(ConnectionString) Then
                 If GetFileNameExtension(ConnectionString).Value = Extensions.Text Then
                     DataTableToTextFile(Table, ConnectionString)
+                ElseIf GetFileNameExtension(ConnectionString).Value = Extensions.Excel Then
+                    DataTableToExcel(Table, ConnectionString, False, False, False, True, True)
                 Else
-                    DataTableToExcel(Table, ConnectionString, False, False, False, True)
                 End If
                 Dim Response = New ResponseEventArgs(InstructionType.DDL, ConnectionString, String.Empty, Table, Now - Started)
                 RaiseEvent Completed(Me, New ResponsesEventArgs(Response))

@@ -238,7 +238,7 @@ Public Class DataViewer
                                     Else
                                         Dim CellString As String = Nothing
                                         If .Format.Key = Column.TypeGroup.Booleans Then
-                                            Dim CheckBounds As New Rectangle(CellBounds.X + 2, CellBounds.Top + Convert.ToInt32((CellBounds.Height - 14) / 2), 14, 14)
+                                            Dim CheckBounds As New Rectangle(CellBounds.X + Convert.ToInt32((CellBounds.Width - 14) / 2), CellBounds.Top + Convert.ToInt32((CellBounds.Height - 14) / 2), 14, 14)
                                             Dim CellValueIsTrue As Boolean
                                             If .DataType = GetType(String) Then
                                                 CellValueIsTrue = If(CellValue, "FALSE").ToString.ToUpperInvariant = "TRUE"
@@ -1888,19 +1888,27 @@ Public Class RowCollection
             If ColumnName Is Nothing Then
                 Return Nothing
             Else
-                Try
-                    If IsDBNull(DataRow(ColumnName)) Then
+                'TryCatch MUCH faster BUT got errors with DataRow.Item(ColumnName) when the ColumnName not present in the row
+                'Try
+                '    Dim value As Object = DataRow.Item(ColumnName)
+                '    If IsDBNull(value) Then
+                '        Return Nothing
+                '    Else
+                '        Return value
+                '    End If
+                'Catch ex As KeyNotFoundException
+                '    Return Nothing
+                'End Try
+                If DataRow.Table.Columns.Contains(ColumnName) Then '... TryCatch MUCH faster than DataRow.Table.Columns.Contains
+                    Dim value As Object = DataRow.Item(ColumnName)
+                    If IsDBNull(value) Then
                         Return Nothing
                     Else
-                        Return DataRow(ColumnName)
+                        Return value
                     End If
-                Catch ex As KeyNotFoundException
+                Else
                     Return Nothing
-                End Try
-                'If DataRow.Table.Columns.Contains(Column) Then ... TryCatch MUCH faster than DataRow.Table.Columns.Contains
-                'Else
-                '    Return Nothing
-                'End If
+                End If
             End If
         End Get
         Set(value As Object)

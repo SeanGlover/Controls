@@ -16,7 +16,6 @@ Public NotInheritable Class ImageCombo
 
     'Fixes:     Screen Scaling of 125, 150 distorts the CopyFromScreen in DropDown.Protected Overrides Sub OnVisibleChanged(e As EventArgs)
 
-
     Friend Toolstrip As New ToolStripDropDown With {.AutoClose = False, .AutoSize = False, .Padding = New Padding(0), .DropShadowEnabled = False, .BackColor = Color.Transparent}
     Friend Mouse_Region As New MouseRegion
     Private ImageBounds As New Rectangle
@@ -253,6 +252,7 @@ Public NotInheritable Class ImageCombo
             End If
         End Set
     End Property
+    Public Property IsReadOnly As Boolean
     Private _HighlightOpacity As Integer = 64
     Public Property HighlightOpacity As Integer
         Get
@@ -605,7 +605,7 @@ Public NotInheritable Class ImageCombo
                         SelectionIndex = CursorIndex
                     End If
 #End Region
-                ElseIf e.KeyCode = Keys.Back Or e.KeyCode = Keys.Delete Then
+                ElseIf e.KeyCode = Keys.Back Or e.KeyCode = Keys.Delete And Not IsReadOnly Then
 #Region " REMOVE BACK Or AHEAD "
                     If CursorIndex = SelectionIndex Then
                         If e.KeyCode = Keys.Back Then
@@ -626,11 +626,11 @@ Public NotInheritable Class ImageCombo
                         Text = Text.Remove(SelectionStart, TextLength)
                     End If
 #End Region
-#Region " ALL "
                 ElseIf e.KeyCode = Keys.A AndAlso Control.ModifierKeys = Keys.Control Then
+#Region " SELECT ALL "
                     SelectAll()
 #End Region
-                ElseIf e.KeyCode = Keys.X AndAlso Control.ModifierKeys = Keys.Control Then
+                ElseIf e.KeyCode = Keys.X AndAlso Control.ModifierKeys = Keys.Control And Not IsReadOnly Then
 #Region " CUT "
                     Dim TextSelection As String = Selection
                     CursorIndex = SelectionStart
@@ -643,7 +643,7 @@ Public NotInheritable Class ImageCombo
                     Clipboard.Clear()
                     Clipboard.SetText(Selection)
 #End Region
-                ElseIf e.KeyCode = Keys.V AndAlso Control.ModifierKeys = Keys.Control Then
+                ElseIf e.KeyCode = Keys.V AndAlso Control.ModifierKeys = Keys.Control And Not IsReadOnly Then
 #Region " PASTE "
                     S = SelectionStart
                     Text = Text.Remove(SelectionStart, SelectionLength)
@@ -683,7 +683,7 @@ Public NotInheritable Class ImageCombo
     End Sub
     Protected Overrides Sub OnKeyPress(e As KeyPressEventArgs)
 
-        Mouse_Region = MouseRegion.Text
+        If IsReadOnly Then Exit Sub
         CursorShouldBeVisible = True
         CursorBlinkTimer.Start()
         If e IsNot Nothing Then
@@ -716,6 +716,7 @@ Public NotInheritable Class ImageCombo
     End Sub
     Protected Overrides Sub OnMouseDoubleClick(e As MouseEventArgs)
 
+        If IsReadOnly Then Exit Sub
         If e IsNot Nothing Then
             If Not Mouse_Region = MouseRegion.DropDown And LetterWidths.Any Then
                 Dim CurrentIndex As Integer = GetLetterIndex(e.X)
@@ -749,6 +750,7 @@ Public NotInheritable Class ImageCombo
                 RaiseEvent ImageClicked(Me, New ImageComboEventArgs(Nothing))
 
             ElseIf Mouse_Region = MouseRegion.ClearText Then
+                If IsReadOnly Then Exit Sub
                 Text = String.Empty
                 DisplayImage = Image
                 ResizeMe()
