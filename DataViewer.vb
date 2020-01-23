@@ -1164,9 +1164,6 @@ Public Class ColumnCollection
         If Not IsBusy Then
             _IsBusy = True
             For Each Column In Where(Function(c) c.Visible)
-                Dim Values As New List(Of Object)(Column.NonNullValues.Values)
-                Dim ColumnType As Type = GetDataType(Values)
-                Column.Format = Column.Get_kvpFormat(ColumnType)
                 SizeColumn(Column, True)
                 If ColumnsWorker.CancellationPending Then Exit For
             Next
@@ -1178,6 +1175,7 @@ Public Class ColumnCollection
         With ColumnItem
             Dim Values As New List(Of Object)(.NonNullValues.Values)
             Dim ColumnType As Type = GetDataType(Values)
+            'If .Name = "START" And Values.Any Then Stop
             .Format = Column.Get_kvpFormat(ColumnType)
             If .NonNullValues.Any Then
                 If .Format.Key = Column.TypeGroup.Images Then
@@ -1282,6 +1280,10 @@ End Class
             Case GetType(Date)
                 Dim CultureInfo = Threading.Thread.CurrentThread.CurrentCulture
                 Return New KeyValuePair(Of TypeGroup, String)(TypeGroup.Dates, CultureInfo.DateTimeFormat.ShortDatePattern)
+
+            Case GetType(DateAndTime)
+                Dim CultureInfo = Threading.Thread.CurrentThread.CurrentCulture
+                Return New KeyValuePair(Of TypeGroup, String)(TypeGroup.Times, CultureInfo.DateTimeFormat.FullDateTimePattern)
 
             Case GetType(Decimal), GetType(Double)
                 Return New KeyValuePair(Of TypeGroup, String)(TypeGroup.Decimals, "C2")

@@ -1142,7 +1142,11 @@ Public Module Functions
 #End Region
 #Region " ALL ARE OF DATE "
             ElseIf Types.Intersect({GetType(Date), GetType(DateAndTime)}).Count = Types.Count Then
-                Return GetType(Date)
+                If Types.Contains(GetType(DateAndTime)) Then
+                    Return GetType(DateAndTime)
+                Else
+                    Return GetType(Date)
+                End If
 #End Region
 #Region " ALL ARE OF BOOLEAN "
             ElseIf Types.Intersect({GetType(Boolean)}).Count = Types.Count Then
@@ -1173,7 +1177,7 @@ Public Module Functions
                 Return GetType(Image)
 #End Region
 #Region " EACH TYPE IS AN ICON "
-            ElseIf Types.Intersect({GetType(ICON)}).Count = Types.Count Then
+            ElseIf Types.Intersect({GetType(Icon)}).Count = Types.Count Then
                 Return GetType(Icon)
 #End Region
 #Region " MIXED TYPES "
@@ -1251,8 +1255,13 @@ Public Module Functions
                     "yyyy-M-d h:mm:ss tt"} '2019-11-06 12:00:00 AM
 
                 If Date.TryParseExact(Value, dateFormats, New CultureInfo("en-US"), DateTimeStyles.AllowWhiteSpaces, _Date) Then
-                    'If Test Then Stop
-                    Return _Date.GetType
+                    If _Date = New Date(_Date.Year, _Date.Month, _Date.Day) Then
+                        If Test Then Stop
+                        Return _Date.GetType
+                    Else
+                        If Test Then Stop
+                        Return GetType(DateAndTime)
+                    End If
 
                 Else
                     Dim _Boolean As Boolean

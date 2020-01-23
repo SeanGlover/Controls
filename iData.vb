@@ -2939,6 +2939,19 @@ Public Class SQL
     Public ReadOnly Property Busy As Boolean
     Public ReadOnly Property Ended As Date
     Public ReadOnly Property Response As ResponseEventArgs
+    Public ReadOnly Property Status As TriState
+        Get
+            If Response Is Nothing Then
+                Return TriState.UseDefault
+            Else
+                If Response.Succeeded Then
+                    Return TriState.True
+                Else
+                    Return TriState.False
+                End If
+            End If
+        End Get
+    End Property
     Public Property Name As String
     Public Property Tag As Object
     Private rf As ResponseFailure
@@ -3197,6 +3210,19 @@ Public Class DDL
     End Property
     Public ReadOnly Property Ended As Date
     Public ReadOnly Property Response As ResponseEventArgs
+    Public ReadOnly Property Status As TriState
+        Get
+            If Response Is Nothing Then
+                Return TriState.UseDefault
+            Else
+                If Response.Succeeded Then
+                    Return TriState.True
+                Else
+                    Return TriState.False
+                End If
+            End If
+        End Get
+    End Property
     Public Property Name As String
     Public Property Tag As Object
     Public ReadOnly Property Procedures As List(Of Procedure)
@@ -3265,15 +3291,18 @@ Public Class DDL
             If RequiresInput Then
                 For Each Procedure In PromptProcedures
                     Dim TableRowCount As Integer = -1
+                    Dim alterRow As DataRow = Nothing
                     If Procedure.FetchStatement IsNot Nothing Then
                         With New SQL(ConnectionString, Procedure.FetchStatement)
                             .Execute()
                             Do While .Response Is Nothing
                             Loop
                             If .Response.Succeeded Then
-                                Do While .Table.Rows.Count = 0
-                                Loop
-                                TableRowCount = Convert.ToInt32(.Response.Value, InvariantCulture)
+                                If .Response.Columns = 1 Then
+                                    TableRowCount = Convert.ToInt32(.Response.Value, InvariantCulture)
+                                Else
+                                    If .Table.Rows.Count > 0 Then alterRow = .Table.Rows(0)
+                                End If
                             End If
                             Procedure.Fetches.Add(New KeyValuePair(Of String, Integer)(Procedure.ObjectName, TableRowCount))
                         End With
@@ -3282,6 +3311,14 @@ Public Class DDL
                         Dim PromptMessage As String = If(.ObjectAction = Procedure.Action.Drop,
                             Join({"You are about to Drop", .ObjectType.ToString, .ObjectName}),
                             Join({"You are about to", .ObjectAction.ToString, TableRowCount, "Rows in Table", .ObjectName}))
+                        If alterRow IsNot Nothing Then
+                            Dim requestString As String() = Split(.ObjectName, BlackOut)
+                            Dim tableName As String = requestString.First
+                            Dim columnName As String = requestString(1)
+                            Dim newDataType As String = requestString(2)
+                            Dim currentDataType As String = alterRow("COLUMN_DATA").ToString
+                            PromptMessage = Join({"You are about to Alter Column", columnName, "in table", tableName, "from", currentDataType, "to", newDataType})
+                        End If
                         Using message As New Prompt
                             .Execute = message.Show("Proceed?", PromptMessage, Prompt.IconOption.YesNo) = DialogResult.Yes
                         End Using
@@ -3378,35 +3415,48 @@ Public NotInheritable Class Procedure
                     End If
 #End Region
                 Else
-                    Dim Match_Delete As Match = Regex.Match(Instruction, "DELETE[\s]{1,}FROM[\s]{1,}" + ObjectPattern, RegexOptions.IgnoreCase)
-                    If Match_Delete.Success Then
-#Region " DELETE ROWS REQUEST "
-                        ObjectAction = Action.Delete
-                        ObjectType = Type.Table
-                        ObjectName = Regex.Replace(Match_Delete.Value, "DELETE[\s]{1,}FROM[\s]{1,}", String.Empty, RegexOptions.IgnoreCase)
-                        ObjectName = Split(ObjectName, ".").Last
-                        _FetchStatement = Instruction.Remove(Match_Delete.Index, "DELETE".Length)
-                        _FetchStatement = _FetchStatement.Insert(Match_Delete.Index, "SELECT COUNT(*) C ")
-#End Region
-                    Else
-                        Dim Match_GrantRevoke As Match = Regex.Match(Instruction, "(GRANT|REVOKE)\s{1,}(SELECT|INSERT|ALTER|UPDATE|DELETE)\s{1,}" + ObjectPattern, RegexOptions.IgnoreCase)
-                        If Match_GrantRevoke.Success Then
-#Region " GRANT Or REVOKE REQUEST "
-                            ObjectAction = If(Match_GrantRevoke.Value.ToUpperInvariant.StartsWith("GRANT", StringComparison.InvariantCulture), Action.Grant, Action.Revoke)
-                            ObjectType = Type.Table
-                            ObjectName = Regex.Replace(Match_GrantRevoke.Value, "(GRANT|REVOKE)\s{1,}(SELECT|INSERT|ALTER|UPDATE|DELETE)\s{1,}", String.Empty, RegexOptions.IgnoreCase)
-                            ObjectName = Split(ObjectName, ".").Last
-#End Region
-                        End If
+                    Dim match_Alter As New List(Of String)(Regex.Split(Instruction, "ALTER\s+TABLE\s+|\s+ALTER\s+COLUMN\s+|\s+SET\s+DATA\s+TYPE\s+", RegexOptions.IgnoreCase).Skip(1))
+                    If match_Alter.Any Then
+                        'ALTER TABLE C085365.ACTIONS_EXTRA ALTER COLUMN OA SET DATA TYPE VARCHAR(2003)
+                        Dim tableName As String = match_Alter.First
+                        Dim columnName As String = match_Alter(1)
+                        Dim newDataType As String = match_Alter(2)
+                        ObjectAction = Action.Alter
+                        ObjectType = Type.Column
+                        ObjectName = Join({tableName, columnName, newDataType}, BlackOut)
+                        FetchStatement = Replace(Replace(My.Resources.SQL_ColumnTypes, "///OWNER_TABLE///", tableName), "--AND C.NAME='//COLUMN_NAME//'", "AND C.NAME=" & ValueToField(columnName))
 
+                    Else
+                        Dim Match_Delete As Match = Regex.Match(Instruction, "DELETE[\s]{1,}FROM[\s]{1,}" + ObjectPattern, RegexOptions.IgnoreCase)
+                        If Match_Delete.Success Then
+#Region " DELETE ROWS REQUEST "
+                            ObjectAction = Action.Delete
+                            ObjectType = Type.Table
+                            ObjectName = Regex.Replace(Match_Delete.Value, "DELETE[\s]{1,}FROM[\s]{1,}", String.Empty, RegexOptions.IgnoreCase)
+                            ObjectName = Split(ObjectName, ".").Last
+                            FetchStatement = Instruction.Remove(Match_Delete.Index, "DELETE".Length)
+                            FetchStatement = FetchStatement.Insert(Match_Delete.Index, "SELECT COUNT(*) C ")
+#End Region
+                        Else
+                            Dim Match_GrantRevoke As Match = Regex.Match(Instruction, "(GRANT|REVOKE)\s{1,}(SELECT|INSERT|ALTER|UPDATE|DELETE)\s{1,}" + ObjectPattern, RegexOptions.IgnoreCase)
+                            If Match_GrantRevoke.Success Then
+#Region " GRANT Or REVOKE REQUEST "
+                                ObjectAction = If(Match_GrantRevoke.Value.ToUpperInvariant.StartsWith("GRANT", StringComparison.InvariantCulture), Action.Grant, Action.Revoke)
+                                ObjectType = Type.Table
+                                ObjectName = Regex.Replace(Match_GrantRevoke.Value, "(GRANT|REVOKE)\s{1,}(SELECT|INSERT|ALTER|UPDATE|DELETE)\s{1,}", String.Empty, RegexOptions.IgnoreCase)
+                                ObjectName = Split(ObjectName, ".").Last
+#End Region
+                            End If
+
+                        End If
                     End If
                 End If
             End If
         End If
         If FetchStatement IsNot Nothing Then
-            With New SQL("", FetchStatement)
+            'With New SQL("", FetchStatement)
 
-            End With
+            'End With
         End If
 
     End Sub
@@ -3434,6 +3484,7 @@ Public NotInheritable Class Procedure
         Procedure
         Sequence
         Table
+        Column
         Trigger
         View
         Index

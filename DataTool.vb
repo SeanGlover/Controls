@@ -1074,6 +1074,11 @@ Public Class DataTool
 #End Region
 
 #Region " CONNECTION MANAGEMENT "
+    Private Sub DataSource_Clicked(sender As Object, e As EventArgs)
+        With DirectCast(sender, ToolStripMenuItem)
+            ActiveScript.Connection = Connections.Item("DSN=" & .Text & ";")
+        End With
+    End Sub
     Private Sub ConnectionChanged(sender As Object, e As ConnectionChangedEventArgs) Handles ActiveScript_.ConnectionChanged
 
         If e.NewConnection Is Nothing Then
@@ -1586,7 +1591,7 @@ Public Class DataTool
     Private Sub ClosedScript_NodeDragStart(sender As Object, e As NodeEventArgs) Handles Tree_ClosedScripts.NodeDragStart
 
         DragNode = e.Node
-        ActivePane.AllowDrop = True
+        If ActivePane IsNot Nothing Then ActivePane.AllowDrop = True
         Script_Grid.AllowDrop = True
 
     End Sub
@@ -2059,12 +2064,6 @@ Public Class DataTool
     Private Sub TSMI_ShowDropDown(sender As Object, e As EventArgs) Handles TSMI_Connections.MouseEnter, TSMI_Copy.MouseEnter, TSMI_Divider.MouseEnter
         With DirectCast(sender, ToolStripMenuItem)
             .ShowDropDown()
-        End With
-    End Sub
-    Private Sub DataSource_Clicked(sender As Object, e As EventArgs)
-        With DirectCast(sender, ToolStripMenuItem)
-            ActiveScript.Connection = Connections.Item("DSN=" & .Text & ";")
-            RemoveHandler .Click, AddressOf DataSource_Clicked
         End With
     End Sub
     Private Sub ColorSelected(sender As Object, e As ImageComboEventArgs)
