@@ -170,6 +170,9 @@
     <Compile Include="Tabs.vb" />
     <Compile Include="TreeViewer.vb" />
     <Compile Include="Web.vb" />
+    <Compile Include="Worker.vb">
+      <SubType>Component</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="My Project\Resources.resx">
