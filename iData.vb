@@ -2986,7 +2986,6 @@ Public Class SQL
     Private Sub Execute(sender As Object, e As DoWorkEventArgs)
 
         If sender IsNot Nothing Then RemoveHandler DirectCast(sender, BackgroundWorker).DoWork, AddressOf Execute
-        Dim xTable As New DataTable
 
         If ConnectionString.Any And Instruction.Any Then
 #Region " BACKUP "
@@ -3042,109 +3041,36 @@ Public Class SQL
 #End Region
             Else
 #Region " DATABASE "
-                Dim RS As New ADODB.Recordset
-                Dim Columns As New Dictionary(Of String, List(Of String))
-                With RS
+                Using Connection As New OdbcConnection(ConnectionString)
                     Try
-                        .Open(Instruction, ConnectionString)
-                        If Not (.BOF And .EOF) Then
-#Region " POPULATE DATACOLUMNS "
-                            For Each Column As ADODB.Field In .Fields
-                                Dim ColumnName As String = Column.Name
-                                If Not Columns.ContainsKey(ColumnName) Then Columns.Add(ColumnName, New List(Of String))
-                                Columns(ColumnName).Add(ColumnName)
-                                Dim ColumnNameCount As Integer = Columns(ColumnName).Count
-                                If ColumnNameCount > 1 Then ColumnName &= ColumnNameCount - 1
-                                Try
-                                    Select Case Column.Type
-                                        Case ADODB.DataTypeEnum.adBigInt
-                                            xTable.Columns.Add(ColumnName, GetType(Long))
+                        Connection.Open()
+                        Try
+                            'Using someCommand As New SqlCommand()
+                            '    someCommand.Parameters.Add("@username", SqlDbType.NChar).Value = Name
+                            'End Using
+                            Using Adapter As New OdbcDataAdapter(Instruction, Connection)
+                                Adapter.Fill(Table)
+                                Connection.Close()
+                                _Ended = Now
+                                Table.Locale = CultureInfo.InvariantCulture
+                                Table.Namespace = "<DB2>"
+                                _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, Table, Ended - Started)
 
-                                        Case ADODB.DataTypeEnum.adInteger
-                                            xTable.Columns.Add(ColumnName, GetType(Integer))
+                            End Using
+                        Catch odbcException As OdbcException
+                            Connection.Close()
+                            _Ended = Now
+                            _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, odbcException.Message, New Errors(odbcException.Message))
 
-                                        Case ADODB.DataTypeEnum.adSmallInt, ADODB.DataTypeEnum.adSingle
-                                            xTable.Columns.Add(ColumnName, GetType(Short))
+                        End Try
 
-                                        Case ADODB.DataTypeEnum.adBinary, ADODB.DataTypeEnum.adVarBinary, ADODB.DataTypeEnum.adLongVarBinary, ADODB.DataTypeEnum.adUnsignedTinyInt
-                                            xTable.Columns.Add(ColumnName, GetType(Byte))
-
-                                        Case ADODB.DataTypeEnum.adBoolean
-                                            xTable.Columns.Add(ColumnName, GetType(Boolean))
-
-                                        Case ADODB.DataTypeEnum.adChar, ADODB.DataTypeEnum.adVarChar, ADODB.DataTypeEnum.adWChar, ADODB.DataTypeEnum.adVarWChar, ADODB.DataTypeEnum.adLongVarChar, ADODB.DataTypeEnum.adLongVarWChar
-                                            xTable.Columns.Add(ColumnName, GetType(String))
-
-                                        Case ADODB.DataTypeEnum.adDate, ADODB.DataTypeEnum.adDBDate, ADODB.DataTypeEnum.adDBTimeStamp
-                                            xTable.Columns.Add(ColumnName, GetType(Date))
-
-                                        Case ADODB.DataTypeEnum.adDecimal, ADODB.DataTypeEnum.adNumeric, ADODB.DataTypeEnum.adCurrency
-                                            xTable.Columns.Add(ColumnName, GetType(Decimal))
-
-                                        Case ADODB.DataTypeEnum.adDouble
-                                            xTable.Columns.Add(ColumnName, GetType(Double))
-
-                                        Case ADODB.DataTypeEnum.adVariant
-                                            xTable.Columns.Add(ColumnName, GetType(Object))
-
-                                        Case ADODB.DataTypeEnum.adGUID
-                                        Case ADODB.DataTypeEnum.adIDispatch
-
-                                    End Select
-                                Catch ex As ExternalException
-                                    xTable.Columns.Add(ColumnName, Nothing)
-
-                                End Try
-                            Next
-#End Region
-#Region " POPULATE DATAROWS "
-                            Do While Not .EOF
-                                Dim ColumnIndex As Integer = 0
-                                Dim RowCells As New List(Of Object)
-                                For Each Field As ADODB.Field In .Fields
-                                    Dim Column = xTable.Columns(ColumnIndex)
-                                    If Column Is Nothing Then
-                                        RowCells.Add(Nothing)
-
-                                        'ElseIf IsDBNull(Field.Value) Then
-                                        '    RowCells.Add(Nothing)
-
-                                        'ElseIf Column.DataType Is GetType(Byte) AndAlso IsArray(Field.Value) Then
-                                        '    Column.DataType = GetType(String)
-                                        '    Dim Elements = DirectCast(Field.Value, Byte())
-                                        '    RowCells.Add(Join(Elements.Select(Function(b) Chr(b).ToString(InvariantCulture)).ToArray, String.Empty))
-                                        '    RowCells.Add(Nothing)
-
-                                    Else
-                                        'RowCells.Add(Nothing)
-                                        Try
-                                            RowCells.Add(Field.Value)
-                                        Catch ex As ExternalException
-                                            RowCells.Add(Nothing)
-                                        End Try
-                                    End If
-                                    ColumnIndex += 1
-                                Next
-                                xTable.Rows.Add(RowCells.ToArray)
-                                .MoveNext()         'Moves to Next Row
-                            Loop
-#End Region
-                        End If
-                        xTable.Locale = CultureInfo.InvariantCulture
-                        xTable.Namespace = "<DB2>"
+                    Catch odbcOpenException As OdbcException
+                        Connection.Close()
                         _Ended = Now
-                        _Table = xTable
-                        _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, xTable, Ended - Started)
+                        _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, odbcOpenException.Message, New Errors(odbcOpenException.Message))
 
-                    Catch ADODB_RunError As ExternalException    ' MUST BE A GENERIC 'EXCEPTION' ... THE 'ExternalException' message is unintelligible ( Unspecified error (Exception from HRESULT: 0x80004005 (E_FAIL)) ... )
-                        _Ended = Now
-                        _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, ADODB_RunError.Message, New Errors(ADODB_RunError.Message))
                     End Try
-                    Try
-                        .Close()
-                    Catch ex As ExternalException
-                    End Try
-                End With
+                End Using
 #End Region
             End If
 #End Region
@@ -3158,7 +3084,6 @@ Public Class SQL
             End If
             _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, MissingMessage.ToString, New Errors(MissingMessage.ToString))
         End If
-        _Table = xTable
 
     End Sub
     Private Sub Executed(sender As Object, e As RunWorkerCompletedEventArgs)
