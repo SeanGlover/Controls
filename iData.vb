@@ -4,7 +4,6 @@ Imports System.IO
 Imports System.Windows.Forms
 Imports System.Drawing
 Imports System.Text.RegularExpressions
-Imports ADODB = ADOR
 Imports System.Data.Odbc
 Imports System.Data.OleDb
 Imports Excel = Microsoft.Office.Interop.Excel
@@ -122,6 +121,9 @@ Public NotInheritable Class ResponsesEventArgs
     Public Sub New(Response As ResponseEventArgs)
         Responses = {Response}.ToList
     End Sub
+    Public Overrides Function ToString() As String
+        Return Join((From r In Responses Select If(r.Message, "OK")).ToArray, vbNewLine)
+    End Function
 End Class
 Public NotInheritable Class ResponseEventArgs
     Inherits EventArgs
@@ -174,6 +176,9 @@ Public NotInheritable Class ResponseEventArgs
         Rows = 0
         Succeeded = False
     End Sub
+    Public Overrides Function ToString() As String
+        Return If(Message, "OK")
+    End Function
 End Class
 Friend Class ResponseFailure
     Implements IDisposable
@@ -2841,11 +2846,6 @@ End Class
         End Get
     End Property
     Public ReadOnly Property Started As Date
-    Public ReadOnly Property Busy As Boolean
-        Get
-            Return Started <> New Date And Ended <> New Date
-        End Get
-    End Property
     Public ReadOnly Property Ended As Date
     Public ReadOnly Property Succeeded As Boolean
     Public ReadOnly Property Responses As New List(Of ResponseEventArgs)
@@ -2906,7 +2906,7 @@ End Class
 #End Region
 End Class
 '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-Public Class SQL
+<ComVisible(False)> Public Class SQL
     Implements IDisposable
 #Region " DISPOSE "
     Dim disposed As Boolean = False
@@ -2967,11 +2967,11 @@ Public Class SQL
         Me.Instruction = If(Instruction, String.Empty)
 
     End Sub
-    Public Sub Execute(Optional Synchronous As Boolean = True)
+    Public Sub Execute(Optional RunInBackground As Boolean = True)
 
         _Started = Now
         _Busy = True
-        If Synchronous Then
+        If RunInBackground Then
             With New BackgroundWorker
                 AddHandler .DoWork, AddressOf Execute
                 AddHandler .RunWorkerCompleted, AddressOf Executed

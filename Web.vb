@@ -1,5 +1,6 @@
 ﻿Option Strict On
 Option Explicit On
+Imports System.Runtime.InteropServices
 Imports Microsoft.Data.Sqlite
 #Region " COOKIES "
 Public Enum BrowserName
@@ -7,7 +8,7 @@ Public Enum BrowserName
     Edge
     FireFox
 End Enum
-Public Class CookieCollection
+<ComVisible(False)> Public Class CookieCollection
     Inherits List(Of Cookie)
     Public ReadOnly Property CookiePath As String
         Get

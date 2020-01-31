@@ -5,6 +5,7 @@ Imports System.Drawing
 Imports System.IO
 Imports System.Text.RegularExpressions
 Imports System.ComponentModel
+Imports System.Runtime.InteropServices
 
 #Region " IMPROVEMENTS "
 'SPEED - UPDATE ONLY WHEN NECESSARY AND USE THREADING
@@ -27,7 +28,7 @@ Public Class ScriptsEventArgs
         Me.State = State
     End Sub
 End Class
-Public Class ScriptCollection
+<ComVisible(False)> Public Class ScriptCollection
     Inherits List(Of Script)
 #Region " DECLARATIONS "
     Private Initialized As Boolean
@@ -2881,7 +2882,6 @@ Public Class DataTool
     Private Sub Tab_StartDrag(sender As Object, e As TabsEventArgs) Handles Script_Tabs.TabDragDrop
         Data.SetData(Script_Tabs.GetType, Script_Tabs)
     End Sub
-    Private ReadOnly Dragging As New Dictionary(Of Point, Boolean)
     Private Sub Pane_DragOver() Handles ActivePane_.DragOver
 
         Dim Grid = Data.GetData(GetType(DataTool))

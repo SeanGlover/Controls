@@ -1660,49 +1660,7 @@ Namespace TLP
         End Sub
     End Module
 End Namespace
-Friend Class WindowWatch
-    Friend Event Completed(sender As Object, e As IEnumerable(Of Process))
-    Private WithEvents WindowTimer As New Timer With {.Interval = 200}
-    Private ReadOnly Property WatchForText As String
-    Private ReadOnly Property MaxTime As Long = 60000
-    Friend ReadOnly Property Started As Date
-    Friend ReadOnly Property Ended As Date
-    Friend ReadOnly Property Succeeded As Boolean
-    Friend ReadOnly Property Processes As List(Of Process)
-    Friend Sub New(WindowText As String)
-        _WatchForText = WindowText
-    End Sub
-    Friend Sub New(WindowText As String, MaxMiliseconds As Long)
-        _WatchForText = WindowText
-        _MaxTime = MaxMiliseconds
-    End Sub
-    Friend Sub Start()
-        _Started = Now
-        WindowTimer_Tick()
-    End Sub
-    Private Sub WindowTimer_Tick() Handles WindowTimer.Tick
 
-        WindowTimer.Stop()
-        Dim Windows = Process.GetProcesses
-        Dim Window = From w In Windows Where w.MainWindowTitle.ToUpperInvariant.Contains(WatchForText.ToUpperInvariant) Select w
-        If Window.Any Then
-            _Processes = Window.ToList
-            _Ended = Now
-            _Succeeded = True
-            RaiseEvent Completed(Me, Windows)
-        Else
-            'Keep waiting
-            If (Now - Started).Milliseconds >= MaxTime Then
-                _Ended = Now
-                _Succeeded = False
-                RaiseEvent Completed(Me, Windows)
-            Else
-                WindowTimer.Start()
-            End If
-        End If
-
-    End Sub
-End Class
 Public NotInheritable Class SafeWalk
     Public Sub New()
     End Sub
