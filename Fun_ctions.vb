@@ -2851,11 +2851,11 @@ Class CustomToolTip
                 g.FillClosedCurve(b, points)
 
                 Using Pen1 As New Pen(Brushes.Red, 1)
-                    g.DrawRectangle(Pen1, New Rectangle(e.Bounds.X, e.Bounds.Y, (e.Bounds.Width - 1), (e.Bounds.Height - 1)))
+                    g.DrawRectangle(Pen1, New Rectangle(e.Bounds.X, e.Bounds.Y, e.Bounds.Width - 1, e.Bounds.Height - 1))
                 End Using
-                g.DrawString(e.ToolTipText, e.Font, Brushes.Silver, New PointF((e.Bounds.X + 6), (e.Bounds.Y + 6)))
+                g.DrawString(e.ToolTipText, e.Font, Brushes.Silver, New PointF(e.Bounds.X + 6, e.Bounds.Y + 6))
                 ' shadow layer
-                g.DrawString(e.ToolTipText, e.Font, Brushes.Black, New PointF((e.Bounds.X + 5), (e.Bounds.Y + 5)))
+                g.DrawString(e.ToolTipText, e.Font, Brushes.Black, New PointF(e.Bounds.X + 5, e.Bounds.Y + 5))
                 ' top layer
             End Using
         End Using

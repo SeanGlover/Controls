@@ -233,13 +233,12 @@ Public Class DataViewer
                                     CellBounds.Offset(-HScroll.Value, 0)
                                     Dim rowCell As Cell = Row.Cells.Item(.Name)
                                     With rowCell
-                                        Dim CellValue As Object = .Value
-                                        If .Selected Then
-                                            Using LinearBrush As New LinearGradientBrush(RowBounds, Rows.SelectionRowStyle.BackColor, Rows.SelectionRowStyle.ShadeColor, LinearGradientMode.Vertical)
+                                        If .Selected Then   'Already drew the entire row before "DRAW CELLS" Region 
+                                            Using LinearBrush As New LinearGradientBrush(CellBounds, .Style.BackColor, .Style.ShadeColor, LinearGradientMode.Vertical)
                                                 e.Graphics.FillRectangle(LinearBrush, CellBounds)
                                             End Using
                                         End If
-                                        If CellValue Is Nothing Then
+                                        If .Value Is Nothing Then
                                             Using NullBrush As New SolidBrush(Color.FromArgb(128, Color.Gainsboro))
                                                 e.Graphics.FillRectangle(NullBrush, CellBounds)
                                             End Using
@@ -260,9 +259,14 @@ Public Class DataViewer
                                                     End Using
                                                 End If
                                             Else
-                                                Dim RowFont As Font = Row.Style.Font
-                                                If MouseOverRow Then RowFont = New Font(RowFont, FontStyle.Underline)
-                                                TextRenderer.DrawText(e.Graphics, .Text, RowFont, CellBounds, Row.Style.ForeColor, Color.Transparent, Column.Alignment)
+                                                Using textBrush As New SolidBrush(.Style.ForeColor)
+                                                    e.Graphics.DrawString(.Text,
+                                                                          If(MouseOverRow, New Font(.Style.Font, FontStyle.Underline), .Style.Font),
+                                                                          textBrush,
+                                                                          CellBounds,
+                                                                          Column.Alignment)
+                                                End Using
+                                                'If .Selected Then Stop
                                             End If
                                         End If
                                     End With
@@ -832,9 +836,99 @@ Public Class DataViewer
     Protected Overrides Sub OnKeyDown(ByVal e As KeyEventArgs)
 
         If e IsNot Nothing Then
-            If e.KeyCode = Keys.ControlKey Then
-                ControlKeyDown = True
-            End If
+
+            ControlKeyDown = e.KeyCode = Keys.ControlKey
+
+            Dim CursorIndex As Integer
+            Dim IsReadOnly As Boolean = True
+
+            Try
+                Dim S As Integer = CursorIndex
+                If e.KeyCode = Keys.Left Or e.KeyCode = Keys.Right Then
+#Region " MOVE LEFT Or RIGHT "
+                    'Dim Value As Integer = If(e.KeyCode = Keys.Left, -1, 1)
+                    'If Control.ModifierKeys = Keys.Shift Then
+                    '    SelectionIndex += Value
+                    'Else
+                    '    CursorIndex += Value
+                    '    SelectionIndex = CursorIndex
+                    'End If
+#End Region
+                ElseIf e.KeyCode = Keys.Back Or e.KeyCode = Keys.Delete And Not IsReadOnly Then
+#Region " REMOVE BACK Or AHEAD "
+                    'If CursorIndex = SelectionIndex Then
+                    '    If e.KeyCode = Keys.Back Then
+                    '        If Not S = 0 Then
+                    '            CursorIndex -= 1
+                    '            SelectionIndex = CursorIndex
+                    '            Text = Text.Remove(S - 1, 1)
+                    '        End If
+                    '    ElseIf e.KeyCode = Keys.Delete Then
+                    '        If Not S = Text.Length Then
+                    '            Text = Text.Remove(S, 1)
+                    '        End If
+                    '    End If
+                    'Else
+                    '    Dim TextLength As Integer = SelectionLength
+                    '    CursorIndex = SelectionStart
+                    '    SelectionIndex = CursorIndex
+                    '    Text = Text.Remove(SelectionStart, TextLength)
+                    'End If
+#End Region
+                ElseIf e.KeyCode = Keys.A AndAlso Control.ModifierKeys = Keys.Control Then
+#Region " SELECT ALL "
+                    'SelectAll()
+#End Region
+                ElseIf e.KeyCode = Keys.X AndAlso Control.ModifierKeys = Keys.Control And Not IsReadOnly Then
+#Region " CUT "
+                    'Dim TextSelection As String = Selection
+                    'CursorIndex = SelectionStart
+                    'SelectionIndex = CursorIndex
+                    'Clipboard.SetText(TextSelection)
+                    'Text = Text.Remove(SelectionStart, TextSelection.Length)
+#End Region
+                ElseIf e.KeyCode = Keys.C AndAlso Control.ModifierKeys = Keys.Control Then
+#Region " COPY "
+                    If MouseData.Cell IsNot Nothing Then
+                        Clipboard.Clear()
+                        Clipboard.SetText(If(MouseData.Cell.Text, String.Empty))
+                        'Clipboard.SetText(Selection)
+                    End If
+#End Region
+                ElseIf e.KeyCode = Keys.V AndAlso Control.ModifierKeys = Keys.Control And Not IsReadOnly Then
+#Region " PASTE "
+                    'S = SelectionStart
+                    'Text = Text.Remove(SelectionStart, SelectionLength)
+                    'Dim ClipboardText As String = Clipboard.GetText
+                    'Text = Text.Insert(S, ClipboardText)
+                    'CursorIndex = S + ClipboardText.Length
+                    'SelectionIndex = CursorIndex
+#End Region
+                ElseIf e.KeyCode = Keys.Enter Then
+#Region " SUBMIT "
+                    'RaiseEvent ValueSubmitted(Me, New ImageComboEventArgs(Nothing))
+#End Region
+                ElseIf e.KeyCode = Keys.Tab Then
+#Region " TAB FOCUS "
+                    Dim ControlCollection = (From CC In Parent.Controls Where DirectCast(CC, Control).TabStop = True And DirectCast(CC, Control).TabIndex > TabIndex)
+                    If Not ControlCollection.Any Then
+                        ControlCollection = (From CC In Parent.Controls Where DirectCast(CC, Control).TabStop = True)
+                    End If
+                    DirectCast(ControlCollection.First, Control).Focus()
+#End Region
+                ElseIf e.KeyCode = Keys.Up Or e.KeyCode = Keys.Down Then
+#Region " MOVE UP Or DOWN "
+                    Dim Value As Integer = If(e.KeyCode = Keys.Up, -1, 1)
+                    'SelectedIndex += Value
+#End Region
+                End If
+                'KeyedValue = Text
+                Invalidate()
+
+            Catch ex As IndexOutOfRangeException
+                MsgBox(ex.Message & vbCrLf & ex.StackTrace)
+
+            End Try
             MyBase.OnKeyDown(e)
         End If
 
@@ -1068,7 +1162,6 @@ Public Class ColumnCollection
         RaiseEvent CollectionSizingStart(Me, Nothing)
         If Not ColumnsWorker.IsBusy Then ColumnsWorker.RunWorkerAsync()
     End Sub
-
     Public Sub AutoSize()
         For Each Column In Me
             SizeColumn(Column)
@@ -1204,7 +1297,25 @@ End Class
             Return Parent_
         End Get
     End Property
-    Public ReadOnly Property Alignment As TextFormatFlags
+    <NonSerialized> Private Alignment_ As StringFormat
+    Public ReadOnly Property Alignment As StringFormat
+        Get
+            Select Case Format.Key
+                Case TypeGroup.Dates, TypeGroup.Times, TypeGroup.Integers
+                    Alignment_ = New StringFormat With {.Alignment = StringAlignment.Center, .LineAlignment = StringAlignment.Center}
+
+                Case TypeGroup.Decimals
+                    Alignment_ = New StringFormat With {.Alignment = StringAlignment.Far, .LineAlignment = StringAlignment.Center}
+
+                Case TypeGroup.Strings
+                    Alignment_ = New StringFormat With {.Alignment = StringAlignment.Near, .LineAlignment = StringAlignment.Center}
+
+                Case TypeGroup.Booleans, TypeGroup.Images
+
+            End Select
+            Return Alignment_
+        End Get
+    End Property
     Friend _Index As Integer = 0
     Public ReadOnly Property Index As Integer
         Get
@@ -1248,16 +1359,6 @@ End Class
         End Set
     End Property
     Private WithEvents GridStyle_ As New CellStyle With {.BackColor = Color.Transparent, .ShadeColor = Color.Transparent, .ForeColor = Color.Transparent, .Font = New Font("Century Gothic", 8)}
-    Public Property GridStyle As CellStyle
-        Get
-            Return GridStyle_
-        End Get
-        Set(value As CellStyle)
-            If value IsNot GridStyle_ Then
-                GridStyle_ = value
-            End If
-        End Set
-    End Property
     Friend _Left As Integer = 0
     Friend Property Left As Integer
         Get
@@ -1543,7 +1644,8 @@ End Class
                 Return New KeyValuePair(Of TypeGroup, String)(TypeGroup.Times, CultureInfo.DateTimeFormat.FullDateTimePattern)
 
             Case GetType(Decimal), GetType(Double)
-                Return New KeyValuePair(Of TypeGroup, String)(TypeGroup.Decimals, "C2")
+                Dim CultureInfo = Threading.Thread.CurrentThread.CurrentCulture
+                Return New KeyValuePair(Of TypeGroup, String)(TypeGroup.Decimals, CultureInfo.NumberFormat.NumberGroupSeparator)
 
             Case GetType(Image), GetType(Bitmap), GetType(Icon)
                 Return New KeyValuePair(Of TypeGroup, String)(TypeGroup.Images, String.Empty)
@@ -1559,63 +1661,7 @@ End Class
     End Function
     Friend ReadOnly Property Format() As KeyValuePair(Of TypeGroup, String)
         Get
-            Dim newKVP = Get_kvpFormat(DataType)
-            Select Case newKVP.Key
-                Case TypeGroup.Booleans
-                    GridStyle.Alignment = ContentAlignment.MiddleCenter
-
-                Case TypeGroup.Dates, TypeGroup.Times
-                    GridStyle.Alignment = ContentAlignment.MiddleCenter
-
-                Case TypeGroup.Decimals
-                    GridStyle.Alignment = ContentAlignment.MiddleRight
-
-                Case TypeGroup.Images
-                    GridStyle.Alignment = ContentAlignment.MiddleCenter
-
-                Case TypeGroup.Integers
-                    GridStyle.Alignment = ContentAlignment.MiddleCenter
-
-                Case TypeGroup.Strings
-                    GridStyle.Alignment = ContentAlignment.MiddleLeft
-
-                Case Else
-                    GridStyle.Alignment = ContentAlignment.MiddleLeft
-
-            End Select
-            Select Case GridStyle.Alignment
-                Case ContentAlignment.BottomCenter
-                    _Alignment = TextFormatFlags.Bottom Or TextFormatFlags.HorizontalCenter
-
-                Case ContentAlignment.BottomLeft
-                    _Alignment = TextFormatFlags.Bottom Or TextFormatFlags.Left
-
-                Case ContentAlignment.BottomRight
-                    _Alignment = TextFormatFlags.Bottom Or TextFormatFlags.Right
-
-                Case ContentAlignment.MiddleCenter
-                    _Alignment = TextFormatFlags.VerticalCenter Or TextFormatFlags.HorizontalCenter
-
-                Case ContentAlignment.MiddleLeft
-                    _Alignment = TextFormatFlags.VerticalCenter Or TextFormatFlags.Left
-
-                Case ContentAlignment.MiddleRight
-                    _Alignment = TextFormatFlags.VerticalCenter Or TextFormatFlags.Right
-
-                Case ContentAlignment.TopCenter
-                    _Alignment = TextFormatFlags.Top Or TextFormatFlags.HorizontalCenter
-
-                Case ContentAlignment.TopLeft
-                    _Alignment = TextFormatFlags.Top Or TextFormatFlags.Left
-
-                Case ContentAlignment.TopRight
-                    _Alignment = TextFormatFlags.Top Or TextFormatFlags.Right
-
-                Case Else
-                    _Alignment = TextFormatFlags.VerticalCenter Or TextFormatFlags.HorizontalCenter
-
-            End Select
-            Return newKVP
+            Return Get_kvpFormat(DataType)
         End Get
     End Property
 #Region "IDisposable Support"
@@ -1745,8 +1791,10 @@ Public Class RowCollection
                         If .SortOrder = SortOrder.Descending Then Sort(Function(y, x) String.Compare(ImageToBase64(TryCast(x.Cells.Item(.Name).Value, Image)), ImageToBase64(TryCast(y.Cells.Item(.Name).Value, Image)), StringComparison.Ordinal))
 
                     Case Column.TypeGroup.Strings
-                        If .SortOrder = SortOrder.Ascending Then Sort(Function(x, y) String.Compare(CStr(x.Cells.Item(.Name).Value), CStr(y.Cells.Item(.Name).Value), StringComparison.Ordinal))
-                        If .SortOrder = SortOrder.Descending Then Sort(Function(y, x) String.Compare(CStr(x.Cells.Item(.Name).Value), CStr(y.Cells.Item(.Name).Value), StringComparison.Ordinal))
+                        'If .SortOrder = SortOrder.Ascending Then Sort(Function(x, y) String.Compare(CStr(x.Cells.Item(.Name).Value), CStr(y.Cells.Item(.Name).Value), StringComparison.Ordinal))
+                        'If .SortOrder = SortOrder.Descending Then Sort(Function(y, x) String.Compare(CStr(x.Cells.Item(.Name).Value), CStr(y.Cells.Item(.Name).Value), StringComparison.Ordinal))
+                        If .SortOrder = SortOrder.Ascending Then Sort(Function(x, y) String.Compare(x.Cells.Item(.Name).Text, y.Cells.Item(.Name).Text, StringComparison.Ordinal))
+                        If .SortOrder = SortOrder.Descending Then Sort(Function(y, x) String.Compare(x.Cells.Item(.Name).Text, y.Cells.Item(.Name).Text, StringComparison.Ordinal))
 
                     Case Column.TypeGroup.Integers
                         If .SortOrder = SortOrder.Ascending Then Sort(Function(x, y) Convert.ToInt64(x.Cells.Item(.Name).Value, InvariantCulture).CompareTo(Convert.ToInt64(y.Cells.Item(.Name).Value, InvariantCulture)))
@@ -2010,7 +2058,12 @@ End Class
 
                         Case GetType(Double), GetType(Decimal)
                             _ValueDecimal = CType(value, Double)
-                            _Text = Format(value, FormatData.Value)
+                            Dim CultureInfo = New Globalization.CultureInfo("en-US")
+                            With CultureInfo.NumberFormat
+                                .CurrencyGroupSeparator = ","
+                                .NumberDecimalDigits = 2
+                            End With
+                            _Text = CType(value, Double).ToString("N", CultureInfo)
 
                         Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)
                             _ValueWhole = CType(value, Long)
@@ -2081,6 +2134,11 @@ End Class
             End If
         End Set
     End Property
+    Public ReadOnly Property Style As CellStyle
+        Get
+            Return If(Selected, Parent.Parent.Parent.SelectionRowStyle, If(Index Mod 2 = 0, Parent.Parent.Parent.RowStyle, Parent.Parent.Parent.AlternatingRowStyle))
+        End Get
+    End Property
 #Region "IDisposable Support"
     Private DisposedValue As Boolean ' To detect redundant calls IDisposable
     Protected Overridable Sub Dispose(disposing As Boolean)
@@ -2088,6 +2146,8 @@ End Class
             If disposing Then
                 ' TODO: dispose managed state (managed objects).
                 _Parent.Dispose()
+                ValueImage?.Dispose()
+
             End If
             ' TODO: free unmanaged resources (unmanaged objects) and override Finalize() below.
             ' TODO: set large fields to null.
