@@ -1226,12 +1226,92 @@ Public Module Functions
         End If
 
     End Function
-    Public Function GetDataType(Value As Object) As Type
-        If Value Is Nothing Then
-            Return Nothing
+    Public Function GetDataType(objectValue As Object) As Type
+
+        If objectValue Is Nothing Then
+            Return GetType(String)
         Else
-            Return GetDataType(Value.ToString)
+            If objectValue.GetType Is GetType(String) Then
+                'IsString ( Most common )
+                If {"TRUE", "FALSE"}.Contains(objectValue.ToString.ToUpperInvariant) Then
+                    Return GetType(Boolean)
+                Else
+                    Return GetType(String)
+                End If
+            Else
+                If IsNumeric(objectValue) Then
+                    Dim longNumber As Long
+                    Dim numberString As String = objectValue.ToString
+                    If Long.TryParse(numberString, longNumber) Then
+                        'Is a *** W H O L E *** Number between Byte and Long ... must work up from smallest object
+                        Dim byteNumber As Byte
+                        If Byte.TryParse(numberString, byteNumber) Then
+                            'IsByte
+                            Return GetType(Byte)
+                        Else
+                            Dim shortNumber As Short
+                            If Short.TryParse(numberString, shortNumber) Then
+                                'IsShort
+                                Return GetType(Short)
+                            Else
+                                Dim integerNumber As Integer
+                                If Integer.TryParse(numberString, integerNumber) Then
+                                    'IsInteger
+                                    Return GetType(Integer)
+                                Else
+                                    'IsLong
+                                    Return GetType(Long)
+                                End If
+                            End If
+                        End If
+                    Else
+                        'Is a *** D E C I M A L *** Number
+                        Dim decimalNumber As Double
+                        If Double.TryParse(numberString, decimalNumber) Then
+                            'IsDecimal
+                            Return GetType(Decimal)
+                        Else
+                            Dim booleanValue As Boolean
+                            If Boolean.TryParse(numberString, booleanValue) Then
+                                'IsBoolean
+                                Return GetType(Boolean)
+                            Else
+                                Stop
+                                Return GetType(String)
+                            End If
+                        End If
+                    End If
+                Else
+                    'Could be Dates
+                    If objectValue.GetType Is GetType(Date) Then
+                        Dim dateValue As Date = DirectCast(objectValue, Date)
+                        If dateValue.Date = dateValue Then
+                            'IsDate ( No Hours, Minutes, Seconds )
+                            Return GetType(Date)
+                        Else
+                            'IsDateTime ( Hours, Minutes, Seconds )
+                            Return GetType(DateAndTime)
+                        End If
+                    Else
+                        Dim imageValue As Bitmap = TryCast(objectValue, Bitmap)
+                        If imageValue Is Nothing Then
+                            Dim iconValue As Icon = TryCast(objectValue, Icon)
+                            If iconValue Is Nothing Then
+                                'IsString ( Default )
+                                Return GetType(String)
+                            Else
+                                'IsIcon
+                                Return GetType(Icon)
+                            End If
+                        Else
+                            'IsImage
+                            Return GetType(Image)
+                        End If
+                    End If
+                End If
+            End If
         End If
+
     End Function
     Public Function GetDataType(Value As String, Optional Test As Boolean = False) As Type
 
@@ -1253,9 +1333,9 @@ Public Module Functions
                     "M/d/yyyy h:mm:ss",
                     "M/d/yyyy h:mm:ss tt",
                     "yyyy-M-d h:mm:ss tt"} '2019-11-06 12:00:00 AM
-
-                If Date.TryParseExact(Value, dateFormats, New CultureInfo("en-US"), DateTimeStyles.AllowWhiteSpaces, _Date) Then
-                    If _Date = New Date(_Date.Year, _Date.Month, _Date.Day) Then
+                'New CultureInfo("en-US")
+                If Date.TryParseExact(Value, dateFormats, CultureInfo.CurrentCulture, DateTimeStyles.AllowWhiteSpaces, _Date) Then
+                    If _Date.Date = _Date Then
                         If Test Then Stop
                         Return _Date.GetType
                     Else

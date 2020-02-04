@@ -774,8 +774,6 @@ Public Class DataTool
     Private ReadOnly Grid_txtExport As ToolStripDropDownItem = DirectCast(Grid_FileExport.DropDownItems.Add(".txt", My.Resources.txt, AddressOf MoveData), ToolStripDropDownItem)
     Private WithEvents Grid_DatabaseExport As ToolStripDropDownItem = DirectCast(CMS_GridOptions.Items.Add("Database", My.Resources.Database.ToBitmap), ToolStripDropDownItem)
     Private ReadOnly Grid_CopySelection As ToolStripDropDownItem = DirectCast(CMS_GridOptions.Items.Add("Copy selected row(s)", My.Resources.Clipboard), ToolStripDropDownItem)
-    Private ReadOnly Grid_CopyRows As ToolStripDropDownItem = DirectCast(Grid_CopySelection.DropDownItems.Add("Copy row", My.Resources.Clipboard, AddressOf CopyRows), ToolStripDropDownItem)
-    Private ReadOnly Grid_CopyCell As ToolStripDropDownItem = DirectCast(Grid_CopySelection.DropDownItems.Add("Copy cell", My.Resources.Clipboard, AddressOf CopyCells), ToolStripDropDownItem)
 #End Region
     Private Pane_MouseLocation As Point
     Private Pane_MouseObject As InstructionElement
@@ -798,6 +796,7 @@ Public Class DataTool
 
         Dock = DockStyle.Fill
         Me.TestMode = TestMode
+        Scripts_ = New ScriptCollection(Me)
 
 #Region " CONNECTIONS "
         Connections.SortCollection()
@@ -906,7 +905,6 @@ Public Class DataTool
         'PaneHandlers(HandlerAction.Add)
 
 #Region " INITIALIZE CONTROLS "
-        Dim GeneralDeclarations As Object() = {SaveAsItem, TLPCSCS, TLPCSRS, A2, Grid_CopyRows, Grid_CopyCell}
         With TLP_Objects
             .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Percent, .Width = 100})
             .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 30})
@@ -1018,7 +1016,7 @@ Public Class DataTool
     Public Shared ReadOnly Connections As New ConnectionCollection
     Public Shared ReadOnly SystemObjects As New SystemObjectCollection
     Public Shared ReadOnly Jobs As New JobCollection
-    Private WithEvents Scripts_ As New ScriptCollection(Me)
+    Private WithEvents Scripts_ As ScriptCollection
     Public ReadOnly Property Scripts As ScriptCollection
         Get
             Return Scripts_
@@ -2488,6 +2486,26 @@ Public Class DataTool
     End Sub
 #End Region
 
+    Public Sub AddPane(Instruction As String, Optional Run As Boolean = False)
+
+        Dim startupScript As Script = Scripts.Add(New Script With {._Tabs = Script_Tabs,
+                                              .State = Script.ViewState.OpenDraft,
+                                              .Name = "adhoc",
+                                              .Text = Instruction})
+        Dim paneActive = ActivePane
+        AddHandler Scripts_.CollectionChanged, AddressOf ScriptsLoaded
+
+    End Sub
+    Private Sub ScriptsLoaded(sender As Object, e As ScriptsEventArgs)
+
+        If e.State = CollectionChangeAction.Refresh Then
+            RemoveHandler Scripts_.CollectionChanged, AddressOf ScriptsLoaded
+            Dim startupScript As Script = Scripts.Item("adhoc")
+            RunScript(startupScript)
+        End If
+
+    End Sub
+
 #Region " OBJECT EVENTS "
 #Region " Tree_Objects POPULATION "
     Private ReadOnly Property SelectedConnections As List(Of Connection)
@@ -3373,23 +3391,7 @@ Public Class DataTool
 
     End Sub
 #End Region
-#Region " COPY GRID DATA "
-    Private Sub CopyRows(sender As Object, e As EventArgs)
 
-        Dim SelectedTable As DataTable = (From r In Script_Grid.Rows Where r.Selected Select r.DataRow).CopyToDataTable
-        Clipboard.SetText(DataTableToHtml(SelectedTable))
-
-    End Sub
-    Private Sub CopyCells(sender As Object, e As EventArgs)
-
-        With Script_Grid.MouseData
-            If .Row IsNot Nothing AndAlso .Column IsNot Nothing Then
-                Clipboard.SetText(.Row.Cell(.Column).ToString)
-            End If
-        End With
-
-    End Sub
-#End Region
 #Region " EXPORT "
     Private Sub MoveData(sender As Object, e As EventArgs)
 
