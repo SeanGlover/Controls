@@ -825,7 +825,36 @@ Public Class DataTool
             AddHandler DirectCast(TSMI_Connections.DropDownItems(ConnectionItem), ToolStripMenuItem).DropDownClosed, AddressOf ConnectionProperties_Closed
             Dim TSMIexport As ToolStripMenuItem = DirectCast(Grid_DatabaseExport.DropDownItems.Add(Connection.DataSource, ColorImage), ToolStripMenuItem)
             TSMIexport.Tag = Connection
-            AddHandler TSMIexport.DropDownOpening, AddressOf ExportConnection_Opening
+
+            Dim tlpExport As New TableLayoutPanel With {.Width = 305,
+                .RowCount = 2,
+                .ColumnCount = 1,
+                .Margin = New Padding(0),
+                .CellBorderStyle = TableLayoutPanelCellBorderStyle.Inset,
+                .BorderStyle = BorderStyle.Fixed3D,
+                .Tag = Connection}
+
+            Dim imagecomboTableName As New ImageCombo With {.Dock = DockStyle.Fill,
+                .Margin = New Padding(0),
+                .HintText = "Tablename",
+                .Tag = Connection,
+                .Font = New Font("Century Gothic", 11, FontStyle.Regular)}
+            AddHandler imagecomboTableName.MouseEnter, AddressOf ExportConnection_Enter
+            AddHandler imagecomboTableName.ValueSubmitted, AddressOf ExportConnection_Submitted
+
+            Dim checkboxClearTable As New CheckBox With {.CheckState = CheckState.Checked,
+                .Dock = DockStyle.Fill,
+                .Margin = New Padding(5),
+                .Text = "Clear table".ToString(InvariantCulture),
+                .Font = New Font("Century Gothic", 12, FontStyle.Bold)}
+            With tlpExport
+                .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 300})
+                .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 30})
+                .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 30})
+                .Controls.Add(imagecomboTableName, 0, 0)
+                .Controls.Add(checkboxClearTable, 0, 1)
+            End With
+            TSMIexport.DropDownItems.Add(New ToolStripControlHost(tlpExport))
 #End Region
             RaiseEvent Alert(Me, New AlertEventArgs("Initializing " & Connection.DataSource))
             Dim tlpConnection As New TableLayoutPanel With {.ColumnCount = 1,
@@ -3405,10 +3434,10 @@ Public Class DataTool
 #End Region
 
 #Region " EXPORT "
-    Private Sub ExportConnection_Opening(sender As Object, e As EventArgs)
+    Private Sub ExportConnection_Enter(sender As Object, e As EventArgs)
 
-        Dim exportTSMI As ToolStripMenuItem = DirectCast(sender, ToolStripMenuItem)
-        Dim exportConnection As Connection = DirectCast(exportTSMI.Tag, Connection)
+        Dim exportCombo As ImageCombo = DirectCast(sender, ImageCombo)
+        Dim exportConnection As Connection = DirectCast(exportCombo.Tag, Connection)
         Dim gridColumns = Script_Grid.Columns.Names
         Dim Names = ValuesToFields(gridColumns.Keys.ToArray)
 
@@ -3424,10 +3453,20 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
             If .Status = TriState.True Then
                 Dim results = From r In .Table.AsEnumerable Select CStr(r("TBNAME"))
                 If results.Any Then
-                    MsgBox(Join(results.ToArray, " * "))
+                    exportCombo.DataSource = results
+                    exportCombo.SelectedIndex = 0
+                Else
+                    exportCombo.Text = "No matching tables".ToString(InvariantCulture)
+                    exportCombo.SelectAll()
                 End If
+            Else
+                exportCombo.Text = .Response.Message
+                exportCombo.SelectAll()
             End If
         End With
+
+    End Sub
+    Private Sub ExportConnection_Submitted(sender As Object, e As ImageComboEventArgs)
 
     End Sub
     Private Sub MoveData(sender As Object, e As EventArgs)
