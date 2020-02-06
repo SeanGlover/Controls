@@ -445,6 +445,9 @@
   <ItemGroup>
     <None Include="Resources\Warning_.ico" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Copied.png" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>

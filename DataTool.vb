@@ -773,7 +773,6 @@ Public Class DataTool
     Private ReadOnly Grid_csvExport As ToolStripDropDownItem = DirectCast(Grid_FileExport.DropDownItems.Add(".csv", My.Resources.csv, AddressOf MoveData), ToolStripDropDownItem)
     Private ReadOnly Grid_txtExport As ToolStripDropDownItem = DirectCast(Grid_FileExport.DropDownItems.Add(".txt", My.Resources.txt, AddressOf MoveData), ToolStripDropDownItem)
     Private WithEvents Grid_DatabaseExport As ToolStripDropDownItem = DirectCast(CMS_GridOptions.Items.Add("Database", My.Resources.Database.ToBitmap), ToolStripDropDownItem)
-    Private ReadOnly Grid_CopySelection As ToolStripDropDownItem = DirectCast(CMS_GridOptions.Items.Add("Copy selected row(s)", My.Resources.Clipboard), ToolStripDropDownItem)
 #End Region
     Private Pane_MouseLocation As Point
     Private Pane_MouseObject As InstructionElement
@@ -814,6 +813,8 @@ Public Class DataTool
             AddHandler TSMI_Connections.DropDownItems(ConnectionItem).Click, AddressOf DataSource_Clicked
             AddHandler DirectCast(TSMI_Connections.DropDownItems(ConnectionItem), ToolStripMenuItem).DropDownOpening, AddressOf ConnectionProperties_Showing
             AddHandler DirectCast(TSMI_Connections.DropDownItems(ConnectionItem), ToolStripMenuItem).DropDownClosed, AddressOf ConnectionProperties_Closed
+            Dim TSMIexport As ToolStripMenuItem = DirectCast(Grid_DatabaseExport.DropDownItems.Add(Connection.DataSource, ColorImage), ToolStripMenuItem)
+            'TSMIexport.BackColor =
 #End Region
             RaiseEvent Alert(Me, New AlertEventArgs("Initializing " & Connection.DataSource))
             Dim tlpConnection As New TableLayoutPanel With {.ColumnCount = 1,

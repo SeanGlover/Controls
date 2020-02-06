@@ -10,13 +10,15 @@ Public Structure MouseInfo
     Public Property Column As Column
     Public Property Row As Row
     Public Property Cell As Cell
-    Public Property Bounds As Rectangle
     Public Property Point As Point
+    Public Property SelectPointA As Point
+    Public Property SelectPointB As Point
     Public Property CurrentAction As Action
     Public Enum Action
         None
         MouseOverHead
         MouseOverGrid
+        GridSelecting
         MouseOverHeadEdge
         HeaderEdgeClicked
         HeaderClicked
@@ -68,6 +70,7 @@ Public Class DataViewer
     Inherits Control
 #Region " GENERAL DECLARATIONS "
     Private WithEvents BindingSource As New BindingSource
+    Private WithEvents CopyTimer As New Timer With {.Interval = 3000, .Tag = 0}
     Private WithEvents RowTimer As New Timer With {.Interval = 250}
     Private WithEvents SpinTimer As New Timer With {.Interval = 150, .Tag = 0}
     Private WithEvents TSDD_Spin As New ToolStripDropDown With {.AutoClose = False, .AutoSize = False, .Padding = New Padding(0), .DropShadowEnabled = False, .BackColor = Color.Transparent}
@@ -76,7 +79,7 @@ Public Class DataViewer
     Public WithEvents VScroll As New VScrollBar With {.Minimum = 0}
     Public WithEvents HScroll As New HScrollBar With {.Minimum = 0}
     Private ReadOnly ColumnHeadTip As ToolTip = New ToolTip With {.BackColor = Color.Black, .ForeColor = Color.White}
-    Private ReadOnly SelectedCells As New List(Of Cell)
+    Private ControlKeyDown As Boolean
 #End Region
 #Region " EVENTS "
     Public Event ColumnsSized(sender As Object, e As ViewerEventArgs)
@@ -87,7 +90,7 @@ Public Class DataViewer
     Public Event CellDoubleClicked(sender As Object, e As ViewerEventArgs)
     Public Event Alert(sender As Object, e As AlertEventArgs)
 #End Region
-#Region " INITIALIZE "
+#Region "■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ INITIALIZE "
     Public Sub New()
         Controls.AddRange({VScroll, HScroll})
         SetStyle(ControlStyles.AllPaintingInWmPaint, True)
@@ -106,7 +109,7 @@ Public Class DataViewer
         With TSDD_Spin
             .Items.Add(New ToolStripControlHost(PB_Spin) With {.BackColor = Color.Transparent})
             .Items.Add(New ToolStripControlHost(Bar_Spin) With {.BackColor = Color.GhostWhite})
-            'Using rgn As Region = New Region(New Rectangle(0, 0, 100, 100))
+            'Using rgn As Region = New Region(New Rectangle(0, 0, 100, 100))    'DrawingRegion ( make spinner round )
             '    rgn.Union(New RectangleF(0, 100 + 2, 150, 200))
             '    .Region = rgn
             'End Using
@@ -114,7 +117,7 @@ Public Class DataViewer
 
     End Sub
 #End Region
-#Region " DRAWING "
+#Region "■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ DRAWING "
     'HEADER / ROW PROPERTIES...USE A TEMPLATE LIKE MS AND APPLY TO CELL, ROW, HEADER...{V/H ALIGNMENT, FONT, FORCOLOR, BACKCOLOR, ETC}
     Protected Overrides Sub OnPaint(ByVal e As PaintEventArgs)
 
@@ -211,6 +214,7 @@ Public Class DataViewer
                 If Rows.Any Then
                     Dim Top As Integer = HeaderHeight
                     Dim RowStart As Integer = RowIndex(VScroll.Value)
+                    Dim drawBounds As Rectangle = PointsToRectangle(MouseData.SelectPointA, MouseData.SelectPointB)
                     VisibleRows.Clear()
                     For RowIndex As Integer = RowStart To {RowStart + VisibleRowCount, Rows.Count - 1}.Min
                         Dim Row = Rows(RowIndex)
@@ -233,6 +237,7 @@ Public Class DataViewer
                                     CellBounds.Offset(-HScroll.Value, 0)
                                     Dim rowCell As Cell = Row.Cells.Item(.Name)
                                     With rowCell
+                                        If MouseData.CurrentAction = MouseInfo.Action.GridSelecting Then .Selected = drawBounds.IntersectsWith(CellBounds)
                                         If .Selected Then   'Already drew the entire row before "DRAW CELLS" Region 
                                             Using LinearBrush As New LinearGradientBrush(CellBounds, .Style.BackColor, .Style.ShadeColor, LinearGradientMode.Vertical)
                                                 e.Graphics.FillRectangle(LinearBrush, CellBounds)
@@ -279,66 +284,42 @@ Public Class DataViewer
                     Next
                 End If
 #End Region
-#Region " xxx "
-                '                With Column.Head
-                '#Region " HEADER BACKGROUND + MOUSEOVER "
-                '                    Using LinearBrush As New LinearGradientBrush(.Bounds, TheBackColor, TheShadeColor, LinearGradientMode.Vertical)
-                '                        Graphics.FillRectangle(LinearBrush, .Bounds)
-                '                    End Using
-                '                    Dim BottomHalf As New Rectangle(.Bounds.Left, Convert.ToInt32(.Bounds.Height / 2), .Bounds.Width, Convert.ToInt32(.Bounds.Height / 2))
-                '                    Using LinearBrush As New LinearGradientBrush(.Bounds, TheBackColor, TheShadeColor, LinearGradientMode.Vertical)
-                '                        Graphics.FillRectangle(LinearBrush, BottomHalf)
-                '                    End Using
-                '                    '============= MOUSE IS OVER THIS COLUMN
-                '                    If _MouseData.MouseOver Is Column Then
-                '                        Using FadedBrush As New SolidBrush(Color.FromArgb(128, TheShadeColor))
-                '                            Graphics.FillRectangle(FadedBrush, .Bounds)
-                '                        End Using
-                '                    End If
-                '#End Region
-                '#Region " DRAW IMAGE "
-                '                    If Not IsNothing(.Image) Then Graphics.DrawImage(.Image, .ImageBounds)
-                '#End Region
-                '#Region " DRAW TEXT "
-                '                    TextRenderer.DrawText(Graphics, .Text, TheFont, .TextBounds, TheForeColor, Color.Transparent, TextFormatFlags.HorizontalCenter Or TextFormatFlags.VerticalCenter)
-                '#End Region
-                '#Region " DRAW FILTER "
-                '                    Graphics.DrawRectangle(Pens.Red, .FilterBounds)
-                '#End Region
-                '#Region " DRAW SORT TRIANGLE "
-                '                    If Not Column.Sort = Column.SortOrder.None Then
-                '                        Dim SortPoints As New List(Of Point)
-                '                        Dim SortArrowW As Integer = 12
-                '                        Dim SortArrowH As Integer = 7
-                '                        Dim X_Offset As Integer = Convert.ToInt32((.SortBounds.Width - SortArrowW) / 2)
-                '                        Dim Y_Offset As Integer = Convert.ToInt32((.Height - SortArrowH) / 2)
-                '                        Dim SortX As Integer = If(.Filtered, (From X In SortPoints Select X.X).Min, .Bounds.Right - X_Offset) - X_Offset - SortArrowW
-                '                        Dim SortR As Integer = SortX + SortArrowW
-                '                        Dim MidPoint As Integer = SortX + Convert.ToInt32(SortArrowW / 2)
-                '                        If Column.Sort = Column.SortOrder.Ascending Then
-                '                            SortPoints.AddRange({New Point(SortX, Y_Offset), New Point(SortR, Y_Offset), New Point(MidPoint, Y_Offset + SortArrowH)})
-                '                        Else
-                '                            SortPoints.AddRange({New Point(SortX, Y_Offset + SortArrowH), New Point(SortR, Y_Offset + SortArrowH), New Point(MidPoint, Y_Offset)})
-                '                        End If
-                '                        Graphics.SmoothingMode = SmoothingMode.AntiAlias
-                '                        Using GP As New GraphicsPath
-                '                            GP.AddPolygon(SortPoints.ToArray)
-                '                            Using PathBrush As New PathGradientBrush(GP)
-                '                                PathBrush.CenterColor = Color.WhiteSmoke
-                '                                PathBrush.SurroundColors = {Color.GhostWhite}
-                '                                PathBrush.CenterPoint = SortPoints(0)
-                '                                Graphics.FillPolygon(PathBrush, SortPoints.ToArray)
-                '                            End Using
-                '                        End Using
-                '                        Graphics.DrawPolygon(Pens.Silver, SortPoints.ToArray)
-                '                    End If
-                '#End Region
-                '#Region " DRAW HEADER BORDER "
-                '                    Using BorderPen As New Pen(TheShadeColor)
-                '                        Graphics.DrawRectangle(BorderPen, .Bounds)
-                '                    End Using
-                '#End Region
-                '                End With
+#Region " OVERLAYS "
+                Dim copyValue As Integer = DirectCast(CopyTimer.Tag, Integer)
+                If Math.Abs(copyValue) > 0 Then
+                    Using copyBrush As New SolidBrush(Color.FromArgb(208, Color.GhostWhite))
+                        Dim imageOffsetXY As Integer = 3
+                        Dim imageWH As Integer = My.Resources.Copied.Width
+                        Dim bannerWidth As Integer
+                        Dim copyMessage As String = "Copied"
+                        If copyValue < 0 Then
+                            copyMessage = Join({copyMessage, "value", Clipboard.GetText})
+                        Else
+                            copyMessage = Join({copyMessage, copyValue, "row" & If(copyValue = 1, String.Empty, "s")})
+                        End If
+                        If copyMessage.Length >= 30 Then copyMessage = copyMessage.Substring(0, 30) & "..."
+                        Using messageFont = New Font(Font.FontFamily, 15, FontStyle.Bold)
+                            bannerWidth = imageOffsetXY + imageWH + CInt(e.Graphics.MeasureString(copyMessage, messageFont, StringTrimming.None).Width) + imageOffsetXY
+                            Dim bannerSize As New Size(bannerWidth, imageOffsetXY + imageWH + imageOffsetXY)
+                            Dim bannerRectangle As New Rectangle(New Point(imageWH, imageWH), bannerSize)
+                            Dim imageRectangle As New Rectangle(bannerRectangle.Left + imageOffsetXY, bannerRectangle.Top + imageOffsetXY, imageWH, imageWH)
+                            Dim textRectangle As New Rectangle(imageRectangle.Right,
+                                                               bannerRectangle.Top,
+                                                               bannerRectangle.Width - imageOffsetXY - imageRectangle.Width,
+                                                               bannerRectangle.Height)
+                            Using copyPath As GraphicsPath = DrawRoundedRectangle(bannerRectangle, 22)
+                                Using copyPen As New Pen(Brushes.DarkGray, 2)
+                                    e.Graphics.DrawPath(copyPen, copyPath)
+                                End Using
+                                e.Graphics.FillPath(copyBrush, copyPath)
+                            End Using
+                            e.Graphics.DrawImage(My.Resources.Copied, imageRectangle)
+                            Dim textAlignment As New StringFormat With {.Alignment = StringAlignment.Near, .LineAlignment = StringAlignment.Center, .FormatFlags = StringFormatFlags.NoWrap}
+                            e.Graphics.DrawString(copyMessage, messageFont, Brushes.Black, textRectangle, textAlignment)
+                            bannerRectangle.Inflate(-2, -2)
+                        End Using
+                    End Using
+                End If
 #End Region
                 If VisibleRows.Any Then
                     Dim BottomRow As Rectangle = VisibleRows.Last.Value
@@ -366,6 +347,11 @@ Public Class DataViewer
             ControlPaint.DrawBorder3D(e.Graphics, ClientRectangle, Border3DStyle.Sunken)
         End If
 
+    End Sub
+    Private Sub CopyTimer_Tick(sender As Object, e As EventArgs) Handles CopyTimer.Tick
+        CopyTimer.Stop()
+        CopyTimer.Tag = 0
+        Invalidate()
     End Sub
 #End Region
     Private Sub SetupScrolls()
@@ -421,23 +407,6 @@ Public Class DataViewer
         Get
             Return CInt(Math.Ceiling(Height - HeaderHeight) / RowHeight)
         End Get
-    End Property
-    Private SingleSelect_ As Boolean = True
-    Public Property SingleSelect As Boolean
-        Get
-            Return SingleSelect_
-        End Get
-        Set(value As Boolean)
-            If value <> SingleSelect_ Then
-                SingleSelect_ = value
-                If value Then
-                    For Each SelectedRow In Rows.Selected.Skip(1)
-                        SelectedRow.Selected = False
-                    Next
-                    Invalidate()
-                End If
-            End If
-        End Set
     End Property
     Public ReadOnly Property TotalSize As Size
         Get
@@ -668,17 +637,19 @@ Public Class DataViewer
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Protected Overrides Sub OnMouseLeave(ByVal e As EventArgs)
+
         _MouseData = Nothing
         Invalidate()
         MyBase.OnMouseLeave(e)
+
     End Sub
     Protected Overrides Sub OnMouseMove(ByVal e As MouseEventArgs)
 
         If e IsNot Nothing Then
             With _MouseData
-                If .CurrentAction = MouseInfo.Action.HeaderEdgeClicked And e.Location <> .Point Then
-                    .CurrentAction = MouseInfo.Action.ColumnSizing
-                End If
+                Dim lastPoint As Point = .Point
+                Dim newPoint As Point = e.Location
+                If .CurrentAction = MouseInfo.Action.HeaderEdgeClicked And newPoint <> lastPoint Then .CurrentAction = MouseInfo.Action.ColumnSizing
                 If .CurrentAction = MouseInfo.Action.ColumnSizing Then
                     If e.Button = MouseButtons.None Then
                         .CurrentAction = MouseInfo.Action.None
@@ -702,27 +673,27 @@ Public Class DataViewer
                         Cursor = Cursors.VSplit
 
                     End If
-                    .Point = e.Location
+                    .Point = newPoint
                     Invalidate()
 
                 Else
                     Cursor = Cursors.Default
-                    .Point = e.Location
+                    .Point = newPoint
                     Dim lastMouseColumn As Column = .Column
                     Dim lastMouseRow As Row = .Row
-                    Dim MouseColumns = VisibleColumns.Where(Function(r) New Rectangle(r.Value.X, r.Value.Y, r.Value.Width, RowHeight * Rows.Count).Contains(e.Location)).Select(Function(c) c.Key)
+                    Dim MouseColumns = VisibleColumns.Where(Function(r) New Rectangle(r.Value.X, r.Value.Y, r.Value.Width, RowHeight * Rows.Count).Contains(newPoint)).Select(Function(c) c.Key)
                     If MouseColumns.Any Then
                         .Column = MouseColumns.First
                     End If
                     Dim Redraw As Boolean = False
-                    If Columns.HeadBounds.Contains(e.Location) Then
+                    If Columns.HeadBounds.Contains(newPoint) Then
 #Region " HEADER REGION "
                         Dim VisibleEdges As New Dictionary(Of Column, Rectangle)
                         Dim ColumnEdge As Column = Nothing
                         For Each Item In VisibleColumns
                             VisibleEdges.Add(Item.Key, New Rectangle(Item.Key.EdgeBounds.X - HScroll.Value, 0, 10, Item.Key.EdgeBounds.Height))
                         Next
-                        Dim Edges = VisibleEdges.Where(Function(x) x.Value.Contains(e.Location)).Select(Function(c) c.Key)
+                        Dim Edges = VisibleEdges.Where(Function(x) x.Value.Contains(newPoint)).Select(Function(c) c.Key)
                         If Edges.Any Then
                             ColumnEdge = Edges.First
                             .CurrentAction = MouseInfo.Action.MouseOverHeadEdge
@@ -737,12 +708,26 @@ Public Class DataViewer
                         Dim MouseRows = VisibleRows.Where(Function(r) e.Y >= r.Value.Top And e.Y <= r.Value.Bottom)
                         If MouseRows.Any Then
                             .Row = MouseRows.First.Key
-                            .CurrentAction = MouseInfo.Action.MouseOverGrid
-                            If Not SingleSelect And ControlKeyDown And .Row IsNot lastMouseRow Then
-                                .Row.Selected = e.Button = MouseButtons.Left
+                            If .CurrentAction = MouseInfo.Action.CellClicked And newPoint <> lastPoint Then
+                                .CurrentAction = MouseInfo.Action.GridSelecting
+                                .SelectPointA = lastPoint
+
+                            ElseIf .CurrentAction = MouseInfo.Action.GridSelecting Then
+                                .SelectPointB = newPoint
                                 Redraw = True
+                                ' NEEDS WORK
+                                If Width - newPoint.X < 10 Then HScroll.Value = {HScroll.Value + 20, HScroll.Maximum}.Min
+                                If Height - newPoint.Y < 10 Then VScroll.Value = {VScroll.Value + RowHeight, VScroll.Maximum}.Min
+                                ' NEEDS WORK
+                                RaiseEvent Alert({ .SelectPointA, .SelectPointB}, New AlertEventArgs("Grid selecting"))
+
+                            Else
+                                .CurrentAction = MouseInfo.Action.MouseOverGrid
+                                If Not Rows.SingleSelect And ControlKeyDown And .Row IsNot lastMouseRow Then
+                                    .Row.Selected = e.Button = MouseButtons.Left 'Row.Selected may not take the value if Me.FullRowSelect=False
+                                    Redraw = True
+                                End If
                             End If
-                            .Bounds = VisibleRows(.Row)
                             .Cell = If(.Column Is Nothing, Nothing, .Row.Cells(.Column.Index))
                         Else
                             .CurrentAction = MouseInfo.Action.None
@@ -751,9 +736,7 @@ Public Class DataViewer
                         End If
 #End Region
                     End If
-                    If Redraw Or Columns.HeadBounds.Contains(e.Location) Or .Column IsNot lastMouseColumn Or .Row IsNot lastMouseRow Then
-                        Invalidate()
-                    End If
+                    If Redraw Or Columns.HeadBounds.Contains(newPoint) Or .Column IsNot lastMouseColumn Or .Row IsNot lastMouseRow Then Invalidate()
                 End If
             End With
             MyBase.OnMouseMove(e)
@@ -790,13 +773,16 @@ Public Class DataViewer
 
                 ElseIf .CurrentAction = MouseInfo.Action.MouseOverGrid And e.Button = MouseButtons.Left Then
                     .CurrentAction = MouseInfo.Action.CellClicked
-                    .Row.Selected = If(FullRowSelect, Not MouseData.Row.Selected, False)
-                    .Cell.Selected = Not .Cell.Selected
-                    For Each cellSelected In SelectedCells
-                        cellSelected.Selected = False
-                    Next
-                    SelectedCells.Clear()
-                    If .Cell.Selected Then SelectedCells.Add(.Cell)
+                    .Row.Selected = Not MouseData.Row.Selected  'Row.Selected may not take the value if Me.FullRowSelect=False
+                    Dim cellSelectedCounter As Integer
+                    Rows.ForEach(Function(row) As Row
+                                     For Each cell In row.Cells.Except({ .Cell}).Where(Function(c) c.Selected)
+                                         cell.Selected = False
+                                         cellSelectedCounter += 1
+                                     Next
+                                     Return Nothing
+                                 End Function)
+                    .Cell.Selected = If(cellSelectedCounter = 0, Not .Cell.Selected, True)
                     RaiseEvent CellClicked(Me, New ViewerEventArgs(MouseData))
 
                 End If
@@ -826,13 +812,16 @@ Public Class DataViewer
 
     End Sub
     Protected Overrides Sub OnMouseUp(ByVal e As MouseEventArgs)
+
         With _MouseData
             .CurrentAction = MouseInfo.Action.None
+            .SelectPointA = Nothing
+            .SelectPointB = Nothing
             Invalidate()
         End With
         MyBase.OnMouseUp(e)
+
     End Sub
-    Private ControlKeyDown As Boolean
     Protected Overrides Sub OnKeyDown(ByVal e As KeyEventArgs)
 
         If e IsNot Nothing Then
@@ -877,7 +866,12 @@ Public Class DataViewer
 #End Region
                 ElseIf e.KeyCode = Keys.A AndAlso Control.ModifierKeys = Keys.Control Then
 #Region " SELECT ALL "
-                    'SelectAll()
+                    Rows.ForEach(Function(row) As Row
+                                     For Each cell In row.Cells
+                                         cell.Selected = True
+                                     Next
+                                     Return Nothing
+                                 End Function)
 #End Region
                 ElseIf e.KeyCode = Keys.X AndAlso Control.ModifierKeys = Keys.Control And Not IsReadOnly Then
 #Region " CUT "
@@ -889,11 +883,40 @@ Public Class DataViewer
 #End Region
                 ElseIf e.KeyCode = Keys.C AndAlso Control.ModifierKeys = Keys.Control Then
 #Region " COPY "
-                    If MouseData.Cell IsNot Nothing Then
+                    Dim selectedCells As New Dictionary(Of Cell, Integer)
+                    Dim selectedHeaders As New List(Of String)
+                    Rows.ForEach(Function(row) As Row
+                                     For Each cell In row.Cells.Where(Function(c) c.Selected)
+                                         If Not selectedHeaders.Contains(cell.Name) Then selectedHeaders.Add(cell.Name) 'Don't use the Cell.DataType - Need an Aggregate DataType
+                                         selectedCells.Add(cell, row.Index)
+                                     Next
+                                     Return Nothing
+                                 End Function)
+                    If selectedCells.Any Then
                         Clipboard.Clear()
-                        Clipboard.SetText(If(MouseData.Cell.Text, String.Empty))
-                        'Clipboard.SetText(Selection)
+                        If selectedCells.Count = 1 Then
+                            Clipboard.SetText(If(selectedCells.First.Key.Text, String.Empty))
+                            CopyTimer.Tag = -1
+                        Else
+                            Using copyTable As New DataTable
+                                With copyTable
+                                    For Each columnName In selectedHeaders
+                                        .Columns.Add(columnName, Columns.Item(columnName).DataType)
+                                    Next
+                                    Dim selectedRows = (From sc In selectedCells Group sc By rowIndex = sc.Value Into rowGroup = Group
+                                                        Select New With {.Index = rowIndex, .rowValues = (From c In rowGroup Order By c.Key.Index Select c.Key.Value).ToArray}).ToDictionary(Function(k) k.Index, Function(v) v.rowValues)
+                                    For Each row In selectedRows.Values
+                                        .Rows.Add(row)
+                                    Next
+                                End With
+                                Dim htmlTable As String = DataTableToHtml(copyTable, Columns.HeaderStyle.BackColor, Columns.HeaderStyle.ForeColor)
+                                ClipboardHelper.CopyToClipboard(htmlTable)
+                                CopyTimer.Tag = copyTable.Rows.Count
+                            End Using
+                        End If
                     End If
+                    Invalidate()
+                    CopyTimer.Start()
 #End Region
                 ElseIf e.KeyCode = Keys.V AndAlso Control.ModifierKeys = Keys.Control And Not IsReadOnly Then
 #Region " PASTE "
@@ -1205,9 +1228,11 @@ Public Class ColumnCollection
 
         With ColumnItem
             Dim columnCells As New List(Of Cell)(From r In Parent.Rows Select r.Cells.Item(.Name))
+            Dim cellTypes As New List(Of Type)
             .ContentWidth = .MinimumWidth
             For Each row In Parent.Rows
                 Dim rowCell As Cell = row.Cells.Item(.Name)
+                cellTypes.Add(rowCell.DataType)
                 If rowCell.ValueImage Is Nothing Then
                     Dim rowStyle As CellStyle = row.Style
                     .ContentWidth = { .ContentWidth, MeasureText(rowCell.Text, rowStyle.Font).Width}.Max
@@ -1219,12 +1244,18 @@ Public Class ColumnCollection
             Next
             .Width = { .HeadWidth, .ContentWidth}.Max
             ColumnsLeft()
+            If BackgroundProcess Then ColumnsWorker.ReportProgress({0, .Index}.Max, New KeyValuePair(Of Column, Type)(ColumnItem, GetDataType(cellTypes)))
         End With
-        If BackgroundProcess Then ColumnsWorker.ReportProgress({0, ColumnItem.Index}.Max)
 
     End Sub
     Private Sub FormatSizeColumn_Progress(sender As Object, e As ProgressChangedEventArgs) Handles ColumnsWorker.ProgressChanged
+
+        'Can not change the .DataType in the Background Thread
+        With DirectCast(e.UserState, KeyValuePair(Of Column, Type))
+            .Key.DataType = .Value
+        End With
         RaiseEvent ColumnSized(Me(e.ProgressPercentage), Nothing)
+
     End Sub
     Private Sub FormatSizeWorker_End(sender As Object, e As RunWorkerCompletedEventArgs) Handles ColumnsWorker.RunWorkerCompleted
         _IsBusy = False
@@ -1770,6 +1801,23 @@ Public Class RowCollection
             Return Where(Function(r) r.Selected).ToList
         End Get
     End Property
+    Private SingleSelect_ As Boolean = True
+    Public Property SingleSelect As Boolean
+        Get
+            Return SingleSelect_
+        End Get
+        Set(value As Boolean)
+            If value <> SingleSelect_ Then
+                SingleSelect_ = value
+                If value Then
+                    For Each SelectedRow In Selected.Skip(1)
+                        SelectedRow.Selected = False
+                    Next
+                End If
+                Parent.Invalidate()
+            End If
+        End Set
+    End Property
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Public Shadows Function Add(ByVal newRow As Row) As Row
 
@@ -1821,33 +1869,35 @@ Public Class RowCollection
     End Sub
     Private Sub RowStyle_PropertyChanged(sender As Object, e As StyleEventArgs) Handles RowStyle_.PropertyChanged, AlternatingRowStyle_.PropertyChanged, HeaderStyle_.PropertyChanged
 
-        If e.PropertyName = "Height" Then
-            If sender Is RowStyle Then
-                AlternatingRowStyle_.Height = RowStyle.Height
-                SelectionRowStyle_.Height = RowStyle.Height
+        If Not (sender Is Nothing Or e Is Nothing) Then
+            If e.PropertyName = "Height" Then
+                If sender Is RowStyle Then
+                    AlternatingRowStyle_.Height = RowStyle.Height
+                    SelectionRowStyle_.Height = RowStyle.Height
 
-            ElseIf sender Is AlternatingRowStyle Then
-                RowStyle_.Height = AlternatingRowStyle.Height
-                SelectionRowStyle_.Height = AlternatingRowStyle.Height
+                ElseIf sender Is AlternatingRowStyle Then
+                    RowStyle_.Height = AlternatingRowStyle.Height
+                    SelectionRowStyle_.Height = AlternatingRowStyle.Height
 
-            ElseIf sender Is SelectionRowStyle Then
-                AlternatingRowStyle_.Height = SelectionRowStyle.Height
-                RowStyle_.Height = SelectionRowStyle.Height
+                ElseIf sender Is SelectionRowStyle Then
+                    AlternatingRowStyle_.Height = SelectionRowStyle.Height
+                    RowStyle_.Height = SelectionRowStyle.Height
 
-            End If
-        ElseIf e.PropertyName = "ImageScaling" Then
-            If sender Is RowStyle Then
-                AlternatingRowStyle_.ImageScaling = RowStyle.ImageScaling
-                SelectionRowStyle_.ImageScaling = RowStyle.ImageScaling
+                End If
+            ElseIf e.PropertyName = "ImageScaling" Then
+                If sender Is RowStyle Then
+                    AlternatingRowStyle_.ImageScaling = RowStyle.ImageScaling
+                    SelectionRowStyle_.ImageScaling = RowStyle.ImageScaling
 
-            ElseIf sender Is AlternatingRowStyle Then
-                RowStyle_.ImageScaling = AlternatingRowStyle.ImageScaling
-                SelectionRowStyle_.ImageScaling = AlternatingRowStyle.ImageScaling
+                ElseIf sender Is AlternatingRowStyle Then
+                    RowStyle_.ImageScaling = AlternatingRowStyle.ImageScaling
+                    SelectionRowStyle_.ImageScaling = AlternatingRowStyle.ImageScaling
 
-            ElseIf sender Is SelectionRowStyle Then
-                AlternatingRowStyle_.ImageScaling = SelectionRowStyle.ImageScaling
-                RowStyle_.ImageScaling = SelectionRowStyle.ImageScaling
+                ElseIf sender Is SelectionRowStyle Then
+                    AlternatingRowStyle_.ImageScaling = SelectionRowStyle.ImageScaling
+                    RowStyle_.ImageScaling = SelectionRowStyle.ImageScaling
 
+                End If
             End If
         End If
         DrawTimer.Start()
@@ -1907,22 +1957,24 @@ End Class
     Private _Selected As Boolean
     Public Property Selected As Boolean
         Get
+            If Not Parent.Parent.FullRowSelect Then _Selected = False
             Return _Selected
         End Get
         Set(value As Boolean)
-            If _Selected <> value Then
-                _Selected = value
-                If value Then
-                    With Parent
-                        If .Parent.SingleSelect Then
-                            For Each Row In .Except({Me}).Where(Function(r) r.Selected)
+            With Parent.Parent
+                If .FullRowSelect And _Selected <> value Then
+                    _Selected = value
+                    If value Then
+                        If Parent.SingleSelect Then
+                            For Each Row In Parent.Except({Me}).Where(Function(r) r.Selected)
                                 Row.Selected = False
                             Next
                         End If
-                        .Parent.Invalidate()
-                    End With
+                    End If
+                    .Invalidate()
                 End If
-            End If
+            End With
+
         End Set
     End Property
 #Region "IDisposable Support"
