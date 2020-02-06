@@ -957,6 +957,19 @@ Public Module Functions
         End If
 
     End Function
+    Public Function ReadFiles(FolderName As String) As Dictionary(Of String, String)
+
+        If FolderName Is Nothing Then
+            Return Nothing
+        Else
+            If Directory.Exists(FolderName) Then
+                Return (From f In GetFiles(FolderName, ".txt") Select New With {.location = f, .content = ReadText(f)}).ToDictionary(Function(k) k.location, Function(v) v.content)
+            Else
+                Return Nothing
+            End If
+        End If
+
+    End Function
     Public Function ReadText(FilePathOrName As String) As String
 
         Dim CanRead As Boolean = IsFile(FilePathOrName) And File.Exists(FilePathOrName)

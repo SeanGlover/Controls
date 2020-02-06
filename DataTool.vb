@@ -53,16 +53,26 @@ End Class
         With DirectCast(sender, BackgroundWorker)
             RemoveHandler .DoWork, AddressOf NewWorkStart
         End With
-        Dim FileScripts = GetFiles(Scripts_DirectoryInfo.FullName, ".txt")
+        Dim fileScripts = ReadFiles(Scripts_DirectoryInfo.FullName)
+        Dim fileConnections = (From fs In fileScripts Group fs By dsn = Split(fs.Value, vbNewLine).First Into dsnGroup = Group
+                               Select New With {.server = dsn, .items = dsnGroup.ToList}).ToDictionary(Function(k) k.server, Function(v) v.items)
+
         '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
         Dim Testing As Boolean = Parent.TestMode
+        Dim takeCount As Integer = If(Testing, 25, 10000)
+        Dim eachCount As Integer = CInt(Math.Ceiling(takeCount / fileConnections.Count))
         '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
-        For Each FileScript In FileScripts.Take(If(Testing, 10, 1000))
-            Dim NewScript As New Script(FileScript)
-            RaiseEvent Alert(Me, New AlertEventArgs(Strings.Join({"Loading", NewScript.Name})))
-            Do While NewScript.Body.IsBusy
-            Loop
-            Add(NewScript)
+
+        Dim smallestCountToLargest = fileConnections.OrderBy(Function(fc) fc.Value.Count).ToList
+        For Each fileConnection In smallestCountToLargest
+            If fileConnection.Key Is smallestCountToLargest.Last.Key Then eachCount += {takeCount - eachCount - Count, 0}.Max
+            For Each fileScript In fileConnection.Value.Take(eachCount)
+                Dim NewScript As New Script(fileScript.Key)
+                RaiseEvent Alert(Me, New AlertEventArgs(Strings.Join({"Loading", NewScript.Name})))
+                Do While NewScript.Body.IsBusy
+                Loop
+                Add(NewScript)
+            Next
         Next
 
     End Sub
@@ -800,7 +810,7 @@ Public Class DataTool
 #Region " CONNECTIONS "
         Connections.SortCollection()
         'Connections.View()
-        For Each Connection In Connections.Take(If(TestMode, 1, 10000))
+        For Each Connection In Connections
 #Region " TOP LEVEL "
             AddHandler Connection.PasswordChanged, AddressOf ConnectionChanged
             Dim ColorKeys = ColorImages()
@@ -814,7 +824,8 @@ Public Class DataTool
             AddHandler DirectCast(TSMI_Connections.DropDownItems(ConnectionItem), ToolStripMenuItem).DropDownOpening, AddressOf ConnectionProperties_Showing
             AddHandler DirectCast(TSMI_Connections.DropDownItems(ConnectionItem), ToolStripMenuItem).DropDownClosed, AddressOf ConnectionProperties_Closed
             Dim TSMIexport As ToolStripMenuItem = DirectCast(Grid_DatabaseExport.DropDownItems.Add(Connection.DataSource, ColorImage), ToolStripMenuItem)
-            'TSMIexport.BackColor =
+            TSMIexport.Tag = Connection
+            AddHandler TSMIexport.DropDownOpening, AddressOf ExportConnection_Opening
 #End Region
             RaiseEvent Alert(Me, New AlertEventArgs("Initializing " & Connection.DataSource))
             Dim tlpConnection As New TableLayoutPanel With {.ColumnCount = 1,
@@ -3394,6 +3405,31 @@ Public Class DataTool
 #End Region
 
 #Region " EXPORT "
+    Private Sub ExportConnection_Opening(sender As Object, e As EventArgs)
+
+        Dim exportTSMI As ToolStripMenuItem = DirectCast(sender, ToolStripMenuItem)
+        Dim exportConnection As Connection = DirectCast(exportTSMI.Tag, Connection)
+        Dim gridColumns = Script_Grid.Columns.Names
+        Dim Names = ValuesToFields(gridColumns.Keys.ToArray)
+
+        Dim sqlTablename As String = "SELECT TBNAME FROM (SELECT TBNAME, COUNT(*) X
+FROM SYSIBM.SYSCOLUMNS
+WHERE NAME In " & Names & "
+GROUP BY TBNAME) COLUMNS
+WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
+
+        Dim sqlExport = New SQL(exportConnection, sqlTablename)
+        With sqlExport
+            .Execute(False)
+            If .Status = TriState.True Then
+                Dim results = From r In .Table.AsEnumerable Select CStr(r("TBNAME"))
+                If results.Any Then
+                    MsgBox(Join(results.ToArray, " * "))
+                End If
+            End If
+        End With
+
+    End Sub
     Private Sub MoveData(sender As Object, e As EventArgs)
 
         REM /// EVENTUALLY, MOVE DATA BYPASSING SQL_VIEW (QUERY TO DB)

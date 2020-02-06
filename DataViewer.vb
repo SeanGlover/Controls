@@ -9,7 +9,9 @@ Public Structure MouseInfo
     Implements IEquatable(Of MouseInfo)
     Public Property Column As Column
     Public Property Row As Row
+    Public Property RowBounds As Rectangle
     Public Property Cell As Cell
+    Public Property CellBounds As Rectangle
     Public Property Point As Point
     Public Property SelectPointA As Point
     Public Property SelectPointB As Point
@@ -621,12 +623,8 @@ Public Class DataViewer
         End If
 
     End Sub
-    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ C L E A R ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Public Sub Clear()
-        'Columns_.Dispose()
-        'Rows_.Dispose()
-        'Columns_ = New ColumnCollection(Me)
-        'Rows_ = New RowCollection(Me)
         Columns.CancelWorkers()
         Columns.Clear()
         Rows.Clear()
@@ -635,7 +633,7 @@ Public Class DataViewer
         VScroll.Value = 0
         HScroll.Value = 0
     End Sub
-    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ M O U S E ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Protected Overrides Sub OnMouseLeave(ByVal e As EventArgs)
 
         _MouseData = Nothing
@@ -708,6 +706,7 @@ Public Class DataViewer
                         Dim MouseRows = VisibleRows.Where(Function(r) e.Y >= r.Value.Top And e.Y <= r.Value.Bottom)
                         If MouseRows.Any Then
                             .Row = MouseRows.First.Key
+                            .RowBounds = VisibleRows(.Row)
                             If .CurrentAction = MouseInfo.Action.CellClicked And newPoint <> lastPoint Then
                                 .CurrentAction = MouseInfo.Action.GridSelecting
                                 .SelectPointA = lastPoint
@@ -728,7 +727,10 @@ Public Class DataViewer
                                     Redraw = True
                                 End If
                             End If
-                            .Cell = If(.Column Is Nothing, Nothing, .Row.Cells(.Column.Index))
+                            If .Column IsNot Nothing Then
+                                .Cell = .Row.Cells(.Column.Index)
+                                .CellBounds = New Rectangle(.Column.HeadBounds.Left, .RowBounds.Top, .Column.HeadBounds.Width, .RowBounds.Height)
+                            End If
                         Else
                             .CurrentAction = MouseInfo.Action.None
                             .Row = Nothing
@@ -991,7 +993,7 @@ Public Class ColumnCollection
         Parent = Viewer
     End Sub
     Public ReadOnly Property Parent As DataViewer
-    Friend ReadOnly Property Names As Dictionary(Of String, Integer)
+    Public ReadOnly Property Names As Dictionary(Of String, Integer)
         Get
             Dim columnNames As New Dictionary(Of String, Integer)
             For Each column In Me
