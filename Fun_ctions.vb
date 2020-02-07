@@ -444,6 +444,55 @@ Public Module Functions
         End If
 
     End Function
+
+    Public Function DB2TableNamingConvention(tableName As String) As String
+
+        'https://www.sfu.ca/sasdoc/sashtml/accdb/z0455680.htm
+        'A name can be from 1 to 18 characters long.
+        'A name can start with a letter Or one of the following symbols: the dollar sign ($), the number (Or pound) sign (#), Or the at symbol (@).
+        'A name can contain the letters A through Z, any valid letter with an accent (such as a), the digits 0 through 9, the underscore (_), the dollar sign ($), the number Or pound sign (#), Or the at symbol (@).
+        'A name Is Not case-sensitive (for example, the table name CUSTOMERS Is the same as Customers), but object names are converted to uppercase when typed. If a name Is enclosed in quotes, then the name Is case-sensitive.
+        'A name cannot be a DB2 Or an SQL reserved word, such as WHERE Or VIEW.
+        'A name cannot be the same as another DB2 object that has the same type.
+        'Schema And database names have similar conventions, except that they are Each limited To eight characters. For more information, see your DB2 SQL reference manual.
+
+        If If(tableName, String.Empty).Length = 0 Then
+            Return String.Empty
+
+        Else
+            Dim Letters = tableName.ToArray.Take(18) 'A name can be from 1 to 18 characters long.
+            Dim LetterIndex As Integer = 0
+            Dim NewLetters As New List(Of Char)
+            For Each Letter As Char In Letters
+                If LetterIndex = 0 Then
+                    'FIRST CAN BE A-Z, $, #, @ - A name can start with a letter Or one of the following symbols: the dollar sign ($), the number (Or pound) sign (#), Or the at symbol (@)
+                    If Regex.Match(Letter, "[^A-Z@$#]", RegexOptions.IgnoreCase).Success Then
+                        NewLetters.Add(Chr(Asc(BlackOut)))
+                    Else
+                        NewLetters.Add(Letter)
+                    End If
+
+                Else
+                    'SUBSEQUENT CAN BE A-Z,  0-9, _, $, #, @
+                    If Regex.Match(Letter, "[^A-Z0-9_$#@]", RegexOptions.IgnoreCase).Success Then
+                        NewLetters.Add(Chr(Asc(BlackOut)))
+                    Else
+                        NewLetters.Add(Letter)
+                    End If
+
+                End If
+                LetterIndex += 1
+            Next
+            Dim reservedWords As New List(Of String)(Split(My.Resources.reservedWords, vbNewLine))
+            Dim tableNameConvention As String = NewLetters.ToArray
+            If reservedWords.Contains(tableNameConvention.ToUpperInvariant) Then
+                Return StrDup(tableNameConvention.Length, BlackOut)
+            Else
+                Return tableNameConvention
+            End If
+        End If
+
+    End Function
     Public Function GetWord(Line As String, Index As Integer, Optional LookForward As Boolean = True) As KeyValuePair(Of Integer, String)
 
         If Line Is Nothing Then
@@ -1873,6 +1922,27 @@ Public Module Ghost
             .mkhi.mi.dwFlags = MouseEventFlags.MOUSEEVENTFxLEFTDOWN
             Dim unused2 = NativeMethods.SendInput(1, MouseInput, Marshal.SizeOf(New INPUT()))
             .mkhi.mi.dwFlags = MouseEventFlags.MOUSEEVENTFxLEFTUP
+            Dim unused3 = NativeMethods.SendInput(1, MouseInput, Marshal.SizeOf(New INPUT()))
+        End With
+
+    End Sub
+    Public Sub ClickRightMouseButton(ByVal Location As Point)
+        ClickRightMouseButton(Location.X, Location.Y)
+    End Sub
+    Public Sub ClickRightMouseButton(ByVal x As Integer, ByVal y As Integer)
+
+        Dim MouseInput As INPUT = New INPUT With {
+            .type = SendInputEventType.InputMouse
+        }
+        With MouseInput
+            .mkhi.mi.dx = CalculateAbsoluteCoordinateX(x)
+            .mkhi.mi.dy = CalculateAbsoluteCoordinateY(y)
+            .mkhi.mi.mouseData = 0
+            .mkhi.mi.dwFlags = MouseEventFlags.MOUSEEVENTFxMOVE Or MouseEventFlags.MOUSEEVENTFxABSOLUTE
+            Dim unused1 = NativeMethods.SendInput(1, MouseInput, Marshal.SizeOf(New INPUT()))
+            .mkhi.mi.dwFlags = MouseEventFlags.MOUSEEVENTFxRIGHTDOWN
+            Dim unused2 = NativeMethods.SendInput(1, MouseInput, Marshal.SizeOf(New INPUT()))
+            .mkhi.mi.dwFlags = MouseEventFlags.MOUSEEVENTFxRIGHTUP
             Dim unused3 = NativeMethods.SendInput(1, MouseInput, Marshal.SizeOf(New INPUT()))
         End With
 

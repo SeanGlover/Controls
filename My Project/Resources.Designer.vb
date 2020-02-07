@@ -489,6 +489,72 @@ Namespace My.Resources
         End Property
         
         '''<summary>
+        '''  Looks up a localized string similar to ADD
+        '''AFTER
+        '''ALL
+        '''ALLOCATE
+        '''ALLOW
+        '''ALTER
+        '''AND
+        '''ANY
+        '''AS
+        '''ASENSITIVE
+        '''ASSOCIATE
+        '''ASUTIME
+        '''AT
+        '''AUDIT
+        '''AUX
+        '''AUXILIARY
+        '''BEFORE
+        '''BEGIN
+        '''BETWEEN
+        '''BUFFERPOOL
+        '''BY
+        '''CALL
+        '''CAPTURE
+        '''CASCADED
+        '''CASE
+        '''CAST
+        '''CCSID
+        '''CHAR
+        '''CHARACTER
+        '''CHECK
+        '''CLONE
+        '''CLOSE
+        '''CLUSTER
+        '''COLLECTION
+        '''COLLID
+        '''COLUMN
+        '''COMMENT
+        '''COMMIT
+        '''CONCAT
+        '''CONDITION
+        '''CONNECT
+        '''CONNECTION
+        '''CONSTRAINT
+        '''CONTAINS
+        '''CONTENT
+        '''CONTINUE
+        '''CREATE
+        '''CURRENT
+        '''CURRENT_DATE
+        '''CURRENT_LC_CTYPE
+        '''CURRENT_PATH
+        '''CURRENT_SCHEMA
+        '''CURRENT_TIME
+        '''CURRENT_TIMESTAMP
+        '''CURRVAL1
+        '''CURSOR
+        '''DATA
+        '''DATAB [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property reservedWords() As String
+            Get
+                Return ResourceManager.GetString("reservedWords", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
         '''  Looks up a localized resource of type System.Drawing.Bitmap.
         '''</summary>
         Friend ReadOnly Property Save() As System.Drawing.Bitmap

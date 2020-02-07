@@ -709,28 +709,107 @@ Public Class DataTool
 #Region " DECLARATIONS "
     Private ReadOnly DataDirectory As DirectoryInfo = Directory.CreateDirectory(MyDocuments & "\DataManager")
     Private ReadOnly Path_Columns As String = DataDirectory.FullName & "\Columns.txt"
-    Private ReadOnly Message As New Prompt
-    Private WithEvents TLP_PaneGrid As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 3, .RowCount = 1, .CellBorderStyle = TableLayoutPanelCellBorderStyle.Inset, .AllowDrop = True, .Margin = New Padding(0)}
-    Private WithEvents TLP_Objects As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 1, .RowCount = 3, .CellBorderStyle = TableLayoutPanelCellBorderStyle.Inset, .Margin = New Padding(0)}
-    Friend WithEvents Script_Tabs As New Tabs With {.Dock = DockStyle.Fill, .UserCanAdd = True, .UserCanReorder = True, .MouseOverSelection = True, .AddNewTabColor = Color.Black, .Font = Segoe, .Alignment = TabAlignment.Top, .Multiline = True, .Margin = New Padding(0), .SelectedTabColor = Color.Black}
-    Private WithEvents Script_Grid As New DataViewer With {.Dock = DockStyle.Fill, .Font = Segoe, .AllowDrop = True, .Margin = New Padding(0), .ContextMenuStrip = CMS_GridOptions}
-    Private WithEvents Button_ObjectsSync As New Button With {.Dock = DockStyle.Fill, .Text = String.Empty, .TextImageRelation = TextImageRelation.Overlay, .Image = My.Resources.Sync, .ImageAlign = ContentAlignment.MiddleLeft, .Margin = New Padding(0)}
-    Private WithEvents IC_ObjectsSearch As New ImageCombo With {.Dock = DockStyle.Fill, .Text = String.Empty, .HintText = "Search Database", .Image = My.Resources.View, .Margin = New Padding(0)}
-    Private WithEvents Button_ObjectsClose As New Button With {.Dock = DockStyle.Fill, .Text = String.Empty, .TextImageRelation = TextImageRelation.Overlay, .Image = My.Resources.Close.ToBitmap, .ImageAlign = ContentAlignment.MiddleCenter, .Margin = New Padding(0)}
-    Private WithEvents Tree_Objects As New TreeViewer With {.Name = "Database Objects", .Dock = DockStyle.Fill, .Margin = New Padding(0), .DropHighlightColor = Color.Gold, .CheckBoxes = TreeViewer.CheckState.Mixed, .MultiSelect = True}
-    Private WithEvents TSDD_SaveAs As New ToolStripDropDown With {.AutoClose = False, .Padding = New Padding(0), .DropShadowEnabled = True, .BackColor = Color.Firebrick, .Renderer = New CustomRenderer}
-    Private WithEvents IC_SaveAs As New ImageCombo With {.Image = My.Resources.Save, .HintText = "Save Or Save As", .Size = New Size(200, 28)}
+    Private ReadOnly GothicFont As New Font("Century Gothic", 9, FontStyle.Regular)
+    Private ReadOnly Message As New Prompt With {.Font = GothicFont}
+    Private WithEvents TLP_PaneGrid As New TableLayoutPanel With {.Dock = DockStyle.Fill,
+        .ColumnCount = 3,
+        .RowCount = 1,
+        .CellBorderStyle = TableLayoutPanelCellBorderStyle.Inset,
+        .AllowDrop = True,
+        .Margin = New Padding(0),
+        .Font = GothicFont}
+    Private WithEvents TLP_Objects As New TableLayoutPanel With {.Dock = DockStyle.Fill,
+        .ColumnCount = 1,
+        .RowCount = 3,
+        .CellBorderStyle = TableLayoutPanelCellBorderStyle.Inset,
+        .Margin = New Padding(0),
+        .Font = GothicFont}
+    Friend WithEvents Script_Tabs As New Tabs With {.Dock = DockStyle.Fill,
+        .UserCanAdd = True,
+        .UserCanReorder = True,
+        .MouseOverSelection = True,
+        .AddNewTabColor = Color.Black,
+        .Font = GothicFont,
+        .Alignment = TabAlignment.Top,
+        .Multiline = True,
+        .Margin = New Padding(0),
+        .SelectedTabColor = Color.Black}
+    Private WithEvents Script_Grid As New DataViewer With {.Dock = DockStyle.Fill,
+        .Font = GothicFont,
+        .AllowDrop = True,
+        .Margin = New Padding(0)}
+    Private WithEvents Button_ObjectsSync As New Button With {.Dock = DockStyle.Fill,
+        .Text = String.Empty,
+        .TextImageRelation = TextImageRelation.Overlay,
+        .Image = My.Resources.Sync,
+        .ImageAlign = ContentAlignment.MiddleLeft,
+        .Margin = New Padding(0),
+        .Font = GothicFont}
+    Private WithEvents IC_ObjectsSearch As New ImageCombo With {.Dock = DockStyle.Fill,
+        .Text = String.Empty,
+        .HintText = "Search Database",
+        .Image = My.Resources.View,
+        .Margin = New Padding(0),
+        .Font = GothicFont}
+    Private WithEvents Button_ObjectsClose As New Button With {.Dock = DockStyle.Fill,
+        .Text = String.Empty,
+        .TextImageRelation = TextImageRelation.Overlay,
+        .Image = My.Resources.Close.ToBitmap,
+        .ImageAlign = ContentAlignment.MiddleCenter,
+        .Margin = New Padding(0),
+        .Font = GothicFont}
+    Private WithEvents Tree_Objects As New TreeViewer With {.Name = "Database Objects",
+        .Dock = DockStyle.Fill,
+        .Margin = New Padding(0),
+        .DropHighlightColor = Color.Gold,
+        .CheckBoxes = TreeViewer.CheckState.Mixed,
+        .MultiSelect = True,
+        .Font = GothicFont}
+    Private WithEvents TSDD_SaveAs As New ToolStripDropDown With {.AutoClose = False,
+        .Padding = New Padding(0),
+        .DropShadowEnabled = True,
+        .BackColor = Color.Firebrick,
+        .Renderer = New CustomRenderer,
+        .Font = GothicFont}
+    Private WithEvents IC_SaveAs As New ImageCombo With {.Image = My.Resources.Save,
+        .HintText = "Save Or Save As",
+        .Size = New Size(200, 28),
+        .Font = GothicFont}
     Private ReadOnly SaveAsHost As New ToolStripControlHost(IC_SaveAs)
     Private ReadOnly SaveAsItem As Integer = TSDD_SaveAs.Items.Add(SaveAsHost)
-    Private WithEvents TSDD_ClosedScripts As New ToolStripDropDown With {.AutoSize = False, .AutoClose = False, .Padding = New Padding(0), .DropShadowEnabled = True, .BackColor = Color.Transparent, .Renderer = New CustomRenderer}
-    Private WithEvents TLP_ClosedScripts As New TableLayoutPanel With {.Size = New Size(200, 200), .ColumnCount = 1, .RowCount = 1}
+    Private WithEvents TSDD_ClosedScripts As New ToolStripDropDown With {.AutoSize = False,
+        .AutoClose = False,
+        .Padding = New Padding(0),
+        .DropShadowEnabled = True,
+        .BackColor = Color.Transparent,
+        .Renderer = New CustomRenderer,
+        .Font = GothicFont}
+    Private WithEvents TLP_ClosedScripts As New TableLayoutPanel With {.Size = New Size(200, 200),
+        .ColumnCount = 1,
+        .RowCount = 1,
+        .Font = GothicFont}
     Private ReadOnly TLPCSCS As Integer = TLP_ClosedScripts.ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 300})
     Private ReadOnly TLPCSRS As Integer = TLP_ClosedScripts.RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 600})
-    Private WithEvents Tree_ClosedScripts As New TreeViewer With {.Name = "Scripts", .AutoSize = True, .Margin = New Padding(0), .MouseOverExpandsNode = False}
+    Private WithEvents Tree_ClosedScripts As New TreeViewer With {.Name = "Scripts",
+        .AutoSize = True,
+        .Margin = New Padding(0),
+        .MouseOverExpandsNode = False,
+        .Font = GothicFont}
     Private WithEvents TT_Tabs As New ToolTip With {.ToolTipIcon = ToolTipIcon.Info}
     Private WithEvents TT_GridTip As New ToolTip With {.ToolTipIcon = ToolTipIcon.Info}
-    Private WithEvents CMS_ExcelSheets As New ContextMenuStrip With {.AutoClose = False, .AutoSize = True, .Margin = New Padding(0), .DropShadowEnabled = False, .BackColor = Color.WhiteSmoke, .ForeColor = Color.DarkViolet, .Font = Segoe}
-    Private ReadOnly OpenFileNode As Node = New Node With {.Text = "Open File", .Image = My.Resources.Folder, .AllowEdit = False, .AllowRemove = False, .AllowDragDrop = False}
+    Private WithEvents CMS_ExcelSheets As New ContextMenuStrip With {.AutoClose = False,
+        .AutoSize = True,
+        .Margin = New Padding(0),
+        .DropShadowEnabled = False,
+        .BackColor = Color.WhiteSmoke,
+        .ForeColor = Color.DarkViolet,
+        .Font = GothicFont}
+    Private ReadOnly OpenFileNode As Node = New Node With {.Text = "Open File",
+        .Image = My.Resources.Folder,
+        .AllowEdit = False,
+        .AllowRemove = False,
+        .AllowDragDrop = False,
+        .Font = GothicFont}
     Private WithEvents OpenFile As New OpenFileDialog
     Private WithEvents SaveFile As New SaveFileDialog
     '-----------------------------------------
@@ -738,32 +817,71 @@ Public Class DataTool
     Private ScriptsInitialized As Boolean
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Private WithEvents TT_PaneTip As New ToolTip With {.ToolTipIcon = ToolTipIcon.Info}
-    Private WithEvents CMS_PaneOptions As New ContextMenuStrip With {.AutoClose = False, .Padding = New Padding(0), .ImageScalingSize = New Size(15, 15), .DropShadowEnabled = True, .Renderer = New CustomRenderer, .BackColor = Color.Gainsboro}
+    Private WithEvents CMS_PaneOptions As New ContextMenuStrip With {.AutoClose = False,
+        .Padding = New Padding(0),
+        .ImageScalingSize = New Size(15, 15),
+        .DropShadowEnabled = True,
+        .Renderer = New CustomRenderer,
+        .BackColor = Color.Gainsboro,
+        .Font = GothicFont}
     '-----------------------------------------
-    Private WithEvents TSMI_Connections As New ToolStripMenuItem With {.Text = "Connections", .Image = My.Resources.Database.ToBitmap}
+    Private WithEvents TSMI_Connections As New ToolStripMenuItem With {.Text = "Connections",
+        .Image = My.Resources.Database.ToBitmap,
+        .Font = GothicFont}
     Private ReadOnly TT_Submit As New ToolTip With {.ShowAlways = True, .ToolTipTitle = "New connection:"}
-    Private WithEvents TSMI_Comment As New ToolStripMenuItem("Comment", My.Resources.Comment)
+    Private WithEvents TSMI_Comment As New ToolStripMenuItem With {.Text = "Comment",
+        .Image = My.Resources.Comment,
+        .Font = GothicFont}
     '-----------------------------------------
-    Private WithEvents TSMI_Copy As New ToolStripMenuItem("Copy", My.Resources.Clipboard)
-    Private WithEvents TSMI_CopyPlainText As New ToolStripMenuItem("Without format", My.Resources.txt)
-    Private WithEvents TSMI_CopyColorText As New ToolStripMenuItem("With format", My.Resources.Colors)
+    Private WithEvents TSMI_Copy As New ToolStripMenuItem With {.Text = "Copy",
+        .Image = My.Resources.Clipboard,
+        .Font = GothicFont}
+    Private WithEvents TSMI_CopyPlainText As New ToolStripMenuItem With {.Text = "Without format",
+        .Image = My.Resources.txt,
+        .Font = GothicFont}
+    Private WithEvents TSMI_CopyColorText As New ToolStripMenuItem With {.Text = "With format",
+        .Image = My.Resources.Colors,
+        .Font = GothicFont}
     '-----------------------------------------
-    Private WithEvents TSMI_Divider As New ToolStripMenuItem("Insert divider", My.Resources.InsertBefore)
-    Private WithEvents TSMI_DividerSingle As New ToolStripMenuItem("Single line", My.Resources.Zap)
-    Private WithEvents TSMI_DividerDouble As New ToolStripMenuItem("Double line", My.Resources.Zap)
+    Private WithEvents TSMI_Divider As New ToolStripMenuItem With {.Text = "Insert divider",
+        .Image = My.Resources.InsertBefore,
+        .Font = GothicFont}
+    Private WithEvents TSMI_DividerSingle As New ToolStripMenuItem With {.Text = "Single line",
+        .Image = My.Resources.Zap,
+        .Font = GothicFont}
+    Private WithEvents TSMI_DividerDouble As New ToolStripMenuItem With {.Text = "Double line",
+        .Image = My.Resources.Zap,
+        .Font = GothicFont}
     '-----------------------------------------
-    Private WithEvents TSMI_Font As New ToolStripMenuItem("Font", My.Resources.Info)
+    Private WithEvents TSMI_Font As New ToolStripMenuItem With {.Text = "Font",
+        .Image = My.Resources.Info,
+        .Font = GothicFont}
     Private WithEvents Dialogue_Font As New FontDialog With {.Font = My.Settings.Font_Pane}
     '-----------------------------------------
-    Private WithEvents TSMI_ObjectType As New ToolStripMenuItem With {.Text = String.Empty, .Image = My.Resources.Info, .ImageScaling = ToolStripItemImageScaling.None}
-    Private ReadOnly TSMI_ObjectValue As New ToolStripMenuItem With {.Text = String.Empty, .Image = My.Resources._Property, .ImageScaling = ToolStripItemImageScaling.None}
-    Private ReadOnly TSMI_TipSwitch As New ToolStripMenuItem("Tips On", My.Resources.LightOn)
-    Private WithEvents IC_BackColor As New ImageCombo With {.Size = New Size(160, 28), .HintText = "BackColor"}
-    Private WithEvents IC_ForeColor As New ImageCombo With {.Size = New Size(160, 28), .HintText = "ForeColor"}
-    Private ReadOnly TLP_Type As New TableLayoutPanel With {.ColumnCount = 1, .RowCount = 2, .CellBorderStyle = TableLayoutPanelCellBorderStyle.Inset}
+    Private WithEvents TSMI_ObjectType As New ToolStripMenuItem With {.Text = String.Empty,
+        .Image = My.Resources.Info,
+        .ImageScaling = ToolStripItemImageScaling.None,
+        .Font = GothicFont}
+    Private ReadOnly TSMI_ObjectValue As New ToolStripMenuItem With {.Text = String.Empty,
+        .Image = My.Resources._Property,
+        .ImageScaling = ToolStripItemImageScaling.None,
+        .Font = GothicFont}
+    Private ReadOnly TSMI_TipSwitch As New ToolStripMenuItem With {.Text = "Tips On",
+        .Image = My.Resources.LightOn,
+        .Font = GothicFont}
+    Private WithEvents IC_BackColor As New ImageCombo With {.Size = New Size(160, 28),
+        .HintText = "BackColor",
+        .Font = GothicFont}
+    Private WithEvents IC_ForeColor As New ImageCombo With {.Size = New Size(160, 28),
+        .HintText = "ForeColor",
+        .Font = GothicFont}
+    Private ReadOnly TLP_Type As New TableLayoutPanel With {.ColumnCount = 1,
+        .RowCount = 2,
+        .CellBorderStyle = TableLayoutPanelCellBorderStyle.Inset,
+        .Font = GothicFont}
     Private ReadOnly TSCH_TypeHost As New ToolStripControlHost(TLP_Type) With {.ImageScaling = ToolStripItemImageScaling.None}
     Private ReadOnly A2 As Integer = TSMI_ObjectType.DropDownItems.Add(TSCH_TypeHost)
-    Private WithEvents FindAndReplace As New FindReplace
+    Private WithEvents FindAndReplace As New FindReplace With {.Font = GothicFont}
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Private ReadOnly ObjectsSet As New DataSet With {.DataSetName = "Objects"}
     Private WithEvents ObjectsWorker As New BackgroundWorker With {.WorkerReportsProgress = True}
@@ -776,13 +894,25 @@ Public Class DataTool
     Private ReadOnly ConnectionsDictionary As New Dictionary(Of String, Boolean)
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 #Region " EXPORT DATA "
-    Private WithEvents CMS_GridOptions As New ContextMenuStrip With {.Name = "Options", .Text = "Options"}
-    Private ReadOnly Grid_FileExport As ToolStripDropDownItem = DirectCast(CMS_GridOptions.Items.Add("File", My.Resources.Folder), ToolStripDropDownItem)
-    Private ReadOnly Grid_ExcelExport As ToolStripDropDownItem = DirectCast(Grid_FileExport.DropDownItems.Add("Excel", My.Resources.Excel, AddressOf MoveData), ToolStripDropDownItem)
-    Private ReadOnly Grid_ExcelQueryExport As ToolStripDropDownItem = DirectCast(Grid_ExcelExport.DropDownItems.Add("+ Query", My.Resources.ExcelQuery, AddressOf MoveData), ToolStripDropDownItem)
-    Private ReadOnly Grid_csvExport As ToolStripDropDownItem = DirectCast(Grid_FileExport.DropDownItems.Add(".csv", My.Resources.csv, AddressOf MoveData), ToolStripDropDownItem)
-    Private ReadOnly Grid_txtExport As ToolStripDropDownItem = DirectCast(Grid_FileExport.DropDownItems.Add(".txt", My.Resources.txt, AddressOf MoveData), ToolStripDropDownItem)
-    Private WithEvents Grid_DatabaseExport As ToolStripDropDownItem = DirectCast(CMS_GridOptions.Items.Add("Database", My.Resources.Database.ToBitmap), ToolStripDropDownItem)
+    Private WithEvents CMS_GridOptions As ContextMenuStrip
+    Private ReadOnly Grid_FileExport As New ToolStripMenuItem With {.Text = "File",
+        .Image = My.Resources.Folder,
+        .Font = GothicFont}
+    Private ReadOnly Grid_csvExport As New ToolStripMenuItem With {.Text = ".csv",
+        .Image = My.Resources.csv,
+        .Font = GothicFont}
+    Private ReadOnly Grid_txtExport As New ToolStripMenuItem With {.Text = ".txt",
+        .Image = My.Resources.txt,
+        .Font = GothicFont}
+    Private ReadOnly Grid_ExcelExport As New ToolStripMenuItem With {.Text = "Excel",
+        .Image = My.Resources.Excel,
+        .Font = GothicFont}
+    Private ReadOnly Grid_ExcelQueryExport As New ToolStripMenuItem With {.Text = "+ Query",
+        .Image = My.Resources.ExcelQuery,
+        .Font = GothicFont}
+    Private WithEvents Grid_DatabaseExport As New ToolStripMenuItem With {.Text = "Database",
+        .Image = My.Resources.Database.ToBitmap,
+        .Font = GothicFont}
 #End Region
     Private Pane_MouseLocation As Point
     Private Pane_MouseObject As InstructionElement
@@ -811,6 +941,7 @@ Public Class DataTool
         Connections.SortCollection()
         'Connections.View()
         For Each Connection In Connections
+            RaiseEvent Alert(Me, New AlertEventArgs("Initializing " & Connection.DataSource))
 #Region " TOP LEVEL "
             AddHandler Connection.PasswordChanged, AddressOf ConnectionChanged
             Dim ColorKeys = ColorImages()
@@ -819,12 +950,14 @@ Public Class DataTool
                                                                         .Text = Connection.DataSource,
                                                                         .Name = Connection.ToString,
                                                                         .Image = ColorImage,
-                                                                        .Tag = Connection})
+                                                                        .Tag = Connection,
+                                                                        .Font = GothicFont})
             AddHandler TSMI_Connections.DropDownItems(ConnectionItem).Click, AddressOf DataSource_Clicked
             AddHandler DirectCast(TSMI_Connections.DropDownItems(ConnectionItem), ToolStripMenuItem).DropDownOpening, AddressOf ConnectionProperties_Showing
             AddHandler DirectCast(TSMI_Connections.DropDownItems(ConnectionItem), ToolStripMenuItem).DropDownClosed, AddressOf ConnectionProperties_Closed
-            Dim TSMIexport As ToolStripMenuItem = DirectCast(Grid_DatabaseExport.DropDownItems.Add(Connection.DataSource, ColorImage), ToolStripMenuItem)
-            TSMIexport.Tag = Connection
+            Dim tsmiExport As ToolStripMenuItem = DirectCast(Grid_DatabaseExport.DropDownItems.Add(Connection.DataSource, ColorImage), ToolStripMenuItem)
+            tsmiExport.Tag = Connection
+            tsmiExport.Font = GothicFont
 
             Dim tlpExport As New TableLayoutPanel With {.Width = 305,
                 .RowCount = 2,
@@ -832,38 +965,46 @@ Public Class DataTool
                 .Margin = New Padding(0),
                 .CellBorderStyle = TableLayoutPanelCellBorderStyle.Inset,
                 .BorderStyle = BorderStyle.Fixed3D,
-                .Tag = Connection}
+                .Tag = Connection,
+                .Font = GothicFont}
 
             Dim imagecomboTableName As New ImageCombo With {.Dock = DockStyle.Fill,
                 .Margin = New Padding(0),
                 .HintText = "Tablename",
                 .Tag = Connection,
-                .Font = New Font("Century Gothic", 11, FontStyle.Regular)}
+                .Font = GothicFont}
             AddHandler imagecomboTableName.MouseEnter, AddressOf ExportConnection_Enter
             AddHandler imagecomboTableName.ValueSubmitted, AddressOf ExportConnection_Submitted
 
             Dim checkboxClearTable As New CheckBox With {.CheckState = CheckState.Checked,
                 .Dock = DockStyle.Fill,
                 .Margin = New Padding(5),
+                .TextAlign = ContentAlignment.MiddleLeft,
+                .CheckAlign = ContentAlignment.MiddleLeft,
+                .TextImageRelation = TextImageRelation.ImageBeforeText,
                 .Text = "Clear table".ToString(InvariantCulture),
-                .Font = New Font("Century Gothic", 12, FontStyle.Bold)}
+                .Font = GothicFont}
             With tlpExport
                 .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 300})
-                .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 30})
-                .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 30})
+                .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 28})
+                .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 28})
                 .Controls.Add(imagecomboTableName, 0, 0)
                 .Controls.Add(checkboxClearTable, 0, 1)
             End With
-            TSMIexport.DropDownItems.Add(New ToolStripControlHost(tlpExport))
+            tsmiExport.DropDownItems.Add(New ToolStripControlHost(tlpExport))
 #End Region
-            RaiseEvent Alert(Me, New AlertEventArgs("Initializing " & Connection.DataSource))
             Dim tlpConnection As New TableLayoutPanel With {.ColumnCount = 1,
                 .RowCount = 2,
                 .Margin = New Padding(0),
                 .CellBorderStyle = TableLayoutPanelCellBorderStyle.None,
                 .BorderStyle = BorderStyle.None,
-                .Tag = Connection}
-            Dim buttonSubmit As New Button With {.Margin = New Padding(0), .Text = "S U B M I T".ToUpperInvariant, .Dock = DockStyle.Fill, .Height = 30}
+                .Tag = Connection,
+                .Font = GothicFont}
+            Dim buttonSubmit As New Button With {.Margin = New Padding(0),
+                .Text = "S U B M I T".ToUpperInvariant,
+                .Dock = DockStyle.Fill,
+                .Height = 30,
+                .Font = GothicFont}
             With tlpConnection
                 .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 300})
                 .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 30})
@@ -876,7 +1017,8 @@ Public Class DataTool
                 .RowCount = 1 + Connection.PropertyIndices.Count,
                 .BorderStyle = BorderStyle.None,
                 .CellBorderStyle = TableLayoutPanelCellBorderStyle.None,
-                .Tag = Connection}
+                .Tag = Connection,
+                .Font = GothicFont}
             With tlpProperties
                 .Tag = Connection
                 .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 1})
@@ -889,10 +1031,20 @@ Public Class DataTool
                     .Margin = New Padding(0),
                     .ImageAlign = ContentAlignment.MiddleCenter,
                     .FlatStyle = FlatStyle.Standard,
-                    .BackColor = Color.GhostWhite}
-                Dim addkeyControl As New ImageCombo With {.Dock = DockStyle.Fill, .Text = String.Empty, .Margin = New Padding(0), .HintText = "Name"}
+                    .BackColor = Color.GhostWhite,
+                    .Font = GothicFont}
+                Dim addkeyControl As New ImageCombo With {.Dock = DockStyle.Fill,
+                    .Text = String.Empty,
+                    .Margin = New Padding(0),
+                    .HintText = "Name",
+                    .Font = GothicFont}
                 addkeyControl.DropDown.CheckBoxes = False
-                Dim addvalueControl As New ImageCombo With {.Dock = DockStyle.Fill, .Text = String.Empty, .Margin = New Padding(0), .HintText = "Value", .Enabled = False}
+                Dim addvalueControl As New ImageCombo With {.Dock = DockStyle.Fill,
+                    .Text = String.Empty,
+                    .Margin = New Padding(0),
+                    .HintText = "Value",
+                    .Enabled = False,
+                    .Font = GothicFont}
                 .Controls.Add(addControl, 0, 0)
                 .Controls.Add(addkeyControl, 1, 0)
                 .Controls.Add(addvalueControl, 2, 0)
@@ -909,15 +1061,18 @@ Public Class DataTool
                         .Margin = New Padding(0),
                         .FlatStyle = FlatStyle.Standard,
                         .ImageAlign = ContentAlignment.MiddleCenter,
-                        .BackColor = Color.GhostWhite}
+                        .BackColor = Color.GhostWhite,
+                        .Font = GothicFont}
                     Dim keyControl As New ImageCombo With {.Dock = DockStyle.Fill,
                         .Text = connectionProperty.Key,
                         .Margin = New Padding(0),
                         .Enabled = False,
-                        .Name = connectionProperty.Key}
+                        .Name = connectionProperty.Key,
+                        .Font = GothicFont}
                     Dim valueControl As New ImageCombo With {.Dock = DockStyle.Fill,
                         .Text = String.Empty,
-                        .Margin = New Padding(0)}
+                        .Margin = New Padding(0),
+                        .Font = GothicFont}
                     .Controls.Add(deleteControl, 0, rowIndex)
                     .Controls.Add(keyControl, 1, rowIndex)
                     .Controls.Add(valueControl, 2, rowIndex)
@@ -929,7 +1084,7 @@ Public Class DataTool
             End With
             tlpConnection.Controls.Add(tlpProperties, 0, 1)
             ResizeConnections(tlpConnection, tlpProperties)
-            DirectCast(TSMI_Connections.DropDownItems(ConnectionItem), ToolStripMenuItem).DropDownItems.Add(New ToolStripControlHost(tlpConnection) With {.BackColor = Connection.BackColor})
+            DirectCast(TSMI_Connections.DropDownItems(ConnectionItem), ToolStripMenuItem).DropDownItems.Add(New ToolStripControlHost(tlpConnection) With {.BackColor = Connection.BackColor, .Font = GothicFont})
         Next
         TSMI_Copy.DropDownItems.AddRange({TSMI_CopyPlainText, TSMI_CopyColorText})
         TSMI_Divider.DropDownItems.AddRange({TSMI_DividerSingle, TSMI_DividerDouble})
@@ -1000,7 +1155,7 @@ Public Class DataTool
         For Each TextString In {"--", "=="}
             Dim _Image As New Bitmap(16, 16)
             Using G As Graphics = Graphics.FromImage(_Image)
-                G.DrawString(TextString, Segoe, Brushes.Black, 0, 0)
+                G.DrawString(TextString, GothicFont, Brushes.Black, 0, 0)
             End Using
             If TextString = "--" Then
                 TSMI_DividerSingle.Image = _Image
@@ -1013,7 +1168,6 @@ Public Class DataTool
         LoadSystemObjects(Nothing, Nothing)
 #Region " EXPORT DATA "
         Script_Grid.AllowDrop = True
-        Script_Grid.ContextMenuStrip = CMS_GridOptions
         Grid_FileExport.ImageScaling = ToolStripItemImageScaling.None
         Grid_ExcelExport.ImageScaling = ToolStripItemImageScaling.None
         Grid_ExcelQueryExport.ImageScaling = ToolStripItemImageScaling.None
@@ -1022,6 +1176,13 @@ Public Class DataTool
         Grid_DatabaseExport.ImageScaling = ToolStripItemImageScaling.None
 #End Region
         ExpandCollapseOnOff(HandlerAction.Add)
+
+        For Each tsmiExport As ToolStripMenuItem In {Grid_ExcelExport, Grid_csvExport, Grid_txtExport}
+            Grid_FileExport.DropDownItems.Add(tsmiExport)
+            AddHandler tsmiExport.Click, AddressOf ExportToFile
+        Next
+        Grid_ExcelExport.DropDownItems.Add(Grid_ExcelQueryExport)
+        AddHandler Grid_ExcelQueryExport.Click, AddressOf ExportToFile
 
     End Sub
 
@@ -1429,7 +1590,7 @@ Public Class DataTool
                 Dim BoxSize As New Size(200, 200)
                 Dim CursorBounds As New Rectangle(0, 0, Cursor.Size.Width, Cursor.Size.Width)
                 Dim CursorText As String = "Double-Click to view Objects. Don't show again (Right-Click)".ToString(InvariantCulture)
-                Dim TextSize As Size = TextRenderer.MeasureText(CursorText, Segoe, BoxSize)
+                Dim TextSize As Size = TextRenderer.MeasureText(CursorText, GothicFont, BoxSize)
                 Dim TextBounds As New Rectangle(CursorBounds.Right, CursorBounds.Top, TextSize.Width, CursorBounds.Height)
                 Dim CursorTextBounds As New Rectangle(CursorBounds.X, CursorBounds.Y, CursorBounds.Width + TextSize.Width, {CursorBounds.Height, TextSize.Height}.Max)
                 Dim BorderBounds = CursorTextBounds
@@ -1439,7 +1600,7 @@ Public Class DataTool
                         .SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
                         .FillRectangle(Brushes.White, CursorTextBounds)
                         Cursor.Draw(Graphics, CursorBounds)
-                        .DrawString(CursorText, Segoe, Brushes.Black, TextBounds, StringFormat.GenericDefault)
+                        .DrawString(CursorText, GothicFont, Brushes.Black, TextBounds, StringFormat.GenericDefault)
                         BorderBounds.Inflate(-1, -1)
                         .DrawRectangle(Pens.CornflowerBlue, BorderBounds)
                         bmp.MakeTransparent(Color.White)
@@ -3434,84 +3595,145 @@ Public Class DataTool
 #End Region
 
 #Region " EXPORT "
+    Private Sub ExportOptions_Opening(sender As Object, e As MouseEventArgs) Handles Script_Grid.MouseClick
+
+        Dim canExport As Boolean = Script_Grid.Table IsNot Nothing AndAlso Script_Grid.Table.AsEnumerable.Any
+        If canExport And e.Button = MouseButtons.Right Then
+            CMS_GridOptions = New ContextMenuStrip With {.Name = "Options",
+                .Text = "Options".ToString(InvariantCulture),
+                .Font = GothicFont}
+            With CMS_GridOptions
+                AddHandler .Closed, AddressOf ExportOptions_Closing
+                .Items.AddRange({Grid_FileExport, Grid_DatabaseExport})
+                .Show(Cursor.Position)
+            End With
+        End If
+
+    End Sub
+    Private Sub ExportOptions_Closing(sender As Object, e As EventArgs)
+        RemoveHandler CMS_GridOptions.Closed, AddressOf ExportOptions_Closing
+        CMS_GridOptions = Nothing
+    End Sub
+    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ T O   D A T A B A S E
     Private Sub ExportConnection_Enter(sender As Object, e As EventArgs)
 
         Dim exportCombo As ImageCombo = DirectCast(sender, ImageCombo)
-        Dim exportConnection As Connection = DirectCast(exportCombo.Tag, Connection)
-        Dim gridColumns = Script_Grid.Columns.Names
-        Dim Names = ValuesToFields(gridColumns.Keys.ToArray)
-
-        Dim sqlTablename As String = "SELECT TBNAME FROM (SELECT TBNAME, COUNT(*) X
+        If exportCombo.Enabled Then
+            Dim exportConnection As Connection = DirectCast(exportCombo.Tag, Connection)
+            Dim gridColumns = Script_Grid.Columns.Names
+            Dim Names = ValuesToFields(gridColumns.Keys.ToArray)
+            Dim sqlTablename As String = "SELECT TBNAME FROM (SELECT TBNAME, COUNT(*) X
 FROM SYSIBM.SYSCOLUMNS
 WHERE NAME In " & Names & "
 GROUP BY TBNAME) COLUMNS
 WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
-
-        Dim sqlExport = New SQL(exportConnection, sqlTablename)
-        With sqlExport
-            .Execute(False)
-            If .Status = TriState.True Then
-                Dim results = From r In .Table.AsEnumerable Select CStr(r("TBNAME"))
-                If results.Any Then
-                    exportCombo.DataSource = results
-                    exportCombo.SelectedIndex = 0
+            Dim sqlExport = New SQL(exportConnection, sqlTablename)
+            With sqlExport
+                .Execute(False)
+                exportCombo.Name = Nothing
+                If .Status = TriState.True Then
+                    Dim results = From r In .Table.AsEnumerable Select CStr(r("TBNAME"))
+                    If results.Any Then
+                        exportCombo.DataSource = results
+                        exportCombo.SelectedIndex = 0
+                        exportCombo.Name = Join(results.ToArray, BlackOut)
+                    Else
+                        exportCombo.Text = "No matching tables".ToString(InvariantCulture)
+                        exportCombo.SelectAll()
+                    End If
                 Else
-                    exportCombo.Text = "No matching tables".ToString(InvariantCulture)
-                    exportCombo.SelectAll()
+                    RaiseEvent Alert(Me, New AlertEventArgs(.Response.Message))
+                    exportCombo.Text = .Response.Message
+                    exportCombo.ForeColor = Color.DarkRed
+                    exportCombo.BackColor = Color.Gainsboro
+                    exportCombo.Enabled = False
+                    Dim tlpConnection As TableLayoutPanel = DirectCast(exportCombo.Parent, TableLayoutPanel)
+                    tlpConnection.BackColor = Color.Gainsboro
+                    Dim exportCheckbox As CheckBox = DirectCast(tlpConnection.Controls(1), CheckBox)
+                    exportCheckbox.CheckState = CheckState.Indeterminate
+                    exportCheckbox.BackColor = Color.Gainsboro
+                    exportCheckbox.Enabled = False
                 End If
-            Else
-                exportCombo.Text = .Response.Message
-                exportCombo.SelectAll()
-            End If
-        End With
+            End With
+        End If
 
     End Sub
     Private Sub ExportConnection_Submitted(sender As Object, e As ImageComboEventArgs)
 
-    End Sub
-    Private Sub MoveData(sender As Object, e As EventArgs)
+        Dim exportCombo As ImageCombo = DirectCast(sender, ImageCombo)
+        Dim tableName As String = exportCombo.Text
+        Dim validTablename As String = DB2TableNamingConvention(tableName)
+        If tableName = validTablename Then 'OK to proceed
+            Dim exportConnection As Connection = DirectCast(exportCombo.Tag, Connection)
+            If Not If(exportCombo.Name, String.Empty).Any Then
+                'Results from MouseOver SQL did not return any results ... probably new table but maybe not. Check if TableName exists
+                Dim Instruction As String = "WITH SPACES (SPACE) As (Select
+                DISTINCT TRIM(DBNAME)||'.'||TRIM(TSNAME) SPACE
+                FROM SYSIBM.SYSTABLES T
+                WHERE T.CREATOR='" & exportConnection.UserID & "'
+                AND TYPE='T')
+                , TABLES (SPACE, COUNT) AS (SELECT SPACE
+                , (SELECT COUNT(*)
+                FROM SYSIBM.SYSTABLES TT
+                WHERE TT.CREATOR='" & exportConnection.UserID & "' AND TT.NAME='" & Trim(tableName.ToUpperInvariant) & "' AND S.SPACE=TRIM(DBNAME)||'.'||TRIM(TSNAME)) COUNT
+                FROM SPACES S)
+                SELECT *
+                FROM TABLES"
+                Dim tableSQL As New SQL(exportConnection, Instruction)
+                With tableSQL
+                    .Execute(False)
+                    If .Status = TriState.True Then
+                        Dim Spaces As New Dictionary(Of String, Integer)(.Table.AsEnumerable.ToDictionary(Function(x) x("SPACE").ToString, Function(y) DirectCast(y("COUNT"), Integer)))
+                        If Spaces.Values.Sum = 0 Then
+                            REM /// TABLE NOT FOUND ///. NOW CHECK HOW MANY SPACES THERE ARE
+                            If Spaces.Count = 1 Then
+                                REM /// NO NEED FOR USER INPUT. BEGIN EXPORT
+                                With New ETL()
+                                    .Sources.Add(New ETL.Source(Script_Grid.Table))
+                                    .Destinations.Add(New ETL.Destination(exportConnection, exportCombo.Text) With {.ClearTable = True})
+                                    AddHandler .Completed, AddressOf ExportToTable
+                                    .Execute()
+                                End With
 
-        REM /// EVENTUALLY, MOVE DATA BYPASSING SQL_VIEW (QUERY TO DB)
-        Dim SourceTable As DataTable = DirectCast(Script_Grid.DataSource, DataTable)
-        If SourceTable Is Nothing Then
+                            Else
+                                REM /// MULTIPLE SPACES EXIST. USER MUST SELECT DESTINATION SPACE
+                                REM /// SHOW ROWS 2 (IMAGECOMBO) AND 4 (SUBMIT BUTTON). HIDE ROW 3 (RADIO BUTTONS - FOR EXISTING TABLE)
 
-        Else
-            Dim FileName As String = Split(SourceTable.TableName, ".").Last
-            Dim ExportObject As ToolStripDropDownItem = DirectCast(sender, ToolStripDropDownItem)
-            Select Case ExportObject.Text
-                Case "Excel", "+ Query"
-                    SaveFile.FileName = Join({Desktop, "\", FileName, ".xlsx"}, String.Empty)
-                    SaveFile.Filter = "Excel Files|*.xls,*.xlsx".ToString(InvariantCulture)
-                    SaveFile.Title = ExportObject.Text
-                    SaveFile.ShowDialog()
+                            End If
+                        Else
+                            REM /// TABLE FOUND ///. REQUIRES USER TO PICK AN ACTION {DROP, CLEAR, Or ADD}
+                            REM /// SHOW ROWS 3 (RADIO BUTTONS) AND 4 (SUBMIT BUTTON). HIDE ROW 2
 
-                Case ".csv"
-                    SaveFile.FileName = Join({Desktop, "\", FileName, ".csv"}, String.Empty)
-                    SaveFile.Filter = "CSV|*.csv".ToString(InvariantCulture)
-                    SaveFile.ShowDialog()
-
-                Case ".txt"
-                    SaveFile.FileName = Join({Desktop, "\", FileName, ".txt"}, String.Empty)
-                    SaveFile.Filter = "TXT Files (*.txt*)|*.txt".ToString(InvariantCulture)
-                    SaveFile.ShowDialog()
-
-                Case Else
-                    REM /// DATABASE. NEED NAME, TABLESPACE, NEW(CHECK), CLEAR OR ADD
-                    REM /// ALL EXPORTS TO DSN REQUIRE A NAME
-                    REM /// NEW PARAMETER=(OWNER+TABLE.NAME) EXISTS
-                    REM /// IF NEW, THEN TABLESPACE MUST BE OBTAINED (COULD BE MULTIPLE)
-                    REM /// IF NOT NEW, PARAMETER FOR CLEAR Or INSERT AS RADIO BUTTON
-                    Dim QueryTable As DataTable = TryCast(Script_Grid.DataSource, DataTable)
-                    If Not IsNothing(QueryTable) AndAlso QueryTable.AsEnumerable.Any Then
+                        End If
 
                     End If
+                End With
+            End If
 
-            End Select
+            Dim tlpConnection As TableLayoutPanel = DirectCast(exportCombo.Parent, TableLayoutPanel)
+            Dim exportCheckbox As CheckBox = DirectCast(tlpConnection.Controls(1), CheckBox)
+            Stop
+            Exit Sub
+
+        Else
+            Using message As New Prompt
+                Dim validConvention As String = "A name can be from 1 to 18 characters long.
+                A name can start with a letter Or one of the following symbols: the dollar sign ($), the number (Or pound) sign (#), Or the at symbol (@).
+                A name can contain the letters A through Z, any valid letter with an accent (such as a), the digits 0 through 9, the underscore (_), the dollar sign ($), the number Or pound sign (#), Or the at symbol (@).
+                A name Is Not case-sensitive (for example, the table name CUSTOMERS Is the same as Customers), but object names are converted to uppercase when typed. If a name Is enclosed in quotes, then the name Is case-sensitive.
+                A name cannot be a DB2 Or an SQL reserved word, such as WHERE Or VIEW.
+                A name cannot be the same as another DB2 object that has the same type.
+                Schema And database names have similar conventions, except that they are Each limited To eight characters. For more information, see your DB2 SQL reference manual."
+                message.Show("Invalid Table name", validConvention, Prompt.IconOption.Critical, Prompt.StyleOption.Blue)
+            End Using
         End If
 
     End Sub
     Private Sub Grid_DatabaseExport_MouseDown(sender As Object, e As EventArgs) Handles Grid_DatabaseExport.MouseDown
 
+
+    End Sub
+    Private Sub ExportToTable(sender As Object, e As ResponsesEventArgs)
 
     End Sub
     Private Sub TableSpaces(sender As Object, e As ResponseEventArgs)
@@ -3661,6 +3883,49 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
             Message.Show("Action successful", "Rows successfully imported to " & _ETL.Destinations.Last.TableName, Prompt.IconOption.TimedMessage)
         Else
             Message.Show("Action not successful", "Failure to import to " & _ETL.Destinations.Last.TableName, Prompt.IconOption.TimedMessage)
+        End If
+
+    End Sub
+
+    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ T O   F I L E
+    Private Sub ExportToFile(sender As Object, e As EventArgs)
+
+        REM /// EVENTUALLY, MOVE DATA BYPASSING SQL_VIEW (QUERY TO DB)
+        Dim SourceTable As DataTable = DirectCast(Script_Grid.DataSource, DataTable)
+        If SourceTable Is Nothing Then
+
+        Else
+            Dim FileName As String = Split(SourceTable.TableName, ".").Last
+            Dim ExportObject As ToolStripDropDownItem = DirectCast(sender, ToolStripDropDownItem)
+            Select Case ExportObject.Text
+                Case "Excel", "+ Query"
+                    SaveFile.FileName = Join({Desktop, "\", FileName, ".xlsx"}, String.Empty)
+                    SaveFile.Filter = "Excel Files|*.xls,*.xlsx".ToString(InvariantCulture)
+                    SaveFile.Title = ExportObject.Text
+                    SaveFile.ShowDialog()
+
+                Case ".csv"
+                    SaveFile.FileName = Join({Desktop, "\", FileName, ".csv"}, String.Empty)
+                    SaveFile.Filter = "CSV|*.csv".ToString(InvariantCulture)
+                    SaveFile.ShowDialog()
+
+                Case ".txt"
+                    SaveFile.FileName = Join({Desktop, "\", FileName, ".txt"}, String.Empty)
+                    SaveFile.Filter = "TXT Files (*.txt*)|*.txt".ToString(InvariantCulture)
+                    SaveFile.ShowDialog()
+
+                Case Else
+                    REM /// DATABASE. NEED NAME, TABLESPACE, NEW(CHECK), CLEAR OR ADD
+                    REM /// ALL EXPORTS TO DSN REQUIRE A NAME
+                    REM /// NEW PARAMETER=(OWNER+TABLE.NAME) EXISTS
+                    REM /// IF NEW, THEN TABLESPACE MUST BE OBTAINED (COULD BE MULTIPLE)
+                    REM /// IF NOT NEW, PARAMETER FOR CLEAR Or INSERT AS RADIO BUTTON
+                    Dim QueryTable As DataTable = TryCast(Script_Grid.DataSource, DataTable)
+                    If Not IsNothing(QueryTable) AndAlso QueryTable.AsEnumerable.Any Then
+
+                    End If
+
+            End Select
         End If
 
     End Sub
