@@ -855,12 +855,15 @@ Public Module Functions
         Return [Enum].GetNames(EnumType).ToList
     End Function
     Public Function ParseEnum(Of T)(ByVal value As String) As T
-        Dim Names As New List(Of String)(EnumNames(GetType(T)))
-        If Names.Contains(value) Then
-            Return CType([Enum].Parse(GetType(T), value, True), T)
-        Else
-            Return Nothing
-        End If
+
+        Dim enumValue As T
+        For Each enumItem In EnumNames(GetType(T))
+            If enumItem.ToUpperInvariant = value.ToUpperInvariant Then
+                enumValue = CType([Enum].Parse(GetType(T), enumItem, True), T)
+            End If
+        Next
+        Return enumValue
+
     End Function
 #End Region
     Public Function ColorImages() As Dictionary(Of String, Image)

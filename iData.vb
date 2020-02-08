@@ -841,11 +841,6 @@ Public Class BodyElements
     Public ReadOnly Property DataSource As SystemObject
     Public ReadOnly Property ElementObjects As New Dictionary(Of InstructionElement, List(Of SystemObject))
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Public ReadOnly Property CanSubmit As Boolean
-        Get
-            Return SystemText IsNot Nothing
-        End Get
-    End Property
     Public ReadOnly Property IsNetezza As Boolean
         Get
             If IsNothing(Connection) Then
@@ -902,7 +897,7 @@ Public Class BodyElements
             End If
         End If
         '----------------------------SET THE DATABASE TEXT
-        _SystemText = GetSystemText()
+        _SystemText = If(GetSystemText(), Text)
 
 
     End Sub
@@ -1564,6 +1559,7 @@ Public Class BodyElements
                     End If
                 End If
             Next
+            'If Text = "DROP TABLE AXE" Then Stop
             Return DatabaseText
         End If
 
@@ -3301,7 +3297,8 @@ Public NotInheritable Class Procedure
         If Match_Drop.Success Then
 #Region " DROP OBJECT REQUEST "
             ObjectAction = Action.Drop
-            ObjectType = ParseEnum(Of Type)(Regex.Match(Match_Drop.Value, "TABLE|VIEW|FUNCTION|TRIGGER", RegexOptions.IgnoreCase).Value)
+            Dim dropObject As String = Regex.Match(Match_Drop.Value, "TABLE|VIEW|FUNCTION|TRIGGER", RegexOptions.IgnoreCase).Value
+            ObjectType = ParseEnum(Of Type)(dropObject)
             ObjectName = Regex.Match(Instruction, "(?<=TABLE|VIEW|FUNCTION|TRIGGER)[\s]{1,}([A-Z0-9!%{}^~_@#$]{1,}([.][A-Z0-9!%{}^~_@#$]{1,}){0,2})", RegexOptions.IgnoreCase).Value
             ObjectName = Trim(Split(ObjectName, ".").Last)
 #End Region

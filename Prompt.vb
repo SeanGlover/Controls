@@ -584,6 +584,8 @@ Public Class Prompt
             Next
             RowsABHeight = (RowsA.Count + RowsB.Count) * LineHeight
 #End Region
+            'Dim rectangleA As New Rectangle(RowsA.Keys.Min(Function(r) r.Left), RowsA.Keys.Min(Function(r) r.Top), RowsA.Keys.Max(Function(r) r.Width), RowsA.Keys.Max(Function(r) r.Bottom))
+            'Dim rectangleB As New Rectangle(RowsB.Keys.Min(Function(r) r.Left), RowsB.Keys.Min(Function(r) r.Top), RowsB.Keys.Max(Function(r) r.Width), RowsB.Keys.Max(Function(r) r.Bottom))
             If RowsA.Any Then
                 Dim RowsABottom As Integer = RowsA.Last.Key.Bottom
                 If RowsABottom > IconZoneWH Then
@@ -632,7 +634,7 @@ Public Class Prompt
         End If
 #End Region
 
-        _ButtonBarBounds = New Rectangle(0, ButtonBarTop, ClientSize.Width - 1, If(Type = IconOption.TimedMessage, 0, ButtonBarHeight))
+        _ButtonBarBounds = New Rectangle(0, {ButtonBarTop, MinimumSize.Height - ButtonBarHeight}.Max, ClientSize.Width - 1, If(Type = IconOption.TimedMessage, 0, ButtonBarHeight))
         Height = TitleBarHeight + ButtonBarBounds.Bottom + BottomBorderHeight
 
 #Region " BUTTON PLACEMENT / VISIBILITY "
@@ -657,7 +659,6 @@ Public Class Prompt
 
         End Select
 #End Region
-
         Invalidate()
         CenterToScreen()
 

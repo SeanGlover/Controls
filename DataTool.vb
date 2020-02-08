@@ -3662,12 +3662,14 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
 
         Dim exportCombo As ImageCombo = DirectCast(sender, ImageCombo)
         Dim tableName As String = exportCombo.Text
-        Dim validTablename As String = DB2TableNamingConvention(tableName)
-        If tableName = validTablename Then 'OK to proceed
+        If tableName.Any Then
             Dim exportConnection As Connection = DirectCast(exportCombo.Tag, Connection)
-            If Not If(exportCombo.Name, String.Empty).Any Then
-                'Results from MouseOver SQL did not return any results ... probably new table but maybe not. Check if TableName exists
-                Dim Instruction As String = "WITH SPACES (SPACE) As (Select
+            Dim matchingNames As String() = Split(exportCombo.Name, BlackOut)
+            Dim foundTablename As Boolean = matchingNames.Contains(tableName)
+            If Not foundTablename Then 'Results from MouseOver SQL did not return any results ... probably new table but maybe not. Check if TableName exists
+                Dim validTablename As String = DB2TableNamingConvention(tableName)
+                If tableName = validTablename Then 'DB2 would accept the submitted name ... now check if it exists ( Insert into existing Or Create new ) 
+                    Dim Instruction As String = "WITH SPACES (SPACE) As (Select
                 DISTINCT TRIM(DBNAME)||'.'||TRIM(TSNAME) SPACE
                 FROM SYSIBM.SYSTABLES T
                 WHERE T.CREATOR='" & exportConnection.UserID & "'
@@ -3679,53 +3681,60 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
                 FROM SPACES S)
                 SELECT *
                 FROM TABLES"
-                Dim tableSQL As New SQL(exportConnection, Instruction)
-                With tableSQL
-                    .Execute(False)
-                    If .Status = TriState.True Then
-                        Dim Spaces As New Dictionary(Of String, Integer)(.Table.AsEnumerable.ToDictionary(Function(x) x("SPACE").ToString, Function(y) DirectCast(y("COUNT"), Integer)))
-                        If Spaces.Values.Sum = 0 Then
-                            REM /// TABLE NOT FOUND ///. NOW CHECK HOW MANY SPACES THERE ARE
-                            If Spaces.Count = 1 Then
-                                REM /// NO NEED FOR USER INPUT. BEGIN EXPORT
-                                With New ETL()
-                                    .Sources.Add(New ETL.Source(Script_Grid.Table))
-                                    .Destinations.Add(New ETL.Destination(exportConnection, exportCombo.Text) With {.ClearTable = True})
-                                    AddHandler .Completed, AddressOf ExportToTable
-                                    .Execute()
-                                End With
+                    Dim tableSQL As New SQL(exportConnection, Instruction)
+                    With tableSQL
+                        .Execute(False)
+                        If .Status = TriState.True Then
+                            Dim Spaces As New Dictionary(Of String, Integer)(.Table.AsEnumerable.ToDictionary(Function(x) x("SPACE").ToString, Function(y) DirectCast(y("COUNT"), Integer)))
+                            If Spaces.Values.Sum = 0 Then
+#Region " CREATE NEW TABLE - 1 Or MORE TABLESPACES? "
+                                REM /// TABLE NOT FOUND ///. NOW CHECK HOW MANY SPACES THERE ARE
+                                If Spaces.Count = 1 Then
+                                    REM /// NO NEED FOR USER INPUT. BEGIN EXPORT INTO NEW TABLE
+                                    With New ETL()
+                                        .Sources.Add(New ETL.Source(Script_Grid.Table))
+                                        .Destinations.Add(New ETL.Destination(exportConnection, Spaces.First.Key, exportCombo.Text) With {.ClearTable = True})
+                                        AddHandler .Completed, AddressOf ViewerTableExportedToDatabase
+                                        .Execute()
+                                    End With
+                                Else
+                                    REM /// MULTIPLE SPACES EXIST. USER MUST SELECT DESTINATION SPACE
+                                    Stop
 
+                                End If
+#End Region
                             Else
-                                REM /// MULTIPLE SPACES EXIST. USER MUST SELECT DESTINATION SPACE
-                                REM /// SHOW ROWS 2 (IMAGECOMBO) AND 4 (SUBMIT BUTTON). HIDE ROW 3 (RADIO BUTTONS - FOR EXISTING TABLE)
+                                REM /// TABLE FOUND ///. REQUIRES USER TO PICK AN ACTION { Clear Or Add to existing rows }
+                                foundTablename = True
 
                             End If
-                        Else
-                            REM /// TABLE FOUND ///. REQUIRES USER TO PICK AN ACTION {DROP, CLEAR, Or ADD}
-                            REM /// SHOW ROWS 3 (RADIO BUTTONS) AND 4 (SUBMIT BUTTON). HIDE ROW 2
-
                         End If
-
-                    End If
-                End With
+                    End With
+                Else
+                    Using message As New Prompt With {.MinimumSize = New Size(600, 300)}
+                        Dim validConvention As String = "A Table name must satisfy all below conditions:" & Bulletize({
+                           "Length can not exceed 18 characters",
+                           "Begin with a letter or one of $, #, @",
+                           "Can contain: letters A-Z, any valid letter with an accent, digits 0 through 9, _, $, #, @",
+                           "A name cannot be a DB2 Or an SQL reserved word, such as WHERE Or VIEW",
+                           "nb) A name enclosed in quotes will be case-sensitive"})
+                        message.Show("Invalid Table name", validConvention, Prompt.IconOption.Critical, Prompt.StyleOption.Blue)
+                    End Using
+                    Exit Sub
+                End If
             End If
+            If foundTablename Then
+                Dim tlpConnection As TableLayoutPanel = DirectCast(exportCombo.Parent, TableLayoutPanel)
+                Dim exportCheckbox As CheckBox = DirectCast(tlpConnection.Controls(1), CheckBox)
+                With New ETL()
+                    .Sources.Add(New ETL.Source(Script_Grid.Table))
+                    .Destinations.Add(New ETL.Destination(exportConnection, exportCombo.Text) With {.ClearTable = exportCheckbox.Checked})
+                    AddHandler .Completed, AddressOf ViewerTableExportedToDatabase
+                    .Execute()
+                End With
+            Else
 
-            Dim tlpConnection As TableLayoutPanel = DirectCast(exportCombo.Parent, TableLayoutPanel)
-            Dim exportCheckbox As CheckBox = DirectCast(tlpConnection.Controls(1), CheckBox)
-            Stop
-            Exit Sub
-
-        Else
-            Using message As New Prompt
-                Dim validConvention As String = "A name can be from 1 to 18 characters long.
-                A name can start with a letter Or one of the following symbols: the dollar sign ($), the number (Or pound) sign (#), Or the at symbol (@).
-                A name can contain the letters A through Z, any valid letter with an accent (such as a), the digits 0 through 9, the underscore (_), the dollar sign ($), the number Or pound sign (#), Or the at symbol (@).
-                A name Is Not case-sensitive (for example, the table name CUSTOMERS Is the same as Customers), but object names are converted to uppercase when typed. If a name Is enclosed in quotes, then the name Is case-sensitive.
-                A name cannot be a DB2 Or an SQL reserved word, such as WHERE Or VIEW.
-                A name cannot be the same as another DB2 object that has the same type.
-                Schema And database names have similar conventions, except that they are Each limited To eight characters. For more information, see your DB2 SQL reference manual."
-                message.Show("Invalid Table name", validConvention, Prompt.IconOption.Critical, Prompt.StyleOption.Blue)
-            End Using
+            End If
         End If
 
     End Sub
@@ -3733,8 +3742,8 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
 
 
     End Sub
-    Private Sub ExportToTable(sender As Object, e As ResponsesEventArgs)
-
+    Private Sub ViewerTableExportedToDatabase(sender As Object, e As ResponsesEventArgs)
+        Stop
     End Sub
     Private Sub TableSpaces(sender As Object, e As ResponseEventArgs)
 
