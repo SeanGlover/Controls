@@ -1204,63 +1204,60 @@ Public Module Functions
         Return valuesType
 
     End Function
-    Public Function GetDataType(Types As List(Of Type)) As Type
+    Public Function GetDataType(Types As List(Of Type), Optional testing As Boolean = False) As Type
 
         If Types Is Nothing Then
             Return Nothing
         Else
-#Region " STRING AS DEFAULT "
-            If Not Types.Any Then
-                Return GetType(String)
-#End Region
-#Region " ONE INSTANCE OF STRING MUST RETURN STRING "
-            ElseIf Types.Intersect({GetType(String)}).Count = 1 Then
-                Return GetType(String)
-#End Region
-#Region " ALL ARE OF DATE "
-            ElseIf Types.Intersect({GetType(Date), GetType(DateAndTime)}).Count = Types.Count Then
-                If Types.Contains(GetType(DateAndTime)) Then
-                    Return GetType(DateAndTime)
-                Else
-                    Return GetType(Date)
-                End If
-#End Region
-#Region " ALL ARE OF BOOLEAN "
-            ElseIf Types.Intersect({GetType(Boolean)}).Count = Types.Count Then
-                Return GetType(Boolean)
-#End Region
-#Region " EACH TYPE IS A WHOLE NUMBER "
-            ElseIf Types.Intersect({GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)}).Count = Types.Count Then
-                REM /// DESCENDING IN SIZE
-                If Types.Contains(GetType(Long)) Then
-                    Return GetType(Long)
+            If Types.Any Then
+                Dim distinctTypes As New List(Of Type)(Types.Distinct)
+                Dim typeCount As Integer = distinctTypes.Count
+                If testing Then Stop
 
-                ElseIf Types.Contains(GetType(Integer)) Then
-                    Return GetType(Integer)
-
-                ElseIf Types.Contains(GetType(Short)) Then
-                    Return GetType(Short)
+                If typeCount = 1 Then
+                    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  ONLY 1 TYPE, RETURN IT
+                    Return distinctTypes.First
 
                 Else
-                    Return GetType(Byte)
+                    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  MULTIPLE TYPES - CHOOSE BEST FIT ex) Date + DateAndTime = DateAndTime, Byte + Short = Short
+                    If distinctTypes.Intersect({GetType(Date), GetType(DateAndTime)}).Count = typeCount Then
+                        Return GetType(DateAndTime)
+                    Else
+                        '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  NUMERIC
+                        If distinctTypes.Intersect({GetType(Byte), GetType(Short), GetType(Integer), GetType(Long), GetType(Double), GetType(Decimal)}).Count = typeCount Then
+                            If distinctTypes.Intersect({GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)}).Count = typeCount Then
+                                '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  MIX OF INTEGER ... DESCEND IN SIZE TO GET LARGEST NECESSARY
+                                If distinctTypes.Contains(GetType(Long)) Then
+                                    Return GetType(Long)
+                                Else
+                                    If distinctTypes.Contains(GetType(Integer)) Then
+                                        Return GetType(Integer)
+                                    Else
+                                        If distinctTypes.Contains(GetType(Short)) Then
+                                            Return GetType(Short)
+                                        Else
+                                            Return GetType(Byte)
+                                        End If
+                                    End If
+                                End If
+                            Else
+                                '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  COULD BE MIX OF INTEGER, DECIMAL, DOUBLE
+                                Return GetType(Double)
+                            End If
+                        Else
+                            If distinctTypes.Intersect({GetType(Image), GetType(Bitmap)}).Count = typeCount Then
+                                '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  IMAGE / BITMAP
+                                Return GetType(Bitmap)
+                            Else
+                                Return GetType(Object)
+                            End If
+                        End If
+                    End If
+                    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  STRING AS DEFAULT
+                    Return GetType(String)
                 End If
-#End Region
-#Region " EACH TYPE IS NUMERIC AND NOT ALL ARE WHOLE "
-            ElseIf Types.Intersect({GetType(Byte), GetType(Short), GetType(Integer), GetType(Long), GetType(Double), GetType(Decimal)}).Count = Types.Count Then
-                Return GetType(Double)
-#End Region
-#Region " EACH TYPE IS EITHER BITMAP Or IMAGE "
-            ElseIf Types.Intersect({GetType(Bitmap), GetType(Image)}).Count = Types.Count Then
-                Return GetType(Image)
-#End Region
-#Region " EACH TYPE IS AN ICON "
-            ElseIf Types.Intersect({GetType(Icon)}).Count = Types.Count Then
-                Return GetType(Icon)
-#End Region
-#Region " MIXED TYPES "
             Else
                 Return GetType(String)
-#End Region
             End If
         End If
 

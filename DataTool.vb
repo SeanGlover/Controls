@@ -963,7 +963,7 @@ Public Class DataTool
                 .RowCount = 2,
                 .ColumnCount = 1,
                 .Margin = New Padding(0),
-                .CellBorderStyle = TableLayoutPanelCellBorderStyle.Inset,
+                .CellBorderStyle = TableLayoutPanelCellBorderStyle.None,
                 .BorderStyle = BorderStyle.Fixed3D,
                 .Tag = Connection,
                 .Font = GothicFont}
@@ -973,9 +973,6 @@ Public Class DataTool
                 .HintText = "Tablename",
                 .Tag = Connection,
                 .Font = GothicFont}
-            AddHandler imagecomboTableName.MouseEnter, AddressOf ExportConnection_Enter
-            AddHandler imagecomboTableName.ValueSubmitted, AddressOf ExportConnection_Submitted
-
             Dim checkboxClearTable As New CheckBox With {.CheckState = CheckState.Checked,
                 .Dock = DockStyle.Fill,
                 .Margin = New Padding(5),
@@ -984,12 +981,23 @@ Public Class DataTool
                 .TextImageRelation = TextImageRelation.ImageBeforeText,
                 .Text = "Clear table".ToString(InvariantCulture),
                 .Font = GothicFont}
+            Dim imagecomboTablespaceName As New ImageCombo With {.Dock = DockStyle.Fill,
+                .Margin = New Padding(0),
+                .HintText = "Table Space name",
+                .Tag = Connection,
+                .Font = GothicFont}
+
+            AddHandler imagecomboTableName.MouseEnter, AddressOf ExportConnection_Enter
+            AddHandler imagecomboTableName.ValueSubmitted, AddressOf ExportConnection_Submitted
+
             With tlpExport
                 .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 300})
                 .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 28})
                 .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 28})
+                .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 0})
                 .Controls.Add(imagecomboTableName, 0, 0)
                 .Controls.Add(checkboxClearTable, 0, 1)
+                .Controls.Add(imagecomboTablespaceName, 0, 2)
             End With
             tsmiExport.DropDownItems.Add(New ToolStripControlHost(tlpExport))
 #End Region
@@ -3661,6 +3669,12 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
     Private Sub ExportConnection_Submitted(sender As Object, e As ImageComboEventArgs)
 
         Dim exportCombo As ImageCombo = DirectCast(sender, ImageCombo)
+        Dim tlpConnection As TableLayoutPanel = DirectCast(exportCombo.Parent, TableLayoutPanel)
+
+        'Assumes existing Table
+        tlpConnection.RowStyles(1).Height = 28 ' ( Checkbox - Boolean Clear|Not Table )
+        tlpConnection.RowStyles(2).Height = 0 ' ( Tablespace only potentially needed when new Table, multiple spaces )
+
         Dim tableName As String = exportCombo.Text
         If tableName.Any Then
             Dim exportConnection As Connection = DirectCast(exportCombo.Tag, Connection)
@@ -3687,6 +3701,7 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
                         If .Status = TriState.True Then
                             Dim Spaces As New Dictionary(Of String, Integer)(.Table.AsEnumerable.ToDictionary(Function(x) x("SPACE").ToString, Function(y) DirectCast(y("COUNT"), Integer)))
                             If Spaces.Values.Sum = 0 Then
+                                tlpConnection.RowStyles(1).Height = 0
 #Region " CREATE NEW TABLE - 1 Or MORE TABLESPACES? "
                                 REM /// TABLE NOT FOUND ///. NOW CHECK HOW MANY SPACES THERE ARE
                                 If Spaces.Count = 1 Then
@@ -3699,8 +3714,12 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
                                     End With
                                 Else
                                     REM /// MULTIPLE SPACES EXIST. USER MUST SELECT DESTINATION SPACE
-                                    Stop
-
+                                    tlpConnection.RowStyles(2).Height = 28
+                                    With DirectCast(tlpConnection.GetControlFromPosition(0, 2), ImageCombo)
+                                        .DataSource = Spaces.Keys
+                                        .SelectedIndex = 0
+                                        .IsReadOnly = True
+                                    End With
                                 End If
 #End Region
                             Else
@@ -3724,7 +3743,6 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
                 End If
             End If
             If foundTablename Then
-                Dim tlpConnection As TableLayoutPanel = DirectCast(exportCombo.Parent, TableLayoutPanel)
                 Dim exportCheckbox As CheckBox = DirectCast(tlpConnection.Controls(1), CheckBox)
                 With New ETL()
                     .Sources.Add(New ETL.Source(Script_Grid.Table))

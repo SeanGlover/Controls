@@ -1246,7 +1246,10 @@ Public Class ColumnCollection
             Next
             .Width = { .HeadWidth, .ContentWidth}.Max
             ColumnsLeft()
-            If BackgroundProcess Then ColumnsWorker.ReportProgress({0, .Index}.Max, New KeyValuePair(Of Column, Type)(ColumnItem, GetDataType(cellTypes)))
+            If BackgroundProcess Then
+                Dim aggregateType As Type = GetDataType(cellTypes)
+                ColumnsWorker.ReportProgress({0, .Index}.Max, New KeyValuePair(Of Column, Type)(ColumnItem, aggregateType))
+            End If
         End With
 
     End Sub
