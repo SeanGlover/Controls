@@ -1209,8 +1209,8 @@ Public Module Functions
         If Types Is Nothing Then
             Return Nothing
         Else
-            If Types.Any Then
-                Dim distinctTypes As New List(Of Type)(Types.Distinct)
+            Dim distinctTypes As New List(Of Type)((From t In Types Where Not (t Is Nothing Or IsDBNull(t))).Distinct)
+            If distinctTypes.Any Then
                 Dim typeCount As Integer = distinctTypes.Count
                 If testing Then Stop
 
@@ -1249,11 +1249,16 @@ Public Module Functions
                                 '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  IMAGE / BITMAP
                                 Return GetType(Bitmap)
                             Else
-                                Return GetType(Object)
+                                If distinctTypes.Intersect({GetType(Image), GetType(Bitmap), GetType(Icon)}).Any Then
+                                    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  IMAGES DON'T MIX WITH OTHER VALUES AS THEY CAN'T REPRESENTED IN A TEXT FORM
+                                    Return GetType(Object)
+                                Else
+                                    Return GetType(String)
+                                End If
                             End If
                         End If
                     End If
-                    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  STRING AS DEFAULT
+                    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  STRING AS DEFAULT
                     Return GetType(String)
                 End If
             Else
@@ -1292,7 +1297,9 @@ Public Module Functions
         If Types Is Nothing Then
             Return Nothing
         Else
-            Return GetDataType((From t In Types Select GetDataType(t)).Distinct.ToList)
+            Dim typeList = From t In Types Select GetDataType(t)
+            'If Types.Contains("D081") Then Stop
+            Return GetDataType(typeList)
         End If
 
     End Function

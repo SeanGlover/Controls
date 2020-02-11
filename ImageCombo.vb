@@ -421,92 +421,96 @@ Public NotInheritable Class ImageCombo
     Private Sub BindingSourceChanged(sender As Object, e As EventArgs)
 
         Items.Clear()
-        If TypeOf DataSource Is IEnumerable Then
-            Dim Types As New List(Of List(Of Object))((From O In DirectCast(DataSource, IEnumerable).AsQueryable Where Not (IsDBNull(O) Or IsNothing(O)) Group O By Type = O.GetType Into TypeGroup = Group Select TypeGroup.ToList).ToList)
-            If Types.Any Then
-                Dim Data_Type As Type = Types.First.First.GetType
-                _DataType = Data_Type
-                For Each Type In Types
-                    Dim Decimals As Decimal = 0
-                    If (From D In Type Where Decimal.TryParse(D.ToString, Decimals)).Count = Type.Count Then
-                        Data_Type = GetType(Decimal)
-                        Dim Integers As Integer = 0
-                        If (From I In Type Where Integer.TryParse(I.ToString, Integers)).Count = Type.Count Then
-                            Data_Type = GetType(Integer)
-                        End If
-                    End If
+        If DataSource IsNot Nothing Then
+            If TypeOf DataSource Is IEnumerable Then
+                Dim Types As New List(Of List(Of Object))((From O In DirectCast(DataSource, IEnumerable).AsQueryable Where Not (IsDBNull(O) Or IsNothing(O)) Group O By Type = O.GetType Into TypeGroup = Group Select TypeGroup.ToList).ToList)
+                If Types.Any Then
+                    Dim Data_Type As Type = Types.First.First.GetType
                     _DataType = Data_Type
-                    Select Case Data_Type
-                        Case GetType(String)
-                            Dim List As New List(Of String)(From Element In Type Select Convert.ToString(Element, InvariantCulture))
-                            List.Sort(Function(x, y) String.Compare(x, y, StringComparison.InvariantCulture))
-                            For Each Item As String In List.Distinct
-                                Items.Add(New ComboItem With {.Value = Item})
-                            Next
+                    For Each Type In Types
+                        Dim Decimals As Decimal = 0
+                        If (From D In Type Where Decimal.TryParse(D.ToString, Decimals)).Count = Type.Count Then
+                            Data_Type = GetType(Decimal)
+                            Dim Integers As Integer = 0
+                            If (From I In Type Where Integer.TryParse(I.ToString, Integers)).Count = Type.Count Then
+                                Data_Type = GetType(Integer)
+                            End If
+                        End If
+                        _DataType = Data_Type
+                        Select Case Data_Type
+                            Case GetType(String)
+                                Dim List As New List(Of String)(From Element In Type Select Convert.ToString(Element, InvariantCulture))
+                                List.Sort(Function(x, y) String.Compare(x, y, StringComparison.InvariantCulture))
+                                For Each Item As String In List.Distinct
+                                    Items.Add(New ComboItem With {.Value = Item})
+                                Next
 
-                        Case GetType(Date)
-                            Dim List As New List(Of Date)(From Element In Type Select Convert.ToDateTime(Element, InvariantCulture).Date)
-                            List.Sort(Function(x, y) y.CompareTo(x))
-                            For Each Item As Date In List.Distinct
-                                Items.Add(New ComboItem With {.Value = Item})
-                            Next
+                            Case GetType(Date)
+                                Dim List As New List(Of Date)(From Element In Type Select Convert.ToDateTime(Element, InvariantCulture).Date)
+                                List.Sort(Function(x, y) y.CompareTo(x))
+                                For Each Item As Date In List.Distinct
+                                    Items.Add(New ComboItem With {.Value = Item})
+                                Next
 
-                        Case GetType(Boolean)
-                            Dim List As New List(Of Boolean)(From Element In Type Select Convert.ToBoolean(Element, InvariantCulture))
-                            List.Sort(Function(x, y) x.CompareTo(y))
-                            For Each Item As Boolean In List.Distinct
-                                Items.Add(New ComboItem With {.Value = Item})
-                            Next
+                            Case GetType(Boolean)
+                                Dim List As New List(Of Boolean)(From Element In Type Select Convert.ToBoolean(Element, InvariantCulture))
+                                List.Sort(Function(x, y) x.CompareTo(y))
+                                For Each Item As Boolean In List.Distinct
+                                    Items.Add(New ComboItem With {.Value = Item})
+                                Next
 
-                        Case GetType(Decimal), GetType(Double)
-                            Dim List As New List(Of Decimal)(From Element In Type Select Convert.ToDecimal(Element, InvariantCulture))
-                            List.Sort(Function(x, y) x.CompareTo(y))
-                            For Each Item As Decimal In List.Distinct
-                                Items.Add(New ComboItem With {.Value = Item})
-                            Next
+                            Case GetType(Decimal), GetType(Double)
+                                Dim List As New List(Of Decimal)(From Element In Type Select Convert.ToDecimal(Element, InvariantCulture))
+                                List.Sort(Function(x, y) x.CompareTo(y))
+                                For Each Item As Decimal In List.Distinct
+                                    Items.Add(New ComboItem With {.Value = Item})
+                                Next
 
-                        Case GetType(Long)
-                            Dim List As New List(Of Long)(From Element In Type Select Convert.ToInt64(Element, InvariantCulture))
-                            List.Sort(Function(x, y) x.CompareTo(y))
-                            For Each Item As Long In List.Distinct
-                                Items.Add(New ComboItem With {.Value = Item})
-                            Next
+                            Case GetType(Long)
+                                Dim List As New List(Of Long)(From Element In Type Select Convert.ToInt64(Element, InvariantCulture))
+                                List.Sort(Function(x, y) x.CompareTo(y))
+                                For Each Item As Long In List.Distinct
+                                    Items.Add(New ComboItem With {.Value = Item})
+                                Next
 
-                        Case GetType(Integer)
-                            Dim List As New List(Of Integer)(From Element In Type Select Convert.ToInt32(Element, InvariantCulture))
-                            List.Sort(Function(x, y) x.CompareTo(y))
-                            For Each Item As Integer In List.Distinct
-                                Items.Add(New ComboItem With {.Value = Item})
-                            Next
+                            Case GetType(Integer)
+                                Dim List As New List(Of Integer)(From Element In Type Select Convert.ToInt32(Element, InvariantCulture))
+                                List.Sort(Function(x, y) x.CompareTo(y))
+                                For Each Item As Integer In List.Distinct
+                                    Items.Add(New ComboItem With {.Value = Item})
+                                Next
 
-                        Case GetType(Short)
-                            Dim List As New List(Of Short)(From Element In Type Select Convert.ToInt16(Element, InvariantCulture))
-                            List.Sort(Function(x, y) x.CompareTo(y))
-                            For Each Item As Short In List.Distinct
-                                Items.Add(New ComboItem With {.Value = Item})
-                            Next
+                            Case GetType(Short)
+                                Dim List As New List(Of Short)(From Element In Type Select Convert.ToInt16(Element, InvariantCulture))
+                                List.Sort(Function(x, y) x.CompareTo(y))
+                                For Each Item As Short In List.Distinct
+                                    Items.Add(New ComboItem With {.Value = Item})
+                                Next
 
-                        Case GetType(Byte)
-                            Dim List As New List(Of Byte)(From Element In Type Select Convert.ToByte(Element, InvariantCulture))
-                            List.Sort(Function(x, y) x.CompareTo(y))
-                            For Each Item As Byte In List.Distinct
-                                Items.Add(New ComboItem With {.Value = Item})
-                            Next
+                            Case GetType(Byte)
+                                Dim List As New List(Of Byte)(From Element In Type Select Convert.ToByte(Element, InvariantCulture))
+                                List.Sort(Function(x, y) x.CompareTo(y))
+                                For Each Item As Byte In List.Distinct
+                                    Items.Add(New ComboItem With {.Value = Item})
+                                Next
 
-                        Case GetType(Object)
+                            Case GetType(Object)
 
-                    End Select
-                Next
+                        End Select
+                    Next
+                End If
+
+            ElseIf DataSource.GetType Is GetType(DataColumn) Then
+                Dim DataColumn As DataColumn = DirectCast(DataSource, DataColumn)
+                Dim List As New List(Of Object)(From C In DataColumn.Table.Rows Where Not (IsDBNull(DirectCast(C, DataRow)(DataColumn)) Or IsNothing(DirectCast(C, DataRow)(DataColumn))) Select DirectCast(C, DataRow)(DataColumn))
+                DataSource = List.ToArray
+
             End If
-
-        ElseIf DataSource.GetType Is GetType(DataColumn) Then
-            Dim DataColumn As DataColumn = DirectCast(DataSource, DataColumn)
-            Dim List As New List(Of Object)(From C In DataColumn.Table.Rows Where Not (IsDBNull(DirectCast(C, DataRow)(DataColumn)) Or IsNothing(DirectCast(C, DataRow)(DataColumn))) Select DirectCast(C, DataRow)(DataColumn))
-            DataSource = List.ToArray
         End If
         BindingContext = New BindingContext
         BindingSource.DataSource = DataSource
         ResizeMe()
+
     End Sub
     Public Event ImageClicked(ByVal sender As Object, ByVal e As ImageComboEventArgs)
     Public Event ValueSubmitted(ByVal sender As Object, ByVal e As ImageComboEventArgs)

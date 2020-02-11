@@ -601,7 +601,7 @@ Public Class DataViewer
     End Sub
     Private Sub ColumnsSizingEnd() Handles Columns_.CollectionSizingEnd
         Waiting = False
-        RaiseEvent ColumnsSized(Me, Nothing)    'Public
+        RaiseEvent ColumnsSized(Me, Nothing)
         Invalidate()
     End Sub
     Private Sub ColumnSized(sender As Object, e As EventArgs) Handles Columns_.ColumnSized
@@ -1237,7 +1237,7 @@ Public Class ColumnCollection
                 cellTypes.Add(rowCell.DataType)
                 If rowCell.ValueImage Is Nothing Then
                     Dim rowStyle As CellStyle = row.Style
-                    .ContentWidth = { .ContentWidth, MeasureText(rowCell.Text, rowStyle.Font).Width}.Max
+                    .ContentWidth = { .ContentWidth, TextRenderer.MeasureText(rowCell.Text, rowStyle.Font).Width}.Max
 
                 Else
                     .ContentWidth = { .ContentWidth, rowCell.ValueImage.Width}.Max
@@ -1648,14 +1648,20 @@ End Class
             If value IsNot Nothing And DataType <> value Then
                 Dim existingFormat = Get_kvpFormat(_DataType)
                 _DataType = value
-                If existingFormat.Key <> Format.Key Then
-#Region " CHANGE/REORDER DATATABLE COLUMNS - REMOVE OLD DATATYPE, INSERT NEW "
+                If existingFormat.Key <> Format.Key And Not {TypeGroup.Dates, TypeGroup.Times}.Intersect({existingFormat.Key, Format.Key}).Count = 2 Then
+#Region " CHANGE/REORDER DATATABLE COLUMNS - REMOVE OLD DATATYPE, INSERT NEW - DO NOT DO THIS FOR Dates Or Times AS SYSTEM.DateAndTime IS NOT A REAL TYPE "
+                    Dim columnValues As New List(Of Object)(DataColumnToList(DColumn))
                     Dim ColumnOridinal As Integer = DColumn.Ordinal
                     DTable.Columns.Remove(DColumn)
                     Dim NewColumn As DataColumn = New DataColumn With {.DataType = value, .ColumnName = DColumn.ColumnName}
                     DTable.Columns.Add(NewColumn)
                     NewColumn.SetOrdinal(ColumnOridinal)
                     DColumn = NewColumn
+                    Dim rowCounter As Integer
+                    For Each row In DTable.AsEnumerable
+                        row(DColumn) = columnValues(rowCounter)
+                        rowCounter += 1
+                    Next
 #End Region
                     ViewerInvalidate()
                 End If

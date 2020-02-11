@@ -1881,15 +1881,6 @@ End Class
     End Property
     Public ReadOnly Property PropertyIndices As Dictionary(Of String, Integer)
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Public Shadows ReadOnly Property ToString As String
-        Get
-            If IsFile Then
-                Return Properties.Keys.First
-            Else
-                Return Join(Properties.Select(Function(x) Join({x.Key, x.Value}, "=")).ToArray, ";")
-            End If
-        End Get
-    End Property
     Public ReadOnly Property Index As Integer
         Get
             If Parent Is Nothing Then
@@ -1936,6 +1927,15 @@ End Class
     Public Shared Function FromString(Value As String) As Connection
         Return New Connection(Value)
     End Function
+    Public Shadows ReadOnly Property ToString As String
+        Get
+            If IsFile Then
+                Return Properties.Keys.First
+            Else
+                Return Join((From p In Properties Select Join({p.Key, p.Value}, "=")).ToArray, ";")
+            End If
+        End Get
+    End Property
     Public Sub Save()
         _Properties("NEWPWD") = String.Empty
         Parent.Save()
@@ -3828,7 +3828,10 @@ Public Class ETL
 #Region " CREATE TABLE "
         Private Sub Create_Table()
 
-            _Columns = DataTableToListOfColumnProperties(Table).ToDictionary(Function(x) x.Name, Function(y) y)
+            Using newTable As DataTable = Table.Copy
+                newTable.TableName = "newTable"
+                _Columns = DataTableToListOfColumnProperties(newTable).ToDictionary(Function(x) x.Name, Function(y) y)
+            End Using
             With New DDL(ConnectionString, TableDDL)
                 AddHandler .Completed, AddressOf Table_CreateResponded
                 .Execute()
@@ -3996,7 +3999,6 @@ Public Class ETL
                 Dim Response = New ResponseEventArgs(InstructionType.DDL, ConnectionString, String.Empty, Join({"The number of columns in the", WiderTable, "exceeds that of the", NarrowerTable}), Nothing)
                 RaiseEvent Completed(Me, New ResponsesEventArgs(Response))
             End If
-
             If CanProceed Then
                 Dim Rows As New Dictionary(Of Integer, List(Of Object))
                 For Each Row As DataRow In Table.Rows
@@ -4026,6 +4028,9 @@ Public Class ETL
 
                                                 End If
 
+                                            Case "BIGINT"
+                                                Values.Add(Value)
+
                                             Case "DECIMAL", "SMALLINT", "INTEGER", "BIGINT", "DECFLOAT"
                                                 REM /// NO FORMATTING NEEDED FOR NUMBERS
                                                 If EmptyValue Then
@@ -4035,6 +4040,7 @@ Public Class ETL
                                                         Values.Add(If(Value.ToString.ToUpperInvariant = "FALSE", 0, 1))
                                                     Else
                                                         Values.Add(Value)
+                                                        If .DataType = "BIGINT" Then Stop
                                                     End If
                                                 End If
 
@@ -4180,16 +4186,135 @@ Public Structure ColumnParity
 End Structure
 Public Structure ColumnProperties
     Implements IEquatable(Of ColumnProperties)
+    Public Sub New(systemType As Type, Optional values As List(Of Object) = Nothing)
+
+        Nulls = True
+        If systemType = GetType(Date) Then
+            'Might also be TIMESTAMP ... DataTable.DataType can't hold Systsem.DateAndTime, so if systemType comes from a DataTable then determine if it should be DATE vs TIMESTAMP
+            Dim nonNullValues As New List(Of Object)(values?.Where(Function(v) Not (IsDBNull(v) Or v Is Nothing)))
+            If nonNullValues.Any Then
+                Dim valuesType As Type = GetDataType(nonNullValues)
+                If valuesType = GetType(DateAndTime) Then
+                    DataType = "TIMESTAMP"
+                    Length = 10
+                    Scale = 6
+                Else
+                    DataType = "DATE"
+                    Length = 4
+                End If
+            Else
+                DataType = "DATE"
+                Length = 4
+            End If
+        Else
+            If systemType = GetType(DateAndTime) Then
+                DataType = "TIMESTAMP"
+                Length = 10
+                Scale = 6
+            Else
+                If {GetType(Byte), GetType(Short)}.Contains(systemType) Then
+                    DataType = "SMALLINT"
+                    Length = 2
+                Else
+                    If systemType = GetType(Integer) Then
+                        DataType = "INTEGER"
+                        Length = 4
+                    Else
+                        If systemType = GetType(Long) Then
+                            DataType = "BIGINT"
+                            Length = 8
+                        Else
+                            If {GetType(Decimal), GetType(Double)}.Contains(systemType) Then
+                                '1234567.11 IS DECIMAL(9, 2)
+                                Dim nonNullValues As New List(Of Object)(values?.Where(Function(v) Not (IsDBNull(v) Or v Is Nothing)))
+                                If nonNullValues.Any Then
+                                    Dim maxLength As Integer
+                                    Dim maxScale As Integer
+                                    For Each value In nonNullValues
+                                        Dim number As Double
+                                        If Double.TryParse(value.ToString, number) Then
+                                            Dim kvp = DoubleSplit(number)
+                                            Dim wholeLength As Integer = kvp.Key.ToString(InvariantCulture).Length
+                                            Dim decimalLength As Integer = kvp.Value.ToString(InvariantCulture).Length - 2
+                                            If maxLength < wholeLength Then maxLength = wholeLength
+                                            If maxScale < decimalLength Then maxScale = decimalLength
+                                        End If
+                                    Next
+                                    DataType = "DECIMAL"
+                                    Length = CShort(maxLength)
+                                    Scale = CShort(maxScale)
+
+                                Else
+                                    'No values in column? Set DECIMAL(10, 2) as default
+                                    DataType = "DECIMAL"
+                                    Length = 10
+                                    Scale = 2
+
+                                End If
+                            Else
+                                If systemType = GetType(Boolean) Then
+                                    'IBM® DB2® 9.x does Not implement a Boolean SQL type.
+                                    'Solution: The DB2 database interface converts BOOLEAN type to CHAR(1) columns And stores '1' or '0' values in the column.
+                                    DataType = "CHAR"
+                                    Length = 1
+                                    Scale = 0
+                                Else
+                                    If systemType = GetType(String) Then
+#Region " CHAR + VARCHAR "
+                                        Dim lengths As New List(Of Integer)(values?.Where(Function(v) Not (IsDBNull(v) Or v Is Nothing)).Select(Function(v) v.ToString.Length))
+                                        If lengths.Any Then
+                                            Dim minLength As Integer = {lengths.Min, 2003}.Min
+                                            Dim maxLength As Integer = {lengths.Max, 2003}.Min
+                                            DataType = If(minLength = maxLength, "CHAR", "VARCHAR") 'Same length for each value=CHAR, Variant lengths for values=VARCHAR
+                                            Length = CShort(maxLength)
+                                        Else
+                                            'No values in column? Set VARCHAR(50) as default
+                                            DataType = "VARCHAR"
+                                            Length = 50
+                                        End If
+#End Region
+                                    Else
+                                        'DUMMY VALUE!
+                                        Stop
+                                        DataType = "VARCHAR"
+                                        Length = 50
+                                    End If
+                                End If
+                            End If
+                        End If
+                    End If
+                End If
+            End If
+        End If
+
+    End Sub
     Public Property SystemInfo As SystemObject
     Public Property Name As String
     Public Property Index As Integer
     Public Property DataType As String
-    Public Property DataFormat As String
+    Public ReadOnly Property DataFormat As String
+        Get
+            If DataType Is Nothing Then
+                Return If(DataType, String.Empty)
+            Else
+                If {"CHAR", "VARCHAR"}.Contains(DataType) Then
+                    Return DataType & "(" & Length & ")"
+                Else
+                    If DataType = "DECIMAL" Then
+                        '1234567.11 IS DECIMAL(9, 2) ... 7 Whole + 2 Decimal
+                        Return "DECIMAL(" & Length + Scale & ", " & Scale & ")"
+                    Else
+                        Return DataType
+                    End If
+                End If
+            End If
+        End Get
+    End Property
     Public Property Length As Short
     Public Property Scale As Short
     Public Property Nulls As Boolean
     Public Overrides Function ToString() As String
-        Return Join({SystemInfo.ToString, Join({Name, Index, DataFormat, Nulls.ToString(InvariantCulture)}, Delimiter)}, BlackOut)
+        Return Join({DataFormat, Nulls.ToString(InvariantCulture)}, BlackOut)
     End Function
     Public Overrides Function GetHashCode() As Integer
         Return SystemInfo.GetHashCode Xor Name.GetHashCode Xor Index.GetHashCode Xor DataType.GetHashCode Xor DataFormat.GetHashCode Xor Length.GetHashCode Xor Scale.GetHashCode Xor Nulls.GetHashCode
@@ -4879,37 +5004,51 @@ Public Module iData
 
     End Function
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Public Function DataTableToListOfColumnProperties(ColumnTable As DataTable) As List(Of ColumnProperties)
+    Public Function DataTableToListOfColumnProperties(columnTable As DataTable) As List(Of ColumnProperties)
 
         Dim Columns As New List(Of ColumnProperties)
-        If ColumnTable IsNot Nothing Then
-            Dim QueryToColumnTypes As Boolean = ColumnTable.Namespace = "<Retrieved>"
-            Dim Query_Generic As Boolean = ColumnTable.Namespace = "<DB2>"
-
-            If QueryToColumnTypes Then
+        If columnTable IsNot Nothing Then
+            If columnTable.Namespace = "<Retrieved>" Then
 #Region " FULL DATABASE DETAIL "
                 REM /// CERTAIN THAT THE BELOW COLUMNNAMES ARE IN THE TABLE SINCE...
                 REM /// THIS REQUEST COMES FROM CONNECTION TO A DATABASE USING THE MY.SETTINGS.ColumnTypes SQL
                 REM /// EACH ROW IN THE TABLE IS FOR COLUMN PROPERTIES...EACH COLUMN IN THE ROW IS A PROPERTY
-                Columns = DataTableToListOfColumnsProperties(ColumnTable)
-#End Region
-            ElseIf Query_Generic Then
-#Region " PARTIAL DATABASE DETAIL "
-                REM /// THIS REQUEST IS TO DETERMINE THE DB2 COLUMNTYPES FROM ANY SQL
-                REM /// ...WON'T GET TABLENAME, TABLESPACE, ETC BUT CAN CLASS THE DATATYPES
-                REM /// DATATABLE COLUMN.DATATYPES ARE FILLED BY AN ADAPTER AND SHOULD USE THE DATATABLE'S COLUMN.DATATYPE INFO
-                For Each _DataColumn As DataColumn In ColumnTable.Columns
-                    Columns.Add(KnownSourceToColumnProperties(_DataColumn))
-                Next
+                Columns = DataTableToListOfColumnsProperties(columnTable)
 #End Region
             Else
-#Region " NO DATABASE DETAIL "
-                REM /// THIS REQUEST IS TO DETERMINE THE DB2 COLUMNTYPES FROM A NON-DB2 SOURCE
-                REM /// USAGE IS TAKING .txt Or .xlsx FILES TO CREATE A TABLE IN DB2 SPACE
-                For Each _DataColumn As DataColumn In ColumnTable.Columns
-                    Columns.Add(UnknownSourceToColumnProperties(_DataColumn))
-                Next
+                REM /// THIS IS CASTING FROM USER QUERY
+#Region " SELECT CAST(... ==> .NET "
+                '------------ FILLING A DATATABLE FROM A DATABASE SOURCE
+                Dim SQL As New List(Of String) From {"SELECT CAST(0 AS SMALLINT) SMALLINT_",
+", CAST(0 AS INT) INT_",
+", CAST(0 AS BIGINT) BIGINT_",
+", CAST(0 AS DECIMAL(15, 2)) DECIMAL_",
+", CAST(0 AS FLOAT) DOUBLE_",
+", CAST(CURRENT_TIMESTAMP AS TIMESTAMP) TIMESTAMP_",
+", CAST(CURRENT_DATE AS DATE) DATE_",
+", CAST('X' AS CHAR(10)) CHAR_",
+", CAST('X' AS VARCHAR(20)) VARCHAR_",
+"FROM DSNA1.SYSIBM.SYSDUMMY1"}
+                '------------ ...RESULTS IN THEN BELOW DATACOLUMN.DATATYPES
+                '------------ ...GOOD TRANSLATION BUT System.Decimal, DateTime, and String LOSE THEIR ORIGINAL CASTING
+                'SMALLINT_	→	System.Int16
+                'INT_		→	System.Int32
+                'BIGINT_	→	System.Int64
+                'DECIMAL_	→	System.Decimal
+                'DOUBLE_	→	System.Decimal
+                'TIMESTAMP_	→	System.DateTime
+                'DATE_		→	System.DateTime
+                'CHAR_		→	String
+                'VARCHAR_	→	String
 #End Region
+
+                For Each Column As DataColumn In columnTable.Columns
+                    Dim columnType As Type = If(columnTable.Namespace = "<DB2>", Column.DataType, GetDataType(DataColumnToList(Column)))
+                    Dim values As New List(Of Object)(DataColumnToList(Column))
+                    Columns.Add(New ColumnProperties(Column.DataType, values) With {
+                            .Name = DatabaseColumnName(Column.ColumnName),
+                            .Index = Column.Ordinal})
+                Next
             End If
         End If
         Return Columns
@@ -4955,263 +5094,16 @@ Public Module iData
                                 .DSN = DataRow.Item("DSN").ToString
                     }
                     .Name = DataRow.Item("COLUMN_NAME").ToString
-                    .Index = Convert.ToInt32(DataRow.Item("COL#"), InvariantCulture)
+                    .Index = CInt(DataRow.Item("COL#"))
                     .DataType = DataRow.Item("COLTYPE").ToString
-                    .DataFormat = DataRow.Item("COLUMN_DATA").ToString
-                    .Length = Convert.ToInt16(DataRow.Item("LENGTH"), InvariantCulture)
-                    .Scale = Convert.ToInt16(DataRow.Item("SCALE"), InvariantCulture)
-                    .Nulls = (DataRow.Item("NULLS").ToString.Contains("Y"))
+                    .Length = CShort(DataRow.Item("LENGTH"))
+                    .Scale = CShort(DataRow.Item("SCALE"))
+                    .Nulls = DataRow.Item("NULLS").ToString.Contains("Y")
                 End With
                 Columns.Add(DB2_Column)
             Next
         End If
         Return Columns
-
-    End Function
-    Public Function DataColumnToColumnProperties(Column As DataColumn) As ColumnProperties
-
-        If Column Is Nothing Then
-            Return Nothing
-        Else
-            If Column.Table.Namespace = "<DB2>" Then
-                Return KnownSourceToColumnProperties(Column)
-            Else
-                Return UnknownSourceToColumnProperties(Column)
-            End If
-        End If
-
-    End Function
-    Public Function KnownSourceToColumnProperties(TableColumn As DataColumn) As ColumnProperties
-
-        If TableColumn Is Nothing Then
-            Return Nothing
-        Else
-            REM /// THIS IS CASTING FROM USER QUERY
-#Region " SELECT CAST(... ==> .NET "
-            '------------ FILLING A DATATABLE FROM A DATABASE SOURCE
-            Dim SQL As New List(Of String) From {"SELECT CAST(0 AS SMALLINT) SMALLINT_",
-", CAST(0 AS INT) INT_",
-", CAST(0 AS BIGINT) BIGINT_",
-", CAST(0 AS DECIMAL(15, 2)) DECIMAL_",
-", CAST(0 AS FLOAT) DOUBLE_",
-", CAST(CURRENT_TIMESTAMP AS TIMESTAMP) TIMESTAMP_",
-", CAST(CURRENT_DATE AS DATE) DATE_",
-", CAST('X' AS CHAR(10)) CHAR_",
-", CAST('X' AS VARCHAR(20)) VARCHAR_",
-"FROM DSNA1.SYSIBM.SYSDUMMY1"}
-            '------------ ...RESULTS IN THEN BELOW DATACOLUMN.DATATYPES
-            '------------ ...GOOD TRANSLATION BUT System.Decimal, DateTime, and String LOSE THEIR ORIGINAL CASTING
-            'SMALLINT_	→	System.Int16
-            'INT_		→	System.Int32
-            'BIGINT_	→	System.Int64
-            'DECIMAL_	→	System.Decimal
-            'DOUBLE_	→	System.Decimal
-            'TIMESTAMP_	→	System.DateTime
-            'DATE_		→	System.DateTime
-            'CHAR_		→	String
-            'VARCHAR_	→	String
-#End Region
-            Dim _DataTable As DataTable = TableColumn.Table
-            Dim Database_Column As New ColumnProperties
-            With Database_Column
-                .SystemInfo = Nothing
-                .Name = DatabaseColumnName(TableColumn.ColumnName)
-                .Index = TableColumn.Ordinal
-                .Nulls = True
-                .DataFormat = String.Empty
-                Dim Values As New List(Of Object)(From R As DataRow In _DataTable.AsEnumerable Where Not (IsDBNull(R.Item(TableColumn.ColumnName)) Or R.Item(TableColumn.ColumnName).ToString.Length = 0) Select R.Item(TableColumn.ColumnName))
-                Select Case TableColumn.DataType
-#Region " SMALLINT + INTEGER + BIGINT "
-                    Case GetType(Short)
-                        .DataType = "SMALLINT"
-                        .Length = 2
-                        .DataFormat = .DataType
-
-                    Case GetType(Integer)
-                        .DataType = "INTEGER"
-                        .Length = 4
-                        .DataFormat = .DataType
-
-                    Case GetType(Long)
-                        .DataType = "BIGINT"
-                        .Length = 8
-                        .DataFormat = .DataType
-#End Region
-                    Case GetType(Decimal), GetType(Double)
-#Region " DECIMAL(n, n) "
-                        REM /// CAST(10.32 AS FLOAT) CAME THROUGH AS Net.System.Decimal DESPITE <FLOAT>=<Net.System.Double>
-                        REM /// ie) Case GetType(Double) WILL NOT HAPPEN MEANING MAY HAVE BEEN CAST AS FLOAT BUT END UP AS DECIMAL
-                        Dim Amounts As New List(Of String)(From A In Values Select CStr(A))
-                        If Amounts.Any Then
-                            .Length = CShort((From A In Amounts Select A.Length).Max)
-                        Else
-                            .Length = 0
-                        End If
-                        .Scale = 0
-                        If Amounts.Any Then
-                            .Scale = CShort((From A In Amounts Where UBound(Split(A, ".")) > 0 Select Split(A, ".")(1).Length).Max)
-                        End If
-                        .DataType = "DECIMAL"
-                        .DataFormat = "DECIMAL(" & .Length & ", " & .Scale & ")"
-#End Region
-                    Case GetType(Date)
-#Region " DATE + TIMESTAMP "
-                        Dim Dates As New List(Of Date)(From D In Values Select Date.Parse(D.ToString, InvariantCulture))
-                        REM /// TEST IF ALWAYS MIDNIGHT
-                        REM /// DATABASE DATE HAS NO TIME VALUE, TIMESTAMP HAS DATE+TIME
-                        If Values.Count = (From D In Dates Where D.TimeOfDay.Ticks = 0 Select D).Count Then
-                            .DataType = "DATE"
-                            .Length = 4
-                        Else
-                            .DataType = "TIMESTAMP"
-                            .Length = 10
-                            .Scale = 6
-                        End If
-                        .DataFormat = .DataType
-#End Region
-                    Case GetType(String)
-#Region " CHAR + VARCHAR "
-                        Dim ColumnEmpty As Boolean = Not Values.Any
-                        If ColumnEmpty Then
-                            .Length = Convert.ToInt16(.Name.Length)
-                        Else
-                            .Length = Convert.ToInt16({(From O In Values Select O.ToString.Length).Max, 2003}.Min)
-                        End If
-                        .Scale = 0
-                        Dim Strings = From v In Values Select Convert.ToString(v, InvariantCulture)
-                        If ColumnEmpty Then
-                            REM /// PREFER VARCHAR
-                            .DataType = "VARCHAR"
-                            .DataFormat = "VARCHAR(" & .Length & ")"
-                        Else
-                            If (From s In Strings Where s.Length <> Database_Column.Length).Any Then
-                                REM /// LENGTHS VARY...MUST BE VARCHAR
-                                .DataType = "VARCHAR"
-                                .DataFormat = "VARCHAR(" & .Length & ")"
-                            Else
-                                REM /// LENGTH OF EACH FIELD IS THE SAME...MUST BE CHAR
-                                .DataType = "CHAR"
-                                .DataFormat = "CHAR(" & .Length & ")"
-                            End If
-                        End If
-#End Region
-                End Select
-            End With
-            Return Database_Column
-        End If
-
-    End Function
-    Public Function UnknownSourceToColumnProperties(Column As DataColumn) As ColumnProperties
-
-        If Column Is Nothing Then
-            Return Nothing
-        Else
-            Dim _DataTable As DataTable = Column.Table
-            Dim Database_Column As New ColumnProperties
-            With Database_Column
-                .Index = Column.Ordinal
-                .Name = DatabaseColumnName(Column.ColumnName)
-                .Nulls = True
-                Dim Values As New List(Of Object)(From R As DataRow In _DataTable.AsEnumerable Where Not (IsDBNull(R.Item(Column.ColumnName)) Or R.Item(Column.ColumnName).ToString.Length = 0) Select R.Item(Column.ColumnName))
-                Dim _DataType As Type
-                If Values.Any Then
-                    _DataType = GetDataType((From V In Values.Take(1000) Select CStr(V)).ToList)
-                Else
-                    _DataType = Column.DataType
-                End If
-
-                Select Case _DataType
-#Region " DATE + TIMESTAMP "
-                    Case GetType(Date), GetType(Date)
-                        Dim Dates As New List(Of Date)(From D In Values Select Date.Parse(D.ToString, InvariantCulture))
-                        REM /// TEST FOR ALWAYS MIDNIGHT
-                        If Values.Count = (From D In Dates Where D.TimeOfDay.Ticks = 0 Select D).Count Then
-                            .DataType = "DATE"
-                            .Length = 4
-                        Else
-                            .DataType = "TIMESTAMP"
-                            .Length = 10
-                            .Scale = 6
-                        End If
-                        .DataFormat = .DataType
-#End Region
-                    Case GetType(Decimal), GetType(Double), GetType(Short), GetType(Integer), GetType(Long), GetType(Byte)
-                        REM /// TEST FOR INTEGER, Or IF A DECIMAL, THEN HOW MANY PLACES
-                        Dim Amounts As New List(Of String)(From A In Values Select CStr(A))
-                        If Values.Count = (From A In Amounts Where UBound(Split(A, ".")) = 0 Select A).Count Then
-#Region " SMALLINT + INTEGER + BIGINT "
-                            REM /// IS INTEGER, NOW CHECK FOR SIZE
-                            Dim INT_16 As Short
-                            Dim INT_32 As Integer
-                            If (From Small In Amounts Where Short.TryParse(Small, INT_16)).Count = Values.Count Then
-                                .DataType = "SMALLINT"
-                                .Length = 2
-                            Else
-                                If (From Medium In Amounts Where Integer.TryParse(Medium, INT_32)).Count = Values.Count Then
-                                    .DataType = "INTEGER"
-                                    .Length = 4
-                                Else
-                                    .DataType = "BIGINT"
-                                    .Length = 8
-                                End If
-                            End If
-                            .DataFormat = .DataType
-#End Region
-                        Else
-#Region " DECIMAL(n, n) "
-                            REM /// HAS DECIMAL PLACES
-                            REM 1234567.11 IS DECIMAL(9, 2)
-                            .Length = CShort((From A In Amounts Select A.Length).Max)
-                            .Scale = 0
-                            If Amounts.Any Then
-                                .Scale = CShort((From A In Amounts Where UBound(Split(A, ".")) > 0 Select Split(A, ".")(1).Length).Max)
-                            End If
-                            .DataType = "DECIMAL"
-                            .DataFormat = "DECIMAL(" & .Length & ", " & .Scale & ")"
-#End Region
-                        End If
-
-                    Case GetType(String)
-#Region " CHAR + VARCHAR "
-                        Dim ColumnEmpty As Boolean = Not Values.Any
-                        If ColumnEmpty Then
-                            .Length = Convert.ToInt16(.Name.Length)
-                        Else
-                            .Length = Convert.ToInt16({(From O In Values Select O.ToString.Length).Max, 2003}.Min)
-                        End If
-                        .Scale = 0
-                        Dim Strings = From v In Values Select Convert.ToString(v, InvariantCulture)
-                        If ColumnEmpty Then
-                            REM /// PREFER VARCHAR
-                            .DataType = "VARCHAR"
-                            .DataFormat = "VARCHAR(" & .Length & ")"
-                        Else
-                            If (From s In Strings Where s.Length <> Database_Column.Length).Any Then
-                                REM /// LENGTHS VARY...MUST BE VARCHAR
-                                .DataType = "VARCHAR"
-                                .DataFormat = "VARCHAR(" & .Length & ")"
-                            Else
-                                REM /// LENGTH OF EACH FIELD IS THE SAME...MUST BE CHAR
-                                .DataType = "CHAR"
-                                .DataFormat = "CHAR(" & .Length & ")"
-                            End If
-                        End If
-#End Region
-                    Case GetType(Boolean)
-#Region " CHAR(1) "
-                        'IBM® DB2® 9.x does Not implement a Boolean SQL type.
-                        'Solution: The DB2 database interface converts BOOLEAN type to CHAR(1) columns And stores '1' or '0' values in the column.
-                        .Length = 1
-                        .Scale = 0
-                        .DataType = "CHAR"
-                        .DataFormat = "CHAR(" & .Length & ")"
-#End Region
-                    Case Else
-
-                End Select
-            End With
-            Return Database_Column
-        End If
 
     End Function
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬

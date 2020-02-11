@@ -972,7 +972,8 @@ Public Class DataTool
                 .Margin = New Padding(0),
                 .HintText = "Tablename",
                 .Tag = Connection,
-                .Font = GothicFont}
+                .Font = GothicFont,
+                .Name = "tableName"}
             Dim checkboxClearTable As New CheckBox With {.CheckState = CheckState.Checked,
                 .Dock = DockStyle.Fill,
                 .Margin = New Padding(5),
@@ -980,12 +981,14 @@ Public Class DataTool
                 .CheckAlign = ContentAlignment.MiddleLeft,
                 .TextImageRelation = TextImageRelation.ImageBeforeText,
                 .Text = "Clear table".ToString(InvariantCulture),
-                .Font = GothicFont}
+                .Font = GothicFont,
+                .Name = "clearTable"}
             Dim imagecomboTablespaceName As New ImageCombo With {.Dock = DockStyle.Fill,
                 .Margin = New Padding(0),
                 .HintText = "Table Space name",
                 .Tag = Connection,
-                .Font = GothicFont}
+                .Font = GothicFont,
+                .Name = "tableSpace"}
 
             AddHandler imagecomboTableName.MouseEnter, AddressOf ExportConnection_Enter
             AddHandler imagecomboTableName.ValueSubmitted, AddressOf ExportConnection_Submitted
@@ -1000,6 +1003,7 @@ Public Class DataTool
                 .Controls.Add(imagecomboTablespaceName, 0, 2)
             End With
             tsmiExport.DropDownItems.Add(New ToolStripControlHost(tlpExport))
+            AddHandler tsmiExport.DropDownOpening, AddressOf ExportConnection_Opening
 #End Region
             Dim tlpConnection As New TableLayoutPanel With {.ColumnCount = 1,
                 .RowCount = 2,
@@ -3421,7 +3425,6 @@ Public Class DataTool
                 ItemName = .Name
                 RemoveHandler .Completed, AddressOf Execute_Completed
             End With
-            IsQuery = True
 
         Else
             With DirectCast(sender, DDL)
@@ -3622,6 +3625,46 @@ Public Class DataTool
         RemoveHandler CMS_GridOptions.Closed, AddressOf ExportOptions_Closing
         CMS_GridOptions = Nothing
     End Sub
+    Private Sub ExportConnection_Opening(sender As Object, e As EventArgs)
+
+        Dim tsmi As ToolStripMenuItem = DirectCast(sender, ToolStripMenuItem)
+        With tsmi
+            Dim tsch As ToolStripControlHost = DirectCast(.DropDownItems(0), ToolStripControlHost)
+            With tsch
+                Dim tlp As TableLayoutPanel = DirectCast(.Control, TableLayoutPanel)
+                With tlp
+                    .BackColor = SystemColors.Control
+                    With DirectCast(.Controls("tableName"), ImageCombo)
+                        .Image = Nothing
+                        .Text = Nothing
+                        .Enabled = True
+                        .ForeColor = Color.Black
+                        .BackColor = Color.GhostWhite
+                        .DataSource = Nothing
+                    End With
+                    Dim clearTable As CheckBox = DirectCast(.Controls("clearTable"), CheckBox)
+                    With clearTable
+                        .Enabled = True
+                        .Checked = True
+                        .BackColor = SystemColors.Control
+                    End With
+                    Dim tableSpace As ImageCombo = DirectCast(.Controls("tableSpace"), ImageCombo)
+                    With tableSpace
+                        .Image = Nothing
+                        .Text = Nothing
+                        .DataSource = Nothing
+                    End With
+                    With .Controls
+                        .Remove(clearTable)
+                        .Remove(tableSpace)
+                        .Add(clearTable, 0, 1)
+                        .Add(tableSpace, 0, 2)
+                    End With
+                End With
+            End With
+        End With
+
+    End Sub
     '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ T O   D A T A B A S E
     Private Sub ExportConnection_Enter(sender As Object, e As EventArgs)
 
@@ -3638,16 +3681,15 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
             Dim sqlExport = New SQL(exportConnection, sqlTablename)
             With sqlExport
                 .Execute(False)
-                exportCombo.Name = Nothing
                 If .Status = TriState.True Then
                     Dim results = From r In .Table.AsEnumerable Select CStr(r("TBNAME"))
                     If results.Any Then
                         exportCombo.DataSource = results
                         exportCombo.SelectedIndex = 0
-                        exportCombo.Name = Join(results.ToArray, BlackOut)
+                        exportCombo.Image = My.Resources.Check.ToBitmap
+                        exportCombo.Image.Tag = Join(results.ToArray, BlackOut)
                     Else
-                        exportCombo.Text = "No matching tables".ToString(InvariantCulture)
-                        exportCombo.SelectAll()
+                        exportCombo.Image = My.Resources.Info
                     End If
                 Else
                     RaiseEvent Alert(Me, New AlertEventArgs(.Response.Message))
@@ -3668,22 +3710,21 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
     End Sub
     Private Sub ExportConnection_Submitted(sender As Object, e As ImageComboEventArgs)
 
-        Dim exportCombo As ImageCombo = DirectCast(sender, ImageCombo)
-        Dim tlpConnection As TableLayoutPanel = DirectCast(exportCombo.Parent, TableLayoutPanel)
+        Dim tableName As ImageCombo = DirectCast(sender, ImageCombo)
+        Dim tlpConnection As TableLayoutPanel = DirectCast(tableName.Parent, TableLayoutPanel)
+        Dim exportConnection As Connection = DirectCast(tableName.Tag, Connection)
+        Dim clearTable As CheckBox = DirectCast(tlpConnection.Controls("clearTable"), CheckBox)
+        Dim tableSpace As ImageCombo = DirectCast(tlpConnection.Controls("tableSpace"), ImageCombo)
 
-        'Assumes existing Table
-        tlpConnection.RowStyles(1).Height = 28 ' ( Checkbox - Boolean Clear|Not Table )
-        tlpConnection.RowStyles(2).Height = 0 ' ( Tablespace only potentially needed when new Table, multiple spaces )
-
-        Dim tableName As String = exportCombo.Text
-        If tableName.Any Then
-            Dim exportConnection As Connection = DirectCast(exportCombo.Tag, Connection)
-            Dim matchingNames As String() = Split(exportCombo.Name, BlackOut)
-            Dim foundTablename As Boolean = matchingNames.Contains(tableName)
-            If Not foundTablename Then 'Results from MouseOver SQL did not return any results ... probably new table but maybe not. Check if TableName exists
-                Dim validTablename As String = DB2TableNamingConvention(tableName)
-                If tableName = validTablename Then 'DB2 would accept the submitted name ... now check if it exists ( Insert into existing Or Create new ) 
-                    Dim Instruction As String = "WITH SPACES (SPACE) As (Select
+        If tableSpace.Image Is Nothing Then
+            If tableName.Text?.Any Then
+                Dim matchingNames As New List(Of String)
+                If SameImage(My.Resources.Check.ToBitmap, tableName.Image) Then matchingNames.AddRange(Split(tableName.Image?.Tag?.ToString, BlackOut))
+                Dim foundTablename As Boolean = matchingNames.Contains(tableName.Text)
+                If Not foundTablename Then 'Results from MouseOver SQL did not return any results ... probably new table but maybe not. Check if TableName exists
+                    Dim validTablename As String = DB2TableNamingConvention(tableName.Text)
+                    If tableName.Text = validTablename Then 'DB2 would accept the submitted name ... now check if it exists ( Insert into existing Or Create new ) 
+                        Dim Instruction As String = "WITH SPACES (SPACE) As (Select
                 DISTINCT TRIM(DBNAME)||'.'||TRIM(TSNAME) SPACE
                 FROM SYSIBM.SYSTABLES T
                 WHERE T.CREATOR='" & exportConnection.UserID & "'
@@ -3691,77 +3732,97 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
                 , TABLES (SPACE, COUNT) AS (SELECT SPACE
                 , (SELECT COUNT(*)
                 FROM SYSIBM.SYSTABLES TT
-                WHERE TT.CREATOR='" & exportConnection.UserID & "' AND TT.NAME='" & Trim(tableName.ToUpperInvariant) & "' AND S.SPACE=TRIM(DBNAME)||'.'||TRIM(TSNAME)) COUNT
+                WHERE TT.CREATOR='" & exportConnection.UserID & "' AND TT.NAME='" & Trim(tableName.Text?.ToUpperInvariant) & "' AND S.SPACE=TRIM(DBNAME)||'.'||TRIM(TSNAME)) COUNT
                 FROM SPACES S)
                 SELECT *
                 FROM TABLES"
-                    Dim tableSQL As New SQL(exportConnection, Instruction)
-                    With tableSQL
-                        .Execute(False)
-                        If .Status = TriState.True Then
-                            Dim Spaces As New Dictionary(Of String, Integer)(.Table.AsEnumerable.ToDictionary(Function(x) x("SPACE").ToString, Function(y) DirectCast(y("COUNT"), Integer)))
-                            If Spaces.Values.Sum = 0 Then
-                                tlpConnection.RowStyles(1).Height = 0
-#Region " CREATE NEW TABLE - 1 Or MORE TABLESPACES? "
-                                REM /// TABLE NOT FOUND ///. NOW CHECK HOW MANY SPACES THERE ARE
-                                If Spaces.Count = 1 Then
-                                    REM /// NO NEED FOR USER INPUT. BEGIN EXPORT INTO NEW TABLE
-                                    With New ETL()
-                                        .Sources.Add(New ETL.Source(Script_Grid.Table))
-                                        .Destinations.Add(New ETL.Destination(exportConnection, Spaces.First.Key, exportCombo.Text) With {.ClearTable = True})
-                                        AddHandler .Completed, AddressOf ViewerTableExportedToDatabase
-                                        .Execute()
+                        Dim tableSQL As New SQL(exportConnection, Instruction)
+                        With tableSQL
+                            .Execute(False)
+                            If .Status = TriState.True Then
+                                Dim Spaces As New Dictionary(Of String, Integer)(.Table.AsEnumerable.ToDictionary(Function(x) x("SPACE").ToString, Function(y) DirectCast(y("COUNT"), Integer)))
+                                If Spaces.Values.Sum = 0 Then
+#Region " CREATE NEW TABLE - CHECK # OF TABLESPACES WHERE THE TABLE IS TO BE CREATED "
+                                    With tlpConnection.Controls
+                                        .Remove(clearTable)
+                                        .Remove(tableSpace)
+                                        .Add(tableSpace, 0, 1)
+                                        .Add(clearTable, 0, 2)
+                                        With tableSpace
+                                            .DataSource = Spaces.Keys
+                                            .SelectedIndex = 0
+                                            .IsReadOnly = True
+                                            .Image = If(Spaces.Count = 1, My.Resources.Check.ToBitmap, My.Resources.Info)
+                                        End With
+                                        If Spaces.Count = 1 Then
+                                            REM /// NO NEED FOR USER INPUT. BEGIN EXPORT INTO NEW TABLE
+                                            Export_CreateTable(exportConnection, Spaces.First.Key, tableName.Text)
+                                            tableSpace.Image = My.Resources.Check.ToBitmap
+                                        End If
                                     End With
-                                Else
-                                    REM /// MULTIPLE SPACES EXIST. USER MUST SELECT DESTINATION SPACE
-                                    tlpConnection.RowStyles(2).Height = 28
-                                    With DirectCast(tlpConnection.GetControlFromPosition(0, 2), ImageCombo)
-                                        .DataSource = Spaces.Keys
-                                        .SelectedIndex = 0
-                                        .IsReadOnly = True
-                                    End With
-                                End If
 #End Region
-                            Else
-                                REM /// TABLE FOUND ///. REQUIRES USER TO PICK AN ACTION { Clear Or Add to existing rows }
-                                foundTablename = True
+                                Else
+                                    REM /// TABLE FOUND ///. REQUIRES USER TO PICK AN ACTION { Clear Or Add to existing rows }
+                                    foundTablename = True
 
+                                End If
                             End If
-                        End If
+                        End With
+                    Else
+                        Using message As New Prompt With {.MinimumSize = New Size(600, 300)}
+                            Dim validConvention As String = "A Table name must satisfy all below conditions:" & Bulletize({
+                               "Length can not exceed 18 characters",
+                               "Begin with a letter or one of $, #, @",
+                               "Can contain: letters A-Z, any valid letter with an accent, digits 0 through 9, _, $, #, @",
+                               "A name cannot be a DB2 Or an SQL reserved word, such as WHERE Or VIEW",
+                               "nb) A name enclosed in quotes will be case-sensitive"})
+                            message.Show("Invalid Table name", validConvention, Prompt.IconOption.Critical, Prompt.StyleOption.Blue)
+                        End Using
+                        Exit Sub
+                    End If
+                End If
+                If foundTablename Then
+                    With New ETL()
+                        .Sources.Add(New ETL.Source(Script_Grid.Table))
+                        .Destinations.Add(New ETL.Destination(exportConnection, tableName.Text) With {.ClearTable = clearTable.Checked})
+                        AddHandler .Completed, AddressOf ViewerTableExportedToDatabase
+                        .Execute()
                     End With
-                Else
-                    Using message As New Prompt With {.MinimumSize = New Size(600, 300)}
-                        Dim validConvention As String = "A Table name must satisfy all below conditions:" & Bulletize({
-                           "Length can not exceed 18 characters",
-                           "Begin with a letter or one of $, #, @",
-                           "Can contain: letters A-Z, any valid letter with an accent, digits 0 through 9, _, $, #, @",
-                           "A name cannot be a DB2 Or an SQL reserved word, such as WHERE Or VIEW",
-                           "nb) A name enclosed in quotes will be case-sensitive"})
-                        message.Show("Invalid Table name", validConvention, Prompt.IconOption.Critical, Prompt.StyleOption.Blue)
-                    End Using
-                    Exit Sub
                 End If
             End If
-            If foundTablename Then
-                Dim exportCheckbox As CheckBox = DirectCast(tlpConnection.Controls(1), CheckBox)
-                With New ETL()
-                    .Sources.Add(New ETL.Source(Script_Grid.Table))
-                    .Destinations.Add(New ETL.Destination(exportConnection, exportCombo.Text) With {.ClearTable = exportCheckbox.Checked})
-                    AddHandler .Completed, AddressOf ViewerTableExportedToDatabase
-                    .Execute()
-                End With
-            Else
+        Else
+            'User hit Enter after TableSpaces were checked - need to perform above
+            Export_CreateTable(exportConnection, tableSpace.Text, tableName.Text)
 
-            End If
         End If
 
     End Sub
-    Private Sub Grid_DatabaseExport_MouseDown(sender As Object, e As EventArgs) Handles Grid_DatabaseExport.MouseDown
+    Private Sub Export_CreateTable(exportConnection As Connection, tableSpace As String, tableName As String)
 
+        Dim exportETL As New ETL
+        With exportETL
+            .Sources.Add(New ETL.Source(Script_Grid.Table))
+            .Destinations.Add(New ETL.Destination(exportConnection, tableSpace, tableName))
+            AddHandler .Completed, AddressOf ViewerTableExportedToDatabase
+            .Name = Join({"Exporting",
+                                            Script_Grid.Table.Columns.Count,
+                                            "columns and ",
+                                            Script_Grid.Table.Rows.Count,
+                                            "rows to into a new table in",
+                                            exportConnection.DataSource,
+                                            ", named", tableName})
+            RaiseEvent Alert(exportETL, New AlertEventArgs(.Name))
+            .Execute()
+        End With
 
     End Sub
     Private Sub ViewerTableExportedToDatabase(sender As Object, e As ResponsesEventArgs)
-        Stop
+
+        With DirectCast(sender, ETL)
+            RemoveHandler .Completed, AddressOf ViewerTableExportedToDatabase
+            RaiseEvent Alert(sender, New AlertEventArgs(If(.Succeeded, "Succeeded ", "Failed ") & Replace(.Name, "Exporting", "exporting")))
+        End With
+
     End Sub
     Private Sub TableSpaces(sender As Object, e As ResponseEventArgs)
 
@@ -3775,142 +3836,6 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
                 Spaces(Space).Add(TableObject)
             Next
         End With
-
-    End Sub
-    Private Sub TableNameSelected(sender As Object, e As ImageComboEventArgs)
-
-        REM /// FIRST CHECK THERE ARE RESULTS TO EXPORT
-        Dim ExportTable As DataTable = TryCast(Script_Grid.DataSource, DataTable)
-        If IsNothing(ExportTable) Then
-            Message.Show("Operation can not be performed", "There are no results to export", Prompt.IconOption.TimedMessage)
-        Else
-            REM /// NOW CHECK IF A TABLE EXISTS IN THE DATABASE
-            Dim TableNameComboBox As ImageCombo = DirectCast(sender, ImageCombo)
-            Dim TablePanel As TableLayoutPanel = DirectCast(TableNameComboBox.Parent, TableLayoutPanel)
-            Dim TableSpaces As ImageCombo = DirectCast(TablePanel.Controls("SPACES"), ImageCombo)
-            Dim TableOptions As TableLayoutPanel = DirectCast(TablePanel.Controls("OPTIONS"), TableLayoutPanel)
-            Dim TableSubmit As Control = DirectCast(TablePanel.Controls("SUBMIT"), Control)
-            Dim ConnectionString As String = TablePanel.Name
-            Dim Credentials As New Connection(ConnectionString)
-            Dim TableName As String = TableNameComboBox.Text
-            ExportTable.TableName = Join({Credentials.UserID, ".", TableName}, String.Empty)
-            TableSubmit.Tag = Nothing
-
-            Dim Instruction As New List(Of String) From {
-                "WITH SPACES (SPACE) As (Select",
-                "DISTINCT TRIM(DBNAME)||'.'||TRIM(TSNAME) SPACE",
-                "FROM SYSIBM.SYSTABLES T",
-                "WHERE T.CREATOR='" & Credentials.UserID & "'",
-                "AND TYPE='T')",
-                ", TABLES (SPACE, COUNT) AS (SELECT SPACE",
-                ", (SELECT COUNT(*)",
-                "FROM SYSIBM.SYSTABLES TT",
-                "WHERE TT.CREATOR='" & Credentials.UserID & "' AND TT.NAME='" & Trim(TableName.ToUpperInvariant) & "' AND S.SPACE=TRIM(DBNAME)||'.'||TRIM(TSNAME)) COUNT",
-                "FROM SPACES S)",
-                "SELECT *",
-                "FROM TABLES"
-            }
-
-            Dim VisibleRows As New List(Of Integer)({0})
-            With New SQL(ConnectionString, Join(Instruction.ToArray, vbNewLine))
-                .Execute()
-                Do While .Busy
-                Loop
-                Dim Spaces As New Dictionary(Of String, Integer)(.Table.AsEnumerable.ToDictionary(Function(x) x("SPACE").ToString, Function(y) DirectCast(y("COUNT"), Integer)))
-                If Spaces.Values.Sum = 0 Then
-                    REM /// TABLE NOT FOUND ///. NOW CHECK HOW MANY SPACES THERE ARE
-                    If Spaces.Count = 1 Then
-                        REM /// NO NEED FOR USER INPUT. BEGIN EXPORT
-                        Dim _DDL As New DDL(ConnectionString, Nothing, False, False)
-                        'AddHandler ProcedureSucceeded, AddressOf ExportRequestCompleted
-                        'DataTable_DB2(ExportTable, ConnectionString, Spaces.Keys.First, TableName, True)
-
-                    Else
-                        REM /// MULTIPLE SPACES EXIST. USER MUST SELECT DESTINATION SPACE
-                        REM /// SHOW ROWS 2 (IMAGECOMBO) AND 4 (SUBMIT BUTTON). HIDE ROW 3 (RADIO BUTTONS - FOR EXISTING TABLE)
-                        VisibleRows.AddRange({1, 3})
-                        TableSpaces.Text = Spaces.Keys.First
-                        TableSpaces.DataSource = Spaces.Keys
-                        TableSubmit.Tag = TableSpaces
-
-                    End If
-                Else
-                    REM /// TABLE FOUND ///. REQUIRES USER TO PICK AN ACTION {DROP, CLEAR, Or ADD}
-                    REM /// SHOW ROWS 3 (RADIO BUTTONS) AND 4 (SUBMIT BUTTON). HIDE ROW 2
-                    VisibleRows.AddRange({2, 3})
-                    TableSubmit.Tag = TableOptions
-
-                End If
-            End With
-
-#Region " RESIZE THE TABLEPANEL.ROWS "
-            For Each ExportControl As Control In TablePanel.Controls
-                ExportControl.Visible = False
-                ExportControl.Height = 0
-            Next
-            For Each Row As Integer In VisibleRows
-                Dim ExportControl As Control = TablePanel.Controls(Row)
-                ExportControl.Visible = True
-                ExportControl.Height = 32
-                If ExportControl.GetType Is GetType(TableLayoutPanel) Then
-                    Dim OptionsPanel As TableLayoutPanel = DirectCast(ExportControl, TableLayoutPanel)
-                    For Each RadioOption As RadioButton In OptionsPanel.Controls
-                        RadioOption.Height = 32
-                    Next
-                End If
-            Next
-#End Region
-        End If
-
-    End Sub
-    Private Sub ExportRequestSubmitted(sender As Object, e As EventArgs)
-
-        Dim TableSubmit As Control = DirectCast(sender, Control)
-        If Not IsNothing(TableSubmit.Tag) Then
-            Dim TablePanel As TableLayoutPanel = DirectCast(TableSubmit.Parent, TableLayoutPanel)
-            Dim ConnectionString As String = TablePanel.Name
-            Dim ExportTable As DataTable = TryCast(Script_Grid.DataSource, DataTable)
-            Dim UserId As String = Split(ExportTable.TableName, ".").First
-            Dim TableName As String = Split(ExportTable.TableName, ".").Last
-
-            If TableSubmit.Tag.GetType Is GetType(ImageCombo) Then
-                REM /// EXPORTING A NEW TABLE AND THE IMAGECOMBO.TEXT=DESTINATIONTABLESPACE
-                Dim TableSpace As ImageCombo = DirectCast(TableSubmit.Tag, ImageCombo)
-                'DataTable_NewDB2Table(ExportTable, ConnectionString, TableSpace.Text, TableName)
-
-            ElseIf TableSubmit.Tag.GetType Is GetType(TableLayoutPanel) Then
-                REM /// EXPORTING TO AN EXISTING TABLE - OPTIONS ARE: DROP, CLEAR Or ADD
-                Dim OptionsPanel As TableLayoutPanel = DirectCast(TableSubmit.Tag, TableLayoutPanel)
-                Dim SelectedOption As String = String.Empty
-                For Each RadioOption As RadioButton In OptionsPanel.Controls
-                    If RadioOption.Checked Then SelectedOption = RadioOption.Text
-                Next
-                If IsNothing(SelectedOption) Then
-                    Message.Show("Operation can't be performed", "You must select an option to proceed", Prompt.IconOption.TimedMessage)
-                Else
-                    Dim _ETL As New ETL()
-                    AddHandler _ETL.Completed, AddressOf ExportRequestCompleted
-                    If SelectedOption = "Drop" Then
-                        With New DDL(ConnectionString, "DROP TABLE " & ExportTable.TableName)
-                            .Execute()
-                        End With
-                        'DataTable_ExistingDB2Table(ExportTable, ConnectionString, TableName, SelectedOption = "Clear")
-
-                    End If
-                End If
-            End If
-        End If
-
-    End Sub
-    Private Sub ExportRequestCompleted(sender As Object, e As ResponsesEventArgs)
-
-        Dim _ETL As ETL = DirectCast(sender, ETL)
-        RemoveHandler _ETL.Completed, AddressOf ExportRequestCompleted
-        If _ETL.Succeeded Then
-            Message.Show("Action successful", "Rows successfully imported to " & _ETL.Destinations.Last.TableName, Prompt.IconOption.TimedMessage)
-        Else
-            Message.Show("Action not successful", "Failure to import to " & _ETL.Destinations.Last.TableName, Prompt.IconOption.TimedMessage)
-        End If
 
     End Sub
 
