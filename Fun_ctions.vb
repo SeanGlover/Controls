@@ -137,6 +137,62 @@ Public Module Functions
         Return Flag
 
     End Function
+    Public Function DrawProgress(fillValue As Object, Optional fillColor As Object = Nothing, Optional showCount As Boolean = True) As Image
+
+        Dim wh As Integer = 150
+        Dim bmp As New Bitmap(wh, wh)
+        Dim defaultColor As Color = Color.Purple
+        fillColor = If(fillColor, defaultColor)
+        Dim fillBrushColor As Color = If(fillColor.GetType = GetType(Color), DirectCast(fillColor, Color), defaultColor)
+        Dim value As Integer
+        Dim isPercent As Boolean = False
+        If fillValue?.GetType Is GetType(Double) Then
+            value = CInt(DirectCast(fillValue, Double) * 100)
+            isPercent = True
+        ElseIf fillValue?.GetType Is GetType(Integer) Then
+            value = DirectCast(fillValue, Integer)
+        End If
+        value = value Mod 101
+        Using graphics As Graphics = Graphics.FromImage(bmp)
+            With graphics
+                .SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
+                .FillRectangle(Brushes.Maroon, New Rectangle(0, 0, wh, wh))
+                Dim max As Integer = 100
+                Dim totalWidth = CInt(.VisibleClipBounds.Width)
+                Dim totalHeight = CInt(.VisibleClipBounds.Height)
+                Dim margin_all As Integer = 2
+                Dim band_width = CInt((totalWidth * 0.1887))
+                Dim workspaceWidth As Integer = totalWidth - (margin_all * 2)
+                Dim workspaceHeight As Integer = totalHeight - (margin_all * 2)
+                Dim workspaceSize = New Size(workspaceWidth, workspaceHeight)
+                Dim upperLeftWorkspacePoint = New Point(margin_all, margin_all)
+                Dim upperLeftInnerEllipsePoint = New Point(upperLeftWorkspacePoint.X + band_width, upperLeftWorkspacePoint.Y + band_width)
+                Dim innerEllipseSize = New Size((CInt(totalWidth / 2) - upperLeftInnerEllipsePoint.X) * 2, (CInt(totalWidth / 2) - upperLeftInnerEllipsePoint.Y) * 2)
+                Dim outerEllipseRectangle = New Rectangle(upperLeftWorkspacePoint, workspaceSize)
+                Dim innerEllipseRectangle = New Rectangle(upperLeftInnerEllipsePoint, innerEllipseSize)
+                Dim valueMaxRatio As Double = (value / max)
+                Dim sweepAngle = CInt((valueMaxRatio * 360))
+                Using progressFont As New Font("Calibri", If(isPercent, 24, 32), FontStyle.Bold)
+                    Dim format As String = If(isPercent, FormatPercent(valueMaxRatio, 0), String.Format(InvariantCulture, "{0:00}", CInt(valueMaxRatio * 100)))
+                    Dim measureString As SizeF = .MeasureString(format, progressFont)
+                    Dim textPoint = New PointF(upperLeftInnerEllipsePoint.X + ((innerEllipseSize.Width - measureString.Width) / 2), upperLeftInnerEllipsePoint.Y + ((innerEllipseSize.Height - measureString.Height) / 2))
+                    .Clear(Color.Transparent)
+                    Using borderPen As New Pen(Brushes.LightSlateGray, 2)
+                        Using fillBrush As New SolidBrush(fillBrushColor)
+                            .DrawEllipse(borderPen, outerEllipseRectangle)
+                            .FillPie(fillBrush, outerEllipseRectangle, 0, sweepAngle)
+                            .FillEllipse(New SolidBrush(Color.GhostWhite), innerEllipseRectangle)
+                            .DrawEllipse(borderPen, innerEllipseRectangle)
+                            .DrawString(format, progressFont, Brushes.Black, textPoint)
+                        End Using
+                    End Using
+                End Using
+            End With
+        End Using
+        bmp.MakeTransparent(Color.Maroon)
+        Return bmp
+
+    End Function
 #Region " RANDOM NUMBERS "
     Private ReadOnly Rnd As New Random()
     Public Function RandomNumber(ByVal Low As Integer, ByVal High As Integer) As Integer
@@ -677,6 +733,13 @@ Public Module Functions
         Dim ObjectCenter As New Size(Convert.ToInt32(ItemSize.Width / 2), Convert.ToInt32(ItemSize.Height / 2))
         ScreenCenter.Offset(-ObjectCenter.Width, -ObjectCenter.Height)
         Return ScreenCenter
+
+    End Function
+    Public Function CenterItem(parentLocation As Point, ItemSize As Size) As Point
+
+        Dim ObjectCenter As New Size(Convert.ToInt32(ItemSize.Width / 2), Convert.ToInt32(ItemSize.Height / 2))
+        parentLocation.Offset(-ObjectCenter.Width, -ObjectCenter.Height)
+        Return parentLocation
 
     End Function
     Public Function GetHexColor(ColorName As Color) As String

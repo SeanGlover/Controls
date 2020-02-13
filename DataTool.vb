@@ -1273,6 +1273,16 @@ Public Class DataTool
         End Get
     End Property
     Public Property TestMode As Boolean = False
+    Public ReadOnly Property Pane As RicherTextBox
+        Get
+            Return ActivePane
+        End Get
+    End Property
+    Public ReadOnly Property Grid As DataViewer
+        Get
+            Return Script_Grid
+        End Get
+    End Property
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ ALERTS
     Private Sub ScriptAlerts(sender As Object, e As AlertEventArgs) Handles Scripts_.Alert
         RaiseEvent Alert(sender, e)
@@ -3355,6 +3365,7 @@ Public Class DataTool
                     If _Script.Connection.CanConnect Then
                         If .InstructionType = ExecutionType.DDL Then
 #Region " D D L "
+                            Script_Grid.Waiting = True
                             RaiseEvent Alert(Me, New AlertEventArgs("Running procedure " & _Script.Name))
                             Cursor.Current = Cursors.WaitCursor
                             With New DDL(_Script.Connection, .SystemText, True, True)
@@ -3362,6 +3373,7 @@ Public Class DataTool
                                 .Name = _Script.CreatedString
                                 .Execute()
                             End With
+                            Script_Grid.Waiting = False
 #End Region
 
                         ElseIf .InstructionType = ExecutionType.SQL Then
@@ -3375,7 +3387,7 @@ Public Class DataTool
                                     Next
 
                                 Else
-                                    Script_Grid.Waiting(Color.Tomato) = True
+                                    Script_Grid.Waiting = True
                                     Dim TablesNeed As String() = .Body.TablesNeedObject.ToArray
                                     If TablesNeed.Any Then
                                         RaiseEvent Alert(Me, New AlertEventArgs("Adding to profile: " & Join(TablesNeed, ",") & "-(RunQuery)"))
