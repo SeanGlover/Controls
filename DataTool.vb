@@ -3486,7 +3486,7 @@ Public Class DataTool
 
             End If
             FlatMessage = Join(Split(BulletMessage, "● ").Skip(1).ToArray, " ● ")
-            RaiseEvent Alert(Me, New AlertEventArgs(Join({ .ToolTipTitle, ":", FlatMessage})))
+            RaiseEvent Alert(e, New AlertEventArgs(Join({ .ToolTipTitle, ":", FlatMessage})))
         End With
 
     End Sub
