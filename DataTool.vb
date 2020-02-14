@@ -1311,7 +1311,7 @@ Public Class DataTool
             With e.NewConnection
                 Dim Message As String = "Currently connected to " & .DataSource
                 If .Properties.ContainsKey("NICKNAME") Then Message &= Join({String.Empty, "(", .Properties("NICKNAME"), ")"})
-                RaiseEvent Alert(sender, New AlertEventArgs(Message))
+                RaiseEvent Alert(e.NewConnection, New AlertEventArgs(Message))
             End With
         End If
 
@@ -3365,18 +3365,24 @@ Public Class DataTool
                     If _Script.Connection.CanConnect Then
                         If .InstructionType = ExecutionType.DDL Then
 #Region " D D L "
-                            RaiseEvent Alert(_Script, New AlertEventArgs("Running procedure " & _Script.Name))
                             Cursor.Current = Cursors.WaitCursor
-                            With New DDL(_Script.Connection, .SystemText, True, True)
-                                AddHandler .Completed, AddressOf Execute_Completed
-                                .Name = _Script.CreatedString
-                                .Execute()
-                            End With
+                            Dim procedure As New DDL(.Connection, .SystemText, True, True)
+                            If procedure.ProceduresOK.Any Then
+                                RaiseEvent Alert(_Script, New AlertEventArgs("Running procedure " & _Script.Name))
+                                With procedure
+                                    AddHandler .Completed, AddressOf Execute_Completed
+                                    .Name = _Script.CreatedString
+                                    .Tag = _Script
+                                    .Execute(True)
+                                End With
+                            Else
+                                RaiseEvent Alert(Me, New AlertEventArgs("Procedure cancelled"))
+                            End If
 #End Region
 
                         ElseIf .InstructionType = ExecutionType.SQL Then
 #Region " S Q L "
-                            RaiseEvent Alert(Me, New AlertEventArgs("Running query " & _Script.Name))
+                            RaiseEvent Alert(_Script, New AlertEventArgs("Running query " & _Script.Name))
                             'https://www.ibm.com/support/knowledgecenter/SSEPEK_11.0.0/cattab/src/tpc/db2z_catalogtablesintro.html
                             With _Script
                                 If .Connection.IsFile Then
@@ -3387,7 +3393,7 @@ Public Class DataTool
                                 Else
                                     Dim TablesNeed As String() = .Body.TablesNeedObject.ToArray
                                     If TablesNeed.Any Then
-                                        RaiseEvent Alert(Me, New AlertEventArgs("Adding to profile: " & Join(TablesNeed, ",") & "-(RunQuery)"))
+                                        RaiseEvent Alert(.Body, New AlertEventArgs("Adding to profile: " & Join(TablesNeed, ",") & "-(RunQuery)"))
                                         Dim TableColumnSQL As String = ColumnSQL(TablesNeed)
                                         With New SQL(.Connection, TableColumnSQL)
                                             AddHandler .Completed, AddressOf ColumnsSQL_Completed
@@ -3420,6 +3426,14 @@ Public Class DataTool
 
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+    Private Sub Execute_OKd(sender As Object, e As ResponseEventArgs)
+
+        With DirectCast(sender, DDL)
+            Dim ddlScript As Script = DirectCast(.Tag, Script)
+            RaiseEvent Alert(ddlScript, New AlertEventArgs("Running procedure " & ddlScript.Name))
+        End With
+
+    End Sub
     Private Sub Execute_Completed(sender As Object, e As ResponseEventArgs)
 
         Cursor.Current = Cursors.Default

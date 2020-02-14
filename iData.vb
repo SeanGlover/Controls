@@ -3156,12 +3156,22 @@ Public Class DDL
             End If
         End Get
     End Property
+    Public ReadOnly Property ProceduresOK As New List(Of Procedure)
     Private rf As ResponseFailure
     Public Sub New(ConnectionString As String, Instruction As String, Optional PromptForInput As Boolean = False, Optional GetRowCount As Boolean = False)
-        Me.ConnectionString = ConnectionString
-        Me.Instruction = Instruction
-        RequiresInput = PromptForInput
-        Me.GetRowCount = GetRowCount
+
+        If ConnectionString IsNot Nothing Then
+            Me.ConnectionString = ConnectionString
+            Me.Instruction = Instruction
+            RequiresInput = PromptForInput
+            Me.GetRowCount = GetRowCount
+            If RequiresInput Then
+                GetInput()
+            Else
+                ProceduresOK.AddRange(Procedures)
+            End If
+        End If
+
     End Sub
     Public Sub New(Connection As Connection, Instruction As String, Optional PromptForInput As Boolean = False, Optional GetRowCount As Boolean = False)
 
@@ -3170,10 +3180,76 @@ Public Class DDL
             Me.Instruction = Instruction
             RequiresInput = PromptForInput
             Me.GetRowCount = GetRowCount
+            If RequiresInput Then
+                GetInput()
+            Else
+                ProceduresOK.AddRange(Procedures)
+            End If
         End If
 
     End Sub
-    Public Sub Execute()
+    Private Sub GetInput()
+
+        Dim PromptProcedures As New List(Of Procedure)(Procedures)
+        ProceduresOK.Clear()
+        For Each Procedure In PromptProcedures
+            Dim TableRowCount As Integer = -1
+            Dim alterRow As DataRow = Nothing
+            If Procedure.FetchStatement IsNot Nothing Then
+                With New SQL(ConnectionString, Procedure.FetchStatement)
+                    .Execute()
+                    Do While .Response Is Nothing
+                    Loop
+                    If .Response.Succeeded Then
+                        If .Response.Columns = 1 Then
+                            TableRowCount = Convert.ToInt32(.Response.Value, InvariantCulture)
+                        Else
+                            If .Table.Rows.Count > 0 Then alterRow = .Table.Rows(0)
+                        End If
+                    End If
+                    Procedure.Fetches.Add(New KeyValuePair(Of String, Integer)(Procedure.ObjectName, TableRowCount))
+                End With
+            End If
+            With Procedure
+                Dim PromptMessage As String = If(.ObjectAction = Procedure.Action.Drop,
+                        Join({"You are about to Drop", .ObjectType.ToString, .ObjectName}),
+                        Join({"You are about to", .ObjectAction.ToString, TableRowCount, "Rows in Table", .ObjectName}))
+                If alterRow IsNot Nothing Then
+                    Dim requestString As String() = Split(.ObjectName, BlackOut)
+                    Dim tableName As String = requestString.First
+                    Dim columnName As String = requestString(1)
+                    Dim newDataType As String = requestString(2)
+                    Dim currentDataType As String = alterRow("COLUMN_DATA").ToString
+                    PromptMessage = Join({"You are about to Alter Column", columnName, "in table", tableName, "from", currentDataType, "to", newDataType})
+                End If
+                Using message As New Prompt
+                    .Execute = message.Show("Proceed?", PromptMessage, Prompt.IconOption.YesNo) = DialogResult.Yes
+                End Using
+                If .Execute Then ProceduresOK.Add(Procedure)
+            End With
+        Next
+        If Not ProceduresOK.Any Then
+            _Response = New ResponseEventArgs(InstructionType.DDL, ConnectionString, Instruction, Nothing, Ended - Started)
+        End If
+
+    End Sub
+    Public Sub Execute(Optional RunInBackground As Boolean = False)
+
+        If ProceduresOK.Any Then
+            If RunInBackground Then
+                With New BackgroundWorker
+                    AddHandler .DoWork, AddressOf Execute
+                    AddHandler .RunWorkerCompleted, AddressOf Executed
+                    .RunWorkerAsync()
+                End With
+            Else
+                Execute(Nothing, Nothing)
+                Executed(Nothing, Nothing)
+            End If
+        End If
+
+    End Sub
+    Private Sub Execute(sender As Object, e As DoWorkEventArgs)
 
         If IsFile(ConnectionString) Then
             _Started = Now
@@ -3208,80 +3284,39 @@ Public Class DDL
 
             End Try
         Else
-            Dim PromptProcedures As New List(Of Procedure)(Procedures)
-            If RequiresInput Then
-                For Each Procedure In PromptProcedures
-                    Dim TableRowCount As Integer = -1
-                    Dim alterRow As DataRow = Nothing
-                    If Procedure.FetchStatement IsNot Nothing Then
-                        With New SQL(ConnectionString, Procedure.FetchStatement)
-                            .Execute()
-                            Do While .Response Is Nothing
-                            Loop
-                            If .Response.Succeeded Then
-                                If .Response.Columns = 1 Then
-                                    TableRowCount = Convert.ToInt32(.Response.Value, InvariantCulture)
-                                Else
-                                    If .Table.Rows.Count > 0 Then alterRow = .Table.Rows(0)
-                                End If
-                            End If
-                            Procedure.Fetches.Add(New KeyValuePair(Of String, Integer)(Procedure.ObjectName, TableRowCount))
-                        End With
-                    End If
-                    With Procedure
-                        Dim PromptMessage As String = If(.ObjectAction = Procedure.Action.Drop,
-                            Join({"You are about to Drop", .ObjectType.ToString, .ObjectName}),
-                            Join({"You are about to", .ObjectAction.ToString, TableRowCount, "Rows in Table", .ObjectName}))
-                        If alterRow IsNot Nothing Then
-                            Dim requestString As String() = Split(.ObjectName, BlackOut)
-                            Dim tableName As String = requestString.First
-                            Dim columnName As String = requestString(1)
-                            Dim newDataType As String = requestString(2)
-                            Dim currentDataType As String = alterRow("COLUMN_DATA").ToString
-                            PromptMessage = Join({"You are about to Alter Column", columnName, "in table", tableName, "from", currentDataType, "to", newDataType})
-                        End If
-                        Using message As New Prompt
-                            .Execute = message.Show("Proceed?", PromptMessage, Prompt.IconOption.YesNo) = DialogResult.Yes
+            _Started = Now
+            Using New CursorBusy
+                Using _Connection As New OdbcConnection(ConnectionString)
+                    Dim DDL_Instruction As String = Join((From ok In ProceduresOK Select ok.Instruction).ToArray, ";")
+                    Try
+                        _Connection.Open()
+                        Using Command As New OdbcCommand(DDL_Instruction, _Connection)
+                            'Command.Parameters.AddWithValue("@instruction", DDL_Instruction)
+                            Try
+                                Command.ExecuteNonQuery()
+                                _Ended = Now
+                                _Response = New ResponseEventArgs(InstructionType.DDL, ConnectionString, DDL_Instruction, Nothing, Ended - Started)
+
+                            Catch ProcedureError As OdbcException
+                                _Ended = Now
+                                _Response = New ResponseEventArgs(InstructionType.DDL, ConnectionString, DDL_Instruction, ProcedureError.Message, New Errors(ProcedureError.Message))
+
+                            End Try
                         End Using
-                    End With
-                Next
-            End If
-            Dim OkdProcedures As New List(Of String)(From p In PromptProcedures Where p.Execute Select p.Instruction)
-            If OkdProcedures.Any Then
-                _Started = Now
-                Using New CursorBusy
-                    Using _Connection As New OdbcConnection(ConnectionString)
-                        Dim DDL_Instruction As String = Join(OkdProcedures.ToArray, ";")
-                        Try
-                            _Connection.Open()
-                            Using Command As New OdbcCommand(DDL_Instruction, _Connection)
-                                'Command.Parameters.AddWithValue("@instruction", DDL_Instruction)
-                                Try
-                                    Command.ExecuteNonQuery()
-                                    _Ended = Now
-                                    _Response = New ResponseEventArgs(InstructionType.DDL, ConnectionString, DDL_Instruction, Nothing, Ended - Started)
 
-                                Catch ProcedureError As OdbcException
-                                    _Ended = Now
-                                    _Response = New ResponseEventArgs(InstructionType.DDL, ConnectionString, DDL_Instruction, ProcedureError.Message, New Errors(ProcedureError.Message))
+                    Catch ODBC_RunError As OdbcException
+                        _Ended = Now
+                        _Response = New ResponseEventArgs(InstructionType.DDL, ConnectionString, DDL_Instruction, ODBC_RunError.Message, New Errors(ODBC_RunError.Message))
 
-                                End Try
-                            End Using
-
-                        Catch ODBC_RunError As OdbcException
-                            _Ended = Now
-                            _Response = New ResponseEventArgs(InstructionType.DDL, ConnectionString, DDL_Instruction, ODBC_RunError.Message, New Errors(ODBC_RunError.Message))
-
-                        End Try
-                    End Using
+                    End Try
                 End Using
-            Else
-                Using message As New Prompt
-                    message.Show("Request(s) cancelled", "Action(s) cancelled", Prompt.IconOption.TimedMessage)
-                End Using
-                _Response = New ResponseEventArgs(InstructionType.DDL, ConnectionString, Instruction, Nothing, Ended - Started)
-            End If
+            End Using
         End If
+
+    End Sub
+    Private Sub Executed(sender As Object, e As RunWorkerCompletedEventArgs)
+
+        If sender IsNot Nothing Then RemoveHandler DirectCast(sender, BackgroundWorker).RunWorkerCompleted, AddressOf Executed
         RaiseEvent Completed(Me, Response)
 
     End Sub
