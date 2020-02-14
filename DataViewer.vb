@@ -74,15 +74,10 @@ Public Class DataViewer
     Private WithEvents BindingSource As New BindingSource
     Private WithEvents CopyTimer As New Timer With {.Interval = 3000, .Tag = 0}
     Private WithEvents RowTimer As New Timer With {.Interval = 250}
-    Private WithEvents ProgressDropDown As New ToolStripDropDown With {.BackColor = Color.Transparent, .DropShadowEnabled = False, .AutoClose = False, .Renderer = New CustomRenderer}
-    Private WithEvents ProgressTimer As New Timer With {.Interval = 150, .Tag = 0}
-    Private WithEvents ProgressPicture As New PictureBox With {.Size = New Size(150, 150), .Margin = New Padding(0), .BackColor = Color.Transparent, .BorderStyle = BorderStyle.None}
     Public WithEvents VScroll As New VScrollBar With {.Minimum = 0}
     Public WithEvents HScroll As New HScrollBar With {.Minimum = 0}
     Private ReadOnly ColumnHeadTip As ToolTip = New ToolTip With {.BackColor = Color.Black, .ForeColor = Color.White}
     Private ControlKeyDown As Boolean
-    Private QueryProgressIndex As Integer
-    Private ColumnFormatProgressIndex As Integer
 #End Region
 #Region " EVENTS "
     Public Event ColumnsSized(sender As Object, e As ViewerEventArgs)
@@ -109,7 +104,7 @@ Public Class DataViewer
         Margin = New Padding(1)
         MaximumSize = WorkingArea.Size
         Application.EnableVisualStyles()
-        ProgressDropDown.Items.Add(New ToolStripControlHost(ProgressPicture) With {.BackColor = Color.Transparent})
+        'ProgressDropDown.Items.Add(New ToolStripControlHost(ProgressPicture) With {.BackColor = Color.Transparent})
     End Sub
 #End Region
 #Region "■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ DRAWING "
@@ -517,7 +512,6 @@ Public Class DataViewer
                         Dim NewColumn = Columns.Add(New Column(DataColumn))
                         Columns.SizeColumn(NewColumn)
                     Next
-                    ProgressPicture.TabIndex = 0
                     RaiseEvent RowsLoading(Me, New ViewerEventArgs(Table_))
                     For Each row As DataRow In Table.Rows
                         Rows.Add(New Row(columnNames, row.ItemArray))
@@ -547,65 +541,41 @@ Public Class DataViewer
         Invalidate()
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Private Sub ProgressTimer_Tick() Handles ProgressTimer.Tick
-
-        ProgressPicture.Image = DrawProgress(QueryProgressIndex, Color.Red)
-        ProgressDropDown.AutoClose = False
-        ProgressDropDown.Show(CenterItem(ProgressPicture.Size))
-        QueryProgressIndex += 1
-
-    End Sub
-    Private _Waiting As Boolean = False
-    Public Property Waiting As Boolean
-        Get
-            Return _Waiting
-        End Get
-        Set(value As Boolean)
-            _Waiting = value
-            If value Then
-                QueryProgressIndex = 0
-                ColumnFormatProgressIndex = 0
-                ProgressTimer.Start()
-            Else
-                ProgressTimer.Stop()
-                ProgressDropDown.AutoClose = True
-                ProgressDropDown.Hide()
-            End If
-        End Set
-    End Property
     Private Sub ColumnsSizingStart() Handles Columns_.CollectionSizingStart
-        ColumnFormatProgressIndex = 0
     End Sub
     Private Sub ColumnSized(sender As Object, e As EventArgs) Handles Columns_.ColumnSized
 
         With DirectCast(sender, Column)
             RaiseEvent Alert(sender, New AlertEventArgs(Join({"Column", .Name, "Index", .ViewIndex, "resized"})))
             Cursor = Cursors.Default
-            Dim progressDouble As Double = ColumnFormatProgressIndex / Columns.Count
-            ProgressPicture.Image = DrawProgress(progressDouble, Color.Yellow)
-            ProgressDropDown.AutoClose = False
-            ProgressDropDown.Show(CenterItem(ProgressPicture.Size))
-            ColumnFormatProgressIndex += 1
         End With
 
     End Sub
     Private Sub ColumnsSizingEnd() Handles Columns_.CollectionSizingEnd
 
-        Waiting = False
         RaiseEvent ColumnsSized(Me, Nothing)
-        Waiting = False
         Invalidate()
 
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ C L E A R ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Public Sub Clear()
-        Columns.CancelWorkers()
-        Columns.Clear()
-        Rows.Clear()
+
+        With Columns
+            .CancelWorkers()
+            .Clear()
+        End With
+        With Rows
+            .HeaderStyle = New CellStyle With {.BackColor = Color.Silver, .ShadeColor = Color.Gainsboro, .ForeColor = Color.White, .Font = New Font("Century Gothic", 9)}
+            .RowStyle = New CellStyle With {.BackColor = Color.Transparent, .ShadeColor = Color.White, .ForeColor = Color.Black, .Font = New Font("Century Gothic", 8)}
+            .AlternatingRowStyle = New CellStyle With {.BackColor = Color.Silver, .ShadeColor = Color.Lavender, .ForeColor = Color.Black, .Font = New Font("Century Gothic", 8)}
+            .SelectionRowStyle = New CellStyle With {.BackColor = Color.DarkSlateGray, .ShadeColor = Color.Gray, .ForeColor = Color.White, .Font = New Font("Century Gothic", 8)}
+            .Clear()
+        End With
         VisibleColumns.Clear()
         VisibleRows.Clear()
         VScroll.Value = 0
         HScroll.Value = 0
+
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ M O U S E ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Protected Overrides Sub OnMouseLeave(ByVal e As EventArgs)

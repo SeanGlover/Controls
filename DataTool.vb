@@ -2717,7 +2717,7 @@ Public Class DataTool
                                               .Name = "adhoc",
                                               .Text = Instruction})
         Dim paneActive = ActivePane
-        AddHandler Scripts_.CollectionChanged, AddressOf ScriptsLoaded
+        If Run Then AddHandler Scripts_.CollectionChanged, AddressOf ScriptsLoaded
 
     End Sub
     Private Sub ScriptsLoaded(sender As Object, e As ScriptsEventArgs)
@@ -3365,15 +3365,13 @@ Public Class DataTool
                     If _Script.Connection.CanConnect Then
                         If .InstructionType = ExecutionType.DDL Then
 #Region " D D L "
-                            Script_Grid.Waiting = True
-                            RaiseEvent Alert(Me, New AlertEventArgs("Running procedure " & _Script.Name))
+                            RaiseEvent Alert(_Script, New AlertEventArgs("Running procedure " & _Script.Name))
                             Cursor.Current = Cursors.WaitCursor
                             With New DDL(_Script.Connection, .SystemText, True, True)
                                 AddHandler .Completed, AddressOf Execute_Completed
                                 .Name = _Script.CreatedString
                                 .Execute()
                             End With
-                            Script_Grid.Waiting = False
 #End Region
 
                         ElseIf .InstructionType = ExecutionType.SQL Then
@@ -3387,7 +3385,6 @@ Public Class DataTool
                                     Next
 
                                 Else
-                                    Script_Grid.Waiting = True
                                     Dim TablesNeed As String() = .Body.TablesNeedObject.ToArray
                                     If TablesNeed.Any Then
                                         RaiseEvent Alert(Me, New AlertEventArgs("Adding to profile: " & Join(TablesNeed, ",") & "-(RunQuery)"))
@@ -3396,7 +3393,6 @@ Public Class DataTool
                                             AddHandler .Completed, AddressOf ColumnsSQL_Completed
                                             .Execute()
                                         End With
-                                    Else
                                     End If
                                     Dim BodyText As String = .Body.SystemText
                                     With New SQL(.Connection, BodyText)
@@ -3427,7 +3423,6 @@ Public Class DataTool
     Private Sub Execute_Completed(sender As Object, e As ResponseEventArgs)
 
         Cursor.Current = Cursors.Default
-        Script_Grid.Waiting = False
 
         Dim IsQuery As Boolean = sender.GetType Is GetType(SQL)
         Dim ItemName As String
