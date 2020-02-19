@@ -78,6 +78,29 @@ Public Module Functions
     Friend Const PdfString As String = "iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjEuNWRHWFIAAAH7SURBVDhPrZNBUhNBGIXnCIgX0BtwA72AVR7AQ7h2pQaIxAABN5ZEMkkqsbKOGzcWJRAVFdBsoyKo4BAksDGZzPh8r2s6zsSKWpZ/1VeT7pr+8vrvHgfAfyExqFarqFQqKJfLKJVKcN0iCoUC7i8vI5/P497SEorFEl9NSkRiIEkYhgMCEfxEf9RqtVBwXb7+G5GSSOD3+/D9Pnq+j17PR1d0e0bkeZ6RKWV8bUKk7UhUr9d/QbJms4lGo4FarYaFxTtcMkKknphENo2eNhH5xlSiHwTILSxyyZBo1TmDN+Q12SZbEZvkFXkZ8YJskOcRz8gjZ8wIjUiSjnMWx+QrOSJtcuiMwyNfyAHZJ5/JJ/KR7JEG1w5ESiKJLX9lHe2x89EI+N45wenVa0Ziq7uyht1hkbajJKrOxAWEO7s4uXzFjJWkzTnz+9yEeSqJJB/Ielykfmg7qq77wDy9KJHdTshUhxcvmTmlOc3dxQ7n1+I9kkg9UR3zZUmURCXJEdMFTKkkKiWR5D3XrcZFOh01VhVvrEoCf7uJNmXajspK3g2LdMR/Oh3bk7jkLXkSFz3mYNQ9eUp0MkKNVU+UQkjykAxEFl178539BTdSk0ZgSYh07edzOczOzSM7O4dMNouZzG2kZzKYTt/C5HQaqakpI7l+M8UlI0T/DpwfUyqMa1e21YsAAAAASUVORK5CYII="
     Friend Const BlockString As String = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAALEQAACxEBf2RfkQAAAB10RVh0Q29tbWVudABDcmVhdGVkIHdpdGggVGhlIEdJTVDvZCVuAAAAGHRFWHRTb3VyY2UASW50cmlndWUgSWNvbiBTZXSuJ6E/AAAAGHRFWHRTb2Z0d2FyZQBwYWludC5uZXQgNC4xLjb9TgnoAAAA10lEQVQ4T6WSsRHCMBAEPyQgcEgZFOCEiOJcCkU4IHQBFEBEwJgZChB3/L+wLInBJtiR/qSTTy9LCOEviuISclGkAR0YwGgj6ybbC1JBpAXXt5xzA22yX1eimV92cw94GLUDeADqPCRJEieYMialfqJtwdn0p41dXGc12cy7UtKYqfkCjjYfoodVLLRhlBh7bt6BjdVj7QBPwDunZl3fm1ZN4D242/gx6/rJ9GoPGJ1dpsyG8c6MzS+7ma9UeQWiT+eHzKH5y3/gaJKVf+IKiuISiuLvBHkBB+NzX3/RhhoAAAAASUVORK5CYII="
 #End Region
+    Public Function ResizeImage(ByVal image As Image, imageSize As Size) As Bitmap
+        Return ResizeImage(image, imageSize.Width, imageSize.Height)
+    End Function
+    Public Function ResizeImage(ByVal image As Image, ByVal width As Integer, ByVal height As Integer) As Bitmap
+
+        Dim destRect = New Rectangle(0, 0, width, height)
+        Dim destImage = New Bitmap(width, height)
+        destImage.SetResolution(image.HorizontalResolution, image.VerticalResolution)
+
+        Using g = Graphics.FromImage(destImage)
+            g.CompositingMode = Drawing2D.CompositingMode.SourceCopy
+            g.CompositingQuality = Drawing2D.CompositingQuality.HighQuality
+            g.InterpolationMode = Drawing2D.InterpolationMode.HighQualityBicubic
+            g.SmoothingMode = Drawing2D.SmoothingMode.HighQuality
+            g.PixelOffsetMode = Drawing2D.PixelOffsetMode.HighQuality
+            Using wrapMode = New ImageAttributes()
+                wrapMode.SetWrapMode(Drawing2D.WrapMode.TileFlipXY)
+                g.DrawImage(image, destRect, 0, 0, image.Width, image.Height, GraphicsUnit.Pixel, wrapMode)
+            End Using
+        End Using
+        Return destImage
+
+    End Function
     Public Function SameImage(Image1 As Image, Image2 As Image) As Boolean
         Return ImageToBase64(Image1, Imaging.ImageFormat.Bmp) = ImageToBase64(Image2, Imaging.ImageFormat.Bmp)
     End Function
@@ -921,7 +944,7 @@ Public Module Functions
 
         Dim enumValue As T
         For Each enumItem In EnumNames(GetType(T))
-            If enumItem.ToUpperInvariant = value.ToUpperInvariant Then
+            If enumItem.ToUpperInvariant = value?.ToUpperInvariant Then
                 enumValue = CType([Enum].Parse(GetType(T), enumItem, True), T)
             End If
         Next
