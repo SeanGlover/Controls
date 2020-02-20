@@ -59,5 +59,8 @@
     <Setting Name="WithBlock_Fore" Type="System.Drawing.Color" Scope="User">
       <Value Profile="(Default)">Gainsboro</Value>
     </Setting>
+    <Setting Name="patternURL" Type="System.String" Scope="User">
+      <Value Profile="(Default)">((([A-Za-z]{3,9}:(?:\/\/)?)(?:[\-;:&amp;=\+\$,\w]+@)?[A-Za-z0-9\.\-]+|(?:www\.|[\-;:&amp;=\+\$,\w]+@)[A-Za-z0-9\.\-]+)((?:\/[\+~%\/\.\w\-_]*)?\??(?:[\-\+=&amp;;%@\.\w_]*)#?(?:[\.\!\/\\\w]*))?)</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

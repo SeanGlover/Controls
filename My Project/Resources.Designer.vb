@@ -81,6 +81,16 @@ Namespace My.Resources
         End Property
         
         '''<summary>
+        '''  Looks up a localized resource of type System.Drawing.Bitmap.
+        '''</summary>
+        Friend ReadOnly Property adobe() As System.Drawing.Bitmap
+            Get
+                Dim obj As Object = ResourceManager.GetObject("adobe", resourceCulture)
+                Return CType(obj,System.Drawing.Bitmap)
+            End Get
+        End Property
+        
+        '''<summary>
         '''  Looks up a localized string similar to DSN=AMIW;UID=085365CA
         '''DSN=CDMSIW;UID=CA85365;DRIVER={IBM;MODE=SHARE;DBALIAS=DBLI;ASYNCENABLE=0;USESCHEMAQUERIES=1
         '''DSN=CDNIW;UID=A085365;PWD=B0B0B0B0

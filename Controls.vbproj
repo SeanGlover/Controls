@@ -454,6 +454,12 @@
   <ItemGroup>
     <None Include="Resources\NoImage.png" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\adobe.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\txt1.png" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>

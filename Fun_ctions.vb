@@ -216,6 +216,16 @@ Public Module Functions
         Return bmp
 
     End Function
+    Public Function ExtensionToImage(path As String) As Image
+
+        Dim kvp = GetFileNameExtension(path).Value
+        Return If(kvp = Extensions.PortableDocumentFormat, My.Resources.adobe,
+                        If(kvp = Extensions.Excel, My.Resources.Excel,
+                        If(kvp = Extensions.CommaSeparated, My.Resources.csv,
+                        If(kvp = Extensions.SQL, My.Resources.DDL,
+                        If(kvp = Extensions.Text, My.Resources.txt, My.Resources.Folder)))))
+
+    End Function
 #Region " RANDOM NUMBERS "
     Private ReadOnly Rnd As New Random()
     Public Function RandomNumber(ByVal Low As Integer, ByVal High As Integer) As Integer
@@ -1147,6 +1157,9 @@ Public Module Functions
     Public Function IsFile(Source As String) As Boolean
         Return Regex.Match(Source, FilePattern, RegexOptions.IgnoreCase).Success
     End Function
+    Public Function IsURL(address As String) As Boolean
+        Return Regex.Match(address, My.Settings.patternURL, RegexOptions.IgnoreCase).Success
+    End Function
     <Flags()> Public Enum Extensions
         None
         Invalid
@@ -1899,8 +1912,33 @@ Namespace TLP
             End If
 
         End Function
-        Public Sub SetSize(TLP As TableLayoutPanel)
-            If TLP IsNot Nothing Then TLP.Size = GetSize(TLP)
+        Public Sub SetSize(TLP As TableLayoutPanel, Optional distributeColumnWidths As Boolean = False)
+
+            If TLP IsNot Nothing Then
+                TLP.Size = GetSize(TLP)
+                If distributeColumnWidths Then DistributeWidths(TLP)
+            End If
+
+        End Sub
+        Public Sub DistributeWidths(TLP As TableLayoutPanel)
+
+            If TLP IsNot Nothing Then
+                Dim columnsWidth As Single = 0
+                Dim absoluteCount As Integer = 0
+                For Each column As ColumnStyle In TLP.ColumnStyles
+                    If column.SizeType = SizeType.Absolute Then
+                        columnsWidth += column.Width
+                        absoluteCount += 1
+                    End If
+                Next
+                If absoluteCount = TLP.ColumnStyles.Count Then 'Can change ... percentage is a pain
+                    If TLP.Width > columnsWidth Then 'Should be some blank space
+                        Dim deltaWidth As Integer = TLP.Width - CInt(columnsWidth) 'Extra
+                        TLP.ColumnStyles(TLP.ColumnStyles.Count - 1).Width += deltaWidth
+                    End If
+                End If
+            End If
+
         End Sub
     End Module
 End Namespace
