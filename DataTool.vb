@@ -707,6 +707,7 @@ End Class
 Public Class DataTool
     Inherits Control
 #Region " DECLARATIONS "
+    Private WithEvents Karen As New Hooker
     Private ReadOnly DataDirectory As DirectoryInfo = Directory.CreateDirectory(MyDocuments & "\DataManager")
     Private ReadOnly Path_Columns As String = DataDirectory.FullName & "\Columns.txt"
     Private ReadOnly GothicFont As New Font("Century Gothic", 9, FontStyle.Regular)
@@ -1747,12 +1748,34 @@ Public Class DataTool
     End Sub
     Private Sub Show_DropDown(TSDD As ToolStripDropDown, Optional Location As Point = Nothing)
 
-        If TSDD Is TSDD_SaveAs And ActiveScript IsNot Nothing AndAlso ActiveScript.TextWasModified Or TSDD Is TSDD_ClosedScripts And ScriptsInitialized Then
-            'Do not show SaveAs when ScriptText has not changed
+        If TSDD Is TSDD_ClosedScripts Then
+            RemoveHandler Karen.Moused, AddressOf Hook_MouseDown
+            Karen.Unsubscribe()
+            AddHandler Karen.Moused, AddressOf Hook_MouseDown
+            Karen.Subscribe()
             With TSDD
                 .AutoClose = False
                 .Show(Location)
             End With
+
+        ElseIf TSDD Is TSDD_SaveAs Then
+            If ActiveScript IsNot Nothing AndAlso ActiveScript.TextWasModified Or TSDD Is TSDD_ClosedScripts And ScriptsInitialized Then
+                'Do not show SaveAs when ScriptText has not changed
+                With TSDD
+                    .AutoClose = False
+                    .Show(Location)
+                End With
+            End If
+
+        End If
+
+    End Sub
+    Private Sub Hook_MouseDown(sender As Object, e As Gma.System.MouseKeyHook.MouseEventExtArgs)
+
+        If Not CursorOverControl(TSDD_ClosedScripts) Then
+            RemoveHandler Karen.Moused, AddressOf Hook_MouseDown
+            Karen.Unsubscribe()
+            Hide_DropDown(TSDD_ClosedScripts)
         End If
 
     End Sub
@@ -2634,7 +2657,7 @@ Public Class DataTool
         Else
             Dim TextValues As String() = Split(ToolTipText, "|")
             TT_Tabs.ToolTipTitle = TextValues.First
-            TT_Tabs.Show(TextValues.Last, Script_Tabs, Location)
+            TT_Tabs.Show(TextValues.Last, Script_Tabs, Location, 3000)
 
         End If
 

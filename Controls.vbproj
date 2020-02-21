@@ -60,6 +60,9 @@
     <Reference Include="fontbox-1.8.9, Version=1.8.9.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>packages\pdfboxNet.1.8.9.0\lib\fontbox-1.8.9.dll</HintPath>
     </Reference>
+    <Reference Include="Gma.System.MouseKeyHook">
+      <HintPath>..\..\..\Downloads\globalmousekeyhook-vNext\globalmousekeyhook-vNext\examples\FormsExample\bin\Debug\Gma.System.MouseKeyHook.dll</HintPath>
+    </Reference>
     <Reference Include="IKVM.OpenJDK.Core, Version=7.2.4630.5, Culture=neutral, PublicKeyToken=13235d27fcbfff58, processorArchitecture=MSIL">
       <HintPath>packages\pdfboxNet.1.8.9.0\lib\IKVM.OpenJDK.Core.dll</HintPath>
     </Reference>
@@ -136,6 +139,7 @@
     <Import Include="System.Threading.Tasks" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Hook.vb" />
     <Compile Include="iData.vb" />
     <Compile Include="DataTool.vb" />
     <Compile Include="DataViewer.vb" />
