@@ -623,10 +623,11 @@ Public Class DataViewer
                     .Point = newPoint
                     Dim lastMouseColumn As Column = .Column
                     Dim lastMouseRow As Row = .Row
-                    Dim MouseColumns = VisibleColumns.Where(Function(r) New Rectangle(r.Value.X, r.Value.Y, r.Value.Width, RowHeight * Rows.Count).Contains(newPoint)).Select(Function(c) c.Key)
-                    If MouseColumns.Any Then
-                        .Column = MouseColumns.First
-                    End If
+                    Dim MouseColumns = VisibleColumns.Where(Function(vc) vc.Value.Contains(New Point(newPoint.X, 0))).Select(Function(c) c.Key)
+                    If MouseColumns.Any Then .Column = MouseColumns.First
+
+                    'RaiseEvent Alert(_MouseData, New AlertEventArgs(If(MouseColumns.Any, MouseColumns.First.Name & " *** " & newPoint.ToString, "No columns")))
+
                     Dim Redraw As Boolean = False
                     If Columns.HeadBounds.Contains(newPoint) Then
 #Region " HEADER REGION "
@@ -2069,6 +2070,11 @@ End Class
                 End If
             End If
         End Set
+    End Property
+    Public Shadows ReadOnly Property ToString As String
+        Get
+            Return Join({Name, Text, DataType.ToString}, ", ")
+        End Get
     End Property
     Public ReadOnly Property Style As CellStyle
         Get
