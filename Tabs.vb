@@ -124,7 +124,6 @@ Public Class Tabs
                             .BeforeBounds = Nothing
                         End If
 #Region " BOUNDS "
-                        Dim hitZone As Boolean = False
 #Region " IMAGE BOUNDS "
                         If .Image Is Nothing Then
                             ImageRegionBounds = New Rectangle(TabBounds.X, TabBounds.Y, 0, TabBounds.Height)
@@ -137,17 +136,18 @@ Public Class Tabs
                                           .Image.Height)
                         End If
 #End Region
-                        If ImageRegionBounds.Contains(MouseXY) Then _MouseZone = Zone.Image : hitZone = True
+                        If ImageRegionBounds.Contains(MouseXY) Then _MouseZone = Zone.Image
 #Region " TEXT BOUNDS "
                         Dim TextBounds As Rectangle
                         If If(.ItemText, String.Empty).Any Then
                             Dim TextSize As Size = TextRenderer.MeasureText(.ItemText, Font)
-                            TextBounds = New Rectangle(ImageBounds.Right, TabBounds.Top, TabBounds.Right, TabBounds.Height - FatPenThickness)
+                            'TextBounds = New Rectangle(ImageBounds.Right, TabBounds.Top, TabBounds.Right, TabBounds.Height - FatPenThickness)
+                            TextBounds = New Rectangle(ImageBounds.Right, TabBounds.Top, TextSize.Width, TabBounds.Height - FatPenThickness)
                         Else
                             TextBounds = New Rectangle(ImageBounds.Right, TabBounds.Top, 0, TabBounds.Height - FatPenThickness)
                         End If
 #End Region
-                        If TextBounds.Contains(Location) Then _MouseZone = Zone.Text : hitZone = True
+                        If TextBounds.Contains(Location) Then _MouseZone = Zone.Text
 #Region " CLOSE BOUNDS "
                         Dim CloseRegionBounds As Rectangle
                         Dim CloseBounds As Rectangle
@@ -162,14 +162,13 @@ Public Class Tabs
                             CloseBounds = New Rectangle(TabBounds.Right, TabBounds.Top, 0, TabBounds.Height)
                         End If
 #End Region
-                        If CloseBounds.Contains(Location) Then _MouseZone = Zone.Close : hitZone = True
+                        If CloseBounds.Contains(Location) Then _MouseZone = Zone.Close
 
                         If .Selected Then
                             ImageBounds.Offset(6, 0)
                             TextBounds.Offset(4, -1)
                             CloseBounds.Offset(0, 0)
                         End If
-                        If Not hitZone Then _MouseZone = Zone.None
 #End Region
                         If TabItem Is MouseTab Then
                             'Make solid when mouse is over tab
@@ -375,10 +374,10 @@ Public Class Tabs
             Dim ZoneChanged = OldZone <> MouseZone
             Dim TabChanged = OldTab IsNot MouseTab
             'Definitely draw if Tab changed
-            Redraw = If(TabChanged, True, If(ZoneChanged, MouseTab.CanClose Or RedrawZoneChange, False))
-            If Redraw Then Invalidate()
+            Redraw = If(TabChanged, True, If(ZoneChanged, MouseTab IsNot Nothing AndAlso MouseTab.CanClose Or RedrawZoneChange, False))
             If OldTab IsNot MouseTab Then RaiseEvent TabMouseChange(Me, New TabsEventArgs(MouseTab, OldTab, MouseZone, OldZone))
             If OldZone <> MouseZone Then RaiseEvent ZoneMouseChange(Me, New TabsEventArgs(MouseTab, OldTab, MouseZone, OldZone))
+            If Redraw Then Invalidate()
         End If
 
         If Parent IsNot Nothing Then

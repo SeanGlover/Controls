@@ -2587,43 +2587,43 @@ Public Class DataTool
     End Sub
     Private Sub Tabs_ZoneChange(sender As Object, e As TabsEventArgs) Handles Script_Tabs.ZoneMouseChange
 
-        TabDirection(If(e.OutTab, e.InTab))
-        TT_Tabs.Hide(Script_Tabs)
-        Dim TipLocation = Script_Tabs.PointToScreen(If(e.InTab, e.OutTab).Bounds.Location)
-        TipLocation.Offset(ActiveTab.Bounds.Width, 3)
+        If Not e.InZone = Tabs.Zone.None Then
+            TabDirection(If(e.OutTab, e.InTab))
+            TT_Tabs.Hide(Script_Tabs)
+            Dim TipLocation = Script_Tabs.PointToScreen(If(e.InTab, e.OutTab).Bounds.Location)
+            TipLocation.Offset(ActiveTab.Bounds.Width, 3)
 
-        Select Case e.InZone
-            Case Tabs.Zone.None
+            Select Case e.InZone
+                Case Tabs.Zone.Add
+                    If Not ScriptsInitialized Then Tabs_TipManager("Please wait|Collection initializing", TipLocation)
 
-            Case Tabs.Zone.Add
-                If Not ScriptsInitialized Then Tabs_TipManager("Please wait|Collection initializing", TipLocation)
-
-            Case Tabs.Zone.Image
-                Dim TipValues As String = Nothing
-                With ActiveScript
-                    TipValues = "Run Script|" & Bulletize({"Current datasource is " & If(IsNothing(.Connection), "undetermined", .DataSourceName),
+                Case Tabs.Zone.Image
+                    Dim TipValues As String = Nothing
+                    With ActiveScript
+                        TipValues = "Run Script|" & Bulletize({"Current datasource is " & If(IsNothing(.Connection), "undetermined", .DataSourceName),
                                             "Type is " & If(.Body.InstructionType = ExecutionType.Null, "undetermined", .Body.InstructionType.ToString),
                                             Join({"Text has", If(.TextWasModified, String.Empty, " not"), " changed"}, String.Empty),
                                             Join({"Last modified", .Modified.ToShortDateString, "@", .Modified.ToShortTimeString}),
                                             Join({"Last successful run", .Ran.ToShortDateString, "@", .Ran.ToShortTimeString}),
                                             "Location=" & If(.Path, "None - not saved")})
-                End With
-                Tabs_TipManager(TipValues, TipLocation)
+                    End With
+                    Tabs_TipManager(TipValues, TipLocation)
 
-            Case Tabs.Zone.Text
-                Tabs_TipManager("Reorder tab|Drag tab and drop in new position", TipLocation)
+                Case Tabs.Zone.Text
+                    Tabs_TipManager("Reorder tab|Drag tab and drop in new position", TipLocation)
 
-            Case Tabs.Zone.Close
-                If Not ActiveScript.Body.HasText Then
-                    Tabs_TipManager("Close Tab|Click to close empty tab", TipLocation)
+                Case Tabs.Zone.Close
+                    If Not ActiveScript.Body.HasText Then
+                        Tabs_TipManager("Close Tab|Click to close empty tab", TipLocation)
 
-                ElseIf ActiveScript.FileTextMatchesText Then
-                    Tabs_TipManager("Close Tab|Click to close saved script", TipLocation)
+                    ElseIf ActiveScript.FileTextMatchesText Then
+                        Tabs_TipManager("Close Tab|Click to close saved script", TipLocation)
 
-                Else
+                    Else
 
-                End If
-        End Select
+                    End If
+            End Select
+        End If
 
     End Sub
     Private Sub Tabs_TipManager(ToolTipText As String, Location As Point)

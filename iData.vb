@@ -3375,13 +3375,15 @@ Public NotInheritable Class Procedure
                     Dim match_Alter As New List(Of String)(Regex.Split(Instruction, "ALTER\s+TABLE\s+|\s+ALTER\s+COLUMN\s+|\s+SET\s+DATA\s+TYPE\s+", RegexOptions.IgnoreCase).Skip(1))
                     If match_Alter.Any Then
                         'ALTER TABLE C085365.ACTIONS_EXTRA ALTER COLUMN OA SET DATA TYPE VARCHAR(2003)
-                        Dim tableName As String = match_Alter.First
-                        Dim columnName As String = match_Alter(1)
-                        Dim newDataType As String = match_Alter(2)
-                        ObjectAction = Action.Alter
-                        ObjectType = Type.Column
-                        ObjectName = Join({tableName, columnName, newDataType}, BlackOut)
-                        FetchStatement = Replace(Replace(My.Resources.SQL_ColumnTypes, "///OWNER_TABLE///", tableName), "--AND C.NAME='//COLUMN_NAME//'", "AND C.NAME=" & ValueToField(columnName))
+                        If match_Alter.Count = 3 Then
+                            Dim tableName As String = match_Alter.First
+                            Dim columnName As String = match_Alter(1)
+                            Dim newDataType As String = match_Alter(2)
+                            ObjectAction = Action.Alter
+                            ObjectType = Type.Column
+                            ObjectName = Join({tableName, columnName, newDataType}, BlackOut)
+                            FetchStatement = Replace(Replace(My.Resources.SQL_ColumnTypes, "///OWNER_TABLE///", tableName), "--AND C.NAME='//COLUMN_NAME//'", "AND C.NAME=" & ValueToField(columnName))
+                        End If
 
                     Else
                         Dim Match_Delete As Match = Regex.Match(Instruction, "DELETE[\s]{1,}FROM[\s]{1,}" + ObjectPattern, RegexOptions.IgnoreCase)
