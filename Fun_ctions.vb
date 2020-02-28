@@ -1774,7 +1774,6 @@ Namespace Pdf2Text
             Catch ex As Exception       ' java.io.IOException
                 _Succeeded = False
                 _Content = String.Empty
-                Stop
 
             Finally
                 If doc IsNot Nothing Then
