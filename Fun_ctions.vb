@@ -1287,6 +1287,19 @@ Public Module Functions
 
     End Function
 #End Region
+
+    Public Function EntitiesToString(html As String) As String
+
+        html = Replace(html, "&rsquo;", "'")
+        html = Replace(html, "&rdquo;", """")
+        html = Replace(html, "&reg;", "®")
+        html = Replace(html, "&agrave;", "à")
+        html = Replace(html, "&ndash;", "-")
+
+        Return html
+
+    End Function
+
 #Region " ENCRYPTION "
     Public Function Krypt(TextIn As String) As String
         Return Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(TextIn))

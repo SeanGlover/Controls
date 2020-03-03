@@ -464,6 +464,18 @@
   <ItemGroup>
     <None Include="Resources\txt1.png" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\FilterCancel.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Filtered.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\SortDown.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\SortUp.png" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
