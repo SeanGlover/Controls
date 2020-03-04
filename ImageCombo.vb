@@ -1504,86 +1504,89 @@ Public NotInheritable Class ItemCollection
 End Class
 REM ////////////////////////////////////////////////////////////////////////////////////////////////////////// DROPDOWN COMBO ITEM
 <Serializable> <TypeConverter(GetType(PropertyConverter))> Public Class ComboItem
-        Public Sub New()
-        End Sub
+    Public Sub New()
+    End Sub
 #Region " Properties & Fields "
-        Public ReadOnly Property ImageCombo As ImageCombo
-            Get
-                If IsNothing(_ItemCollection) Then
-                    Return Nothing
-                Else
-                    Return _ItemCollection.ImageCombo
-                End If
-            End Get
-        End Property
-        <NonSerializedAttribute> Friend _ItemCollection As ItemCollection
-        Public ReadOnly Property ItemCollection As ItemCollection
-            Get
-                Return _ItemCollection
-            End Get
-        End Property
-        Private _Image As Image
-        Public Property Image As Image
-            Get
-                Return _Image
-            End Get
-            Set(value As Image)
-                If Not value Is _Image Then
-                    _Image = value
-                End If
-            End Set
-        End Property
-        Friend _Bounds As New Rectangle
-        Public ReadOnly Property Bounds As Rectangle
-            Get
-                Return _Bounds
-            End Get
-        End Property
-        Friend _CheckBounds As New Rectangle
-        Public ReadOnly Property CheckBounds As Rectangle
-            Get
-                Return _CheckBounds
-            End Get
-        End Property
-        Friend _ImageBounds As New Rectangle
-        Public ReadOnly Property ImageBounds As Rectangle
-            Get
-                Return _ImageBounds
-            End Get
-        End Property
-        Friend _TextBounds As New Rectangle
-        Public ReadOnly Property TextBounds As Rectangle
-            Get
-                Return _TextBounds
-            End Get
-        End Property
-        Public Property Format As String
-        Public Property Value As Object
-        Public Property Name As String
-        Public ReadOnly Property Text As String
-            Get
-                Return Microsoft.VisualBasic.Format(Value, Format)
-            End Get
-        End Property
-        Friend _Index As Integer
-        Public ReadOnly Property Index As Integer
-            Get
-                Return _Index
-            End Get
-        End Property
-        Friend _Checked As Boolean
-        Public ReadOnly Property Checked As Boolean
-            Get
-                Return _Checked
-            End Get
-        End Property
-        Friend _Selected As Boolean
-        Public ReadOnly Property Selected As Boolean
-            Get
-                Return _Selected
-            End Get
-        End Property
-        Public Property Separator As Boolean
-        Public Property TipText As String
+    Public ReadOnly Property ImageCombo As ImageCombo
+        Get
+            If IsNothing(_ItemCollection) Then
+                Return Nothing
+            Else
+                Return _ItemCollection.ImageCombo
+            End If
+        End Get
+    End Property
+    <NonSerializedAttribute> Friend _ItemCollection As ItemCollection
+    Public ReadOnly Property ItemCollection As ItemCollection
+        Get
+            Return _ItemCollection
+        End Get
+    End Property
+    Private _Image As Image
+    Public Property Image As Image
+        Get
+            Return _Image
+        End Get
+        Set(value As Image)
+            If Not value Is _Image Then
+                _Image = value
+            End If
+        End Set
+    End Property
+    Friend _Bounds As New Rectangle
+    Public ReadOnly Property Bounds As Rectangle
+        Get
+            Return _Bounds
+        End Get
+    End Property
+    Friend _CheckBounds As New Rectangle
+    Public ReadOnly Property CheckBounds As Rectangle
+        Get
+            Return _CheckBounds
+        End Get
+    End Property
+    Friend _ImageBounds As New Rectangle
+    Public ReadOnly Property ImageBounds As Rectangle
+        Get
+            Return _ImageBounds
+        End Get
+    End Property
+    Friend _TextBounds As New Rectangle
+    Public ReadOnly Property TextBounds As Rectangle
+        Get
+            Return _TextBounds
+        End Get
+    End Property
+    Public Property Format As String
+    Public Property Value As Object
+    Public Property Name As String
+    Public ReadOnly Property Text As String
+        Get
+            Return Microsoft.VisualBasic.Format(Value, Format)
+        End Get
+    End Property
+    Friend _Index As Integer
+    Public ReadOnly Property Index As Integer
+        Get
+            Return _Index
+        End Get
+    End Property
+    Friend _Checked As Boolean
+    Public ReadOnly Property Checked As Boolean
+        Get
+            Return _Checked
+        End Get
+    End Property
+    Friend _Selected As Boolean
+    Public ReadOnly Property Selected As Boolean
+        Get
+            Return _Selected
+        End Get
+    End Property
+    Public Property Separator As Boolean
+    Public Property TipText As String
+    Public Overrides Function ToString() As String
+        Return Join({Text, Index}, BlackOut)
+    End Function
 #End Region
 End Class

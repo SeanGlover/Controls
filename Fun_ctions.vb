@@ -947,6 +947,15 @@ Public Module Functions
 
     End Function
 #Region " ENUMS "
+    Public Function EnumNames(EnumItem As Object) As List(Of String)
+
+        If EnumItem Is Nothing Then
+            Return Nothing
+        Else
+            Return EnumNames(EnumItem.GetType)
+        End If
+
+    End Function
     Public Function EnumNames(EnumType As Type) As List(Of String)
         Return [Enum].GetNames(EnumType).ToList
     End Function
@@ -959,6 +968,35 @@ Public Module Functions
             End If
         Next
         Return enumValue
+
+    End Function
+    Public Function ContentAlignToStringFormat(alignString As String) As StringFormat
+
+        Dim alignElements As New List(Of String)(Regex.Split(alignString, "(?=[A-Z])", System.Text.RegularExpressions.RegexOptions.None).Skip(1))
+        If alignElements.Count = 2 Then
+            'BottomLeft ... LineAlignment + Alignment
+            Dim verticalAlignment As StringAlignment = If(alignElements.First = "Top", StringAlignment.Near, If(alignElements.First = "Middle", StringAlignment.Center, StringAlignment.Far))
+            Dim horizontalAlignment As StringAlignment = If(alignElements.Last = "Left", StringAlignment.Near, If(alignElements.Last = "Center", StringAlignment.Center, StringAlignment.Far))
+            Return New StringFormat With {
+                .Alignment = horizontalAlignment,
+                .LineAlignment = verticalAlignment}
+        Else
+            Return Nothing
+        End If
+
+    End Function
+    Public Function ContentAlignToStringFormat(alignment As ContentAlignment) As StringFormat
+        Return ContentAlignToStringFormat(alignment.ToString)
+    End Function
+    Public Function StringFormatToContentAlignString(formatString As StringFormat) As String
+
+        If formatString Is Nothing Then
+            Return Nothing
+        Else
+            Dim verticalString As String = If(formatString.LineAlignment = StringAlignment.Near, "Top", If(formatString.LineAlignment = StringAlignment.Center, "Middle", "Bottom"))
+            Dim horizontalString As String = If(formatString.Alignment = StringAlignment.Near, "Left", If(formatString.Alignment = StringAlignment.Center, "Center", "Right"))
+            Return verticalString & horizontalString
+        End If
 
     End Function
 #End Region

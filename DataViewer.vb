@@ -76,6 +76,15 @@ Public Class DataViewer
     Private WithEvents RowTimer As New Timer With {.Interval = 250}
     Public WithEvents VScroll As New VScrollBar With {.Minimum = 0}
     Public WithEvents HScroll As New HScrollBar With {.Minimum = 0}
+    Private WithEvents HeaderOptions As New ToolStripDropDown With {.AutoClose = False}
+    Private WithEvents HeaderBackColor As New ImageCombo With {.ColorPicker = True,
+        .Size = New Size(200, 24)}
+    Private WithEvents HeaderShadeColor As New ImageCombo With {.ColorPicker = True,
+        .Size = New Size(200, 24)}
+    Private WithEvents HeaderForeColor As New ImageCombo With {.ColorPicker = True,
+        .Size = New Size(200, 24)}
+    Private WithEvents HeaderGridAlignment As New ImageCombo With {.DataSource = EnumNames(GetType(ContentAlignment)),
+        .Size = New Size(200, 24)}
     Private ReadOnly ColumnHeadTip As ToolTip = New ToolTip With {.BackColor = Color.Black, .ForeColor = Color.White}
     Private ControlKeyDown As Boolean
 #End Region
@@ -106,7 +115,19 @@ Public Class DataViewer
         Margin = New Padding(1)
         MaximumSize = WorkingArea.Size
         Application.EnableVisualStyles()
-        'ProgressDropDown.Items.Add(New ToolStripControlHost(ProgressPicture) With {.BackColor = Color.Transparent})
+        Using colorFont As New Font("Century Gothic", 9)
+            HeaderBackColor.Font = colorFont
+            HeaderShadeColor.Font = colorFont
+            HeaderForeColor.Font = colorFont
+            HeaderGridAlignment.Font = colorFont
+        End Using
+        With HeaderOptions.Items
+            .Add(New ToolStripControlHost(HeaderBackColor))
+            .Add(New ToolStripControlHost(HeaderShadeColor))
+            .Add(New ToolStripControlHost(HeaderForeColor))
+            .Add(New ToolStripControlHost(HeaderGridAlignment))
+        End With
+
     End Sub
 #End Region
 #Region "■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ DRAWING "
@@ -141,33 +162,33 @@ Public Class DataViewer
                                 e.Graphics.FillRectangle(LinearBrush, HeadBounds)
                             End Using
                             e.Graphics.DrawRectangle(Pens.Silver, HeadBounds)
-#Region " DRAW HEADER IMAGE "
+#Region " [0] DRAW HEADER IMAGE "
                             Dim imageSize As Size = .SizeImage
-                            Dim imageTop As Integer = CInt((.HeadBounds.Height - imageSize.Height) / 2)
-                            Dim ImageBounds As New Rectangle(New Point(.HeadBounds.Left + If(imageSize.Width = 0, 0, 2) - HScroll.Value, imageTop), imageSize)
+                            Dim imageTop As Integer = CInt((HeadBounds.Height - imageSize.Height) / 2)
+                            Dim ImageBounds As New Rectangle(New Point(HeadBounds.Left + If(imageSize.Width = 0, 0, 2), imageTop), imageSize)
                             If .Image IsNot Nothing Then
                                 e.Graphics.DrawImage(.Image, ImageBounds)
-                                e.Graphics.DrawRectangle(Pens.Yellow, ImageBounds)
+                                'e.Graphics.DrawRectangle(Pens.Yellow, ImageBounds)
                             End If
 #End Region
-#Region " DRAW SORT TRIANGLE "
+#Region " [3] DRAW SORT TRIANGLE "
                             Dim sortSize As Size = .SizeSort
-                            Dim sortTop As Integer = CInt((.HeadBounds.Height - sortSize.Height) / 2)
-                            Dim sortBounds As New Rectangle(.HeadBounds.Right - (.SizeSort.Width + If(sortSize.Width = 0, 0, 4)), sortTop, .SizeSort.Width, .SizeSort.Height) '4 is 2+Sort+2
-                            If Not .SortOrder = SortOrder.None Then e.Graphics.DrawImage(If(.SortOrder = SortOrder.Ascending, My.Resources.SortUp, My.Resources.SortDown), sortBounds)
+                            Dim sortTop As Integer = CInt((HeadBounds.Height - sortSize.Height) / 2)
+                            Dim sortBounds As New Rectangle(HeadBounds.Right - (.SizeSort.Width + If(sortSize.Width = 0, 0, 4)), sortTop, .SizeSort.Width, .SizeSort.Height) '4 is 2+Sort+2
+                            If Not .SortOrder = SortOrder.None Then e.Graphics.DrawImage(If(.SortOrder = SortOrder.Ascending, My.Resources.SortDown, My.Resources.SortUp), sortBounds)
 #End Region
-#Region " DRAW FILTER "
+#Region " [2] DRAW FILTER "
                             Dim filterSize As Size = .SizeFilter
-                            Dim filterTop As Integer = CInt((.HeadBounds.Height - filterSize.Height) / 2)
+                            Dim filterTop As Integer = CInt((HeadBounds.Height - filterSize.Height) / 2)
                             Dim filterBounds As New Rectangle(sortBounds.Left - filterSize.Width, filterTop, filterSize.Width, filterSize.Height)
                             If .Filtered Then e.Graphics.DrawImage(My.Resources.Filtered, filterBounds)
 #End Region
-#Region " DRAW HEADER TEXT "
-                            Dim textLeft As Integer = ImageBounds.Right + If(ImageBounds.Width = 0, 0, 2) - HScroll.Value
-                            Dim textTop As Integer = CInt((.HeadBounds.Height - .SizeText.Height) / 2)
+#Region " [1] DRAW HEADER TEXT "
+                            Dim textLeft As Integer = ImageBounds.Right + If(ImageBounds.Width = 0, 0, 2)
+                            Dim textTop As Integer = CInt((HeadBounds.Height - .SizeText.Height) / 2)
                             Dim TextBounds As Rectangle = New Rectangle(textLeft, textTop, filterBounds.Left - textLeft, .SizeText.Height)
                             TextRenderer.DrawText(e.Graphics, .Text, .HeaderStyle.Font, TextBounds, .HeaderStyle.ForeColor, Color.Transparent, TextFormatFlags.VerticalCenter Or TextFormatFlags.HorizontalCenter)
-                            e.Graphics.DrawRectangle(Pens.White, TextBounds)
+                            'e.Graphics.DrawRectangle(Pens.White, TextBounds)
 #End Region
                             e.Graphics.DrawRectangle(Pens.Silver, HeadBounds)
                             If Column Is _MouseData.Column Then
@@ -251,7 +272,7 @@ Public Class DataViewer
                                                                           If(MouseOverRow, New Font(.Style.Font, FontStyle.Underline), .Style.Font),
                                                                           textBrush,
                                                                           CellBounds,
-                                                                          Column.Alignment)
+                                                                          Column.GridStyle.Alignment)
                                                 End Using
                                             End If
                                         End If
@@ -343,7 +364,7 @@ Public Class DataViewer
         If VScrollVisible Then
             With VScroll
                 .Top = 2
-                .Left = {TotalSize.Width, ClientSize.Width - .Width}.Min
+                .Left = {TotalSize.Width, ClientSize.Width - .Width, Columns.HeadBounds.Right}.Min
                 .Height = ClientRectangle.Height - 2
                 .SmallChange = Rows.RowHeight
                 .LargeChange = ClientRectangle.Height
@@ -352,7 +373,7 @@ Public Class DataViewer
         HScroll.Visible = HScrollVisible
         If HScrollVisible Then
             With HScroll
-                .Top = (ClientRectangle.Bottom - HScroll.Height)
+                .Top = ClientRectangle.Bottom - HScroll.Height
                 .Left = 0
                 .Width = If(VScroll.Visible, ClientRectangle.Width - VScroll.Width, ClientRectangle.Width)
                 .LargeChange = ClientRectangle.Width
@@ -599,7 +620,7 @@ Public Class DataViewer
                             Dim contentWidth As String = .ContentWidth.ToString(InvariantCulture)
                             Dim rowCount As String = Rows.Count.ToString(InvariantCulture)
                             Dim sortOrder As String = .SortOrder.ToString
-                            Dim alignment As String = If(.Alignment Is Nothing, "None", .Alignment.ToString)
+                            Dim alignment As String = StringFormatToContentAlignString(.GridStyle.Alignment)
 
                             Dim Bullets As New Dictionary(Of String, List(Of String)) From {
                             { .Text, {"Type is " & formatName,
@@ -697,6 +718,11 @@ Public Class DataViewer
     Protected Overrides Sub OnMouseDown(ByVal e As MouseEventArgs)
 
         If e IsNot Nothing Then
+            With HeaderOptions
+                .Tag = Nothing
+                .AutoClose = True
+                .Hide()
+            End With
             With _MouseData
                 If e IsNot Nothing And .CurrentAction = MouseInfo.Action.MouseOverHead And .Column IsNot Nothing Then
                     If e.Button = MouseButtons.Left Then
@@ -712,10 +738,26 @@ Public Class DataViewer
                         End If
                         Rows.SortBy(.Column)
                     Else
-                        'Dim Bullets As New List(Of String) From {"Paint Count=" & PaintCount,
-                        '"Rows Count=" & Rows.Count,
-                        '"Bounds=" & VisibleRows.First.Value.ToString}
-                        'ColumnHeadTip.SetToolTip(Me, Bulletize(Bullets.ToArray))
+                        If .CurrentAction = MouseInfo.Action.MouseOverHead Then
+                            HeaderOptions.Tag = .Column
+
+                            'Change backcolor, shadecolor
+                            Dim backIndex As New List(Of Integer)(From ci In HeaderBackColor.Items Where ci.Text = .Column.HeaderStyle.BackColor.Name Select ci.Index)
+                            If backIndex.Any Then HeaderBackColor.SelectedIndex = backIndex.First
+
+                            Dim shadeIndex As New List(Of Integer)(From ci In HeaderShadeColor.Items Where ci.Text = .Column.HeaderStyle.ShadeColor.Name Select ci.Index)
+                            If shadeIndex.Any Then HeaderShadeColor.SelectedIndex = shadeIndex.First
+
+                            Dim foreIndex As New List(Of Integer)(From ci In HeaderForeColor.Items Where ci.Text = .Column.HeaderStyle.ForeColor.Name Select ci.Index)
+                            If foreIndex.Any Then HeaderForeColor.SelectedIndex = foreIndex.First
+
+                            Dim alignString As String = StringFormatToContentAlignString(.Column.GridStyle.Alignment)
+                            Dim alignIndex As New List(Of Integer)(From ci In HeaderGridAlignment.Items Where ci.Text = StringFormatToContentAlignString(.Column.GridStyle.Alignment) Select ci.Index)
+                            If alignIndex.Any Then HeaderGridAlignment.SelectedIndex = alignIndex.First
+
+                            HeaderOptions.AutoClose = False
+                            HeaderOptions.Show(PointToScreen(New Point(.Column.HeadBounds.Right, .Column.HeadBounds.Bottom)))
+                        End If
                     End If
 
                 ElseIf .CurrentAction = MouseInfo.Action.MouseOverHeadEdge Then
@@ -926,6 +968,15 @@ Public Class DataViewer
     Private Sub Scrolled(sender As Object, e As ScrollEventArgs) Handles VScroll.Scroll, HScroll.Scroll
         Invalidate()
     End Sub
+    Private Sub BackColor_Selected(sender As Object, e As ImageComboEventArgs) Handles HeaderBackColor.SelectionChanged, HeaderShadeColor.SelectionChanged, HeaderForeColor.SelectionChanged, HeaderGridAlignment.SelectionChanged
+
+        If sender Is HeaderBackColor Then Columns.HeaderStyle.BackColor = Color.FromName(HeaderBackColor.Text)
+        If sender Is HeaderShadeColor Then Columns.HeaderStyle.ShadeColor = Color.FromName(HeaderShadeColor.Text)
+        If sender Is HeaderForeColor Then Columns.HeaderStyle.ForeColor = Color.FromName(HeaderForeColor.Text)
+        Dim mouseColumn As Column = DirectCast(HeaderOptions.Tag, Column)
+        If sender Is HeaderGridAlignment Then mouseColumn.GridStyle.Alignment = ContentAlignToStringFormat(HeaderGridAlignment.Text) : RaiseEvent Alert(mouseColumn.GridStyle, New AlertEventArgs(ContentAlignToStringFormat(HeaderGridAlignment.Text).ToString))
+
+    End Sub
 #End Region
 End Class
 '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
@@ -967,7 +1018,7 @@ Public Class ColumnCollection
             End If
         End Get
     End Property
-    Private WithEvents HeaderStyle_ As New CellStyle With {.BackColor = Color.Black, .ShadeColor = Color.Purple, .ForeColor = Color.White, .Font = New Font("Century Gothic", 9, FontStyle.Bold), .Alignment = ContentAlignment.MiddleCenter, .Height = 24, .ImageScaling = Scaling.GrowParent, .Padding = New Padding(2)}
+    Private WithEvents HeaderStyle_ As New CellStyle With {.BackColor = Color.Black, .ShadeColor = Color.LimeGreen, .ForeColor = Color.White, .Font = New Font("Century Gothic", 9, FontStyle.Bold), .Height = 24, .ImageScaling = Scaling.GrowParent, .Padding = New Padding(2)}
     Public Property HeaderStyle As CellStyle
         Get
             Return HeaderStyle_
@@ -1066,7 +1117,7 @@ Public Class ColumnCollection
 
         Dim columnLeft As Integer = 0
         For Each column In Me
-            column.HeadBounds = New Rectangle(columnLeft, 0, column.HeadSize.Width, columnHeight)
+            column.HeadBounds = New Rectangle(columnLeft, 0, column.Width, columnHeight)
             column.HeaderStyle.Height = columnHeight
             columnLeft += column.Width
         Next
@@ -1168,8 +1219,7 @@ Public Class ColumnCollection
                     End If
                 End If
             Next
-            .Width = { .HeadBounds.Width, .ContentWidth}.Max
-            ColumnsXH()
+            .Width = { .HeadSize.Width, .ContentWidth}.Max
             If BackgroundProcess Then
                 Dim aggregateType As Type = GetDataType(cellTypes)
                 ColumnsWorker.ReportProgress({0, .Index}.Max, New KeyValuePair(Of Column, Type)(ColumnItem, aggregateType))
@@ -1275,25 +1325,6 @@ End Class
             Return Parent_
         End Get
     End Property
-    <NonSerialized> Private Alignment_ As StringFormat
-    Public ReadOnly Property Alignment As StringFormat
-        Get
-            Select Case Format.Key
-                Case TypeGroup.Dates, TypeGroup.Times, TypeGroup.Integers
-                    Alignment_ = New StringFormat With {.Alignment = StringAlignment.Center, .LineAlignment = StringAlignment.Center}
-
-                Case TypeGroup.Decimals
-                    Alignment_ = New StringFormat With {.Alignment = StringAlignment.Far, .LineAlignment = StringAlignment.Center}
-
-                Case TypeGroup.Strings
-                    Alignment_ = New StringFormat With {.Alignment = StringAlignment.Near, .LineAlignment = StringAlignment.Center}
-
-                Case TypeGroup.Booleans, TypeGroup.Images
-
-            End Select
-            Return Alignment_
-        End Get
-    End Property
     Friend _Index As Integer = 0
     Public ReadOnly Property Index As Integer
         Get
@@ -1324,7 +1355,7 @@ End Class
             End If
         End Set
     End Property
-    Private WithEvents HeaderStyle_ As New CellStyle With {.BackColor = Color.Black, .ShadeColor = Color.Purple, .ForeColor = Color.White, .Font = New Font("Century Gothic", 9), .Alignment = ContentAlignment.MiddleCenter, .Height = 24, .ImageScaling = Scaling.GrowParent, .Padding = New Padding(2)}
+    Private WithEvents HeaderStyle_ As New CellStyle With {.BackColor = Color.Black, .ShadeColor = Color.Purple, .ForeColor = Color.White, .Font = New Font("Century Gothic", 9), .Height = 24, .ImageScaling = Scaling.GrowParent, .Padding = New Padding(2)}
     Public Property HeaderStyle As CellStyle
         Get
             Return HeaderStyle_
@@ -1334,6 +1365,14 @@ End Class
         End Set
     End Property
     Private WithEvents GridStyle_ As New CellStyle With {.BackColor = Color.Transparent, .ShadeColor = Color.Transparent, .ForeColor = Color.Transparent, .Font = New Font("Century Gothic", 8), .Height = 22, .ImageScaling = Scaling.GrowParent, .Padding = New Padding(2)}
+    Public Property GridStyle As CellStyle
+        Get
+            Return GridStyle_
+        End Get
+        Set(value As CellStyle)
+            If value <> GridStyle_ Then GridStyle_ = value
+        End Set
+    End Property
     Private _MinimumWidth As Integer = 60
     Public Property MinimumWidth As Integer
         Get
@@ -1349,10 +1388,14 @@ End Class
     Public Property HeadBounds As Rectangle
     Friend ReadOnly Property SizeImage As Size
         Get
-            Return If(Image Is Nothing, New Size(0, 0),
-                If(HeaderStyle.ImageScaling = Scaling.GrowParent,
-                        New Size(Image.Width, Image.Height),
-                        New Size(HeaderStyle.Height - (HeaderStyle.Padding.Top + HeaderStyle.Padding.Bottom), HeaderStyle.Height)))
+            Try
+                Return If(Image Is Nothing, New Size(0, 0),
+                                If(HeaderStyle.ImageScaling = Scaling.GrowParent,
+                                        New Size(Image.Width, Image.Height),
+                                        New Size(HeaderStyle.Height - (HeaderStyle.Padding.Top + HeaderStyle.Padding.Bottom), HeaderStyle.Height)))
+            Catch ex As InvalidOperationException
+                Return Nothing
+            End Try
         End Get
     End Property
     Friend ReadOnly Property SizeText As Size
@@ -1380,7 +1423,7 @@ End Class
                 filterSize As Size = SizeFilter,
                 sortSize As Size = SizeSort
 
-            Return New Size({HeaderStyle.Padding.Left + imageSize.Width + SizeWidth(imageSize) + textSize.Width + SizeWidth(textSize) + filterSize.Width + SizeWidth(filterSize) + sortSize.Width + SizeWidth(sortSize) + HeaderStyle.Padding.Right, MinimumWidth, Width}.Max,
+            Return New Size({HeaderStyle.Padding.Left + imageSize.Width + SizeWidth(imageSize) + textSize.Width + SizeWidth(textSize) + filterSize.Width + SizeWidth(filterSize) + sortSize.Width + SizeWidth(sortSize) + HeaderStyle.Padding.Right, MinimumWidth}.Max,
                                      HeaderStyle.Padding.Top + {imageSize.Height, textSize.Height, filterSize.Height, sortSize.Height}.Max + HeaderStyle.Padding.Bottom)
 
         End Get
@@ -1398,7 +1441,8 @@ End Class
             If _Width <> value And Visible Then
                 If value < 2 Then value = 2
                 _Width = {value, MinimumWidth}.Max
-                If Parent IsNot Nothing Then Parent.ColumnsXH()
+                _HeadBounds.Width = _Width
+                Parent?.ColumnsXH()
             End If
         End Set
     End Property
@@ -1411,7 +1455,7 @@ End Class
         Set(ByVal value As Image)
             If Not SameImage(value, _Image) Then
                 _Image = value
-                Parent?.ColumnsXH()
+                Parent?.SizeColumn(Me)
             End If
         End Set
     End Property
@@ -1427,7 +1471,7 @@ End Class
             End If
         End Set
     End Property
-    Private _Filtered As Boolean = True
+    Private _Filtered As Boolean = False
     Friend Property Filtered As Boolean
         Get
             Return _Filtered
@@ -1469,6 +1513,9 @@ End Class
         Parent?.ColumnsXH()
 
     End Sub
+    Private Sub GridStyle_PropertyChanged(sender As Object, e As StyleEventArgs) Handles GridStyle_.PropertyChanged
+        Parent?.Parent?.Invalidate()
+    End Sub
     Private Sub DrawTimer_Tick(sender As Object, e As EventArgs)
         With DirectCast(sender, Timer)
             RemoveHandler .Tick, AddressOf DrawTimer_Tick
@@ -1501,7 +1548,7 @@ End Class
                     For Each row In DTable.AsEnumerable
                         Try
                             row(DColumn) = columnValues(rowCounter)
-                        Catch ex As ARGUMENTexception
+                        Catch ex As ArgumentException
                         End Try
                         rowCounter += 1
                     Next
@@ -1512,6 +1559,23 @@ End Class
                     End With
                 End If
             End If
+            Select Case value
+                Case GetType(Boolean), GetType(Byte), GetType(Short), GetType(Integer), GetType(Long), GetType(Date), GetType(DateAndTime), GetType(Image), GetType(Bitmap), GetType(Icon)
+                    GridStyle_.Alignment = New StringFormat With {
+        .Alignment = StringAlignment.Center,
+        .LineAlignment = StringAlignment.Center}
+
+                Case GetType(Decimal), GetType(Double)
+                    GridStyle_.Alignment = New StringFormat With {
+        .Alignment = StringAlignment.Far,
+        .LineAlignment = StringAlignment.Center}
+
+                Case Else
+                    GridStyle_.Alignment = New StringFormat With {
+        .Alignment = StringAlignment.Near,
+        .LineAlignment = StringAlignment.Center}
+
+            End Select
         End Set
     End Property
     Friend Shared Function Get_kvpFormat(DataType As Type) As KeyValuePair(Of TypeGroup, String)
@@ -1532,8 +1596,7 @@ End Class
                 Return New KeyValuePair(Of TypeGroup, String)(TypeGroup.Times, CultureInfo.DateTimeFormat.FullDateTimePattern)
 
             Case GetType(Decimal), GetType(Double)
-                Dim CultureInfo = Threading.Thread.CurrentThread.CurrentCulture
-                Return New KeyValuePair(Of TypeGroup, String)(TypeGroup.Decimals, CultureInfo.NumberFormat.NumberGroupSeparator)
+                Return New KeyValuePair(Of TypeGroup, String)(TypeGroup.Decimals, "C2")
 
             Case GetType(Image), GetType(Bitmap), GetType(Icon)
                 Return New KeyValuePair(Of TypeGroup, String)(TypeGroup.Images, String.Empty)
@@ -1889,13 +1952,13 @@ End Class
         End Get
         Set(value As Object)
             If value Is Nothing Then
-                _Text = "(null)"
             Else
                 If Value_ IsNot value Then
+
                     _DataType = GetDataType(value)
-                    Select Case DataType
+
+                    Select Case _DataType
                         Case GetType(String)
-                            _Text = value.ToString
 
                         Case GetType(Double), GetType(Decimal)
                             _ValueDecimal = CType(value, Double)
@@ -1904,24 +1967,19 @@ End Class
                                 .CurrencyGroupSeparator = ","
                                 .NumberDecimalDigits = 2
                             End With
-                            _Text = CType(value, Double).ToString("N", CultureInfo)
 
                         Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)
                             _ValueWhole = CType(value, Long)
-                            _Text = Format(value, FormatData.Value)
 
                         Case GetType(Boolean)
                             _ValueBoolean = CType(value, Boolean)
                             _ValueImage = Base64ToImage(If(ValueBoolean, CheckString, UnCheckString))
-                            _Text = value.ToString
 
                         Case GetType(Date), GetType(DateAndTime)
                             _ValueDate = CType(value, Date)
-                            _Text = Format(value, FormatData.Value)
 
                         Case GetType(Image), GetType(Icon)
                             _ValueImage = If(DataType = GetType(Icon), CType(value, Icon).ToBitmap, CType(value, Bitmap))
-                            _Text = ImageToBase64(ValueImage)
                             If Parent.Parent IsNot Nothing Then
                                 With Parent.Parent.RowStyle
                                     'RowStyle is the master - SelectionRowStyle and AlternatingRowStyle must follow Scaling and Height 
@@ -1952,6 +2010,51 @@ End Class
     End Property
     Public ReadOnly Property Name As String
     Public ReadOnly Property Text As String
+        Get
+            If Value Is Nothing Then
+                Return "(null)"
+            Else
+                If IsDBNull(Value) Then
+                    Return "(null)"
+                Else
+                    Select Case Column.DataType
+                        Case GetType(String)
+                            Return Value.ToString
+
+                        Case GetType(Double), GetType(Decimal)
+                            _ValueDecimal = CType(Value, Double)
+                            Dim CultureInfo = New Globalization.CultureInfo("en-US")
+                            With CultureInfo.NumberFormat
+                                .CurrencyGroupSeparator = ","
+                                .NumberDecimalDigits = 2
+                            End With
+                            Return CType(Value, Double).ToString("N", CultureInfo)
+
+                        Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)
+                            _ValueWhole = CType(Value, Long)
+                            Return Format(Value, FormatData.Value)
+
+                        Case GetType(Boolean)
+                            _ValueBoolean = CType(Value, Boolean)
+                            _ValueImage = Base64ToImage(If(ValueBoolean, CheckString, UnCheckString))
+                            Return Value.ToString
+
+                        Case GetType(Date), GetType(DateAndTime)
+                            _ValueDate = CType(Value, Date)
+                            Return Format(Value, FormatData.Value)
+
+                        Case GetType(Image), GetType(Icon)
+                            _ValueImage = If(DataType = GetType(Icon), CType(Value, Icon).ToBitmap, CType(Value, Bitmap))
+                            Return ImageToBase64(ValueImage)
+
+                        Case Else
+                            Return Value.ToString
+
+                    End Select
+                End If
+            End If
+        End Get
+    End Property
     Public ReadOnly Property Index As Integer
     Private _Selected As Boolean
     Public Property Selected As Boolean
@@ -2108,18 +2211,19 @@ End Class
         End Set
     End Property
 
-    Private _Alignment As ContentAlignment = ContentAlignment.MiddleCenter
+    <NonSerialized> Private _Alignment As StringFormat = New StringFormat With {.LineAlignment = StringAlignment.Center,
+        .Alignment = StringAlignment.Center}
     <Browsable(True)>
     <DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)>
     <Category("Layout")>
     <Description("Specifies the object Alignment")>
     <RefreshProperties(RefreshProperties.All)>
-    Public Property Alignment As ContentAlignment
+    Public Property Alignment As StringFormat
         Get
             Return _Alignment
         End Get
-        Set(ByVal value As ContentAlignment)
-            If value <> _Alignment Then
+        Set(ByVal value As StringFormat)
+            If value IsNot _Alignment Then
                 _Alignment = value
                 RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.Alignment))
             End If
@@ -2192,7 +2296,7 @@ End Class
         If other Is Nothing Then
             Return False
         Else
-            Return BackColor = other.BackColor And Font.FontFamily.Name = other.Font.FontFamily.Name And Font.Size = other.Font.Size And Font.Style = other.Font.Style And ForeColor = other.ForeColor And ShadeColor = other.ShadeColor And Alignment = other.Alignment And ImageScaling = other.ImageScaling And Padding = other.Padding
+            Return BackColor = other.BackColor And Font.FontFamily.Name = other.Font.FontFamily.Name And Font.Size = other.Font.Size And Font.Style = other.Font.Style And ForeColor = other.ForeColor And ShadeColor = other.ShadeColor And Alignment.Alignment = other.Alignment.Alignment And Alignment.LineAlignment = other.Alignment.LineAlignment And ImageScaling = other.ImageScaling And Padding = other.Padding
         End If
     End Function
     Public Shared Operator =(ByVal Object1 As CellStyle, ByVal Object2 As CellStyle) As Boolean
