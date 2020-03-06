@@ -213,6 +213,7 @@ Public Class DataViewer
                 End With
 #End Region
 #End Region
+                Dim tipCells As New Dictionary(Of Rectangle, String)
 #Region " DRAW ROWS "
                 If Rows.Any Then
                     Dim Top As Integer = HeaderHeight
@@ -239,6 +240,7 @@ Public Class DataViewer
                                     Dim CellBounds As New Rectangle(.HeadBounds.Left, RowBounds.Top, .HeadBounds.Width, RowBounds.Height)
                                     CellBounds.Offset(-HScroll.Value, 0)
                                     Dim rowCell As Cell = Row.Cells(Column.Name)
+                                    Dim MouseOverCell As Boolean = _MouseData.Cell Is rowCell And _MouseData.CurrentAction = MouseInfo.Action.MouseOverGrid
                                     With rowCell
                                         If MouseData.CurrentAction = MouseInfo.Action.GridSelecting Then .Selected = drawBounds.IntersectsWith(CellBounds)
                                         If .Selected Then   'Already drew the entire row before "DRAW CELLS" Region 
@@ -249,6 +251,13 @@ Public Class DataViewer
                                         If .Value Is Nothing Then
                                             Using NullBrush As New SolidBrush(Color.FromArgb(128, Color.Gainsboro))
                                                 e.Graphics.FillRectangle(NullBrush, CellBounds)
+                                            End Using
+                                            Using textBrush As New SolidBrush(.Style.ForeColor)
+                                                e.Graphics.DrawString("(null)",
+                                                                      If(MouseOverRow, New Font(.Style.Font, FontStyle.Underline), .Style.Font),
+                                                                      textBrush,
+                                                                      CellBounds,
+                                                                      Column.GridStyle.Alignment)
                                             End Using
                                         Else
                                             If .FormatData.Key = Column.TypeGroup.Images Or .FormatData.Key = Column.TypeGroup.Booleans Then
@@ -276,6 +285,14 @@ Public Class DataViewer
                                                 End Using
                                             End If
                                         End If
+                                        If .TipText IsNot Nothing Then
+                                            Dim triangleHeight As Single = 8
+                                            Dim trianglePoints As New List(Of PointF) From {New PointF(CellBounds.Right - triangleHeight, CellBounds.Top),
+                                    New PointF(CellBounds.Right, CellBounds.Top),
+                                    New PointF(CellBounds.Right, CellBounds.Top + triangleHeight)}
+                                            e.Graphics.FillPolygon(Brushes.DarkOrange, trianglePoints.ToArray)
+                                            If MouseOverCell Then tipCells.Add(CellBounds, .TipText)
+                                        End If
                                     End With
                                     ControlPaint.DrawBorder3D(e.Graphics, CellBounds, Border3DStyle.SunkenOuter)
                                 End With
@@ -287,39 +304,56 @@ Public Class DataViewer
                 End If
 #End Region
 #Region " OVERLAYS "
-                Dim copyValue As Integer = DirectCast(CopyTimer.Tag, Integer)
-                If Math.Abs(copyValue) > 0 Then
-                    Using copyBrush As New SolidBrush(Color.FromArgb(208, Color.GhostWhite))
-                        Dim imageOffsetXY As Integer = 3
-                        Dim imageWH As Integer = My.Resources.Copied.Width
-                        Dim bannerWidth As Integer
-                        Dim copyMessage As String = "Copied"
-                        If copyValue < 0 Then
-                            copyMessage = Join({copyMessage, "value", Clipboard.GetText})
-                        Else
-                            copyMessage = Join({copyMessage, copyValue, "row" & If(copyValue = 1, String.Empty, "s")})
-                        End If
-                        If copyMessage.Length >= 30 Then copyMessage = copyMessage.Substring(0, 30) & "..."
-                        Using messageFont = New Font(Font.FontFamily, 15, FontStyle.Bold)
-                            bannerWidth = imageOffsetXY + imageWH + CInt(e.Graphics.MeasureString(copyMessage, messageFont, StringTrimming.None).Width) + imageOffsetXY
-                            Dim bannerSize As New Size(bannerWidth, imageOffsetXY + imageWH + imageOffsetXY)
-                            Dim bannerRectangle As New Rectangle(New Point(imageWH, imageWH), bannerSize)
-                            Dim imageRectangle As New Rectangle(bannerRectangle.Left + imageOffsetXY, bannerRectangle.Top + imageOffsetXY, imageWH, imageWH)
-                            Dim textRectangle As New Rectangle(imageRectangle.Right,
-                                                               bannerRectangle.Top,
-                                                               bannerRectangle.Width - imageOffsetXY - imageRectangle.Width,
-                                                               bannerRectangle.Height)
-                            Using copyPath As GraphicsPath = DrawRoundedRectangle(bannerRectangle, 22)
+                For Each tipCell In tipCells
+                    Dim tipMessage As String = tipCell.Value
+                    Using tipFont = New Font(Font.FontFamily, 15, FontStyle.Regular)
+                        Dim tipSize As SizeF = e.Graphics.MeasureString(tipMessage, tipFont, StringTrimming.None)
+                        Dim tipRectangle As New Rectangle(New Point(tipCell.Key.Right + 28, tipCell.Key.Top - 20), tipSize.ToSize)
+                        tipRectangle.Inflate(8, 8)
+                        Using copyPath As GraphicsPath = DrawSpeechBubble(tipRectangle)
+                            Using backBrush As New SolidBrush(Color.FromArgb(200, Color.GhostWhite))
+                                e.Graphics.FillPath(backBrush, copyPath)
                                 Using copyPen As New Pen(Brushes.DarkGray, 2)
                                     e.Graphics.DrawPath(copyPen, copyPath)
                                 End Using
+                            End Using
+                        End Using
+                        Dim textAlignment As New StringFormat With {.Alignment = StringAlignment.Center, .LineAlignment = StringAlignment.Center, .FormatFlags = StringFormatFlags.NoWrap}
+                        e.Graphics.DrawString(tipMessage, tipFont, Brushes.Black, tipRectangle, textAlignment)
+                    End Using
+                Next
+                Dim copyValue As Integer = DirectCast(CopyTimer.Tag, Integer)
+                If Math.Abs(copyValue) > 0 Then
+                    Dim imageOffsetXY As Integer = 3
+                    Dim imageWH As Integer = My.Resources.Copied.Width
+                    Dim bannerWidth As Integer
+                    Dim copyMessage As String = "Copied"
+                    If copyValue < 0 Then
+                        copyMessage = Join({copyMessage, "value", Clipboard.GetText})
+                    Else
+                        copyMessage = Join({copyMessage, copyValue, "row" & If(copyValue = 1, String.Empty, "s")})
+                    End If
+                    If copyMessage.Length >= 30 Then copyMessage = copyMessage.Substring(0, 30) & "..."
+                    Using messageFont = New Font(Font.FontFamily, 15, FontStyle.Bold)
+                        bannerWidth = imageOffsetXY + imageWH + CInt(e.Graphics.MeasureString(copyMessage, messageFont, StringTrimming.None).Width) + imageOffsetXY
+                        Dim bannerSize As New Size(bannerWidth, imageOffsetXY + imageWH + imageOffsetXY)
+                        Dim bannerRectangle As New Rectangle(New Point(imageWH, imageWH), bannerSize)
+                        Dim imageRectangle As New Rectangle(bannerRectangle.Left + imageOffsetXY, bannerRectangle.Top + imageOffsetXY, imageWH, imageWH)
+                        Dim textRectangle As New Rectangle(imageRectangle.Right,
+                                                               bannerRectangle.Top,
+                                                               bannerRectangle.Width - imageOffsetXY - imageRectangle.Width,
+                                                               bannerRectangle.Height)
+                        Using copyPath As GraphicsPath = DrawRoundedRectangle(bannerRectangle, 22)
+                            Using copyPen As New Pen(Brushes.DarkGray, 2)
+                                e.Graphics.DrawPath(copyPen, copyPath)
+                            End Using
+                            Using copyBrush As New SolidBrush(Color.FromArgb(208, Color.GhostWhite))
                                 e.Graphics.FillPath(copyBrush, copyPath)
                             End Using
-                            e.Graphics.DrawImage(My.Resources.Copied, imageRectangle)
-                            Dim textAlignment As New StringFormat With {.Alignment = StringAlignment.Near, .LineAlignment = StringAlignment.Center, .FormatFlags = StringFormatFlags.NoWrap}
-                            e.Graphics.DrawString(copyMessage, messageFont, Brushes.Black, textRectangle, textAlignment)
-                            bannerRectangle.Inflate(-2, -2)
                         End Using
+                        e.Graphics.DrawImage(My.Resources.Copied, imageRectangle)
+                        Dim textAlignment As New StringFormat With {.Alignment = StringAlignment.Near, .LineAlignment = StringAlignment.Center, .FormatFlags = StringFormatFlags.NoWrap}
+                        e.Graphics.DrawString(copyMessage, messageFont, Brushes.Black, textRectangle, textAlignment)
                     End Using
                 End If
 #End Region
@@ -522,7 +556,7 @@ Public Class DataViewer
                     For Each DataColumn As DataColumn In Table_.Columns
                         columnNames.Add(DataColumn.ColumnName)
                         Dim NewColumn = Columns.Add(New Column(DataColumn))
-                        Columns.SizeColumn(NewColumn)
+                        Columns.ColumnWidth(NewColumn)
                     Next
                     RaiseEvent RowsLoading(Me, New ViewerEventArgs(Table_))
                     For Each row As DataRow In Table.Rows
@@ -549,7 +583,7 @@ Public Class DataViewer
     End Sub
     Private Sub RowTimer_Tick() Handles RowTimer.Tick
         RowTimer.Stop()
-        Columns.AutoSize()
+        Columns.ColumnWidths()
         Invalidate()
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
@@ -733,7 +767,7 @@ Public Class DataViewer
                         Else
                             Dim formerSortOrder = .Column.SortOrder
                             .Column.SortOrder = SortOrder.Ascending
-                            If formerSortOrder = SortOrder.None Then .Column.AutoSize()
+                            If formerSortOrder = SortOrder.None Then .Column.AutoWidth()
 
                         End If
                         Rows.SortBy(.Column)
@@ -792,7 +826,7 @@ Public Class DataViewer
                 'RemoveHandler .Column.Sized, AddressOf ColumnResized
                 'AddHandler .Column.Sized, AddressOf ColumnResized
                 Cursor = Cursors.WaitCursor
-                .Column.AutoSize()
+                .Column.AutoWidth()
                 Invalidate()
 
             ElseIf .CurrentAction = MouseInfo.Action.CellClicked Then
@@ -1159,9 +1193,9 @@ Public Class ColumnCollection
         RaiseEvent CollectionSizingStart(Me, Nothing)
         If Not ColumnsWorker.IsBusy Then ColumnsWorker.RunWorkerAsync()
     End Sub
-    Public Sub AutoSize()
+    Public Sub ColumnWidths()
         For Each Column In Me
-            SizeColumn(Column)
+            ColumnWidth(Column)
         Next
         RaiseEvent CollectionSizingEnd(Me, Nothing)
     End Sub
@@ -1192,13 +1226,13 @@ Public Class ColumnCollection
         If Not IsBusy Then
             _IsBusy = True
             For Each Column In Where(Function(c) c.Visible)
-                SizeColumn(Column, True)
+                ColumnWidth(Column, True)
                 If ColumnsWorker.CancellationPending Then Exit For
             Next
         End If
 
     End Sub
-    Friend Sub SizeColumn(ColumnItem As Column, Optional BackgroundProcess As Boolean = False)
+    Friend Sub ColumnWidth(ColumnItem As Column, Optional BackgroundProcess As Boolean = False)
 
         With ColumnItem
             Dim cellTypes As New List(Of Type)
@@ -1229,9 +1263,10 @@ Public Class ColumnCollection
     End Sub
     Private Sub FormatSizeColumn_Progress(sender As Object, e As ProgressChangedEventArgs) Handles ColumnsWorker.ProgressChanged
 
-        'Can not change the .DataType in the Background Thread
-        With DirectCast(e.UserState, KeyValuePair(Of Column, Type))
-            .Key.DataType = .Value
+        'Can not change the .DataType in the Background Thread *** New *** Null DataType = DON'T CHANGE EXISTING
+        Dim kvp = DirectCast(e.UserState, KeyValuePair(Of Column, Type))
+        With kvp
+            If .Value IsNot Nothing Then .Key.DataType = .Value
         End With
         RaiseEvent ColumnSized(Me(e.ProgressPercentage), Nothing)
 
@@ -1455,7 +1490,7 @@ End Class
         Set(ByVal value As Image)
             If Not SameImage(value, _Image) Then
                 _Image = value
-                Parent?.SizeColumn(Me)
+                Parent?.ColumnWidth(Me)
             End If
         End Set
     End Property
@@ -1523,8 +1558,8 @@ End Class
         End With
         Parent?.Parent?.Invalidate()
     End Sub
-    Public Sub AutoSize()
-        Parent?.SizeColumn(Me)
+    Public Sub AutoWidth()
+        Parent?.ColumnWidth(Me)
     End Sub
     Friend _DataType As Type
     Public Property DataType As Type
@@ -1756,11 +1791,7 @@ Public Class RowCollection
         If Column IsNot Nothing Then
             With Column
                 Select Case .Format.Key
-                    Case Column.TypeGroup.Images
-                        If .SortOrder = SortOrder.Ascending Then Sort(Function(x, y) String.Compare(ImageToBase64(TryCast(x.Cells(.Name).Value, Image)), ImageToBase64(TryCast(y.Cells(.Name).Value, Image)), StringComparison.Ordinal))
-                        If .SortOrder = SortOrder.Descending Then Sort(Function(y, x) String.Compare(ImageToBase64(TryCast(x.Cells(.Name).Value, Image)), ImageToBase64(TryCast(y.Cells(.Name).Value, Image)), StringComparison.Ordinal))
-
-                    Case Column.TypeGroup.Strings
+                    Case Column.TypeGroup.Strings, Column.TypeGroup.Images
                         If .SortOrder = SortOrder.Ascending Then Sort(Function(x, y) String.Compare(x.Cells(.Name).Text, y.Cells(.Name).Text, StringComparison.Ordinal))
                         If .SortOrder = SortOrder.Descending Then Sort(Function(y, x) String.Compare(x.Cells(.Name).Text, y.Cells(.Name).Text, StringComparison.Ordinal))
 
@@ -1790,7 +1821,7 @@ Public Class RowCollection
     Private Sub RowStyle_PropertyChanged(sender As Object, e As StyleEventArgs) Handles RowStyle_.PropertyChanged, AlternatingRowStyle_.PropertyChanged, HeaderStyle_.PropertyChanged
 
         If Not (sender Is Nothing Or e Is Nothing) Then
-            If e.PropertyName = "Height" Then
+            If e.ChangedProperty = CellStyle.Properties.Height Then
                 If sender Is RowStyle Then
                     AlternatingRowStyle_.Height = RowStyle.Height
                     SelectionRowStyle_.Height = RowStyle.Height
@@ -1804,7 +1835,7 @@ Public Class RowCollection
                     RowStyle_.Height = SelectionRowStyle.Height
 
                 End If
-            ElseIf e.PropertyName = "ImageScaling" Then
+            ElseIf e.ChangedProperty = CellStyle.Properties.ImageScaling Then
                 If sender Is RowStyle Then
                     AlternatingRowStyle_.ImageScaling = RowStyle.ImageScaling
                     SelectionRowStyle_.ImageScaling = RowStyle.ImageScaling
@@ -1940,59 +1971,59 @@ End Class
         Parent = cellParent
         Name = columnName
         Index = columnIndex
-        Value = cellValue
+        Value = If(IsDBNull(cellValue), Nothing, cellValue)
     End Sub
     Public ReadOnly Property Parent As Row
     Friend ReadOnly Property DataType As Type
     Friend ReadOnly Property FormatData As KeyValuePair(Of Column.TypeGroup, String)
+    Public Property TipText As String
     Private Value_ As Object
     Public Property Value As Object
         Get
             Return Value_
         End Get
-        Set(value As Object)
-            If value Is Nothing Then
-            Else
-                If Value_ IsNot value Then
+        Set(newValue As Object)
+            If Value_ IsNot newValue Then
 
-                    _DataType = GetDataType(value)
+                _DataType = GetDataType(newValue)
 
-                    Select Case _DataType
-                        Case GetType(String)
+                Select Case _DataType
+                    Case GetType(String)
 
-                        Case GetType(Double), GetType(Decimal)
-                            _ValueDecimal = CType(value, Double)
-                            Dim CultureInfo = New Globalization.CultureInfo("en-US")
-                            With CultureInfo.NumberFormat
-                                .CurrencyGroupSeparator = ","
-                                .NumberDecimalDigits = 2
+                    Case GetType(Double), GetType(Decimal)
+                        _ValueDecimal = CType(newValue, Double)
+                        Dim CultureInfo = New Globalization.CultureInfo("en-US")
+                        With CultureInfo.NumberFormat
+                            .CurrencyGroupSeparator = ","
+                            .NumberDecimalDigits = 2
+                        End With
+
+                    Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)
+                        _ValueWhole = CType(newValue, Long)
+
+                    Case GetType(Boolean)
+                        _ValueBoolean = CType(newValue, Boolean)
+                        _ValueImage = Base64ToImage(If(ValueBoolean, CheckString, UnCheckString))
+
+                    Case GetType(Date), GetType(DateAndTime)
+                        _ValueDate = CType(newValue, Date)
+
+                    Case GetType(Image), GetType(Icon)
+                        If newValue IsNot Nothing Then
+                            _ValueImage = If(DataType = GetType(Icon), CType(newValue, Icon).ToBitmap, CType(newValue, Bitmap))
+                            With Parent?.Parent?.RowStyle
+                                'RowStyle is the master - SelectionRowStyle and AlternatingRowStyle must follow Scaling and Height 
+                                If .ImageScaling = Scaling.GrowParent Then .Height = { .Height, ValueImage.Height}.Max
                             End With
+                        End If
 
-                        Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)
-                            _ValueWhole = CType(value, Long)
-
-                        Case GetType(Boolean)
-                            _ValueBoolean = CType(value, Boolean)
-                            _ValueImage = Base64ToImage(If(ValueBoolean, CheckString, UnCheckString))
-
-                        Case GetType(Date), GetType(DateAndTime)
-                            _ValueDate = CType(value, Date)
-
-                        Case GetType(Image), GetType(Icon)
-                            _ValueImage = If(DataType = GetType(Icon), CType(value, Icon).ToBitmap, CType(value, Bitmap))
-                            If Parent.Parent IsNot Nothing Then
-                                With Parent.Parent.RowStyle
-                                    'RowStyle is the master - SelectionRowStyle and AlternatingRowStyle must follow Scaling and Height 
-                                    If .ImageScaling = Scaling.GrowParent Then .Height = { .Height, ValueImage.Height}.Max
-                                End With
-                            End If
-
-                    End Select
-                    Dim existingFormat = FormatData.Key
-                    _FormatData = Column.Get_kvpFormat(_DataType)
-                    'If Not IsNew And existingFormat <> _FormatData.Key Then Column.Format = Column.Get_kvpFormat(DataType)
-                    If Not IsNew And existingFormat <> _FormatData.Key Then Column.DataType = DataType
-                    Value_ = value
+                End Select
+                Value_ = newValue
+                Dim existingFormat = FormatData.Key
+                _FormatData = Column.Get_kvpFormat(_DataType)
+                If Not IsNew And existingFormat <> _FormatData.Key Then
+                    Column.DataType = DataType
+                    'If Column?.Name.ToUpperInvariant = "PDF" And _DataType = GetType(Image) Then Stop
                 End If
             End If
             IsNew = False
@@ -2012,46 +2043,42 @@ End Class
     Public ReadOnly Property Text As String
         Get
             If Value Is Nothing Then
-                Return "(null)"
+                Return Nothing
             Else
-                If IsDBNull(Value) Then
-                    Return "(null)"
-                Else
-                    Select Case Column.DataType
-                        Case GetType(String)
-                            Return Value.ToString
+                Select Case Column.DataType
+                    Case GetType(String)
+                        Return Value.ToString
 
-                        Case GetType(Double), GetType(Decimal)
-                            _ValueDecimal = CType(Value, Double)
-                            Dim CultureInfo = New Globalization.CultureInfo("en-US")
-                            With CultureInfo.NumberFormat
-                                .CurrencyGroupSeparator = ","
-                                .NumberDecimalDigits = 2
-                            End With
-                            Return CType(Value, Double).ToString("N", CultureInfo)
+                    Case GetType(Double), GetType(Decimal)
+                        _ValueDecimal = CType(Value, Double)
+                        Dim CultureInfo = New Globalization.CultureInfo("en-US")
+                        With CultureInfo.NumberFormat
+                            .CurrencyGroupSeparator = ","
+                            .NumberDecimalDigits = 2
+                        End With
+                        Return CType(Value, Double).ToString("N", CultureInfo)
 
-                        Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)
-                            _ValueWhole = CType(Value, Long)
-                            Return Format(Value, FormatData.Value)
+                    Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)
+                        _ValueWhole = CType(Value, Long)
+                        Return Format(Value, FormatData.Value)
 
-                        Case GetType(Boolean)
-                            _ValueBoolean = CType(Value, Boolean)
-                            _ValueImage = Base64ToImage(If(ValueBoolean, CheckString, UnCheckString))
-                            Return Value.ToString
+                    Case GetType(Boolean)
+                        _ValueBoolean = CType(Value, Boolean)
+                        _ValueImage = Base64ToImage(If(ValueBoolean, CheckString, UnCheckString))
+                        Return Value.ToString
 
-                        Case GetType(Date), GetType(DateAndTime)
-                            _ValueDate = CType(Value, Date)
-                            Return Format(Value, FormatData.Value)
+                    Case GetType(Date), GetType(DateAndTime)
+                        _ValueDate = CType(Value, Date)
+                        Return Format(Value, FormatData.Value)
 
-                        Case GetType(Image), GetType(Icon)
-                            _ValueImage = If(DataType = GetType(Icon), CType(Value, Icon).ToBitmap, CType(Value, Bitmap))
-                            Return ImageToBase64(ValueImage)
+                    Case GetType(Image), GetType(Icon)
+                        _ValueImage = If(DataType = GetType(Icon), CType(Value, Icon).ToBitmap, CType(Value, Bitmap))
+                        Return ImageToBase64(ValueImage)
 
-                        Case Else
-                            Return Value.ToString
+                    Case Else
+                        Return Value.ToString
 
-                    End Select
-                End If
+                End Select
             End If
         End Get
     End Property
@@ -2345,4 +2372,52 @@ End Class
         GC.SuppressFinalize(Me)
     End Sub
 #End Region
+End Class
+Public Class ViewerHelper
+    Private ReadOnly BaseForm As Form
+    Private ReadOnly Viewer As DataViewer
+    Private WithEvents TickTimer As New Timer With {.Interval = 100}
+    Private TimerTicks As Integer
+    Private ReadOnly InvisibleForm As New Form With {.BackColor = Color.Lime,
+        .TransparencyKey = Color.Lime,
+        .FormBorderStyle = FormBorderStyle.None,
+        .Size = New Size(150, 150),
+        .BackgroundImageLayout = ImageLayout.Center,
+        .ShowInTaskbar = False}
+    Public Sub New(viewer As DataViewer, baseForm As Form)
+
+        If viewer IsNot Nothing Then
+            Me.Viewer = viewer
+            Me.BaseForm = baseForm
+            InvisibleForm.Show(baseForm)
+        End If
+
+    End Sub
+    Private Sub TickTimer_Tick(sender As Object, e As EventArgs) Handles TickTimer.Tick
+
+        InvisibleForm.BackgroundImage = DrawProgress(TimerTicks, Color.Red)
+        TimerTicks += 1
+
+    End Sub
+    Public Sub StartTicking()
+
+        TimerTicks = 0
+        TickTimer.Start()
+        With InvisibleForm
+            .Location = CenterItem(.Size)
+            .Visible = True
+            .BackgroundImage = DrawProgress(TimerTicks, Color.Red)
+        End With
+
+    End Sub
+    Public Sub StopTicking()
+
+        TimerTicks = 0
+        TickTimer.Stop()
+        With InvisibleForm
+            .Visible = False
+            .BackgroundImage = Nothing
+        End With
+
+    End Sub
 End Class

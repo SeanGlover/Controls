@@ -1042,7 +1042,7 @@ Public Module Functions
         Return bmp
 
     End Function
-    Public Function DrawRoundedRectangle(ByVal Rect As Rectangle, Optional ByVal Corner As Integer = 10) As System.Drawing.Drawing2D.GraphicsPath
+    Public Function DrawRoundedRectangle(ByVal Rect As Rectangle, Optional ByVal Corner As Integer = 10) As Drawing2D.GraphicsPath
 
         Dim Graphix As New System.Drawing.Drawing2D.GraphicsPath
         Dim ArcRect As New RectangleF(Rect.Location, New SizeF(Corner, Corner))
@@ -1057,6 +1057,35 @@ Public Module Functions
         ArcRect.X = Rect.Left
         Graphix.AddArc(ArcRect, 90, 90)
         Graphix.AddLine(Rect.X, Rect.Y + CInt(Corner / 2), Rect.X, Rect.Y + Rect.Height - CInt(Corner / 2))
+        Return Graphix
+
+    End Function
+    Public Function DrawSpeechBubble(ByVal Rect As Rectangle) As Drawing2D.GraphicsPath
+
+        Dim corner As Single = 22
+
+        Dim Graphix As New System.Drawing.Drawing2D.GraphicsPath
+        Dim ArcRect As New RectangleF(Rect.Location, New SizeF(corner, corner))
+
+        Graphix.AddArc(ArcRect, 180, 90)
+        Graphix.AddLine(Rect.X + CInt(corner / 2), Rect.Y,
+                        Rect.X + Rect.Width - CInt(corner / 2), Rect.Y)
+        ArcRect.X = Rect.Right - corner
+
+        Graphix.AddArc(ArcRect, 270, 90)
+        Graphix.AddLine(Rect.X + Rect.Width, Rect.Y + CInt(corner / 2),
+                        Rect.X + Rect.Width, Rect.Y + Rect.Height - CInt(corner / 2))
+        ArcRect.Y = Rect.Bottom - corner
+
+        Graphix.AddArc(ArcRect, 0, 90)
+        Graphix.AddLine(Rect.X + CInt(corner / 2), Rect.Y + Rect.Height,
+                        Rect.X + Rect.Width - CInt(corner / 2), Rect.Y + Rect.Height)
+        ArcRect.X = Rect.Left
+
+        Graphix.AddArc(ArcRect, 90, 90)
+        Graphix.AddLine(Rect.X - 18, Rect.Y + Rect.Height - (CInt(corner / 2)),
+                        Rect.X, Rect.Y + CInt(corner / 2))
+
         Return Graphix
 
     End Function
@@ -1193,7 +1222,11 @@ Public Module Functions
 
     End Function
     Public Function IsFile(Source As String) As Boolean
-        Return Regex.Match(Source, FilePattern, RegexOptions.IgnoreCase).Success
+        If Source Is Nothing Then
+            Return False
+        Else
+            Return Regex.Match(Source, FilePattern, RegexOptions.IgnoreCase).Success
+        End If
     End Function
     Public Function IsURL(address As String) As Boolean
         Return Regex.Match(address, My.Settings.patternURL, RegexOptions.IgnoreCase).Success
@@ -1412,7 +1445,7 @@ Public Module Functions
                     Return GetType(String)
                 End If
             Else
-                Return GetType(String)
+                Return Nothing
             End If
         End If
 
@@ -1459,84 +1492,88 @@ Public Module Functions
     ''' </summary> 
     Public Function GetDataType(objectValue As Object) As Type
 
-        If objectValue Is Nothing Then
-            Return GetType(String)
+        If IsDBNull(objectValue) Then
+            Return Nothing
         Else
-            If objectValue.GetType Is GetType(String) Then
-                'IsString ( Most common )
-                If {"TRUE", "FALSE"}.Contains(objectValue.ToString.ToUpperInvariant) Then
-                    Return GetType(Boolean)
-                Else
-                    Return GetType(String)
-                End If
+            If objectValue Is Nothing Then
+                Return Nothing
             Else
-                If IsNumeric(objectValue) Then
-                    Dim longNumber As Long
-                    Dim numberString As String = objectValue.ToString
-                    If Long.TryParse(numberString, longNumber) Then
-                        'Is a *** W H O L E *** Number between Byte and Long ... must work up from smallest object
-                        Dim byteNumber As Byte
-                        If Byte.TryParse(numberString, byteNumber) Then
-                            'IsByte
-                            Return GetType(Byte)
-                        Else
-                            Dim shortNumber As Short
-                            If Short.TryParse(numberString, shortNumber) Then
-                                'IsShort
-                                Return GetType(Short)
+                If objectValue.GetType Is GetType(String) Then
+                    'IsString ( Most common )
+                    If {"TRUE", "FALSE"}.Contains(objectValue.ToString.ToUpperInvariant) Then
+                        Return GetType(Boolean)
+                    Else
+                        Return GetType(String)
+                    End If
+                Else
+                    If IsNumeric(objectValue) Then
+                        Dim longNumber As Long
+                        Dim numberString As String = objectValue.ToString
+                        If Long.TryParse(numberString, longNumber) Then
+                            'Is a *** W H O L E *** Number between Byte and Long ... must work up from smallest object
+                            Dim byteNumber As Byte
+                            If Byte.TryParse(numberString, byteNumber) Then
+                                'IsByte
+                                Return GetType(Byte)
                             Else
-                                Dim integerNumber As Integer
-                                If Integer.TryParse(numberString, integerNumber) Then
-                                    'IsInteger
-                                    Return GetType(Integer)
+                                Dim shortNumber As Short
+                                If Short.TryParse(numberString, shortNumber) Then
+                                    'IsShort
+                                    Return GetType(Short)
                                 Else
-                                    'IsLong
-                                    Return GetType(Long)
+                                    Dim integerNumber As Integer
+                                    If Integer.TryParse(numberString, integerNumber) Then
+                                        'IsInteger
+                                        Return GetType(Integer)
+                                    Else
+                                        'IsLong
+                                        Return GetType(Long)
+                                    End If
+                                End If
+                            End If
+                        Else
+                            'Is a *** D E C I M A L *** Number
+                            Dim decimalNumber As Double
+                            If Double.TryParse(numberString, decimalNumber) Then
+                                'IsDecimal
+                                Return GetType(Double)
+                            Else
+                                Dim booleanValue As Boolean
+                                If Boolean.TryParse(numberString, booleanValue) Then
+                                    'IsBoolean
+                                    Return GetType(Boolean)
+                                Else
+                                    Stop
+                                    Return GetType(String)
                                 End If
                             End If
                         End If
                     Else
-                        'Is a *** D E C I M A L *** Number
-                        Dim decimalNumber As Double
-                        If Double.TryParse(numberString, decimalNumber) Then
-                            'IsDecimal
-                            Return GetType(Double)
-                        Else
-                            Dim booleanValue As Boolean
-                            If Boolean.TryParse(numberString, booleanValue) Then
-                                'IsBoolean
-                                Return GetType(Boolean)
+                        'Could be Dates
+                        If objectValue.GetType Is GetType(Date) Then
+                            Dim dateValue As Date = DirectCast(objectValue, Date)
+                            If dateValue.Date = dateValue Then
+                                'IsDate ( No Hours, Minutes, Seconds )
+                                Return GetType(Date)
                             Else
-                                Stop
-                                Return GetType(String)
-                            End If
-                        End If
-                    End If
-                Else
-                    'Could be Dates
-                    If objectValue.GetType Is GetType(Date) Then
-                        Dim dateValue As Date = DirectCast(objectValue, Date)
-                        If dateValue.Date = dateValue Then
-                            'IsDate ( No Hours, Minutes, Seconds )
-                            Return GetType(Date)
-                        Else
-                            'IsDateTime ( Hours, Minutes, Seconds )
-                            Return GetType(DateAndTime)
-                        End If
-                    Else
-                        Dim imageValue As Bitmap = TryCast(objectValue, Bitmap)
-                        If imageValue Is Nothing Then
-                            Dim iconValue As Icon = TryCast(objectValue, Icon)
-                            If iconValue Is Nothing Then
-                                'IsString ( Default )
-                                Return GetType(String)
-                            Else
-                                'IsIcon
-                                Return GetType(Icon)
+                                'IsDateTime ( Hours, Minutes, Seconds )
+                                Return GetType(DateAndTime)
                             End If
                         Else
-                            'IsImage
-                            Return GetType(Image)
+                            Dim imageValue As Bitmap = TryCast(objectValue, Bitmap)
+                            If imageValue Is Nothing Then
+                                Dim iconValue As Icon = TryCast(objectValue, Icon)
+                                If iconValue Is Nothing Then
+                                    'IsString ( Default )
+                                    Return GetType(String)
+                                Else
+                                    'IsIcon
+                                    Return GetType(Icon)
+                                End If
+                            Else
+                                'IsImage
+                                Return GetType(Image)
+                            End If
                         End If
                     End If
                 End If
