@@ -54,6 +54,7 @@ Public Class NodeEventArgs
 End Class
 Public Class TreeViewer
     Inherits Control
+    Private WithEvents GH As New Hooker
     Public WithEvents VScroll As New VScrollBar
     Public WithEvents HScroll As New HScrollBar
     'Private WithEvents NodeTimer As New Threading.Timer(New Threading.TimerCallback(AddressOf NodeTimer_Tick),
@@ -63,7 +64,6 @@ Public Class TreeViewer
     Private WithEvents NodeTimer As New Timer With {.Interval = 200}
     Private WithEvents SizeTimer As New Timer With {.Interval = 100}
     Private WithEvents CursorTimer As New Timer With {.Interval = 300}
-    Private WithEvents OptionsTimer As New Timer With {.Interval = 1500}
     Private WithEvents ScrollTimer As New Timer With {.Interval = 50}
 #Region " TREEVIEW GLOBAL FUNCTIONS (CMS) "
     Private WithEvents TSDD_Options As New ToolStripDropDown With {.AutoClose = False, .Padding = New Padding(0), .DropShadowEnabled = True, .BackColor = Color.Transparent}
@@ -86,9 +86,16 @@ Public Class TreeViewer
 
     Private WithEvents TSMI_NodeEditing As New ToolStripMenuItem With {.Text = "Node Editing Options"}
     Private ReadOnly TLP_NodePermissions As New TableLayoutPanel With {.CellBorderStyle = TableLayoutPanelCellBorderStyle.None, .ColumnCount = 1, .RowCount = 3, .Size = New Size(200, 90), .Margin = New Padding(0)}
-    Private WithEvents IC_NodeAdd As New ImageCombo With {.Size = New Size(200, 28), .Margin = New Padding(0), .HintText = "Add Child Node"}
-    Private WithEvents IC_NodeRemove As New ImageCombo With {.Size = New Size(200, 28), .Text = "Remove Node", .Margin = New Padding(0), .ButtonMode = True, .ButtonHighlightColor = Color.Tomato}
-    Private WithEvents IC_NodeEdit As New ImageCombo With {.Size = New Size(200, 28), .Margin = New Padding(0)}
+    Private WithEvents IC_NodeAdd As New ImageCombo With {.Dock = DockStyle.Fill,
+        .Margin = New Padding(0),
+        .HintText = "Add Child Node"}
+    Private WithEvents IC_NodeRemove As New ImageCombo With {.Dock = DockStyle.Fill,
+        .Text = "Remove Node",
+        .Margin = New Padding(0),
+        .ButtonMode = True,
+        .ButtonHighlightColor = Color.Tomato}
+    Private WithEvents IC_NodeEdit As New ImageCombo With {.Dock = DockStyle.Fill,
+        .Margin = New Padding(0)}
 #End Region
     Private Const CheckHeight As Integer = 14
     Private Const VScrollWidth As Integer = 14
@@ -108,7 +115,7 @@ Public Class TreeViewer
         Mixed
     End Enum
     Private Structure DragInfo
-        Friend Location As Point
+        Friend MousePoints As List(Of Point)
         Friend IsDragging As Boolean
         Friend DragNode As Node
         Friend DropHighlightNode As Node
@@ -134,6 +141,7 @@ Public Class TreeViewer
                 .ImageScaling = ToolStripItemImageScaling.None
                 .Image = Base64ToImage(Edit_String)
                 With TLP_NodePermissions
+                    .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 200})
                     .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 28})
                     .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 28})
                     .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 28})
@@ -141,6 +149,7 @@ Public Class TreeViewer
                     .Controls.Add(IC_NodeAdd, 0, 1)
                     .Controls.Add(IC_NodeRemove, 0, 2)
                 End With
+                TLP.SetSize(TLP_NodePermissions)
                 .DropDownItems.Add(New ToolStripControlHost(TLP_NodePermissions))
                 IC_NodeEdit.Image = Base64ToImage(Edit_String)
                 IC_NodeEdit.DropDown.SelectionColor = Color.Transparent
@@ -343,7 +352,14 @@ Public Class TreeViewer
     End Sub
 #End Region
 #Region " GLOBAL OPTIONS "
-    Public ReadOnly Property OptionsOpen As Boolean
+    Private Sub IC_TextChanged(sender As Object, e As EventArgs) Handles IC_NodeEdit.TextChanged, IC_NodeAdd.TextChanged
+
+        With DirectCast(sender, ImageCombo)
+            TLP_NodePermissions.ColumnStyles(0).Width = {200, .Image.Width + TextRenderer.MeasureText(.Text, .Font).Width + .Image.Width}.Max
+            TLP.SetSize(TLP_NodePermissions)
+        End With
+
+    End Sub
     Private Sub NodeEditingMouseEnter() Handles TSMI_NodeEditing.MouseEnter
         If SelectedNodes.Any Then
             IC_NodeEdit.Text = SelectedNodes.First.Text
@@ -360,16 +376,43 @@ Public Class TreeViewer
             TSMI_MultiSelect.Text = "Single-Select".ToString(InvariantCulture)
         End If
     End Sub
-    Private Sub TreeviewGlobalOptionsOpening() Handles TSDD_Options.Opening
+    Private Sub NodeEditingOptions_Opening() Handles TSMI_NodeEditing.DropDownOpening
+        GH.Subscribe()
+    End Sub
+    Private Sub Hook_Moused() Handles GH.Moused
+
+        Dim CoCOptions As String = If(CursorOverControl(TSDD_Options), "[Y]", "[N]") & " TSDD_Options"
+        Dim CoCNodeEdit As String = If(CursorOverControl(IC_NodeEdit), "[Y]", "[N]") & " IC_NodeEdit"
+        Dim CoCNodeAdd As String = If(CursorOverControl(IC_NodeAdd), "[Y]", "[N]") & " IC_NodeAdd"
+        Dim CoCNodeRemove As String = If(CursorOverControl(IC_NodeRemove), "[Y]", "[N]") & " IC_NodeRemove"
+
+        Dim OverStatus As New List(Of String) From {CoCOptions, CoCNodeEdit, CoCNodeAdd, CoCNodeRemove}
+        Dim NotOvers = OverStatus.Where(Function(o) o.Contains("[N]")).Select(Function(n) Split(n, " ").Last)
+        Dim Overs = OverStatus.Where(Function(o) o.Contains("[Y]")).Select(Function(n) Split(n, " ").Last)
+
+        Dim MessageOver As String
+
+        If Overs.Any Then
+            MessageOver = "Over:" & Join(Overs.ToArray, ",") & ", Not over:" & Join(NotOvers.ToArray, ",")
+
+        Else
+            MessageOver = "Over none, Not over any:" & Join(NotOvers.ToArray, ",")
+            HideOptions()
+            GH.Unsubscribe()
+        End If
+        'RaiseEvent Alert(Me, New AlertEventArgs(MessageOver & " *** " & Now.ToLongTimeString))
+
+    End Sub
+    Private Sub TreeviewGlobalOptions_Opening() Handles TSDD_Options.Opening
 
         _OptionsOpen = True
+
         REM /// TEST IF THE NODE ALLOWS EDITING, ADDS, OR REMOVAL SO AS TO HIDE THE EDIT OPTION IF NONE EXIST
         REM /// TLP_NodePermissions.Controls={1.Edit, 2.Add, 3.Remove}
         Dim SelectedNode As Node = Nothing
         Dim EditVisible As Boolean = False
         Dim AddVisible As Boolean = False
         Dim RemoveVisible As Boolean = False
-        OptionsTimer.Start()
 
         ToggleSelect()
 
@@ -391,7 +434,7 @@ Public Class TreeViewer
 
         End If
         REM /// NOW IT CAN BE DETERMINED IF TSMI_NodeEditing CAN BE VISIBLE
-        If (EditVisible = False And AddVisible = False And RemoveVisible = False) Then
+        If EditVisible = False And AddVisible = False And RemoveVisible = False Then
             TSMI_NodeEditing.Visible = False
 
         Else
@@ -503,19 +546,26 @@ Public Class TreeViewer
 #End Region
 
     End Sub
-    Private Sub NodeTextChanged() Handles IC_NodeEdit.ValueSubmitted
+    Private Sub EditNodeText_ValueSubmitted() Handles IC_NodeEdit.ValueSubmitted
 
         If SelectedNodes.Count = 1 Then
-            Dim TheNode As Node = SelectedNodes.First
-            If TheNode.AllowEdit And IC_NodeEdit.Text <> TheNode.Text Then
-                RaiseEvent NodeEdited(Me, New NodeEventArgs(TheNode, IC_NodeEdit.Text))
-                'TheNode.Text = IC_NodeEdit.Text
+            Dim editNode As Node = SelectedNodes.First
+            If editNode.AllowEdit And IC_NodeEdit.Text <> editNode.Text Then
+                RaiseEvent NodeBeforeEdited(Me, New NodeEventArgs(editNode, IC_NodeEdit.Text))
+                If Not editNode.CancelAction Then
+                    editNode.Text = IC_NodeEdit.Text
+                    RaiseEvent NodeAfterEdited(Me, New NodeEventArgs(editNode, IC_NodeAdd.Text))
+                End If
+
             End If
             TSMI_NodeEditing.HideDropDown()
         End If
+        GH.Unsubscribe()
 
     End Sub
     Private Sub NodeAddRequested() Handles IC_NodeAdd.ValueSubmitted, IC_NodeAdd.ItemSelected
+
+        GH.Unsubscribe()
 
         Dim TheNodes As NodeCollection = Nothing
         If Not SelectedNodes.Any Then
@@ -571,33 +621,10 @@ Public Class TreeViewer
         End If
 
     End Sub
-    Private Sub OptionsTimerTick() Handles OptionsTimer.Tick
-
-        OptionsTimer.Stop()
-        Dim CoCOptions As String = If(CursorOverControl(TSDD_Options), "[Y]", "[N]") & " TSDD_Options"
-        Dim CoCNodeEdit As String = If(CursorOverControl(IC_NodeEdit), "[Y]", "[N]") & " IC_NodeEdit"
-        Dim CoCNodeAdd As String = If(CursorOverControl(IC_NodeAdd), "[Y]", "[N]") & " IC_NodeAdd"
-        Dim CoCNodeRemove As String = If(CursorOverControl(IC_NodeRemove), "[Y]", "[N]") & " IC_NodeRemove"
-
-        Dim OverStatus As New List(Of String) From {CoCOptions, CoCNodeEdit, CoCNodeAdd, CoCNodeRemove}
-        Dim NotOvers = OverStatus.Where(Function(o) o.Contains("[N]")).Select(Function(n) Split(n, " ").Last)
-        Dim Overs = OverStatus.Where(Function(o) o.Contains("[Y]")).Select(Function(n) Split(n, " ").Last)
-
-        Dim MessageOver As String
-
-        _OptionsOpen = Overs.Any
-        If OptionsOpen Then
-            MessageOver = "Over:" & Join(Overs.ToArray, ",") & ", Not over:" & Join(NotOvers.ToArray, ",")
-            OptionsTimer.Start()
-        Else
-            MessageOver = "Over none, Not over any:" & Join(NotOvers.ToArray, ",")
-            HideOptions()
-        End If
-        'RaiseEvent Alert(Me, New AlertEventArgs(MessageOver & " *** " & Now.ToLongTimeString))
-
-    End Sub
     Private Sub HideOptions()
 
+        _OptionsOpen = False
+        GH.Unsubscribe()
         TSDD_Options.AutoClose = True
         TSDD_Options.Hide()
         TSMI_NodeEditing.HideDropDown()
@@ -638,6 +665,7 @@ Public Class TreeViewer
     End Sub
 #End Region
 #Region " PROPERTIES "
+    Public ReadOnly Property OptionsOpen As Boolean
     Private _ExpanderStyle As ExpandStyle = ExpandStyle.PlusMinus
     Public Property ExpanderStyle As ExpandStyle
         Get
@@ -748,7 +776,8 @@ Public Class TreeViewer
     Public Event NodeAfterAdded(ByVal sender As Object, ByVal e As NodeEventArgs)
     Public Event NodeBeforeRemoved(ByVal sender As Object, ByVal e As NodeEventArgs)
     Public Event NodeAfterRemoved(ByVal sender As Object, ByVal e As NodeEventArgs)
-    Public Event NodeEdited(ByVal sender As Object, ByVal e As NodeEventArgs)
+    Public Event NodeBeforeEdited(ByVal sender As Object, ByVal e As NodeEventArgs)
+    Public Event NodeAfterEdited(ByVal sender As Object, ByVal e As NodeEventArgs)
     Public Event NodeDragStart(ByVal sender As Object, ByVal e As NodeEventArgs)
     Public Event NodeDragOver(ByVal sender As Object, ByVal e As NodeEventArgs)
     Public Event NodeDropped(ByVal sender As Object, ByVal e As NodeEventArgs)
@@ -767,7 +796,9 @@ Public Class TreeViewer
         If e IsNot Nothing Then
             Dim HitRegion As HitRegion = HitTest(e.Location)
             Dim HitNode As Node = HitRegion.Node
-            DragData = New DragInfo With {.Location = e.Location, .DragNode = HitNode, .IsDragging = False}
+            DragData = New DragInfo With {.DragNode = HitNode,
+                .IsDragging = False,
+                .MousePoints = New List(Of Point)}
 
             If e.Button = MouseButtons.Right Then
                 Dim ShowLocation As Point = Cursor.Position
@@ -776,8 +807,7 @@ Public Class TreeViewer
                 TSDD_Options.Show(ShowLocation)
             Else
                 HideOptions()
-                If IsNothing(HitNode) Then
-                Else
+                If HitNode IsNot Nothing Then
                     With HitNode
                         Select Case HitRegion.Region
                             Case NodeRegion.Expander
@@ -806,7 +836,6 @@ Public Class TreeViewer
                                     Next
                                 End If
                                 HitNode._Selected = Not HitNode.Selected
-                                'HitNode.BackColor = If(HitNode.Selected, Color.Yellow, Color.GreenYellow)
                                 If e.Button = MouseButtons.Left Then
                                     RaiseEvent NodeClicked(Me, New NodeEventArgs(HitNode))
                                 ElseIf e.Button = MouseButtons.Right Then
@@ -841,8 +870,10 @@ Public Class TreeViewer
 
             ElseIf e.Button = MouseButtons.Left Then
                 With DragData
-                    If Not (IsNothing(.DragNode) Or .IsDragging Or .Location = e.Location) Then OnDragStart(e)
+                    If Not .MousePoints.Contains(e.Location) Then .MousePoints.Add(e.Location)
+                    .IsDragging = If(.DragNode Is Nothing, False, .MousePoints.Count >= 5 And Not .DragNode.Bounds.Contains(.MousePoints.Last))
                     If .IsDragging Then
+                        OnDragStart(e)
                         Dim Data As New DataObject
                         Data.SetData(GetType(Node), .DragNode)
                         MyBase.OnDragOver(New DragEventArgs(Data, 0, e.X, e.Y, DragDropEffects.Copy Or DragDropEffects.Move, DragDropEffects.All))
@@ -859,6 +890,7 @@ Public Class TreeViewer
 
         Cursor = Cursors.Default
         DragData.IsDragging = False
+        DragData.MousePoints.Clear()
         ScrollTimer.Stop()
         MyBase.OnMouseUp(e)
 
@@ -913,8 +945,6 @@ Public Class TreeViewer
     Private Sub OnDragStart(e As MouseEventArgs)
 
         With DragData
-            .Location = e.Location
-            .IsDragging = True
             Dim CursorSize As New Size()
 
             If .DragNode.AllowDragDrop Then

@@ -1892,7 +1892,7 @@ Public Class DataTool
         RemoveScript.State = Script.ViewState.None
 
     End Sub
-    Private Sub ClosedScript_NodeEditClicked(sender As Object, e As NodeEventArgs) Handles Tree_ClosedScripts.NodeEdited
+    Private Sub ClosedScript_NodeEditClicked(sender As Object, e As NodeEventArgs) Handles Tree_ClosedScripts.NodeAfterEdited
 
         Using cb As New CursorBusy
             'USING Now.ToLongTimeString ENSURE NAME<>value AND ACTION IS TAKEN
