@@ -1361,9 +1361,18 @@ Public Module Functions
 
     Public Function EntitiesToString(html As String) As String
 
-        html = Replace(html, "&rsquo;", "'")
-        html = Replace(html, "&rdquo;", """")
-        html = Replace(html, "&reg;", "®")
+        Dim oldHTML As String = html
+        html = Regex.Replace(html, "&rsquo;", "'", RegexOptions.None)
+        html = Regex.Replace(html, "&rdquo;|&amp;quot;", """", RegexOptions.None)
+        'If oldHTML.Contains("Balls in Bubble Tube") Then Stop
+        html = Regex.Replace(html, "&reg;", "®", RegexOptions.None)
+        html = Regex.Replace(html, "&amp;trade;", "™", RegexOptions.None)
+        html = Regex.Replace(html, "&amp; ", "& ", RegexOptions.None)
+        Dim chrMatches = RegexMatches(html, "&#[0-9]{1,3};", RegexOptions.None)
+        For Each chrMatch In chrMatches
+            Dim shortChr As String = Chr(CInt(Regex.Match(chrMatch.Value, "[0-9]{1,3}", RegexOptions.None).Value))
+            html = Regex.Replace(html, "&#[0-9]{1,3};", shortChr, RegexOptions.None)
+        Next
         html = Replace(html, "&agrave;", "à")
         html = Replace(html, "&ndash;", "-")
 
