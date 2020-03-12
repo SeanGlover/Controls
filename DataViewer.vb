@@ -1264,6 +1264,7 @@ Public Class ColumnCollection
             .Width = { .HeadSize.Width, .ContentWidth}.Max
             If BackgroundProcess Then
                 Dim aggregateType As Type = GetDataType(cellTypes)
+                If .Name = "hasImage" Then Stop
                 ColumnsWorker.ReportProgress({0, .Index}.Max, New KeyValuePair(Of Column, Type)(ColumnItem, aggregateType))
             End If
         End With
@@ -2079,8 +2080,17 @@ End Class
                         _ValueDate = CType(Value, Date)
                         Return Format(Value, FormatData.Value)
 
-                    Case GetType(Image), GetType(Icon)
-                        _ValueImage = If(DataType = GetType(Icon), CType(Value, Icon).ToBitmap, CType(Value, Bitmap))
+                    Case GetType(Image)
+                        'If Column.DataType is Image and Value is not
+                        If Column.Format.Key = Column.TypeGroup.Images And FormatData.Key = Column.TypeGroup.Images Then
+
+                        End If
+                        _ValueImage = CType(Value, Bitmap)
+                        Return ImageToBase64(ValueImage)
+
+                    Case GetType(Icon)
+                        'If Column.DataType is Icon and Value is not
+                        _ValueImage = CType(Value, Icon).ToBitmap
                         Return ImageToBase64(ValueImage)
 
                     Case Else

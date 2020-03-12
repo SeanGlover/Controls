@@ -92,8 +92,7 @@ Public Class TreeViewer
     Private WithEvents IC_NodeRemove As New ImageCombo With {.Dock = DockStyle.Fill,
         .Text = "Remove Node",
         .Margin = New Padding(0),
-        .ButtonMode = True,
-        .ButtonHighlightColor = Color.Tomato}
+        .ButtonMode = True}
     Private WithEvents IC_NodeEdit As New ImageCombo With {.Dock = DockStyle.Fill,
         .Margin = New Padding(0)}
 #End Region

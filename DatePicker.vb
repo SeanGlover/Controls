@@ -3,13 +3,26 @@ Option Strict On
 Imports System.Windows.Forms
 Imports System.Drawing
 Imports System.Text.RegularExpressions
+Imports System.ComponentModel
+
 Public Class DatePicker
     Inherits Control
     Friend Toolstrip As New ToolStripDropDown With {.AutoClose = False, .AutoSize = False, .Padding = New Padding(0), .DropShadowEnabled = False, .BackColor = Color.Transparent, .Visible = False}
-#Region " Drop Triangle "
+
+    Private ReadOnly ClearTextImage As Image = Base64ToImage(ClearTextString)
+    Private ClearTextBounds As New Rectangle
+    Private ClearTextDrawBounds As New Rectangle
+    Private ClearRegion As Boolean
+
+    Private ReadOnly DropImage As Image = Base64ToImage(DropString)
+    Private DropBounds As New Rectangle
+    Private DropDrawBounds As New Rectangle
     Private DropRectangle As Rectangle, Points() As Point
-#End Region
-#Region " Constructor "
+    Private DropRegion As Boolean
+
+    Private Field As Integer = 0
+    Private ReadOnly SB As New System.Text.StringBuilder With {.Capacity = 2}
+
     Public Sub New()
         SetStyle(ControlStyles.AllPaintingInWmPaint, True)
         SetStyle(ControlStyles.ContainerControl, True)
@@ -19,6 +32,7 @@ Public Class DatePicker
         SetStyle(ControlStyles.Selectable, True)
         SetStyle(ControlStyles.Opaque, False)
         SetStyle(ControlStyles.UserMouse, True)
+        BackColor = Color.WhiteSmoke
         BackColor = SystemColors.Window
         Size = New Size(200, 25)
         DropDown = New MonthCalendarDropDown(Me)
@@ -27,42 +41,48 @@ Public Class DatePicker
         Toolstrip.Items.Add(New ToolStripControlHost(DropDown))
         MyBase.InitLayout()
     End Sub
-#End Region
-#Region " Drawing "
+
     Protected Overrides Sub OnPaint(ByVal e As PaintEventArgs)
 
         If e IsNot Nothing Then
             e.Graphics.SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
-            e.Graphics.FillRectangle(New SolidBrush(BackColor), ClientRectangle)
+            Using backBrush As New SolidBrush(BackColor)
+                e.Graphics.FillRectangle(backBrush, ClientRectangle)
+            End Using
             Using Brush As New SolidBrush(Color.FromArgb(128, Color.Blue))
                 e.Graphics.FillPolygon(Brush, Points)
             End Using
             Using Pen As New Pen(Brushes.Silver)
                 e.Graphics.DrawLines(Pen, Points)
             End Using
-            If Not SelectionPixelStart = SelectionPixelEnd Then
-                Dim SelectRectangle As Rectangle = New Rectangle(SelectionPixelStart, 2, SelectionPixelEnd - SelectionPixelStart, Height - 4)
-                e.Graphics.FillRectangle(New SolidBrush(Color.FromArgb(60, Color.DarkSlateBlue)), SelectRectangle)
-                e.Graphics.DrawRectangle(Pens.DarkSlateGray, SelectRectangle)
+
+            If Not ValueIsNull Then
+                If Not SelectionPixelStart = SelectionPixelEnd Then
+                    Dim SelectRectangle As Rectangle = New Rectangle(SelectionPixelStart, 2, SelectionPixelEnd - SelectionPixelStart, Height - 4)
+                    Using selectionBrush As New SolidBrush(Color.FromArgb(60, Color.Gainsboro))
+                        e.Graphics.FillRectangle(selectionBrush, SelectRectangle)
+                    End Using
+                    e.Graphics.DrawRectangle(Pens.DarkSlateGray, SelectRectangle)
+                End If
+                TextRenderer.DrawText(e.Graphics, Microsoft.VisualBasic.Format(_Value, _Format), Font, New Point(HOffset, VOffset), ForeColor, TextFormatFlags.NoPadding)
             End If
-            TextRenderer.DrawText(e.Graphics, Microsoft.VisualBasic.Format(_Value, _Format), Font, New Point(HOffset, VOffset), ForeColor, TextFormatFlags.NoPadding)
-            If DropRegion Then
-                Using Brush As New Drawing2D.LinearGradientBrush(DropRectangle, Color.FromArgb(60, Color.AliceBlue), Color.FromArgb(60, Color.LightSkyBlue), linearGradientMode:=Drawing2D.LinearGradientMode.Vertical)
-                    e.Graphics.FillRectangle(Brush, DropRectangle)
+            If DropRegion Or ClearRegion Then
+                Dim regionBounds As Rectangle = If(DropRegion, DropDrawBounds, ClearTextDrawBounds)
+                Using Brush As New Drawing2D.LinearGradientBrush(regionBounds, Color.FromArgb(60, Color.AliceBlue), Color.FromArgb(60, Color.LightSkyBlue), linearGradientMode:=Drawing2D.LinearGradientMode.Vertical)
+                    e.Graphics.FillRectangle(Brush, regionBounds)
                 End Using
                 Using Pen As New Pen(Brushes.SkyBlue)
-                    e.Graphics.DrawRectangle(Pen, DropRectangle)
+                    e.Graphics.DrawRectangle(Pen, regionBounds)
                 End Using
             End If
+            e.Graphics.DrawImage(ClearTextImage, ClearTextBounds)
+            ControlPaint.DrawBorder3D(e.Graphics, ClientRectangle, Border3DStyle.SunkenInner)
         End If
 
     End Sub
-#End Region
+
 #Region " Properties & Fields "
-    Private DropRegion As Boolean
     Friend ReadOnly Property DropDown As MonthCalendarDropDown
-    Private Field As Integer = 0
-    Private ReadOnly SB As New System.Text.StringBuilder With {.Capacity = 2}
     Private ReadOnly Property ValueSections As List(Of String)
         Get
             Return Regex.Split(ValueString, "[^A-Za-z0-9]+").ToList
@@ -97,16 +117,30 @@ Public Class DatePicker
             Return _VOffset
         End Get
     End Property
+    Private ReadOnly Property ValueIsNull As Boolean
+        Get
+            Return Value = Date.MinValue
+        End Get
+    End Property
     Private _Value As Date = Today
+    <Browsable(True)>
+    <DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)>
+    <Category("Layout")>
+    <Description("Displayed date value - An empty value ( Date.Min ) allows for catching a user change")>
+    <RefreshProperties(RefreshProperties.All)>
     Public Property Value As Date
         Get
             Return _Value
         End Get
-        Set(value As Date)
-            If _Value <> value Then
-                _Value = value
-                ResizeMe()
-                Date_Changed(New DateRangeEventArgs(value, value))
+        Set(dateValue As Date)
+            If _Value <> dateValue Then
+                _Value = dateValue
+                If ValueIsNull Then
+                    Text = Nothing
+                Else
+                    ResizeMe()
+                    Date_Changed(New DateRangeEventArgs(dateValue, dateValue))
+                End If
             End If
         End Set
     End Property
@@ -278,12 +312,13 @@ Public Class DatePicker
     Protected Overrides Sub OnMouseMove(e As MouseEventArgs)
 
         If e IsNot Nothing Then
-            If DropRectangle.Contains(e.Location) Then
-                DropRegion = True
-            Else
-                DropRegion = False
+            Dim onDrop As Boolean = DropDrawBounds.Contains(e.Location)
+            Dim onClear As Boolean = ClearTextDrawBounds.Contains(e.Location)
+            If onDrop <> DropRegion Or onClear <> ClearRegion Then
+                DropRegion = onDrop
+                ClearRegion = onClear
+                Invalidate()
             End If
-            Invalidate()
             MyBase.OnMouseMove(e)
         End If
 
@@ -292,18 +327,26 @@ Public Class DatePicker
 
         If e IsNot Nothing Then
             If e.X >= _PixelList.First And e.X <= _PixelList.Last Then
-                Dim Position As Integer = (From I In _PixelList Where e.X <= I).First
-                If Regex.Match(ValueString(_PixelList.Skip(1).ToList.IndexOf(Position)), "[^A-Za-z0-9]+").Length = 0 Then
-                    Field = Regex.Replace(ValueString.Substring(0, _PixelList.IndexOf(Position)), "[A-Za-z0-9]|[ ]", String.Empty).Length
-                    ResizeMe()
+                If Not ValueIsNull Then
+                    Dim Position As Integer = (From I In _PixelList Where e.X <= I).First
+                    If Regex.Match(ValueString(_PixelList.Skip(1).ToList.IndexOf(Position)), "[^A-Za-z0-9]+").Length = 0 Then
+                        Field = Regex.Replace(ValueString.Substring(0, _PixelList.IndexOf(Position)), "[A-Za-z0-9]|[ ]", String.Empty).Length
+                        ResizeMe()
+                    End If
                 End If
             Else
-                If Not DropDown.Visible Then
-                    Dim Coordinates As Point
-                    Coordinates = PointToScreen(New Point(0, 0))
-                    Toolstrip.Show(Coordinates.X, If(Coordinates.Y + DropDown.Height > My.Computer.Screen.WorkingArea.Height, Coordinates.Y - DropDown.Height, Coordinates.Y + Height))
+                'Toggle DropDown --- even if not on DropBounds
+                If ClearRegion Then
+                    Value = Date.MinValue
+
+                ElseIf DropRegion Then
+                    If Not DropDown.Visible Then
+                        Dim Coordinates As Point
+                        Coordinates = PointToScreen(New Point(0, 0))
+                        Toolstrip.Show(Coordinates.X, If(Coordinates.Y + DropDown.Height > My.Computer.Screen.WorkingArea.Height, Coordinates.Y - DropDown.Height, Coordinates.Y + Height))
+                    End If
+                    DropDown.Visible = Not DropDown.Visible
                 End If
-                DropDown.Visible = Not (DropDown.Visible)
             End If
             SB.Clear()
             Invalidate()
@@ -323,6 +366,8 @@ Public Class DatePicker
         Return HOffset + TextRenderer.MeasureText(T, Font).Width - Padding
     End Function
     Private Sub ResizeMe()
+
+        Dim Margin As Integer = 2
         Dim DropArrowW As Integer = 8, DropArrowH As Integer = 4
         DropRectangle = New Rectangle(Width - 1 - 16, 1, 16, Height - 2)
         Dim LeftPt As Integer = DropRectangle.Left + Convert.ToInt32((DropRectangle.Width - DropArrowW) / 2), RightPt As Integer = LeftPt + DropArrowW, MidPt As Integer = LeftPt + Convert.ToInt32(DropArrowW / 2)
@@ -355,21 +400,57 @@ Public Class DatePicker
         Next
         _SelectionPixelStart = _PixelList(Start)
         _SelectionPixelEnd = _PixelList(Start + ValueSections(Field).Length)
+
+#Region " DROPDOWN BOUNDS "
+        'V LOOKS BETTER WHEN NOT RESIZED
+        Dim Padding As Integer = {0, Convert.ToInt32((Height - DropImage.Height) / 2)}.Max     'Might be negative if DropImage.Height > Height
+        DropBounds.X = ClientRectangle.Right - (DropImage.Width + Margin)
+        DropBounds.Y = Padding
+        DropBounds.Width = DropImage.Width
+        DropBounds.Height = {Height, DropImage.Height}.Min
+        DropDrawBounds.X = DropBounds.X : DropDrawBounds.Y = 0 : DropDrawBounds.Width = DropBounds.Width : DropDrawBounds.Height = Height
+#End Region
+#Region " CLEARTEXT BOUNDS "
+        If ValueIsNull Then
+            ClearTextBounds.X = DropBounds.Left
+            ClearTextBounds.Y = 0
+            ClearTextBounds.Width = 0
+            ClearTextBounds.Height = Height
+            ClearTextDrawBounds = ClearTextBounds
+        Else
+            'X LOOKS BETTER WHEN NOT RESIZED
+            ClearTextBounds.X = ClientRectangle.Right - ({DropBounds.Width, ClearTextImage.Width}.Sum + Margin)
+            ClearTextBounds.Y = {0, Convert.ToInt32((Height - ClearTextImage.Height) / 2)}.Max
+            ClearTextBounds.Width = ClearTextImage.Width
+            ClearTextBounds.Height = {Height, ClearTextImage.Height}.Min
+            ClearTextDrawBounds.X = ClearTextBounds.X : ClearTextDrawBounds.Y = 0 : ClearTextDrawBounds.Width = ClearTextBounds.Width : ClearTextDrawBounds.Height = Height
+        End If
+#End Region
+
         Invalidate()
+
     End Sub
 #End Region
     Friend NotInheritable Class MonthCalendarDropDown
         Inherits MonthCalendar
         Public Sub New(DatePicker As DatePicker)
+
+            Application.VisualStyleState = VisualStyles.VisualStyleState.NoneEnabled
             Visible = False
             Margin = New Padding(0)
             MaxSelectionCount = 1
-            _DatePicker = DatePicker
+            Parent = DatePicker
+            Font = DatePicker.Font
+            BackColor = SystemColors.Window
+            AddHandler Parent.FontChanged, AddressOf Parent_FontChanged
+
         End Sub
-#Region " Properties and Fields "
-        Private ReadOnly _DatePicker As DatePicker
-        Private ReadOnly ShadowDepth As Integer = 5
+
+        Private Shadows ReadOnly Parent As DatePicker
+        Private Const ShadowDepth As Integer = 5
+
         Public Property DropShadowColor As Color = Color.Red
+
         Protected _ForceCapture As Boolean
         Protected Property ForceCapture() As Boolean
             Get
@@ -380,11 +461,9 @@ Public Class DatePicker
                 Capture = value
             End Set
         End Property
-#End Region
-#Region " Overrides "
         Protected Overrides Sub OnDateSelected(e As DateRangeEventArgs)
-            _DatePicker.DropDownDate_Changed(e)
-            _DatePicker.Invalidate()
+            Parent.DropDownDate_Changed(e)
+            Parent.Invalidate()
             Visible = False
             MyBase.OnDateSelected(e)
         End Sub
@@ -401,8 +480,8 @@ Public Class DatePicker
         Protected Overrides Sub OnVisibleChanged(e As EventArgs)
             If Visible Then
                 ForceCapture = True
-                SelectionStart = _DatePicker.Value
-                _DatePicker.Toolstrip.Size = Size
+                SelectionStart = Parent.Value
+                Parent.Toolstrip.Size = Size
                 Top = -1
                 Top = 0
                 Dim bmp As New Bitmap(Width + ShadowDepth, Height + ShadowDepth)
@@ -416,13 +495,15 @@ Public Class DatePicker
                     Next
                     Graphics.FillRectangle(Brushes.White, New Rectangle(0, 0, bmp.Width, bmp.Height))
                 End Using
-                _DatePicker.Toolstrip.BackgroundImage = bmp
+                Parent.Toolstrip.BackgroundImage = bmp
             Else
-                If Not IsNothing(_DatePicker) Then _DatePicker.Toolstrip.Size = New Size(0, 0)
+                If Not IsNothing(Parent) Then Parent.Toolstrip.Size = New Size(0, 0)
                 ForceCapture = False
             End If
             MyBase.OnVisibleChanged(e)
         End Sub
-#End Region
+        Private Sub Parent_FontChanged(sender As Object, e As EventArgs)
+            Font = Parent.Font
+        End Sub
     End Class
 End Class

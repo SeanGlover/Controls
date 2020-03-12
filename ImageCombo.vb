@@ -10,12 +10,17 @@ Public NotInheritable Class ImageComboEventArgs
     Public Sub New(ByVal TheComboItem As ComboItem)
         ComboItem = TheComboItem
     End Sub
+    Public Sub New()
+    End Sub
 End Class
 Public NotInheritable Class ImageCombo
     Inherits Control
 
     'Fixes:     Screen Scaling of 125, 150 distorts the CopyFromScreen in DropDown.Protected Overrides Sub OnVisibleChanged(e As EventArgs)
-
+    Private ReadOnly ErrorTip As New ToolTip With {.ToolTipIcon = ToolTipIcon.Error,
+        .BackColor = Color.GhostWhite,
+        .ForeColor = Color.Black,
+        .ShowAlways = False}
     Friend Toolstrip As New ToolStripDropDown With {.AutoClose = False, .AutoSize = False, .Padding = New Padding(0), .DropShadowEnabled = False, .BackColor = Color.Transparent}
     Friend Mouse_Region As New MouseRegion
     Private ImageBounds As New Rectangle
@@ -29,7 +34,6 @@ Public NotInheritable Class ImageCombo
     Private ReadOnly DropImage As Image
     Private DropBounds As New Rectangle
     Private DropDrawBounds As New Rectangle
-    Private DisplayImage As Image
     Private CursorBounds As New Rectangle
     Private SelectionBounds As New Rectangle
     Private WithEvents CursorBlinkTimer As New Timer With {.Interval = 600}
@@ -45,6 +49,11 @@ Public NotInheritable Class ImageCombo
         ClearText
         DropDown
     End Enum
+    <Flags> Enum ValueTypes
+        Any
+        Integers
+        Decimals
+    End Enum
 #End Region
 #Region " INITIALIZE "
     Public Sub New()
@@ -58,6 +67,7 @@ Public NotInheritable Class ImageCombo
         SetStyle(ControlStyles.Opaque, True)
         SetStyle(ControlStyles.UserMouse, True)
         BackColor = Color.WhiteSmoke
+        BackColor = SystemColors.Window
         BorderStyle = Border3DStyle.Flat
         DropDown = New ImageComboDropDown(Me)
         Items = New ItemCollection(Me)
@@ -88,26 +98,29 @@ Public NotInheritable Class ImageCombo
 
         If e IsNot Nothing Then
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
-            Using sb As New SolidBrush(BackColor)
-                e.Graphics.FillRectangle(sb, ClientRectangle)
+            Using backBrush As New SolidBrush(BackColor)
+                e.Graphics.FillRectangle(backBrush, ClientRectangle)
             End Using
-            If Not IsNothing(DisplayImage) Then
-                Using BitmapX As New Bitmap(DisplayImage)
-                    'Dim Color As Color = BitmapX.GetPixel(1, 1)
-                    'BitmapX.MakeTransparent(Color)
-                    e.Graphics.DrawImage(BitmapX, ImageBounds)
-                End Using
-            End If
+
+            If Image IsNot Nothing Then e.Graphics.DrawImage(Image, ImageBounds)
 
             If ButtonMode Then
-#Region " BUTTON STYLE - NEEDS WORK "
-                Dim HighlightBounds As Rectangle = ClientRectangle
-                If InBounds Then
-                    Using lgb As New LinearGradientBrush(HighlightBounds, Color.FromArgb(HighlightOpacity, ButtonHighlightColor), Color.FromArgb(16, ButtonHighlightColor), 2)
-                        e.Graphics.FillRectangle(lgb, HighlightBounds)
-                    End Using
-                End If
-                TextRenderer.DrawText(e.Graphics, Replace(Text, "&", "&&"), Font, TextBounds, ForeColor, TextFormatFlags.NoPadding Or TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
+#Region " BUTTON STYLE - ADD COLORS "
+                e.Graphics.DrawImage(If(InBounds, My.Resources.Button_Bright, My.Resources.Button_Light), ClientRectangle)
+                Dim penTangle As Rectangle = ClientRectangle
+                penTangle.Inflate(-2, -2)
+                penTangle.Offset(-1, -1)
+                Using borderPen As New Pen(If(InBounds, Brushes.LimeGreen, Brushes.DarkGray), 3)
+                    e.Graphics.DrawRectangle(borderPen, penTangle)
+                End Using
+                Dim buttonAlignment As StringFormat = New StringFormat With {
+                    .LineAlignment = StringAlignment.Center,
+                    .Alignment = StringAlignment.Center}
+                e.Graphics.DrawString(Replace(Text, "&", "&&"),
+                                                                          Font,
+                                                                          Brushes.Black,
+                                                                          penTangle,
+                                                                          buttonAlignment)
 #End Region
             Else
 #Region " REGULAR PROPERTIES "
@@ -119,7 +132,7 @@ Public NotInheritable Class ImageCombo
                     e.Graphics.DrawImage(DropImage, DropBounds)
                 End If
 
-                If (PasswordProtected And Not TextIsVisible) Then
+                If PasswordProtected And Not TextIsVisible Then
                     Using Brush As New HatchBrush(HatchStyle.LightUpwardDiagonal, Color.Black, BackColor)
                         e.Graphics.FillRectangle(Brush, New Rectangle(0, 0, TextBounds.Right, Height))
                     End Using
@@ -153,7 +166,6 @@ Public NotInheritable Class ImageCombo
                 End If
 #End Region
             End If
-
             ControlPaint.DrawBorder3D(e.Graphics, ClientRectangle, BorderStyle)
             If HighlightOnFocus And _HasFocus Then
                 Dim PenWidth As Integer = 2
@@ -168,6 +180,91 @@ Public NotInheritable Class ImageCombo
     End Sub
 #End Region
 #Region " PROPERTIES "
+    Public ReadOnly Property ErrorText As String
+        Get
+            If ValueError Then
+                If AcceptValues = ValueTypes.Decimals Then
+                    If Amount > MaxAcceptValue Then
+                        Return Join({"Amount exceeds maximum value of", MaxAcceptValue})
+
+                    ElseIf Amount < MinAcceptValue Then
+                        Return Join({"Amount is below the minimum value of", MinAcceptValue})
+
+                    Else
+                        Return Join({"Typed value is not recognized as a decimal"})
+                    End If
+
+                ElseIf AcceptValues = ValueTypes.Integers Then
+                    If Number > MaxAcceptValue Then
+                        Return Join({"Number exceeds maximum value of", CInt(MaxAcceptValue)})
+
+                    ElseIf Number < MinAcceptValue Then
+                        Return Join({"Number is below the minimum value of", CInt(MaxAcceptValue)})
+
+                    Else
+                        Return Join({"Typed value is not recognized as a whole number"})
+                    End If
+
+                Else 'Any ... duhh
+                    If Text.Length < MinAcceptValue Then
+                        Return Join({"Length of value is below", MinAcceptValue, "characters"})
+                    Else
+                        Return Join({"Length of value exceeds", MaxAcceptValue, "characters"})
+                    End If
+                End If
+            Else
+                Return Nothing
+            End If
+        End Get
+    End Property
+    Public ReadOnly Property ValueError As Boolean
+        Get
+            If Text.Any Then
+                Dim canParse As Boolean
+                If AcceptValues = ValueTypes.Decimals Then
+                    Dim amount As Double
+                    canParse = Double.TryParse(Text, Globalization.NumberStyles.Any, Globalization.CultureInfo.CreateSpecificCulture("en-US"), amount)
+                    Return If(canParse, amount > MaxAcceptValue Or amount < MinAcceptValue, True)
+
+                ElseIf AcceptValues = ValueTypes.Integers Then
+                    Dim number As Long
+                    canParse = Long.TryParse(Text, Globalization.NumberStyles.Any, Globalization.CultureInfo.CreateSpecificCulture("en-US"), number)
+                    Return If(canParse, number > MaxAcceptValue Or number < MinAcceptValue, True)
+
+                Else
+                    Return Text.Length > MaxAcceptValue Or Text.Length < MinAcceptValue
+
+                End If
+            Else
+                Return False
+            End If
+        End Get
+    End Property
+    Public Property AcceptValues As ValueTypes
+    Public Property MaxAcceptValue As Double = Double.MaxValue
+    Public Property MinAcceptValue As Double = -Double.MaxValue
+    Public ReadOnly Property Amount As Double
+        Get
+            Dim _Amount As Double
+            Dim canParse As Boolean = Double.TryParse(Text, Globalization.NumberStyles.Any, Globalization.CultureInfo.CreateSpecificCulture("en-US"), _Amount)
+            If canParse Then
+                Return _Amount
+            Else
+                Return 0
+            End If
+        End Get
+    End Property
+    Public ReadOnly Property Number As Long
+        Get
+            Dim _Number As Long
+            Dim canParse As Boolean = Long.TryParse(Text, Globalization.NumberStyles.Any, Globalization.CultureInfo.CreateSpecificCulture("en-US"), _Number)
+            If canParse Then
+                Return _Number
+            Else
+                Return 0
+            End If
+        End Get
+    End Property
     Public Overrides Function ToString() As String
         Return "ImageCombo.Text=""" & If(Text, String.Empty) & """"
     End Function
@@ -186,22 +283,7 @@ Public NotInheritable Class ImageCombo
     Private _DataType As Type
     Public ReadOnly Property DataType As Type
         Get
-            If Items.Any Then
-                Return _DataType
-            Else
-                Dim Date_ As Date, Decimal_ As Decimal, Integer_ As Integer
-                If Date.TryParse(Text, Date_) Then
-                    Return GetType(Date)
-                ElseIf Integer.TryParse(Text, Integer_) Then
-                    If Decimal.TryParse(Text, Globalization.NumberStyles.Any, Globalization.CultureInfo.CreateSpecificCulture("en-US"), Decimal_) Then
-                        Return GetType(Integer)
-                    Else
-                        Return GetType(Decimal)
-                    End If
-                Else
-                    Return Nothing
-                End If
-            End If
+            Return GetDataType(Text)
         End Get
     End Property
     Private _ButtonMode As Boolean
@@ -211,27 +293,13 @@ Public NotInheritable Class ImageCombo
         End Get
         Set(value As Boolean)
             If Not _ButtonMode = value Then
+                HighlightOnFocus = True
                 _ButtonMode = value
                 Invalidate()
-            End If
-            If ButtonMode And _ButtonHighlightColor = Color.Transparent Then
-                REM /// SET A DEFAULT COLOR
-                _ButtonHighlightColor = Color.CornflowerBlue
             End If
         End Set
     End Property
     Private _ButtonHighlightColor As Color = Color.Transparent
-    Public Property ButtonHighlightColor As Color
-        Get
-            Return Color.FromArgb(HighlightOpacity, _ButtonHighlightColor)
-        End Get
-        Set(value As Color)
-            If Not _ButtonHighlightColor = value Then
-                _ButtonHighlightColor = value
-                Invalidate()
-            End If
-        End Set
-    End Property
     Private _ColorPicker As Boolean
     Public Property ColorPicker As Boolean
         Get
@@ -253,18 +321,6 @@ Public NotInheritable Class ImageCombo
         End Set
     End Property
     Public Property IsReadOnly As Boolean
-    Private _HighlightOpacity As Integer = 64
-    Public Property HighlightOpacity As Integer
-        Get
-            Return _HighlightOpacity
-        End Get
-        Set(value As Integer)
-            If Not _HighlightOpacity = value Then
-                _HighlightOpacity = {{0, value}.Max, 255}.Min
-                Invalidate()
-            End If
-        End Set
-    End Property
     Public ReadOnly Property DropDown As ImageComboDropDown
     Public ReadOnly Property Items As ItemCollection
     Private _DropItems As New List(Of ComboItem)
@@ -293,26 +349,26 @@ Public NotInheritable Class ImageCombo
             End If
         End Set
     End Property
+    Private ReadOnly Property ErrorImage As Image
+        Get
+            Return If(ValueError, My.Resources.lineerror, Nothing)
+        End Get
+    End Property
+    Private ReadOnly Property ComboItemImage As Image
+        Get
+            Return SelectedItem?.Image
+        End Get
+    End Property
     Private _Image As Image
     Public Property Image As Image
         Get
-            Return _Image
+            Dim overrideImage As Image = If(ErrorImage, ComboItemImage)
+            Return If(overrideImage, _Image)
         End Get
         Set(value As Image)
             _Image = value
-            DisplayImage = value
             ResizeMe()
         End Set
-    End Property
-    Public ReadOnly Property Amount As Decimal
-        Get
-            Dim _Amount As Decimal
-            If Decimal.TryParse(Text, _Amount) Then
-                Return _Amount
-            Else
-                Return 0
-            End If
-        End Get
     End Property
     Private _PasswordProtected As Boolean = False
     Public Property PasswordProtected As Boolean
@@ -527,11 +583,6 @@ Public NotInheritable Class ImageCombo
             RaiseEvent SelectionChanged(Me, New ImageComboEventArgs(ComboItem))
             RaiseEvent ValueChanged(Me, New ImageComboEventArgs(ComboItem))
         End If
-        If IsNothing(ComboItem.Image) Then
-            DisplayImage = Image
-        Else
-            DisplayImage = ComboItem.Image
-        End If
         DropDown.Visible = DropDownVisible
         RaiseEvent ItemSelected(Me, New ImageComboEventArgs(ComboItem))
 
@@ -561,17 +612,7 @@ Public NotInheritable Class ImageCombo
 #Region " PROTECTED OVERRIDES "
     Protected Overrides Sub OnLeave(e As EventArgs)
 
-        Select Case DataType
-            Case GetType(Decimal), GetType(Double), GetType(Short), GetType(Integer), GetType(Long)
-                Dim Decimal_ As Decimal
-                If Decimal.TryParse(KeyedValue, Decimal_) Then
-                    RaiseEvent ValueChanged(Me, New ImageComboEventArgs(Nothing))
-                End If
-            Case Else
-                If Not LastValue = KeyedValue Then
-                    RaiseEvent ValueChanged(Me, New ImageComboEventArgs(Nothing))
-                End If
-        End Select
+        If Not LastValue = KeyedValue Then RaiseEvent ValueChanged(Me, New ImageComboEventArgs)
         LastValue = KeyedValue
         MyBase.OnLeave(e)
 
@@ -658,7 +699,7 @@ Public NotInheritable Class ImageCombo
 #End Region
                 ElseIf e.KeyCode = Keys.Enter Then
 #Region " SUBMIT "
-                    RaiseEvent ValueSubmitted(Me, New ImageComboEventArgs(Nothing))
+                    RaiseEvent ValueSubmitted(Me, New ImageComboEventArgs)
 #End Region
                 ElseIf e.KeyCode = Keys.Tab Then
 #Region " TAB FOCUS "
@@ -751,12 +792,12 @@ Public NotInheritable Class ImageCombo
                 TextIsVisible = Not (TextIsVisible)
 
             ElseIf Mouse_Region = MouseRegion.Image Then
-                RaiseEvent ImageClicked(Me, New ImageComboEventArgs(Nothing))
+                RaiseEvent ImageClicked(Me, New ImageComboEventArgs)
 
             ElseIf Mouse_Region = MouseRegion.ClearText Then
                 If IsReadOnly Then Exit Sub
                 Text = String.Empty
-                DisplayImage = Image
+                SelectedIndex = -1
                 ResizeMe()
 
             ElseIf Mouse_Region = MouseRegion.DropDown Then
@@ -837,27 +878,34 @@ Public NotInheritable Class ImageCombo
     Private Sub DropDownItemSelected() Handles Me.ItemSelected
         SelectAll()
     End Sub
+    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Friend Sub ResizeMe() Handles Me.FontChanged, Me.SizeChanged, Me.TextChanged
 
         REM /// REWORK THE BOUNDS ///
         DropDown.Font = Font
+        If ValueError Then
+            ErrorTip.Show(ErrorText.ToString(InvariantCulture), Me)
+        Else
+            ErrorTip.Hide(Me)
+        End If
+
         Dim Margin As Integer = 2
         If Text.Length = 0 Then
             CursorIndex = 0
             SelectionIndex = 0
         End If
 #Region " IMAGE BOUNDS "
-        If IsNothing(DisplayImage) Then
+        If Image Is Nothing Then
             ImageBounds.X = Margin
             ImageBounds.Y = 0
             ImageBounds.Width = 0
             ImageBounds.Height = Height
         Else
-            Dim Padding As Integer = {0, Convert.ToInt32((Height - DisplayImage.Height) / 2)}.Max     'Might be negative if Image.Height > Height
+            Dim Padding As Integer = {0, Convert.ToInt32((Height - Image.Height) / 2)}.Max     'Might be negative if Image.Height > Height
             ImageBounds.X = Margin
             ImageBounds.Y = Padding
-            ImageBounds.Width = DisplayImage.Width
-            ImageBounds.Height = {Height, DisplayImage.Height}.Min
+            ImageBounds.Width = Image.Width
+            ImageBounds.Height = {Height, Image.Height}.Min
         End If
 #End Region
 #Region " DROPDOWN BOUNDS "
@@ -870,7 +918,7 @@ Public NotInheritable Class ImageCombo
         Else
             'V LOOKS BETTER WHEN NOT RESIZED
             Dim Padding As Integer = {0, Convert.ToInt32((Height - DropImage.Height) / 2)}.Max     'Might be negative if DropImage.Height > Height
-            DropBounds.X = ClientRectangle.Right - ({DropImage.Width}.Sum + Margin)
+            DropBounds.X = ClientRectangle.Right - (DropImage.Width + Margin)
             DropBounds.Y = Padding
             DropBounds.Width = DropImage.Width
             DropBounds.Height = {Height, DropImage.Height}.Min
@@ -878,7 +926,7 @@ Public NotInheritable Class ImageCombo
         End If
 #End Region
 #Region " CLEARTEXT BOUNDS "
-        If (Text.Length = 0 Or ButtonMode) Then
+        If Text.Length = 0 Or ButtonMode Then
             ClearTextBounds.X = DropBounds.Left
             ClearTextBounds.Y = 0
             ClearTextBounds.Width = 0
@@ -951,6 +999,7 @@ Public NotInheritable Class ImageCombo
         Invalidate()
 
     End Sub
+    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Private Function GetxPos(Index As Integer) As Integer
         Return LetterWidths({0, {Text.Length, Index}.Min}.Max)
     End Function
@@ -1296,7 +1345,6 @@ Public Class ImageComboDropDown
                     _MouseOverCombo = MouseOverComboItems.First
                     _MouseRowIndex = _MouseOverCombo.Index
                     If Not (If(MouseOverCombo.TipText, String.Empty).Length = 0 Or _LastMouseOverCombo Is _MouseOverCombo) Then
-                        'ToolTip.Show(MouseOverCombo.TipText, Me, MouseOverCombo.Bounds.Right, MouseOverCombo.Bounds.Top, 2000)
                         ToolTip.Hide(ImageCombo)
                         ToolTip.Show(MouseOverCombo.TipText, ImageCombo, 0, 0, 2000)
                         _LastMouseOverCombo = _MouseOverCombo
