@@ -1547,14 +1547,17 @@ Public Class BodyElements
                         Dim Limit As InstructionElement = Element
                         With Limit
                             Dim RowCount As Integer = Integer.Parse(Regex.Match(.Block.Value, "[0-9]{1,}", RegexOptions.None).Value, Globalization.CultureInfo.InvariantCulture)
-                            Dim LimitText As String = DatabaseText.Substring(.Block.Start, .Block.Length)
-                            If LimitText.ToUpper(Globalization.CultureInfo.InvariantCulture).StartsWith("LIMIT", StringComparison.InvariantCulture) Then
-                                DatabaseText = DatabaseText.Remove(.Block.Start, .Block.Length)
-                                DatabaseText = DatabaseText.Insert(.Block.Start, Join({"FETCH FIRST", RowCount.ToString(Globalization.CultureInfo.InvariantCulture), "ROWS ONLY"}))
-                                If Not Regex.Match(DatabaseText, "FETCH\s+FIRST\s+[0-9]{1,9}\s+ROWS\s+ONLY", RegexOptions.IgnoreCase).Success Then
-                                    Stop
+                            Try
+                                Dim LimitText As String = DatabaseText.Substring(.Block.Start, .Block.Length)
+                                If LimitText.ToUpper(Globalization.CultureInfo.InvariantCulture).StartsWith("LIMIT", StringComparison.InvariantCulture) Then
+                                    DatabaseText = DatabaseText.Remove(.Block.Start, .Block.Length)
+                                    DatabaseText = DatabaseText.Insert(.Block.Start, Join({"FETCH FIRST", RowCount.ToString(Globalization.CultureInfo.InvariantCulture), "ROWS ONLY"}))
+                                    If Not Regex.Match(DatabaseText, "FETCH\s+FIRST\s+[0-9]{1,9}\s+ROWS\s+ONLY", RegexOptions.IgnoreCase).Success Then
+                                        Stop
+                                    End If
                                 End If
-                            End If
+                            Catch ex As ArgumentOutOfRangeException
+                            End Try
                         End With
                     End If
                 End If

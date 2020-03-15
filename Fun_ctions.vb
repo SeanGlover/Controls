@@ -1389,112 +1389,7 @@ Public Module Functions
     End Function
 #End Region
 #Region " VALUE TYPES "
-    Public Function GetDataType(Column As DataColumn) As Type
-
-        Dim values As New List(Of Object)(DataColumnToList(Column))
-        Dim valuesType As Type = GetDataType(values) 'TESTING:GetDataType with a Boolean Parameter ... If(Column Is Nothing, String.Empty, Column.ColumnName).EndsWith("_DATE", StringComparison.InvariantCulture)
-        Return valuesType
-
-    End Function
-    Public Function GetDataType(Types As List(Of Type), Optional testing As Boolean = False) As Type
-
-        If Types Is Nothing Then
-            Return Nothing
-        Else
-            Dim distinctTypes As New List(Of Type)((From t In Types Where Not (t Is Nothing Or IsDBNull(t))).Distinct)
-            If distinctTypes.Any Then
-                Dim typeCount As Integer = distinctTypes.Count
-                If testing Then Stop
-
-                If typeCount = 1 Then
-                    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  ONLY 1 TYPE, RETURN IT
-                    Return distinctTypes.First
-
-                Else
-                    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  MULTIPLE TYPES - CHOOSE BEST FIT ex) Date + DateAndTime = DateAndTime, Byte + Short = Short
-                    If distinctTypes.Intersect({GetType(Date), GetType(DateAndTime)}).Count = typeCount Then
-                        Return GetType(DateAndTime)
-                    Else
-                        '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  NUMERIC
-                        If distinctTypes.Intersect({GetType(Byte), GetType(Short), GetType(Integer), GetType(Long), GetType(Double), GetType(Decimal)}).Count = typeCount Then
-                            If distinctTypes.Intersect({GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)}).Count = typeCount Then
-                                '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  MIX OF INTEGER ... DESCEND IN SIZE TO GET LARGEST NECESSARY
-                                If distinctTypes.Contains(GetType(Long)) Then
-                                    Return GetType(Long)
-                                Else
-                                    If distinctTypes.Contains(GetType(Integer)) Then
-                                        Return GetType(Integer)
-                                    Else
-                                        If distinctTypes.Contains(GetType(Short)) Then
-                                            Return GetType(Short)
-                                        Else
-                                            Return GetType(Byte)
-                                        End If
-                                    End If
-                                End If
-                            Else
-                                '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  COULD BE MIX OF INTEGER, DECIMAL, DOUBLE
-                                Return GetType(Double)
-                            End If
-                        Else
-                            If distinctTypes.Intersect({GetType(Image), GetType(Bitmap)}).Count = typeCount Then
-                                '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  IMAGE / BITMAP
-                                Return GetType(Bitmap)
-                            Else
-                                If distinctTypes.Intersect({GetType(Image), GetType(Bitmap), GetType(Icon)}).Any Then
-                                    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  IMAGES DON'T MIX WITH OTHER VALUES AS THEY CAN'T REPRESENTED IN A TEXT FORM
-                                    Return GetType(Object)
-                                Else
-                                    Return GetType(String)
-                                End If
-                            End If
-                        End If
-                    End If
-                    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  STRING AS DEFAULT
-                    Return GetType(String)
-                End If
-            Else
-                Return Nothing
-            End If
-        End If
-
-    End Function
-    Public Function GetDataType(Values As List(Of Object)) As Type
-
-        If Values Is Nothing Then
-            Return Nothing
-        Else
-            Dim Types As New List(Of Type)
-            For Each value In Values
-                If Not (IsDBNull(value) Or IsNothing(value)) Then
-                    Types.Add(GetDataType(value))
-                End If
-            Next
-            Dim BlendedType = GetDataType(Types.Distinct)
-            Return BlendedType
-        End If
-
-    End Function
-    Public Function GetDataType(Types As IEnumerable(Of Type)) As Type
-
-        If Types Is Nothing Then
-            Return Nothing
-        Else
-            Return GetDataType(Types.ToList)
-        End If
-
-    End Function
-    Public Function GetDataType(Types As List(Of String)) As Type
-
-        If Types Is Nothing Then
-            Return Nothing
-        Else
-            Dim typeList = From t In Types Select GetDataType(t)
-            'If Types.Contains("D081") Then Stop
-            Return GetDataType(typeList)
-        End If
-
-    End Function
+    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ D A T A   T Y P E   F R O M   S I N G U L A R   O B J E C T   I N S T A N C E
     ''' <summary>      
     ''' Logic Order - most common to least common ( faster ) <br/>      
     ''' 1] Nothing, 2] String, 3] Integers {a) Byte, b) Short, c) Integer, d) Long}, 4] Decimals 5] Boolean, 6] a) Date (midnight), b) DateAndTime, 7] a) Bitmap, b) Icon<br/>         
@@ -1678,6 +1573,151 @@ Public Module Functions
                     End If
                 End If
             End If
+        End If
+
+    End Function
+    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ D A T A   T Y P E   F R O M   O B J E C T   C O L L E C T I O N
+    Public Function GetDataType(Column As DataColumn) As Type
+
+        Dim values As New List(Of Object)(DataColumnToList(Column))
+        Dim valuesType As Type = GetDataType(values) 'TESTING:GetDataType with a Boolean Parameter ... If(Column Is Nothing, String.Empty, Column.ColumnName).EndsWith("_DATE", StringComparison.InvariantCulture)
+        Return valuesType
+
+    End Function
+    Public Function GetDataType(Values As List(Of Object), Optional Test As Boolean = False) As Type
+
+        If Values Is Nothing Then
+            Return Nothing
+        Else
+            Dim nonNull As New List(Of Object)(From v In Values Where Not (IsDBNull(v) Or IsNothing(v))) 'Null values say nothing about potential Type
+            If nonNull.Any Then
+
+                If Test Then Stop
+
+                Dim Types As New List(Of Type)(From nn In nonNull Select GetDataType(nn))
+                Dim aggregateType As Type = GetDataType(Types.Distinct)
+                If aggregateType Is GetType(String) Then
+                    'Switch String to Boolean ???, Yes if all non-null values are "True" and "False"
+                    Dim tfDictionary As New Dictionary(Of String, List(Of String)) From {
+                {"TRUE", New List(Of String)},
+                {"FALSE", New List(Of String)}
+                }
+                    Dim ynDictionary As New Dictionary(Of String, List(Of String)) From {
+                {"Y", New List(Of String)},
+                {"N", New List(Of String)}
+                }
+                    For Each value In nonNull
+                        Dim upperString As String = value.ToString.ToUpperInvariant
+                        If tfDictionary.ContainsKey(upperString) Then tfDictionary(upperString).Add(upperString)
+                        If ynDictionary.ContainsKey(upperString) Then ynDictionary(upperString).Add(upperString)
+                    Next
+                    Dim tfAll As Boolean = tfDictionary("TRUE").Any And tfDictionary("FALSE").Any And tfDictionary("TRUE").Count + tfDictionary("FALSE").Count = nonNull.Count
+                    Dim ynAll As Boolean = ynDictionary("Y").Any And ynDictionary("N").Any And ynDictionary("Y").Count + ynDictionary("N").Count = nonNull.Count
+                    Return If(tfAll Or ynAll, GetType(Boolean), GetType(String))
+                Else
+                    Dim kvp = Column.Get_kvpFormat(aggregateType)
+                    If kvp.Key = Column.TypeGroup.Integers Then
+                        'Switch whole numbers to Boolean ???, Yes if all non-null values are 0 and 1 ... Maybe add a minimum count restriction of 3 each??? 0.Count=3 and 1.Count=3
+                        Dim booleanDictionary As New Dictionary(Of Long, List(Of Long)) From {
+                {1, New List(Of Long)},
+                {0, New List(Of Long)}
+                }
+                        For Each value In nonNull
+                            Dim longTrueFalse As Long = CLng(value)
+                            If booleanDictionary.ContainsKey(longTrueFalse) Then booleanDictionary(longTrueFalse).Add(longTrueFalse)
+                        Next
+                        Return If(booleanDictionary(0).Any And booleanDictionary(1).Any And booleanDictionary(0).Count + booleanDictionary(1).Count = nonNull.Count, GetType(Boolean), aggregateType)
+                    Else
+                        Return aggregateType
+                    End If
+                End If
+            Else
+                Return Nothing
+            End If
+        End If
+
+    End Function
+    Public Function GetDataType(Types As List(Of String)) As Type
+
+        If Types Is Nothing Then
+            Return Nothing
+        Else
+            Dim typeList = From t In Types Select GetDataType(t)
+            'If Types.Contains("D081") Then Stop
+            Return GetDataType(typeList)
+        End If
+
+    End Function
+    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ D A T A   T Y P E   F R O M   T Y P E   C O L L E C T I O N
+    Public Function GetDataType(Types As List(Of Type), Optional testing As Boolean = False) As Type
+
+        If Types Is Nothing Then
+            Return Nothing
+        Else
+            Dim distinctTypes As New List(Of Type)((From t In Types Where Not (t Is Nothing Or IsDBNull(t))).Distinct)
+            If distinctTypes.Any Then
+                Dim typeCount As Integer = distinctTypes.Count
+                If testing Then Stop
+
+                If typeCount = 1 Then
+                    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  ONLY 1 TYPE, RETURN IT
+                    Return distinctTypes.First
+
+                Else
+                    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  MULTIPLE TYPES - CHOOSE BEST FIT ex) Date + DateAndTime = DateAndTime, Byte + Short = Short
+                    If distinctTypes.Intersect({GetType(Date), GetType(DateAndTime)}).Count = typeCount Then
+                        Return GetType(DateAndTime)
+                    Else
+                        '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  NUMERIC
+                        If distinctTypes.Intersect({GetType(Byte), GetType(Short), GetType(Integer), GetType(Long), GetType(Double), GetType(Decimal)}).Count = typeCount Then
+                            If distinctTypes.Intersect({GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)}).Count = typeCount Then
+                                '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  MIX OF INTEGER ... DESCEND IN SIZE TO GET LARGEST NECESSARY
+                                If distinctTypes.Contains(GetType(Long)) Then
+                                    Return GetType(Long)
+                                Else
+                                    If distinctTypes.Contains(GetType(Integer)) Then
+                                        Return GetType(Integer)
+                                    Else
+                                        If distinctTypes.Contains(GetType(Short)) Then
+                                            Return GetType(Short)
+                                        Else
+                                            Return GetType(Byte)
+                                        End If
+                                    End If
+                                End If
+                            Else
+                                '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  COULD BE MIX OF INTEGER, DECIMAL, DOUBLE
+                                Return GetType(Double)
+                            End If
+                        Else
+                            If distinctTypes.Intersect({GetType(Image), GetType(Bitmap)}).Count = typeCount Then
+                                '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  IMAGE / BITMAP
+                                Return GetType(Bitmap)
+                            Else
+                                If distinctTypes.Intersect({GetType(Image), GetType(Bitmap), GetType(Icon)}).Any Then
+                                    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  IMAGES DON'T MIX WITH OTHER VALUES AS THEY CAN'T REPRESENTED IN A TEXT FORM
+                                    Return GetType(Object)
+                                Else
+                                    Return GetType(String)
+                                End If
+                            End If
+                        End If
+                    End If
+                    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  STRING AS DEFAULT
+                    Return GetType(String)
+                End If
+            Else
+                Return Nothing
+            End If
+        End If
+
+    End Function
+    Public Function GetDataType(Types As IEnumerable(Of Type)) As Type
+
+        If Types Is Nothing Then
+            Return Nothing
+        Else
+            Return GetDataType(Types.ToList)
         End If
 
     End Function
@@ -2977,8 +3017,14 @@ Public NotInheritable Class NativeMethods
     Public Shared Sub WindowShow(hwnd As IntPtr, cmdShow As Integer)
         ShowWindow(hwnd, cmdShow)
     End Sub
-    Public Shared Sub WindowMove(HWND As IntPtr, x As Integer, Y As Integer, Width As Integer, Height As Integer, Repaint As Boolean)
-        MoveWindow(HWND, x, Y, Width, Height, Repaint)
+    Public Shared Sub WindowMove(hwnd As IntPtr, x As Integer, Y As Integer, Width As Integer, Height As Integer, Repaint As Boolean)
+        MoveWindow(hwnd, x, Y, Width, Height, Repaint)
+    End Sub
+    Public Shared Sub WindowMinimize(hwnd As IntPtr)
+        ShowWindow(hwnd, 2)
+    End Sub
+    Public Shared Sub WindowHide(hwnd As IntPtr)
+        ShowWindow(hwnd, 0)
     End Sub
     Private Sub New()
     End Sub

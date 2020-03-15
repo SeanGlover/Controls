@@ -149,14 +149,14 @@ Public Class DataViewer
                     ControlPaint.DrawBorder3D(e.Graphics, HeadFullBounds, Border3DStyle.Sunken)
                     Dim ColumnStart As Integer = ColumnIndex(HScroll.Value)
                     VisibleColumns.Clear()
-                    For ColumnIndex As Integer = ColumnStart To {Columns.Count - 1, ColumnStart + 20}.Min
+                    For ColumnIndex As Integer = ColumnStart To {Columns.Count - 1, ColumnStart + 30}.Min
                         Dim Column As Column = Columns(ColumnIndex)
                         With Column
                             If .Visible Then
                                 Dim HeadBounds As Rectangle = .HeadBounds
                                 HeadBounds.Offset(-HScroll.Value, 0)
-                                VisibleColumns.Add(Column, HeadBounds)
                                 If HeadBounds.Left >= Width Then Exit For
+                                VisibleColumns.Add(Column, HeadBounds)
                                 Using LinearBrush As New LinearGradientBrush(HeadBounds, .HeaderStyle.BackColor, .HeaderStyle.ShadeColor, LinearGradientMode.Vertical)
                                     e.Graphics.FillRectangle(LinearBrush, HeadBounds)
                                 End Using
@@ -259,7 +259,8 @@ Public Class DataViewer
                                                                           Column.GridStyle.Alignment)
                                                 End Using
                                             Else
-                                                If .FormatData.Key = Column.TypeGroup.Images Or .FormatData.Key = Column.TypeGroup.Booleans Then
+                                                Dim cellText As String = .Text 'Getting .Text also Sets the .Image based on the Column.DataType
+                                                If .Column.Format.Key = Column.TypeGroup.Images Or .Column.Format.Key = Column.TypeGroup.Booleans Then
                                                     Dim EdgePadding As Integer = 1 'all sides to ensure Image doesn't touch the edge of the Cell Rectangle
                                                     Dim MaxImageWidth As Integer = CellBounds.Width - EdgePadding * 2
                                                     Dim MaxImageHeight As Integer = CellBounds.Height - EdgePadding * 2
@@ -558,25 +559,27 @@ Public Class DataViewer
 
                 End If
 #End Region
-                If Table_.AsEnumerable.Any Then
-                    Dim startLoad As Date = Now
-                    Dim columnNames As New List(Of String)
-                    For Each DataColumn As DataColumn In Table_.Columns
-                        columnNames.Add(DataColumn.ColumnName)
-                        Dim NewColumn = Columns.Add(New Column(DataColumn))
-                        Columns.ColumnWidth(NewColumn)
-                    Next
-                    RaiseEvent RowsLoading(Me, New ViewerEventArgs(Table_))
-                    For Each row As DataRow In Table.Rows
-                        Rows.Add(New Row(columnNames, row.ItemArray))
-                    Next
+                Dim startLoad As Date = Now
+                Dim columnNames As New List(Of String)
+                For Each DataColumn As DataColumn In Table_.Columns
+                    columnNames.Add(DataColumn.ColumnName)
+                    Dim NewColumn = Columns.Add(New Column(DataColumn))
+                    Columns.ColumnWidth(NewColumn)
+                Next
+                If columnNames.Any Then
+                    If Table_.AsEnumerable.Any Then
+                        RaiseEvent RowsLoading(Me, New ViewerEventArgs(Table_))
+                        For Each row As DataRow In Table.Rows
+                            Rows.Add(New Row(columnNames, row.ItemArray))
+                        Next
+                        _LoadTime = Now.Subtract(startLoad)
+                        RaiseEvent RowsLoaded(Me, New ViewerEventArgs(Table_))
+                        Columns.FormatSize()
+                    End If
+                Else
                     _LoadTime = Now.Subtract(startLoad)
-                    RaiseEvent RowsLoaded(Me, New ViewerEventArgs(Table_))
-                    'Columns.AutoSize()
-                    Columns.FormatSize()
                 End If
             End If
-
         End Set
     End Property
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
@@ -601,7 +604,6 @@ Public Class DataViewer
 
         With DirectCast(sender, Column)
             RaiseEvent Alert(sender, New AlertEventArgs(Join({"Column", .Name, "Index", .ViewIndex, "resized"})))
-            Cursor = Cursors.Default
         End With
 
     End Sub
@@ -1029,6 +1031,7 @@ Public Class ColumnCollection
     Friend Event CollectionSizingEnd(sender As Object, e As EventArgs)
     Friend Event ColumnSized(sender As Object, e As EventArgs)
     Public ReadOnly Property IsBusy As Boolean
+    Private WithEvents AddRemoveTimer As New Timer With {.Interval = 100}
     Private WithEvents ReOrderTimer As New Timer With {.Interval = 100}
     Private ReadOnly MoveColumns As New Dictionary(Of Column, Integer)
     Public Sub New(Viewer As DataViewer)
@@ -1121,16 +1124,34 @@ Public Class ColumnCollection
     Public Shadows Function Remove(ByVal RemoveColumn As Column) As Column
 
         If RemoveColumn IsNot Nothing Then
+            AddRemoveTimer.Start()
             With RemoveColumn
                 .Parent_ = Nothing
                 ._Index = -1
-                ColumnsXH()
             End With
             MyBase.Remove(RemoveColumn)
         End If
         Return RemoveColumn
 
     End Function
+    Public Shadows Function Remove(columnName As String) As Column
+
+        If columnName Is Nothing Then
+            Return Nothing
+        Else
+            Dim columnItem As Column = Item(columnName)
+            If columnItem Is Nothing Then
+                Return Nothing
+            Else
+                Return Remove(columnItem)
+            End If
+        End If
+
+    End Function
+    Private Sub AddRemoveTimer_Tick() Handles AddRemoveTimer.Tick
+        If Not IsBusy Then AddRemoveTimer.Stop()
+        ColumnsXH()
+    End Sub
     Public Shadows Function Contains(ByVal ColumnName As String) As Boolean
         Return Item(ColumnName) IsNot Nothing
     End Function
@@ -1168,13 +1189,7 @@ Public Class ColumnCollection
     End Sub
     Friend Sub Reorder(Column As Column, ViewIndex As Integer)
 
-        ReOrderTimer.Start()
-        MoveColumns.Add(Column, ViewIndex)
-
-    End Sub
-    Private Sub ReOrderTimer_Tick() Handles ReOrderTimer.Tick
-
-        ReOrderTimer.Stop()
+        If Not MoveColumns.ContainsKey(Column) Then MoveColumns.Add(Column, ViewIndex)
         If IsBusy Then
             AddHandler CollectionSizingEnd, AddressOf CanReorder
         Else
@@ -1185,8 +1200,8 @@ Public Class ColumnCollection
     Private Sub CanReorder(sender As Object, e As EventArgs)
 
         RemoveHandler CollectionSizingEnd, AddressOf CanReorder
-        ColumnsXH()
         _IsBusy = True
+        If MoveColumns.Count > 7 Then Stop
         For Each Column In MoveColumns
             Remove(Column.Key)
             Insert(Column.Value, Column.Key)
@@ -1244,9 +1259,11 @@ Public Class ColumnCollection
 
         With ColumnItem
             Dim cellTypes As New List(Of Type)
+            Dim cellValues As New List(Of Object)
             .ContentWidth = .MinimumWidth
             For Each row In Parent.Rows
                 Dim rowCell As Cell = row.Cells(.Name)
+                cellValues.Add(rowCell.Value)
                 If rowCell IsNot Nothing Then
                     cellTypes.Add(rowCell.DataType)
                     If rowCell.ValueImage Is Nothing Then
@@ -1263,9 +1280,11 @@ Public Class ColumnCollection
             Next
             .Width = { .HeadSize.Width, .ContentWidth}.Max
             If BackgroundProcess Then
-                Dim aggregateType As Type = GetDataType(cellTypes)
-                If .Name = "hasImage" Then Stop
-                ColumnsWorker.ReportProgress({0, .Index}.Max, New KeyValuePair(Of Column, Type)(ColumnItem, aggregateType))
+                'Dim aggregateDataType As Type = GetDataType(cellTypes, .Name = "COMPANY")
+                Dim aggregateValueType As Type = GetDataType(cellValues)
+                'If .Name = "IBMDIV" Then Stop
+                'If .Name = "COMPANY" Then Stop
+                ColumnsWorker.ReportProgress({0, .Index}.Max, New KeyValuePair(Of Column, Type)(ColumnItem, aggregateValueType))
             End If
         End With
 
@@ -1316,6 +1335,7 @@ Public Class ColumnCollection
                 ColumnsWorker.Dispose()
                 HeaderStyle_.Dispose()
                 ReOrderTimer.Dispose()
+                AddRemoveTimer.Dispose()
             End If
             ' TODO: free unmanaged resources (unmanaged objects) and override Finalize() below.
             ' TODO: set large fields to null.
@@ -1384,7 +1404,7 @@ End Class
             End If
         End Get
         Set(value As Integer)
-            If Parent IsNot Nothing Then Parent.Reorder(Me, value)
+            Parent?.Reorder(Me, value)
         End Set
     End Property
     Private _Name As String
@@ -1535,7 +1555,8 @@ End Class
         Set(value As SortOrder)
             If Not value = _SortOrder Then
                 _SortOrder = value
-                Parent?.ColumnsXH()
+                Parent?.Parent?.Rows.SortBy(Me)
+                Parent?.ColumnWidth(Me)
             End If
         End Set
     End Property
@@ -1805,21 +1826,21 @@ Public Class RowCollection
                         If .SortOrder = SortOrder.Descending Then Sort(Function(y, x) String.Compare(x.Cells(.Name).Text, y.Cells(.Name).Text, StringComparison.Ordinal))
 
                     Case Column.TypeGroup.Integers
-                        If .SortOrder = SortOrder.Ascending Then Sort(Function(x, y) Convert.ToInt64(x.Cells(.Name).Value, InvariantCulture).CompareTo(Convert.ToInt64(y.Cells(.Name).Value, InvariantCulture)))
-                        If .SortOrder = SortOrder.Descending Then Sort(Function(y, x) Convert.ToInt64(x.Cells(.Name).Value, InvariantCulture).CompareTo(Convert.ToInt64(y.Cells(.Name).Value, InvariantCulture)))
+                        If .SortOrder = SortOrder.Ascending Then Sort(Function(x, y) x.Cells(.Name).ValueWhole.CompareTo(y.Cells(.Name).ValueWhole))
+                        If .SortOrder = SortOrder.Descending Then Sort(Function(y, x) x.Cells(.Name).ValueWhole.CompareTo(y.Cells(.Name).ValueWhole))
 
 
                     Case Column.TypeGroup.Decimals
-                        If .SortOrder = SortOrder.Ascending Then Sort(Function(x, y) Convert.ToDecimal(x.Cells(.Name).Value, InvariantCulture).CompareTo(Convert.ToDecimal(y.Cells(.Name).Value, InvariantCulture)))
-                        If .SortOrder = SortOrder.Descending Then Sort(Function(y, x) Convert.ToDecimal(x.Cells(.Name).Value, InvariantCulture).CompareTo(Convert.ToDecimal(y.Cells(.Name).Value, InvariantCulture)))
+                        If .SortOrder = SortOrder.Ascending Then Sort(Function(x, y) x.Cells(.Name).ValueDecimal.CompareTo(y.Cells(.Name).ValueDecimal))
+                        If .SortOrder = SortOrder.Descending Then Sort(Function(y, x) x.Cells(.Name).ValueDecimal.CompareTo(y.Cells(.Name).ValueDecimal))
 
                     Case Column.TypeGroup.Dates, Column.TypeGroup.Times
-                        If .SortOrder = SortOrder.Ascending Then Sort(Function(x, y) Convert.ToDateTime(x.Cells(.Name).Value, InvariantCulture).CompareTo(Convert.ToDateTime(y.Cells(.Name).Value, InvariantCulture)))
-                        If .SortOrder = SortOrder.Descending Then Sort(Function(y, x) Convert.ToDateTime(x.Cells(.Name).Value, InvariantCulture).CompareTo(Convert.ToDateTime(y.Cells(.Name).Value, InvariantCulture)))
+                        If .SortOrder = SortOrder.Ascending Then Sort(Function(x, y) x.Cells(.Name).ValueDate.CompareTo(y.Cells(.Name).ValueDate))
+                        If .SortOrder = SortOrder.Descending Then Sort(Function(y, x) x.Cells(.Name).ValueDate.CompareTo(y.Cells(.Name).ValueDate))
 
                     Case Column.TypeGroup.Booleans
-                        If .SortOrder = SortOrder.Ascending Then Sort(Function(x, y) Convert.ToBoolean(x.Cells(.Name).Value, InvariantCulture).CompareTo(Convert.ToBoolean(y.Cells(.Name).Value, InvariantCulture)))
-                        If .SortOrder = SortOrder.Descending Then Sort(Function(y, x) Convert.ToBoolean(x.Cells(.Name).Value, InvariantCulture).CompareTo(Convert.ToBoolean(y.Cells(.Name).Value, InvariantCulture)))
+                        If .SortOrder = SortOrder.Ascending Then Sort(Function(x, y) x.Cells(.Name).ValueBoolean.CompareTo(y.Cells(.Name).ValueBoolean))
+                        If .SortOrder = SortOrder.Descending Then Sort(Function(y, x) x.Cells(.Name).ValueBoolean.CompareTo(y.Cells(.Name).ValueBoolean))
 
                 End Select
             End With
@@ -2072,7 +2093,8 @@ End Class
                         Return Format(Value, FormatData.Value)
 
                     Case GetType(Boolean)
-                        _ValueBoolean = CType(Value, Boolean)
+                        'Value could be either "Y"|"N"|"True"|"False"|0|1|True|False ... If Column.DataType is Boolean with String Or Integer values, likely from Columns.ColumnWidth
+                        _ValueBoolean = {"Y", "TRUE", "1"}.Contains(Value.ToString.ToUpperInvariant)
                         _ValueImage = Base64ToImage(If(ValueBoolean, CheckString, UnCheckString))
                         Return Value.ToString
 
@@ -2081,17 +2103,28 @@ End Class
                         Return Format(Value, FormatData.Value)
 
                     Case GetType(Image)
-                        'If Column.DataType is Image and Value is not
-                        If Column.Format.Key = Column.TypeGroup.Images And FormatData.Key = Column.TypeGroup.Images Then
-
+                        'Column.DataType is Image ... Cell.FormatData might not be
+                        If FormatData.Key = Column.TypeGroup.Images Then
+                            'Cell.FormatData = Column.Format - compatible
+                            _ValueImage = CType(Value, Bitmap)
+                            Return ImageToBase64(ValueImage)
+                        Else
+                            'Cell.FormatData <> Column.Format - incompatible
+                            _ValueImage = Nothing
+                            Return Nothing
                         End If
-                        _ValueImage = CType(Value, Bitmap)
-                        Return ImageToBase64(ValueImage)
 
                     Case GetType(Icon)
-                        'If Column.DataType is Icon and Value is not
-                        _ValueImage = CType(Value, Icon).ToBitmap
-                        Return ImageToBase64(ValueImage)
+                        'Column.DataType is Icon ... Cell.FormatData might not be
+                        If FormatData.Key = Column.TypeGroup.Images Then
+                            'Cell.FormatData = Column.Format - compatible
+                            _ValueImage = CType(Value, Icon)?.ToBitmap
+                            Return ImageToBase64(ValueImage)
+                        Else
+                            'Cell.FormatData <> Column.Format - incompatible
+                            _ValueImage = Nothing
+                            Return Nothing
+                        End If
 
                     Case Else
                         Return Value.ToString
@@ -2405,6 +2438,7 @@ Public Class ViewerHelper
     Public Sub New(viewer As DataViewer, baseForm As Form)
 
         If viewer IsNot Nothing Then
+            TickColor = Color.Red
             Me.Viewer = viewer
             Me.BaseForm = baseForm
             InvisibleForm.Show(baseForm)
@@ -2413,10 +2447,11 @@ Public Class ViewerHelper
     End Sub
     Private Sub TickTimer_Tick(sender As Object, e As EventArgs) Handles TickTimer.Tick
 
-        InvisibleForm.BackgroundImage = DrawProgress(TimerTicks, Color.Red)
+        InvisibleForm.BackgroundImage = DrawProgress(TimerTicks, TickColor)
         TimerTicks += 1
 
     End Sub
+    Public Property TickColor As Color
     Public Sub StartTicking()
 
         TimerTicks = 0
