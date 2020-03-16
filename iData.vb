@@ -4547,10 +4547,17 @@ Public Module iData
 
         Dim Columns As New List(Of String)(Split(HeaderRow, Delimiter))
         Dim Rows As New List(Of String())(From CR In BodyRows Select Split(CR, Delimiter))
-        Dim ColumnTypes = (From C In Columns Select New With {.Name = C, .DataType = GetDataType((From R In Rows Select R(Columns.IndexOf(C))).Take(1000).ToList)})
 
-        For Each Column In ColumnTypes
-            TextTable.Columns.Add(New DataColumn With {.ColumnName = Column.Name, .DataType = Column.DataType})
+        Dim columnIndex As Integer = 0
+        For Each column In Columns
+            Dim columnValues As New List(Of String)(From R In Rows Select R(columnIndex))
+            Dim columnType As Type = GetDataType(columnValues.Take(1000).ToList, column = "INVDATE")
+            columnType = If(columnType Is GetType(DateAndTime), GetType(Date), columnType) 'DateAndTime is a kind of Flag for the DataViewer but is actually Date
+            TextTable.Columns.Add(New DataColumn With {
+                                  .ColumnName = column,
+                                  .DataType = columnType})
+            'If column = "INVDATE" Then Stop
+            columnIndex += 1
         Next
         For Each Row In Rows
             TextTable.Rows.Add(Row)

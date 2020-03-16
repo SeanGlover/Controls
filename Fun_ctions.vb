@@ -1637,14 +1637,16 @@ Public Module Functions
         End If
 
     End Function
-    Public Function GetDataType(Types As List(Of String)) As Type
+    Public Function GetDataType(Types As List(Of String), Optional test As Boolean = False) As Type
 
         If Types Is Nothing Then
             Return Nothing
         Else
             Dim typeList = From t In Types Select GetDataType(t)
+            Dim aggregateType As Type = GetDataType(typeList.ToList)
+            'If test Then Stop
             'If Types.Contains("D081") Then Stop
-            Return GetDataType(typeList)
+            Return aggregateType
         End If
 
     End Function
@@ -3431,5 +3433,90 @@ Public NotInheritable Class ClipboardHelper
             count += Encoding.UTF8.GetByteCount(_byteCount)
         Next
         Return count
+    End Function
+End Class
+
+<Serializable>
+Public Class StringDictionary
+    Implements IDictionary(Of String, Object)
+    Protected Sub New(serializationInfo As Runtime.Serialization.SerializationInfo, streamingContext As Runtime.Serialization.StreamingContext)
+        Throw New NotImplementedException()
+    End Sub
+
+    Default Public Property Item(key As String) As Object Implements IDictionary(Of String, Object).Item
+        Get
+            Throw New NotImplementedException()
+        End Get
+        Set(value As Object)
+            Throw New NotImplementedException()
+        End Set
+    End Property
+
+    Public ReadOnly Property Keys As ICollection(Of String) Implements IDictionary(Of String, Object).Keys
+        Get
+            Throw New NotImplementedException()
+        End Get
+    End Property
+
+    Public ReadOnly Property Values As ICollection(Of Object) Implements IDictionary(Of String, Object).Values
+        Get
+            Throw New NotImplementedException()
+        End Get
+    End Property
+
+    Public ReadOnly Property Count As Integer Implements ICollection(Of KeyValuePair(Of String, Object)).Count
+        Get
+            Throw New NotImplementedException()
+        End Get
+    End Property
+
+    Public ReadOnly Property IsReadOnly As Boolean Implements ICollection(Of KeyValuePair(Of String, Object)).IsReadOnly
+        Get
+            Throw New NotImplementedException()
+        End Get
+    End Property
+
+    Public Sub Add(key As String, value As Object) Implements IDictionary(Of String, Object).Add
+        Throw New NotImplementedException()
+    End Sub
+
+    Public Sub Add(item As KeyValuePair(Of String, Object)) Implements ICollection(Of KeyValuePair(Of String, Object)).Add
+        Throw New NotImplementedException()
+    End Sub
+
+    Public Sub Clear() Implements ICollection(Of KeyValuePair(Of String, Object)).Clear
+        Throw New NotImplementedException()
+    End Sub
+
+    Public Sub CopyTo(array() As KeyValuePair(Of String, Object), arrayIndex As Integer) Implements ICollection(Of KeyValuePair(Of String, Object)).CopyTo
+        Throw New NotImplementedException()
+    End Sub
+
+    Public Function ContainsKey(key As String) As Boolean Implements IDictionary(Of String, Object).ContainsKey
+        Throw New NotImplementedException()
+    End Function
+
+    Public Function Remove(key As String) As Boolean Implements IDictionary(Of String, Object).Remove
+        Throw New NotImplementedException()
+    End Function
+
+    Public Function Remove(item As KeyValuePair(Of String, Object)) As Boolean Implements ICollection(Of KeyValuePair(Of String, Object)).Remove
+        Throw New NotImplementedException()
+    End Function
+
+    Public Function TryGetValue(key As String, ByRef value As Object) As Boolean Implements IDictionary(Of String, Object).TryGetValue
+        Throw New NotImplementedException()
+    End Function
+
+    Public Function Contains(item As KeyValuePair(Of String, Object)) As Boolean Implements ICollection(Of KeyValuePair(Of String, Object)).Contains
+        Throw New NotImplementedException()
+    End Function
+
+    Public Function GetEnumerator() As IEnumerator(Of KeyValuePair(Of String, Object)) Implements IEnumerable(Of KeyValuePair(Of String, Object)).GetEnumerator
+        Throw New NotImplementedException()
+    End Function
+
+    Private Function IEnumerable_GetEnumerator() As IEnumerator Implements IEnumerable.GetEnumerator
+        Throw New NotImplementedException()
     End Function
 End Class

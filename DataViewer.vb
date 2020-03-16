@@ -247,7 +247,8 @@ Public Class DataViewer
                                                     e.Graphics.FillRectangle(LinearBrush, CellBounds)
                                                 End Using
                                             End If
-                                            If .Value Is Nothing Then
+                                            'If .Column.Name = "SHIPDATE" Then Stop
+                                            If .Value Is Nothing Or .Text = Date.MinValue.ToShortDateString Then
                                                 Using NullBrush As New SolidBrush(Color.FromArgb(128, Color.Gainsboro))
                                                     e.Graphics.FillRectangle(NullBrush, CellBounds)
                                                 End Using
@@ -259,6 +260,10 @@ Public Class DataViewer
                                                                           Column.GridStyle.Alignment)
                                                 End Using
                                             Else
+                                                '///////////  KNOWN ISSUES
+                                                '///////////  CHANGING A NON-IMAGE VALUE TO AN IMAGE WILL SWITCH THE COLUMN FORMAT TO IMAGES WHICH THROWS AN ERROR @ Dim ImageWidth As Integer
+                                                '///////////  ALSO FILLING A DATATABLE WITH IMAGES BEFORE SETTING TO THE DATAVIEWER.DATASOURCE WON'T SET THE ROWHEIGHT CORRECTLY
+
                                                 Dim cellText As String = .Text 'Getting .Text also Sets the .Image based on the Column.DataType
                                                 If .Column.Format.Key = Column.TypeGroup.Images Or .Column.Format.Key = Column.TypeGroup.Booleans Then
                                                     Dim EdgePadding As Integer = 1 'all sides to ensure Image doesn't touch the edge of the Cell Rectangle
@@ -2041,10 +2046,12 @@ End Class
                     Case GetType(Image), GetType(Icon)
                         If newValue IsNot Nothing Then
                             _ValueImage = If(DataType = GetType(Icon), CType(newValue, Icon).ToBitmap, CType(newValue, Bitmap))
-                            With Parent?.Parent?.RowStyle
-                                'RowStyle is the master - SelectionRowStyle and AlternatingRowStyle must follow Scaling and Height 
-                                If .ImageScaling = Scaling.GrowParent Then .Height = { .Height, ValueImage.Height}.Max
-                            End With
+                            If Parent?.Parent?.RowStyle IsNot Nothing Then
+                                With Parent.Parent.RowStyle
+                                    'RowStyle is the master - SelectionRowStyle and AlternatingRowStyle must follow Scaling and Height 
+                                    If .ImageScaling = Scaling.GrowParent Then .Height = { .Height, ValueImage.Height}.Max
+                                End With
+                            End If
                         End If
 
                 End Select
