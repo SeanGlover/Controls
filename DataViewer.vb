@@ -2431,40 +2431,180 @@ End Class
     End Sub
 #End Region
 End Class
+
+Public Class InvisibleForm
+    Inherits Form
+    Private Const WM_NCACTIVATE As Integer = &H86
+    Private Const WM_NCPAINT As Integer = &H85
+
+    Public Property BorderColor As Color = Color.Black
+    Public Property TitleImage As Image
+    Public Property ImageAlign As HorizontalAlignment = HorizontalAlignment.Left
+    Private ReadOnly Property TitleFont As New Font("Segoe UI", 9)
+    Private ReadOnly Property TitleBarHeight As Integer
+        Get
+            Dim ScreenRectangle As Rectangle = RectangleToScreen(ClientRectangle)
+            Return (ScreenRectangle.Top - Top)
+        End Get
+    End Property
+    Private ReadOnly Property TitleBarBounds As Rectangle
+        Get
+            Return New Rectangle(0, 0, Width, TitleBarHeight)
+        End Get
+    End Property
+
+    Public Sub New()
+
+        ControlBox = False
+        BackColor = Color.Lime
+        TransparencyKey = Color.Lime
+        FormBorderStyle = FormBorderStyle.None
+        BackgroundImageLayout = ImageLayout.Center
+        ShowInTaskbar = False
+        TitleImage = My.Resources.Plus
+
+    End Sub
+
+    Protected Overrides Sub OnTextChanged(e As EventArgs)
+
+        If Text Is Nothing Then
+            FormBorderStyle = FormBorderStyle.None
+        Else
+            FormBorderStyle = FormBorderStyle.FixedSingle
+        End If
+
+    End Sub
+    Protected Overloads Overrides ReadOnly Property CreateParams() As CreateParams
+        Get
+            Dim cp As CreateParams = MyBase.CreateParams
+            'cp.ExStyle = cp.ExStyle Or 33554432
+            cp.ClassStyle = cp.ClassStyle Or &H200
+            Return cp
+        End Get
+    End Property
+
+#Region " PAINT "
+    Protected Overrides Sub WndProc(ByRef m As Message)
+
+        If m.Msg = WM_NCPAINT Then
+            DrawTitleBar(True)
+            Invalidate()
+        Else
+            MyBase.WndProc(m)
+            If m.Msg = WM_NCACTIVATE Then
+                DrawTitleBar(False)
+                Invalidate()
+            End If
+        End If
+
+    End Sub
+    Private Sub DrawTitleBar(ByVal DrawForm As Boolean)
+
+        Dim hdc As IntPtr = NativeMethods.GetWindowDC(Handle)
+        Using g As Graphics = Graphics.FromHdc(hdc)
+            g.SmoothingMode = SmoothingMode.AntiAlias
+            Using BC As New SolidBrush(Color.WhiteSmoke)
+                g.FillRectangle(BC, New RectangleF(0, 0, Width, Height))
+            End Using
+            Using BC As New SolidBrush(BorderColor)
+                g.FillRectangle(BC, TitleBarBounds)
+            End Using
+
+            If If(Text, String.Empty).Any Then
+                Dim horizontalPadding As Integer = 2
+                Dim MaxImageHeight As Integer = TitleBarBounds.Height - 4
+                Dim ImageHeight As Integer = If(TitleImage.Height > MaxImageHeight, MaxImageHeight, TitleImage.Height)
+                Dim ImageWidth As Integer = ImageHeight     'Default SQUARE
+
+                If TitleImage.Width = TitleImage.Height Then
+                    'Square, so no fancy calcs
+
+                Else
+                    Dim TextSize As Size = MeasureText(Text, TitleFont)
+                    Dim MaxImageWidth As Integer = TitleBarBounds.Width - (horizontalPadding + TextSize.Width + horizontalPadding)
+                    ImageWidth = If(TitleImage.Width > MaxImageWidth, MaxImageWidth, TitleImage.Width)
+
+                End If
+
+                Dim yOffset As Integer = Convert.ToInt32((TitleBarBounds.Height - ImageHeight) / 2)
+                Dim ImageBounds As Rectangle
+                Dim TextBounds As Rectangle
+
+                If ImageAlign = HorizontalAlignment.Left Then
+                    ImageBounds = New Rectangle(horizontalPadding, yOffset, ImageWidth, ImageHeight)
+                    TextBounds = New Rectangle(ImageWidth + horizontalPadding, 0, Width - (ImageWidth + horizontalPadding), TitleBarBounds.Height)
+                Else
+                    TextBounds = New Rectangle(horizontalPadding, 0, Width - (ImageWidth + horizontalPadding), TitleBarBounds.Height)
+                    ImageBounds = New Rectangle(TextBounds.Width + horizontalPadding, yOffset, ImageWidth, ImageHeight)
+                End If
+                g.DrawImage(TitleImage, ImageBounds)
+                TextRenderer.DrawText(g, Text, TitleFont, TextBounds, Color.White, BorderColor, TextFormatFlags.VerticalCenter Or TextFormatFlags.Left)
+            End If
+
+        End Using
+        Dim Result = NativeMethods.ReleaseDC(Handle, hdc)
+
+    End Sub
+#End Region
+End Class
 Public Class ViewerHelper
     Private ReadOnly BaseForm As Form
     Private ReadOnly Viewer As DataViewer
     Private WithEvents TickTimer As New Timer With {.Interval = 100}
     Private TimerTicks As Integer
-    Private ReadOnly InvisibleForm As New Form With {.BackColor = Color.Lime,
-        .TransparencyKey = Color.Lime,
-        .FormBorderStyle = FormBorderStyle.None,
-        .Size = New Size(150, 150),
-        .BackgroundImageLayout = ImageLayout.Center,
-        .ShowInTaskbar = False}
+    Private ReadOnly TickForm As New InvisibleForm With {
+        .Size = New Size(150, 150)
+    }
     Public Sub New(viewer As DataViewer, baseForm As Form)
 
         If viewer IsNot Nothing Then
             TickColor = Color.Red
             Me.Viewer = viewer
             Me.BaseForm = baseForm
-            InvisibleForm.Show(baseForm)
+            TickForm.Show(baseForm)
         End If
 
     End Sub
     Private Sub TickTimer_Tick(sender As Object, e As EventArgs) Handles TickTimer.Tick
 
-        InvisibleForm.BackgroundImage = DrawProgress(TimerTicks, TickColor)
+        TickForm.BackgroundImage = DrawProgress(TimerTicks, TickColor)
         TimerTicks += 1
 
     End Sub
     Public Property TickColor As Color
+    Public Property Offset As New Point(0, 0)
+    Private Text_ As String
+    Public Property Text As String
+        Get
+            Return Text_
+        End Get
+        Set(value As String)
+            If Text_ <> value Then
+                Text_ = value
+                TickForm.Text = value
+            End If
+        End Set
+    End Property
+    Private TitleImage_ As Image
+    Public Property TitleImage As Image
+        Get
+            Return TitleImage_
+        End Get
+        Set(value As Image)
+            If Not SameImage(value, TitleImage_) Then
+                TitleImage_ = value
+                TickForm.TitleImage = value
+            End If
+        End Set
+    End Property
     Public Sub StartTicking()
 
         TimerTicks = 0
         TickTimer.Start()
-        With InvisibleForm
-            .Location = CenterItem(.Size)
+        With TickForm
+            Dim centerLocation As Point = CenterItem(.Size)
+            centerLocation.Offset(Offset)
+            .Location = centerLocation
             .Visible = True
             .BackgroundImage = DrawProgress(TimerTicks, Color.Red)
         End With
@@ -2474,7 +2614,7 @@ Public Class ViewerHelper
 
         TimerTicks = 0
         TickTimer.Stop()
-        With InvisibleForm
+        With TickForm
             .Visible = False
             .BackgroundImage = Nothing
         End With

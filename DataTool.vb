@@ -847,6 +847,9 @@ Public Class DataTool
     Private WithEvents TSMI_Divider As New ToolStripMenuItem With {.Text = "Insert divider",
         .Image = My.Resources.InsertBefore,
         .Font = GothicFont}
+    Private WithEvents TSMI_Tidy As New ToolStripMenuItem With {.Text = "Tidy",
+        .Image = My.Resources.Broom,
+        .Font = GothicFont}
     Private WithEvents TSMI_DividerSingle As New ToolStripMenuItem With {.Text = "Single line",
         .Image = My.Resources.Zap,
         .Font = GothicFont}
@@ -1955,7 +1958,8 @@ Public Class DataTool
                                                    TSMI_Comment,
                                                    TSMI_Copy,
                                                    TSMI_Divider,
-                                                   TSMI_Font})
+                                                   TSMI_Font,
+                                                   TSMI_Tidy})
 #End Region
                     Else
 #Region " RIGHTCLICKED ON OBJECT "
@@ -4074,6 +4078,9 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
             .ShowDialog(ActivePane)
         End With
 
+    End Sub
+    Private Sub TSMI_TidyClicked() Handles TSMI_Tidy.Click
+        TidyText()
     End Sub
     Private Sub Dialogue_FontApply(sender As Object, e As EventArgs) Handles Dialogue_Font.Apply
 

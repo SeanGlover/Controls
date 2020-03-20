@@ -1304,6 +1304,10 @@ Public Class TreeViewer
     End Sub
 #End Region
     Protected Overrides Sub OnFontChanged(e As EventArgs)
+
+        For Each node In Nodes.All
+            node.Font = Font
+        Next
         RequiresRepaint()
         MyBase.OnFontChanged(e)
     End Sub
@@ -1546,7 +1550,7 @@ Public NotInheritable Class NodeCollection
         If AddNode IsNot Nothing Then
             With AddNode
                 ._Index = Count
-                If IsNothing(Parent) Then   ' *** ROOT NODE
+                If Parent Is Nothing Then   ' *** ROOT NODE
                     'mTreeViewer was set when TreeViewer was created with New NodeCollection
                     ._TreeViewer = TreeViewer
                     ._Visible = True
@@ -1570,6 +1574,7 @@ Public NotInheritable Class NodeCollection
                     End If
 
                 End If
+                .Font = TreeViewer.Font
                 TreeViewer.NodeTimer_Start(AddNode)
 
             End With

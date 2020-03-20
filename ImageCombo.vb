@@ -102,8 +102,6 @@ Public NotInheritable Class ImageCombo
                 e.Graphics.FillRectangle(backBrush, ClientRectangle)
             End Using
 
-            If Image IsNot Nothing Then e.Graphics.DrawImage(Image, ImageBounds)
-
             If ButtonMode Then
 #Region " BUTTON STYLE - ADD COLORS "
                 e.Graphics.DrawImage(If(InBounds, My.Resources.Button_Bright, My.Resources.Button_Light), ClientRectangle)
@@ -113,6 +111,7 @@ Public NotInheritable Class ImageCombo
                 Using borderPen As New Pen(If(InBounds, Brushes.LimeGreen, Brushes.DarkGray), 3)
                     e.Graphics.DrawRectangle(borderPen, penTangle)
                 End Using
+
                 Dim buttonAlignment As StringFormat = New StringFormat With {
                     .LineAlignment = StringAlignment.Center,
                     .Alignment = StringAlignment.Center}
@@ -166,6 +165,7 @@ Public NotInheritable Class ImageCombo
                 End If
 #End Region
             End If
+            If Image IsNot Nothing Then e.Graphics.DrawImage(Image, ImageBounds)
             ControlPaint.DrawBorder3D(e.Graphics, ClientRectangle, BorderStyle)
             If HighlightOnFocus And _HasFocus Then
                 Dim PenWidth As Integer = 2

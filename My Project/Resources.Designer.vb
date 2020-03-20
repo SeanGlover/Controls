@@ -111,6 +111,16 @@ Namespace My.Resources
         '''<summary>
         '''  Looks up a localized resource of type System.Drawing.Bitmap.
         '''</summary>
+        Friend ReadOnly Property Broom() As System.Drawing.Bitmap
+            Get
+                Dim obj As Object = ResourceManager.GetObject("Broom", resourceCulture)
+                Return CType(obj,System.Drawing.Bitmap)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized resource of type System.Drawing.Bitmap.
+        '''</summary>
         Friend ReadOnly Property Button_Bright() As System.Drawing.Bitmap
             Get
                 Dim obj As Object = ResourceManager.GetObject("Button_Bright", resourceCulture)
@@ -464,6 +474,16 @@ Namespace My.Resources
         Friend ReadOnly Property lineerror() As System.Drawing.Bitmap
             Get
                 Dim obj As Object = ResourceManager.GetObject("lineerror", resourceCulture)
+                Return CType(obj,System.Drawing.Bitmap)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized resource of type System.Drawing.Bitmap.
+        '''</summary>
+        Friend ReadOnly Property Lotus() As System.Drawing.Bitmap
+            Get
+                Dim obj As Object = ResourceManager.GetObject("Lotus", resourceCulture)
                 Return CType(obj,System.Drawing.Bitmap)
             End Get
         End Property

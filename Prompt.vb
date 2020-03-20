@@ -304,6 +304,7 @@ Public Class Prompt
 
     End Sub
 #End Region
+
 #Region " EVENTS "
     Private Sub Button_Click(ByVal sender As Object, ByVal e As EventArgs) Handles OK.Click, YES.Click, NO.Click
 

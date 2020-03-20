@@ -488,6 +488,12 @@
   <ItemGroup>
     <None Include="Resources\Button_Light.png" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Broom.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Lotus.png" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
