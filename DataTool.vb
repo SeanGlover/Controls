@@ -2208,21 +2208,32 @@ Public Class DataTool
     End Sub
     Private Sub FindRequest() Handles FindAndReplace.FindChanged
 
-        Dim SelectionStart As Integer = ActivePane.SelectionStart
-        Dim _rtf As String = ActivePane.Rtf
-        Using RTB As New RichTextBox With {.Rtf = _rtf}
-            With RTB
-                For Each Match In FindAndReplace.Matches
-                    .SelectionStart = Match.Key
-                    .SelectionLength = Match.Value.Length
-                    .SelectionBackColor = Color.Yellow
-                    .SelectionColor = Color.Black
-                Next
-                _rtf = .Rtf
+        If FindAndReplace.FindControl?.Text.Any Then
+            Dim SelectionStart As Integer = ActivePane.SelectionStart
+            Dim _rtf As String = ActivePane.Rtf
+            Using RTB As New RichTextBox With {.Rtf = _rtf}
+                With RTB
+                    For Each Match In FindAndReplace.Matches
+                        .SelectionStart = Match.Key
+                        .SelectionLength = Match.Value.Length
+                        .SelectionBackColor = Color.Yellow
+                        .SelectionColor = Color.Black
+                    Next
+                    _rtf = .Rtf
+                End With
+            End Using
+            ActivePane.Rtf = _rtf
+            ActivePane.SelectionStart = SelectionStart
+        Else
+            With ActivePane
+                Dim _SelectionStart As Integer = .SelectionStart
+                .SelectAll()
+                .SelectionBackColor = Color.Transparent
+                .SelectionColor = Color.Black
+                .SelectionStart = _SelectionStart
+                .SelectionLength = 0
             End With
-        End Using
-        ActivePane.Rtf = _rtf
-        ActivePane.SelectionStart = SelectionStart
+        End If
 
     End Sub
     Private Sub InsertComment(sender As Object, e As EventArgs) Handles TSMI_Comment.Click

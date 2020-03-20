@@ -320,6 +320,7 @@ Public Class FindReplace
                         With Find
                             .DropDown.CheckOnSelect = False
                             AddHandler .SelectionChanged, AddressOf RequestMade
+                            AddHandler .ClearTextClicked, AddressOf RequestMade
                         End With
                         FindControl_ = Find
 
@@ -435,7 +436,7 @@ Public Class FindReplace
             Else
                 'Make all special characters literal
                 Dim Input As String = FindControl.Text
-                Dim Replaceables = New List(Of String) From {"+", "&", "|", "!", "(", ")", "{", "}", "[", "]", "^", "~", "*", "?", ":", "/", "\"}
+                Dim Replaceables = New List(Of String) From {"+", "&", "|", "!", "(", ")", "{", "}", "[", "]", "^", "~", "*", "?", ":", "/", "\", "."}
                 Dim rxString As String = String.Join("|", Replaceables.Select(Function(r) "\" & r))
                 Dim SpecialMatches = RegexMatches(Input, rxString, RegexOptions.IgnoreCase).OrderByDescending(Function(rm) rm.Index)
                 For Each SpecialMatch In SpecialMatches
@@ -458,8 +459,7 @@ Public Class FindReplace
     Friend ReadOnly Property Matches As Dictionary(Of Integer, String)
         Get
             Dim MD As New Dictionary(Of Integer, String)
-            If FindControl.Text Is Nothing Then
-            Else
+            If FindControl.Text IsNot Nothing Then
                 Values.Clear()
                 If SourceType = ParentType.TextControl Then
                     Dim SearchText As String = DirectCast(DataSource, String)
@@ -524,6 +524,7 @@ Public Class FindReplace
     Friend Event FindChanged(sender As Object, e As FindEventArgs)
     Private Sub RequestMade(sender As Object, e As EventArgs)
 
+        'Future enhancements
         If e.GetType Is GetType(DateRangeEventArgs) Or e.GetType Is GetType(KeyEventArgs) Or e.GetType Is GetType(ImageComboEventArgs) Then
         ElseIf e.GetType Is GetType(MouseEventArgs) Then
         End If

@@ -299,7 +299,6 @@ Public NotInheritable Class ImageCombo
             End If
         End Set
     End Property
-    Private _ButtonHighlightColor As Color = Color.Transparent
     Private _ColorPicker As Boolean
     Public Property ColorPicker As Boolean
         Get
@@ -569,6 +568,7 @@ Public NotInheritable Class ImageCombo
 
     End Sub
     Public Event ImageClicked(ByVal sender As Object, ByVal e As ImageComboEventArgs)
+    Public Event ClearTextClicked(ByVal sender As Object, ByVal e As ImageComboEventArgs)
     Public Event ValueSubmitted(ByVal sender As Object, ByVal e As ImageComboEventArgs)
     Public Event ValueChanged(ByVal sender As Object, ByVal e As ImageComboEventArgs)
     Public Event SelectionChanged(ByVal sender As Object, ByVal e As ImageComboEventArgs)
@@ -799,6 +799,7 @@ Public NotInheritable Class ImageCombo
                 Text = String.Empty
                 SelectedIndex = -1
                 ResizeMe()
+                RaiseEvent ClearTextClicked(Me, New ImageComboEventArgs)
 
             ElseIf Mouse_Region = MouseRegion.DropDown Then
                 _DropItems = Items

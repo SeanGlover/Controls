@@ -3321,7 +3321,6 @@ Public NotInheritable Class ClipboardHelper
     '''  ClipboardHelper.CopyToClipboard("Hello <b>World</b>",  "Hello World");      
     ''' </example>      
     ''' <param name="html">a  html fragment</param>      
-    ''' <param  name="plainText">the plain text</param>      
     Public Shared Sub CopyToClipboard(html As String)
         Dim dataObject = CreateDataObject(html, html)
         Clipboard.SetDataObject(dataObject, True)
@@ -3411,10 +3410,10 @@ Public NotInheritable Class ClipboardHelper
         End If
 
         ' Back-patch offsets (scan only the  header part for performance)      
-        sb.Replace("<<<<<<<<1", Header.Length.ToString("D9"), 0, Header.Length)
-        sb.Replace("<<<<<<<<2", GetByteCount(sb).ToString("D9"), 0, Header.Length)
-        sb.Replace("<<<<<<<<3", fragmentStart.ToString("D9"), 0, Header.Length)
-        sb.Replace("<<<<<<<<4", fragmentEnd.ToString("D9"), 0, Header.Length)
+        sb.Replace("<<<<<<<<1", Header.Length.ToString("D9", InvariantCulture), 0, Header.Length)
+        sb.Replace("<<<<<<<<2", GetByteCount(sb).ToString("D9", InvariantCulture), 0, Header.Length)
+        sb.Replace("<<<<<<<<3", fragmentStart.ToString("D9", InvariantCulture), 0, Header.Length)
+        sb.Replace("<<<<<<<<4", fragmentEnd.ToString("D9", InvariantCulture), 0, Header.Length)
 
         Return sb.ToString()
     End Function
