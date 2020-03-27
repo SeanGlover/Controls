@@ -5,6 +5,7 @@ Imports System.Drawing
 Imports System.Drawing.Drawing2D
 Public NotInheritable Class TabsEventArgs
     Inherits EventArgs
+    Public Property MouseButton As MouseButtons = MouseButtons.None
     Public Property InTab As Tab
     Public Property OutTab As Tab
     Public Property InZone As Tabs.Zone
@@ -260,18 +261,7 @@ Public Class Tabs
     Private Sub Tabs_MouseDown(sender As Object, e As MouseEventArgs) Handles Me.MouseDown
 
         DragXY = e.Location
-        If MouseTab IsNot Nothing Then
-            If UserCanAdd And MouseTab Is AddTab Then
-                RaiseEvent TabClicked(Me, New TabsEventArgs(MouseTab, MouseZone))
-
-            ElseIf MouseTab.CanClose And MouseZone = Zone.Close Then
-                RaiseEvent TabClicked(Me, New TabsEventArgs(MouseTab, MouseZone))
-
-            Else
-                RaiseEvent TabClicked(Me, New TabsEventArgs(MouseTab, MouseZone))
-
-            End If
-        End If
+        If MouseTab IsNot Nothing Then RaiseEvent TabClicked(Me, New TabsEventArgs(MouseTab, MouseZone) With {.MouseButton = e.Button})
 
     End Sub
     Private Sub Tab_DragOver(sender As Object, e As DragEventArgs) Handles Me.DragOver
@@ -547,9 +537,6 @@ Public Class Tab
     Inherits TabPage
     Private WithEvents TabControl As Tabs
     Private Overloads ReadOnly Property Parent As TabCollection
-    Public Event HeaderClicked(sender As Object, e As MouseEventArgs)
-    Public Event HeaderEntered(sender As Object, e As MouseEventArgs)
-    Public Event HeadersLeft(sender As Object, e As EventArgs)
     Public Sub New()
 
         Parent = TabCollection.Myself

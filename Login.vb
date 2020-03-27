@@ -15,6 +15,7 @@ Public Class Login
     Public Sub New()
 
         Size = New Size(100, 60)
+        HidePassword_ = True
         Controls.AddRange({UID, PWD})
         AddHandler UID.ValueSubmitted, AddressOf ValueSubmitted
         AddHandler PWD.ValueSubmitted, AddressOf ValueSubmitted
@@ -79,6 +80,18 @@ Public Class Login
         Set(value As String)
             mPassWord = value
             PWD.Text = value
+        End Set
+    End Property
+    Private HidePassword_ As Boolean
+    Public Property HidePassWord As Boolean
+        Get
+            Return HidePassword_
+        End Get
+        Set(value As Boolean)
+            If HidePassword_ <> value Then
+                HidePassword_ = value
+                PWD.PasswordProtected = value
+            End If
         End Set
     End Property
     Private mOrientation As Display = Display.Vertical

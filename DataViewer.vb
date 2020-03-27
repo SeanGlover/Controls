@@ -101,6 +101,7 @@ Public Class DataViewer
 #End Region
 #Region "■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ INITIALIZE "
     Public Sub New()
+
         Controls.AddRange({VScroll, HScroll})
         SetStyle(ControlStyles.AllPaintingInWmPaint, True)
         SetStyle(ControlStyles.ContainerControl, True)
@@ -430,6 +431,26 @@ Public Class DataViewer
 
     End Sub
 #Region " PROPERTIES - FUNCTIONS - METHODS "
+    Private Timer_ As ViewerHelper
+    Public ReadOnly Property Timer As ViewerHelper
+        Get
+            Return Timer_
+        End Get
+    End Property
+    Private BaseForm_ As Form
+    Public Property BaseForm As Form
+        Get
+            Return BaseForm_
+        End Get
+        Set(value As Form)
+            BaseForm_ = value
+            If value Is Nothing Then
+                Timer_ = Nothing
+            Else
+                Timer_ = New ViewerHelper(Me, value)
+            End If
+        End Set
+    End Property
     Public ReadOnly Property MouseData As New MouseInfo
     Private WithEvents Table_ As DataTable
     Public ReadOnly Property Table As DataTable
@@ -1206,7 +1227,6 @@ Public Class ColumnCollection
 
         RemoveHandler CollectionSizingEnd, AddressOf CanReorder
         _IsBusy = True
-        If MoveColumns.Count > 7 Then Stop
         For Each Column In MoveColumns
             Remove(Column.Key)
             Insert(Column.Value, Column.Key)
@@ -2503,13 +2523,14 @@ Public Class InvisibleForm
         Dim hdc As IntPtr = NativeMethods.GetWindowDC(Handle)
         Using g As Graphics = Graphics.FromHdc(hdc)
             g.SmoothingMode = SmoothingMode.AntiAlias
-            Using BC As New SolidBrush(Color.WhiteSmoke)
-                g.FillRectangle(BC, New RectangleF(0, 0, Width, Height))
-            End Using
-            Using BC As New SolidBrush(BorderColor)
-                g.FillRectangle(BC, TitleBarBounds)
-            End Using
-
+            If DrawForm Or Not DrawForm Then
+                Using BC As New SolidBrush(Color.WhiteSmoke)
+                    g.FillRectangle(BC, New RectangleF(0, 0, Width, Height))
+                End Using
+                Using BC As New SolidBrush(BorderColor)
+                    g.FillRectangle(BC, TitleBarBounds)
+                End Using
+            End If
             If If(Text, String.Empty).Any Then
                 Dim horizontalPadding As Integer = 2
                 Dim MaxImageHeight As Integer = TitleBarBounds.Height - 4
@@ -2597,8 +2618,9 @@ Public Class ViewerHelper
             End If
         End Set
     End Property
-    Public Sub StartTicking()
+    Public Sub StartTicking(Optional tickColor As Color = Nothing)
 
+        If Not tickColor.IsEmpty Then Me.TickColor = tickColor
         TimerTicks = 0
         TickTimer.Start()
         With TickForm
@@ -2606,7 +2628,7 @@ Public Class ViewerHelper
             centerLocation.Offset(Offset)
             .Location = centerLocation
             .Visible = True
-            .BackgroundImage = DrawProgress(TimerTicks, Color.Red)
+            .BackgroundImage = DrawProgress(TimerTicks, tickColor)
         End With
 
     End Sub

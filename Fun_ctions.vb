@@ -3017,8 +3017,24 @@ Public Structure SCROLLINFO
     End Function
 End Structure
 Public NotInheritable Class NativeMethods
-    Public Shared Sub WindowShow(hwnd As IntPtr, cmdShow As Integer)
-        ShowWindow(hwnd, cmdShow)
+    Public Enum WindowAction
+        SWFORCEMINIMIZE = 11
+        SWHIDE = 0
+        SWMAXIMIZE = 3
+        SWMINIMIZE = 6
+        SWRESTORE = 9
+        SWSHOW = 5
+        SWSHOWDEFAULT = 10
+        SWSHOWMAXIMIZED = 3
+        SWSHOWMINIMIZED = 2
+        SWSHOWMINNOACTIVE = 7
+        SWSHOWNA = 8
+        SWSHOWNOACTIVATE = 4
+        SWSHOWNORMAL = 1
+    End Enum
+    Public Shared Sub WindowShowHide(hwnd As IntPtr, Action As WindowAction)
+        Dim actionIndex As Integer = Action
+        ShowWindow(hwnd, actionIndex)
     End Sub
     Public Shared Sub WindowMove(hwnd As IntPtr, x As Integer, Y As Integer, Width As Integer, Height As Integer, Repaint As Boolean)
         MoveWindow(hwnd, x, Y, Width, Height, Repaint)

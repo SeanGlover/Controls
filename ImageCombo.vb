@@ -131,9 +131,10 @@ Public NotInheritable Class ImageCombo
                     e.Graphics.DrawImage(DropImage, DropBounds)
                 End If
 
-                If PasswordProtected And Not TextIsVisible Then
-                    Using Brush As New HatchBrush(HatchStyle.LightUpwardDiagonal, Color.Black, BackColor)
-                        e.Graphics.FillRectangle(Brush, New Rectangle(0, 0, TextBounds.Right, Height))
+                If PasswordProtected And Not TextIsVisible And Text?.Any Then
+                    Dim lettersRight As Integer = LetterWidths.Values.Last
+                    Using Brush As New HatchBrush(HatchStyle.LightUpwardDiagonal, SystemColors.WindowText, BackColor)
+                        e.Graphics.FillRectangle(Brush, New Rectangle(Image.Width, 0, lettersRight - Image.Width, Height))
                     End Using
 
                 Else
@@ -377,7 +378,8 @@ Public NotInheritable Class ImageCombo
         Set(value As Boolean)
             If Not _PasswordProtected = value Then
                 _PasswordProtected = value
-                TextIsVisible = Not (value)
+                TextIsVisible = Not value
+                Invalidate()
             End If
         End Set
     End Property
@@ -944,7 +946,7 @@ Public NotInheritable Class ImageCombo
         End If
 #End Region
 #Region " EYE BOUNDS "
-        If (PasswordProtected And Text.Length > 0) And Not ButtonMode Then
+        If PasswordProtected And Text.Length > 0 And Not ButtonMode Then
             Dim Padding As Integer = {0, Convert.ToInt32((Height - EyeImage.Height) / 2)}.Max     'Might be negative if EyeImage.Height > Height
             EyeBounds.X = ClientRectangle.Right - ({DropBounds.Width, ClearTextBounds.Width, EyeImage.Width}.Sum + Margin)
             EyeBounds.Y = Padding
