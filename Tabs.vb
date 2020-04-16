@@ -483,6 +483,7 @@ Public NotInheritable Class TabCollection
                 Parent.TabPages.Add(AddTab)
                 'Insert(Count, AddTab)
             End If
+            Parent.Invalidate()
         End If
         Return TabItem
 
@@ -498,6 +499,7 @@ Public NotInheritable Class TabCollection
 
         If TabItem IsNot Nothing Then
             MyBase.Remove(TabItem)
+            Parent.Invalidate()
         End If
         Return TabItem
 
@@ -572,8 +574,30 @@ Public Class Tab
             Return TabControl.SelectedTab Is Me
         End Get
     End Property
-    Public Property HeaderBackColor As Color = Color.Gray
-    Public Property HeaderForeColor As Color = Color.Black
+    Private HeaderBackColor_ As Color = Color.Gray
+    Public Property HeaderBackColor As Color
+        Get
+            Return HeaderBackColor_
+        End Get
+        Set(value As Color)
+            If value <> HeaderBackColor Then
+                HeaderBackColor_ = value
+                TabControl.Invalidate()
+            End If
+        End Set
+    End Property
+    Private HeaderForeColor_ As Color = Color.Black
+    Public Property HeaderForeColor As Color
+        Get
+            Return HeaderForeColor_
+        End Get
+        Set(value As Color)
+            If value <> HeaderForeColor_ Then
+                HeaderForeColor_ = value
+                TabControl.Invalidate()
+            End If
+        End Set
+    End Property
     Private _Font As Font = Nothing
     Public Overloads Property Font As Font
         Get
@@ -587,20 +611,22 @@ Public Class Tab
                     If _Font.Name <> value.Name Or _Font.Size <> value.Size Or _Font.Bold <> value.Bold Or _Font.Italic <> value.Italic Then
                         _Font = value
                         'Rework bounds
+                        TabControl.Invalidate()
                     End If
                 End If
             End If
         End Set
     End Property
-    Private _Image As Image
+    Private Image_ As Image
     Public Property Image As Image
         Get
-            Return _Image
+            Return Image_
         End Get
         Set(value As Image)
-            If Not SameImage(value, _Image) Then
-                _Image = value
+            If Not SameImage(value, Image_) Then
+                Image_ = value
                 'Rework bounds
+                TabControl.Invalidate()
             End If
         End Set
     End Property
@@ -614,6 +640,7 @@ Public Class Tab
                 _ItemText = value
                 SetSafeControlPropertyValue(Me, "Text", value)
                 'Rework bounds
+                TabControl.Invalidate()
             End If
         End Set
     End Property

@@ -51,38 +51,11 @@
     <OptionInfer>On</OptionInfer>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="commons-logging, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\pdfboxNet.1.8.9.0\lib\commons-logging.dll</HintPath>
-    </Reference>
-    <Reference Include="DropDownContainer">
-      <HintPath>..\..\..\Downloads\36339ihateeth.ZIPRARExtractorFree_pt498ep6t5wxw!App\DropDownContainer\DropDownContainer\DropDownContainer\bin\Debug\DropDownContainer.dll</HintPath>
-    </Reference>
-    <Reference Include="fontbox-1.8.9, Version=1.8.9.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\pdfboxNet.1.8.9.0\lib\fontbox-1.8.9.dll</HintPath>
-    </Reference>
     <Reference Include="Gma.System.MouseKeyHook">
       <HintPath>..\..\..\Downloads\globalmousekeyhook-vNext\globalmousekeyhook-vNext\examples\FormsExample\bin\Debug\Gma.System.MouseKeyHook.dll</HintPath>
     </Reference>
-    <Reference Include="IKVM.OpenJDK.Core, Version=7.2.4630.5, Culture=neutral, PublicKeyToken=13235d27fcbfff58, processorArchitecture=MSIL">
-      <HintPath>packages\pdfboxNet.1.8.9.0\lib\IKVM.OpenJDK.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="IKVM.OpenJDK.SwingAWT, Version=7.2.4630.5, Culture=neutral, PublicKeyToken=13235d27fcbfff58, processorArchitecture=MSIL">
-      <HintPath>packages\pdfboxNet.1.8.9.0\lib\IKVM.OpenJDK.SwingAWT.dll</HintPath>
-    </Reference>
-    <Reference Include="IKVM.OpenJDK.Text, Version=7.2.4630.5, Culture=neutral, PublicKeyToken=13235d27fcbfff58, processorArchitecture=MSIL">
-      <HintPath>packages\pdfboxNet.1.8.9.0\lib\IKVM.OpenJDK.Text.dll</HintPath>
-    </Reference>
-    <Reference Include="IKVM.OpenJDK.Util, Version=7.2.4630.5, Culture=neutral, PublicKeyToken=13235d27fcbfff58, processorArchitecture=MSIL">
-      <HintPath>packages\pdfboxNet.1.8.9.0\lib\IKVM.OpenJDK.Util.dll</HintPath>
-    </Reference>
-    <Reference Include="IKVM.Runtime, Version=7.2.4630.5, Culture=neutral, PublicKeyToken=13235d27fcbfff58, processorArchitecture=MSIL">
-      <HintPath>packages\pdfboxNet.1.8.9.0\lib\IKVM.Runtime.dll</HintPath>
-    </Reference>
     <Reference Include="Microsoft.Data.Sqlite, Version=3.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
       <HintPath>packages\Microsoft.Data.Sqlite.Core.3.0.0\lib\netstandard2.0\Microsoft.Data.Sqlite.dll</HintPath>
-    </Reference>
-    <Reference Include="pdfbox-1.8.9, Version=1.8.9.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\pdfboxNet.1.8.9.0\lib\pdfbox-1.8.9.dll</HintPath>
     </Reference>
     <Reference Include="SQLitePCLRaw.batteries_v2, Version=2.0.0.581, Culture=neutral, PublicKeyToken=8226ea5df37bcae9, processorArchitecture=MSIL">
       <HintPath>packages\SQLitePCLRaw.bundle_e_sqlite3.2.0.0\lib\net461\SQLitePCLRaw.batteries_v2.dll</HintPath>
@@ -499,6 +472,45 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\Lotus.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\r1.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\r2.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\r3.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\r4.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\r5.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\r6.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\r7.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\r8.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\prompt.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\count.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\settings.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\starEmpty.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\star.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

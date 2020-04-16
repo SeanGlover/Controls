@@ -181,6 +181,18 @@ Public NotInheritable Class ImageCombo
     End Sub
 #End Region
 #Region " PROPERTIES "
+    Private AutoSize_ As Boolean = False
+    Public Overrides Property AutoSize As Boolean
+        Get
+            Return AutoSize_
+        End Get
+        Set(value As Boolean)
+            If AutoSize_ <> value Then
+                AutoSize_ = value
+                ResizeMe()
+            End If
+        End Set
+    End Property
     Public ReadOnly Property ErrorText As String
         Get
             If ValueError Then
@@ -892,63 +904,89 @@ Public NotInheritable Class ImageCombo
             ErrorTip.Hide(Me)
         End If
 
-        Dim Margin As Integer = 2
-        If Text.Length = 0 Then
+        Dim spacing As Integer = 2
+
+        Dim hasText As Boolean = If(Text, String.Empty).Any
+        Dim hasImage As Boolean = Image IsNot Nothing
+        Dim hasDrop As Boolean = Not ButtonMode And Items.Any
+        Dim hasClear As Boolean = Not ButtonMode And hasText
+        Dim hasEye As Boolean = PasswordProtected And hasClear
+        '===========================
+        If AutoSize Then
+            Dim textSize As Size = If(hasText, MeasureText(Text, Font), New Size)
+            Dim imageSize As Size = If(hasImage, Image.Size, New Size)
+            Dim dropSize As Size = If(hasDrop, DropImage.Size, New Size)
+            Dim clearSize As Size = If(hasClear, ClearTextImage.Size, New Size)
+            Dim eyeSize As Size = If(hasEye, EyeImage.Size, New Size)
+            '===========================
+            Dim sizes As New List(Of Size) From {textSize, imageSize, dropSize, clearSize, eyeSize}
+            Dim widths As New List(Of Integer)(From s In sizes Where Not s.Width = 0 Select s.Width)
+            Dim heights As New List(Of Integer)(From s In sizes Where Not s.Height = 0 Select s.Height)
+            '===========================
+            Dim minSize As Size = If(MinimumSize.IsEmpty, New Size(60, 24), MinimumSize)
+            Dim maxSize As Size = If(MaximumSize.IsEmpty, WorkingArea.Size, MaximumSize)
+            Dim minmaxWidth As Integer = {{If(widths.Any, widths.Sum + spacing * (widths.Count + 1), minSize.Width), minSize.Width}.Max, maxSize.Width}.Min
+            Dim minmaxHeight As Integer = {{If(heights.Any, spacing + heights.Max + spacing, minSize.Height), minSize.Height}.Max, maxSize.Height}.Min
+            Dim newSize As New Size(minmaxWidth, minmaxHeight)
+            Size = newSize
+            'Stop
+        End If
+        If Not hasText Then
             CursorIndex = 0
             SelectionIndex = 0
         End If
 #Region " IMAGE BOUNDS "
-        If Image Is Nothing Then
-            ImageBounds.X = Margin
-            ImageBounds.Y = 0
-            ImageBounds.Width = 0
-            ImageBounds.Height = Height
-        Else
+        If hasImage Then
             Dim Padding As Integer = {0, Convert.ToInt32((Height - Image.Height) / 2)}.Max     'Might be negative if Image.Height > Height
-            ImageBounds.X = Margin
+            ImageBounds.X = spacing
             ImageBounds.Y = Padding
             ImageBounds.Width = Image.Width
             ImageBounds.Height = {Height, Image.Height}.Min
+        Else
+            ImageBounds.X = spacing
+            ImageBounds.Y = 0
+            ImageBounds.Width = 0
+            ImageBounds.Height = Height
         End If
 #End Region
 #Region " DROPDOWN BOUNDS "
-        If Not Items.Any Or ButtonMode Then
-            DropBounds.X = ClientRectangle.Right
-            DropBounds.Y = 0
-            DropBounds.Width = 0
-            DropBounds.Height = Height
-            DropDrawBounds = DropBounds
-        Else
+        If hasDrop Then
             'V LOOKS BETTER WHEN NOT RESIZED
             Dim Padding As Integer = {0, Convert.ToInt32((Height - DropImage.Height) / 2)}.Max     'Might be negative if DropImage.Height > Height
-            DropBounds.X = ClientRectangle.Right - (DropImage.Width + Margin)
+            DropBounds.X = Width - (DropImage.Width + spacing)
             DropBounds.Y = Padding
             DropBounds.Width = DropImage.Width
             DropBounds.Height = {Height, DropImage.Height}.Min
             DropDrawBounds.X = DropBounds.X : DropDrawBounds.Y = 0 : DropDrawBounds.Width = DropBounds.Width : DropDrawBounds.Height = Height
+        Else
+            DropBounds.X = Width
+            DropBounds.Y = 0
+            DropBounds.Width = 0
+            DropBounds.Height = Height
+            DropDrawBounds = DropBounds
         End If
 #End Region
 #Region " CLEARTEXT BOUNDS "
-        If Text.Length = 0 Or ButtonMode Then
+        If hasClear Then
+            'X LOOKS BETTER WHEN NOT RESIZED
+            Dim Padding As Integer = {0, Convert.ToInt32((Height - ClearTextImage.Height) / 2)}.Max     'Might be negative if ClearTextImage.Height > Height
+            ClearTextBounds.X = Width - ({DropBounds.Width, ClearTextImage.Width}.Sum + spacing)
+            ClearTextBounds.Y = Padding
+            ClearTextBounds.Width = ClearTextImage.Width
+            ClearTextBounds.Height = {Height, ClearTextImage.Height}.Min
+            ClearTextDrawBounds.X = ClearTextBounds.X : ClearTextDrawBounds.Y = 0 : ClearTextDrawBounds.Width = ClearTextBounds.Width : ClearTextDrawBounds.Height = Height
+        Else
             ClearTextBounds.X = DropBounds.Left
             ClearTextBounds.Y = 0
             ClearTextBounds.Width = 0
             ClearTextBounds.Height = Height
             ClearTextDrawBounds = ClearTextBounds
-        Else
-            'X LOOKS BETTER WHEN NOT RESIZED
-            Dim Padding As Integer = {0, Convert.ToInt32((Height - ClearTextImage.Height) / 2)}.Max     'Might be negative if ClearTextImage.Height > Height
-            ClearTextBounds.X = ClientRectangle.Right - ({DropBounds.Width, ClearTextImage.Width}.Sum + Margin)
-            ClearTextBounds.Y = Padding
-            ClearTextBounds.Width = ClearTextImage.Width
-            ClearTextBounds.Height = {Height, ClearTextImage.Height}.Min
-            ClearTextDrawBounds.X = ClearTextBounds.X : ClearTextDrawBounds.Y = 0 : ClearTextDrawBounds.Width = ClearTextBounds.Width : ClearTextDrawBounds.Height = Height
         End If
 #End Region
 #Region " EYE BOUNDS "
-        If PasswordProtected And Text.Length > 0 And Not ButtonMode Then
+        If hasEye Then
             Dim Padding As Integer = {0, Convert.ToInt32((Height - EyeImage.Height) / 2)}.Max     'Might be negative if EyeImage.Height > Height
-            EyeBounds.X = ClientRectangle.Right - ({DropBounds.Width, ClearTextBounds.Width, EyeImage.Width}.Sum + Margin)
+            EyeBounds.X = Width - ({DropBounds.Width, ClearTextBounds.Width, EyeImage.Width}.Sum + spacing)
             EyeBounds.Y = Padding
             EyeBounds.Width = EyeImage.Width
             EyeBounds.Height = {Height, EyeImage.Height}.Min
@@ -962,9 +1000,9 @@ Public NotInheritable Class ImageCombo
         End If
 #End Region
 #Region " TEXT BOUNDS "
-        TextBounds.X = ImageBounds.Right + Margin          'LOOKS BETTER OFFSET BY A FEW PIXELS
+        TextBounds.X = ImageBounds.Right + spacing          'LOOKS BETTER OFFSET BY A FEW PIXELS
         TextBounds.Y = 0
-        TextBounds.Width = Width - ({ImageBounds.Width, DropBounds.Width, ClearTextBounds.Width, EyeBounds.Width}.Sum + Margin + Margin + Margin)
+        TextBounds.Width = Width - ({ImageBounds.Width, DropBounds.Width, ClearTextBounds.Width, EyeBounds.Width}.Sum + spacing + spacing + spacing)
         TextBounds.Height = Height
 #End Region
 
@@ -977,16 +1015,8 @@ Public NotInheritable Class ImageCombo
         Next
 #End Region
 
-#Region " AUTO RESIZE "
-        'Width = {ImageBounds.Width + DropBounds.Width, Width}.Max
-        'If WrapText And Text.Length > 0 Then
-        '    Dim TextSize As Size = TextRenderer.MeasureText(Text, Font, New Size(Width - (ImageBounds.Width + DropBounds.Width), Height), TextFormatFlags.WordBreak)
-        '    Height = {1 + TextSize.Height + 1, Height}.Max
-        'End If
-#End Region
-
         With CursorBounds
-            .X = {Margin, GetxPos(CursorIndex)}.Max
+            .X = {spacing, GetxPos(CursorIndex)}.Max
             .Y = 2
             .Width = 1
             .Height = (Height - 4)

@@ -19,87 +19,82 @@ Imports System.Runtime.InteropServices
 '[6] MODIFY, ADD, DELETE CONNECTIONS ... RIGHT CLICK PANE, ADD TO TSMI
 '[7] "DRIVER={IBM DB2 ODBC DRIVER};Database=DSNA1;Hostname=sbrysa1.somers.hqregion.ibm.com;Port=5000;Protocol=TCPIP;UID=C085365;PWD=Y0Y0Y0Y0"
 #End Region
+
 Public Class ScriptsEventArgs
     Inherits EventArgs
     Public ReadOnly Property Item As Script
     Public ReadOnly Property State As CollectionChangeAction
-    Public Sub New(Item As Script, State As CollectionChangeAction)
-        Me.Item = Item
-        Me.State = State
+    Public Sub New(item As Script, state As CollectionChangeAction)
+        Me.Item = item
+        Me.State = state
+    End Sub
+End Class
+Public Enum ExecutionType
+    Null
+    DDL
+    SQL
+End Enum
+Public Class ScriptTypeChangedEventArgs
+    Inherits EventArgs
+    Public ReadOnly Property FormerType As ExecutionType
+    Public ReadOnly Property CurrentType As ExecutionType
+    Public Sub New(FormerType As ExecutionType, CurrentType As ExecutionType)
+        Me.FormerType = FormerType
+        Me.CurrentType = CurrentType
+    End Sub
+End Class
+Public Class ScriptStateChangedEventArgs
+    Inherits EventArgs
+    Public ReadOnly Property FormerState As Script.ViewState
+    Public ReadOnly Property CurrentState As Script.ViewState
+    Public Sub New(FormerState As Script.ViewState, CurrentState As Script.ViewState)
+        Me.FormerState = FormerState
+        Me.CurrentState = CurrentState
+    End Sub
+End Class
+Public Class ScriptNameChangedEventArgs
+    Inherits EventArgs
+    Public ReadOnly Property FormerName As String
+    Public ReadOnly Property CurrentName As String
+    Public Sub New(FormerName As String, CurrentName As String)
+        Me.FormerName = FormerName
+        Me.CurrentName = CurrentName
+    End Sub
+End Class
+Public Class ScriptVisibleChangedEventArgs
+    Inherits EventArgs
+    Public ReadOnly Property Item As Script
+    Public ReadOnly Property Visible As Boolean
+    Public Sub New(item As Script, visible As Boolean)
+        Me.Item = item
+        Me.Visible = visible
     End Sub
 End Class
 <ComVisible(False)> Public Class ScriptCollection
     Inherits List(Of Script)
-#Region " DECLARATIONS "
-    Private Initialized As Boolean
     Private ReadOnly Scripts_DirectoryInfo As DirectoryInfo = Directory.CreateDirectory(MyDocuments & "\DataManager\Scripts")
-    Private WithEvents ChangeTimer As New Timer With {.Interval = 500}
-#End Region
     Public Event Alert(sender As Object, e As AlertEventArgs)
     Public Event CollectionChanged(sender As Object, e As ScriptsEventArgs)
-    Public Sub New(Parent As DataTool)
-
-        Me.Parent = Parent
-        'If Parent IsNot Nothing Then Add(New Script With {._Tabs = Parent.Script_Tabs, .State = Script.ViewState.OpenDraft})
-        With New BackgroundWorker
-            AddHandler .DoWork, AddressOf NewWorkStart
-            AddHandler .RunWorkerCompleted, AddressOf NewWorkEnd
-            .RunWorkerAsync()
-        End With
-
+    Public Sub New()
     End Sub
-    Private Sub NewWorkStart(sender As Object, e As DoWorkEventArgs)
+    Public Sub Load()
 
-        With DirectCast(sender, BackgroundWorker)
-            RemoveHandler .DoWork, AddressOf NewWorkStart
-        End With
-        Dim fileScripts = ReadFiles(Scripts_DirectoryInfo.FullName)
-        Dim fileConnections = (From fs In fileScripts Group fs By dsn = Split(fs.Value, vbNewLine).First Into dsnGroup = Group
-                               Select New With {.server = dsn, .items = dsnGroup.ToList}).ToDictionary(Function(k) k.server, Function(v) v.items)
-
-        '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
-        Dim Testing As Boolean = Parent.TestMode
-        Dim takeCount As Integer = If(Testing, 25, 10000)
-        Dim eachCount As Integer = CInt(Math.Ceiling(takeCount / fileConnections.Count))
-        '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
-
-        Dim smallestCountToLargest = fileConnections.OrderBy(Function(fc) fc.Value.Count).ToList
-        For Each fileConnection In smallestCountToLargest
-            If fileConnection.Key Is smallestCountToLargest.Last.Key Then eachCount += {takeCount - eachCount - Count, 0}.Max
-            For Each fileScript In fileConnection.Value.Take(eachCount)
-                Dim NewScript As New Script(fileScript.Key)
-                RaiseEvent Alert(Me, New AlertEventArgs(Strings.Join({"Loading", NewScript.Name})))
-                Do While NewScript.Body.IsBusy
-                Loop
-                Add(NewScript)
-            Next
+        Dim fileScripts As New List(Of String)(GetFiles(Scripts_DirectoryInfo.FullName, ".ddl").Union(GetFiles(Scripts_DirectoryInfo.FullName, ".sql")).Union(GetFiles(Scripts_DirectoryInfo.FullName, ".txt")))
+        For Each fileScript In fileScripts
+            Add(New Script(fileScript))
         Next
+        SortCollection()
+        RaiseEvent Alert(Me, New AlertEventArgs(Count & " scripts loaded"))
+        RaiseEvent CollectionChanged(Me, New ScriptsEventArgs(Nothing, CollectionChangeAction.Refresh))
 
-    End Sub
-    Private Sub NewWorkEnd(sender As Object, e As RunWorkerCompletedEventArgs)
-        With DirectCast(sender, BackgroundWorker)
-            Initialized = True
-            RemoveHandler .RunWorkerCompleted, AddressOf NewWorkEnd
-            RaiseEvent Alert(Me, New AlertEventArgs(Count & " scripts loaded"))
-            RaiseEvent CollectionChanged(Me, New ScriptsEventArgs(Nothing, CollectionChangeAction.Refresh))
-        End With
     End Sub
 #Region " PROPERTIES - FUNCTIONS - METHODS "
-    Public ReadOnly Property Parent As DataTool
-    Private ReadOnly Connections As ConnectionCollection = DataTool.Connections
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Public Shadows Function Add(Item As Script) As Script
 
-        ChangeTimer.Stop()
-        ChangeTimer.Start()
-        MyBase.Add(Item)
         If Item IsNot Nothing Then
-            With Item
-                .Parent = Me
-                ._Tabs = Parent.Script_Tabs
-                If .ToString.Contains("DSN=") Then .Connection = Connections.Item(.Connection.ToString)
-            End With
-            If Initialized Then SortCollection()
+            Item.Parent = Me
+            MyBase.Add(Item)
             RaiseEvent CollectionChanged(Me, New ScriptsEventArgs(Item, CollectionChangeAction.Add))
         End If
         Return Item
@@ -108,11 +103,9 @@ End Class
     Public Shadows Function Remove(Item As Script) As Script
 
         If Item IsNot Nothing Then
-            ChangeTimer.Stop()
-            ChangeTimer.Start()
             MyBase.Remove(Item)
             Item.Parent = Nothing
-            If Initialized Then SortCollection()
+            SortCollection()
             RaiseEvent CollectionChanged(Me, New ScriptsEventArgs(Item, CollectionChangeAction.Remove))
         End If
         Return Item
@@ -172,16 +165,6 @@ End Class
         End If
 
     End Function
-    Public Shadows Function Item(Tab As Tab) As Script
-
-        Dim _Tabs = From SI In Me Where SI.Tab Is Tab
-        If _Tabs.Any Then
-            Return _Tabs.First
-        Else
-            Return Nothing
-        End If
-
-    End Function
     Public Shadows Function Item(State As Script.ViewState) As Script
 
         Dim _Items As New List(Of Script)(Where(Function(x) x.State = State))
@@ -202,12 +185,6 @@ End Class
     Public Shadows Function Contains(ItemX As Script) As Boolean
         Return Not IsNothing(Item(ItemX))
     End Function
-    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Private Sub ChangeTimerTick() Handles ChangeTimer.Tick
-        ChangeTimer.Stop()
-        SortCollection()
-        Initialized = True
-    End Sub
     Public Sub SortCollection()
 
         Sort(Function(f1, f2)
@@ -244,19 +221,9 @@ End Class
         End Using
 
     End Sub
-    Public Function ToStringArray() As String()
-        Return (From m In Me Where m.FileCreated Select m.ToString & String.Empty).ToArray
-    End Function
     Public Overrides Function ToString() As String
-        Return Strings.Join(ToStringArray, vbNewLine)
-    End Function
-    Public Function ToStringList() As List(Of String)
-        Return ToStringArray.ToList
-    End Function
-    Public Function ToStringCollection() As Specialized.StringCollection
-        Dim SSC As New Specialized.StringCollection()
-        SSC.AddRange(ToStringArray)
-        Return SSC
+        Dim savedScripts As New List(Of String)(From m In Me Where m.FileCreated Select m.ToString & String.Empty)
+        Return Strings.Join(savedScripts.ToArray, vbNewLine)
     End Function
 #End Region
 End Class
@@ -274,17 +241,18 @@ End Class
         If disposing Then
             Handle.Dispose()
             ' Free any other managed objects here.
-            If _Pane IsNot Nothing Then _Pane.Dispose()
-            If _Tab IsNot Nothing Then _Tab.Dispose()
+
         End If
         disposed = True
     End Sub
 #End Region
 #Region " EVENTS "
+    Friend Event GenericEvent(sender As Object, e As AlertEventArgs)
     Friend Event ConnectionChanged(sender As Object, e As ConnectionChangedEventArgs)
     Friend Event TypeChanged(sender As Object, e As ScriptTypeChangedEventArgs)
     Friend Event StateChanged(sender As Object, e As ScriptStateChangedEventArgs)
     Friend Event NameChanged(sender As Object, e As ScriptNameChangedEventArgs)
+    Friend Event VisibleChanged(sender As Object, e As ScriptVisibleChangedEventArgs)
 #End Region
 #Region " CLASSES - ENUMS - STRUCTURES "
     Public Enum ViewState
@@ -300,72 +268,52 @@ End Class
         UpdateExecutionTime
     End Enum
 #End Region
-    Private Sub InstructionTypeChanged(sender As Object, e As ScriptTypeChangedEventArgs) Handles Body.TypeChanged
-
-        RaiseEvent TypeChanged(sender, e)
-        If State = ViewState.OpenDraft Or State = ViewState.OpenSaved Then
-            Tab.Image = If(e.CurrentType = ExecutionType.DDL, My.Resources.DDL,
-                        If(e.CurrentType = ExecutionType.SQL, My.Resources.SQL,
-                        My.Resources.QuestionMark))
-            If State = ViewState.OpenDraft Then Tab.ItemText = Name
-        End If
-
+    Private Const BodyDelimiter As String = vbNewLine + "■■■■■■■■■■■■■■■■■■■■" + vbNewLine
+    Private Sub Body_TypeChanged(sender As Object, e As ScriptTypeChangedEventArgs) Handles Body.TypeChanged
+        _Type = If(e.CurrentType = Controls.ExecutionType.DDL, ExecutionType.DDL, If(e.CurrentType = Controls.ExecutionType.SQL, ExecutionType.SQL, ExecutionType.Null))
+        RaiseEvent TypeChanged(Me, e)
     End Sub
-    Private Sub BodyConnectionChanged(sender As Object, e As ConnectionChangedEventArgs) Handles Body.ConnectionChanged
-
-        If Connection Is Nothing Then
-            'Only change the active connection once (initially). Let the User override to pick a connection if needed
-            If e.NewConnection IsNot Nothing Then Connection = e.NewConnection
-        End If
-
+    Private Sub Body_ConnectionChanged(sender As Object, e As ConnectionChangedEventArgs) Handles Body.ConnectionChanged
+        If Connection Is Nothing And e.NewConnection IsNot Nothing Then Connection = e.NewConnection 'Only change the active connection once (initially). Let the User override to pick a connection if needed
+        RaiseEvent ConnectionChanged(Me, e)
     End Sub
 #Region " NEW "
-    'New Instance
     Public Sub New()
         Created = Now
-    End Sub
-    'From Saved
-    Public Sub New(ScriptPath As String)
+    End Sub 'New Instance
+    Public Sub New(ScriptPath As String) 'From Saved
 
-        _Path = ScriptPath
+        _Path = If(ScriptPath, String.Empty)
         _State = ViewState.ClosedSaved
         _Name = GetFileNameExtension(ScriptPath).Key
         _Created = File.GetCreationTime(ScriptPath)
-        Dim Elements As String() = FileElements()
-        Dim DSN As String = "DSN=" & Elements.First     'File Shows DSN Name only and not a ConnectionString as DSN=...
-        _Connection = Connections.Item(DSN)
-        Text = Elements.Last
+        Dim dsnBody As String()
+        Using SR As New StreamReader(Path)
+            dsnBody = Split(SR.ReadToEnd, BodyDelimiter)
+        End Using
+        DSN_Body = New KeyValuePair(Of String, String)("DSN=" & dsnBody.First, Regex.Replace(dsnBody.Last, vbCrLf, vbLf, RegexOptions.None))
+        Dim dsn = DSN_Body.Key
+        _Connection = DataTool.Connections.Item(dsn)
+        _Type = If(_Path.EndsWith(".ddl", StringComparison.InvariantCulture), ExecutionType.DDL, If(_Path.EndsWith(".sql", StringComparison.InvariantCulture), ExecutionType.SQL, ExecutionType.Null))
+        _Favorite = Name.StartsWith("♥", StringComparison.CurrentCulture)
+        _Text = DSN_Body.Value
 
     End Sub
 #End Region
 #Region " PROPERTIES - FUNCTIONS - METHODS "
-    Public ReadOnly Property Root As DataTool
-        Get
-            Dim _Root As DataTool = Nothing
-            If IsNothing(Parent) Then
-            Else
-                If IsNothing(Parent.Parent) Then
-                Else
-                    _Root = Parent.Parent
-                End If
-            End If
-            Return _Root
-        End Get
-    End Property
-    Public ReadOnly Property Form As Control
-        Get
-            Dim _Form As Control = Nothing
-            If IsNothing(Root) Then
-            Else
-                _Form = Root.Parent
-            End If
-            Return _Form
-        End Get
-    End Property
     <NonSerialized> Friend Parent As ScriptCollection
-    Friend SystemColumns As New List(Of ColumnProperties)
     <NonSerialized> Public WithEvents Body As New BodyElements
-    <NonSerialized> Private ReadOnly Connections As ConnectionCollection = DataTool.Connections
+    <NonSerialized> Friend TabPage_ As Tab
+    Friend ReadOnly Property TabPage As Tab
+        Get
+            Return TabPage_
+        End Get
+    End Property
+    Public ReadOnly Property TabImage As Image
+        Get
+            Return If(Type = ExecutionType.DDL, My.Resources.DDL, If(Type = ExecutionType.SQL, My.Resources.SQL, My.Resources.QuestionMark))
+        End Get
+    End Property
     Private _Connection As Connection
     Public Property Connection As Connection
         Get
@@ -376,16 +324,12 @@ End Class
                 Body.Connection = value
                 Dim FormerValue As Connection = _Connection
                 _Connection = value
-                If Tab IsNot Nothing And value IsNot Nothing Then
-                    SetSafeControlPropertyValue(Tab, "HeaderBackColor", value.BackColor)
-                    SetSafeControlPropertyValue(Tab, "HeaderForeColor", value.ForeColor)
-                    Tabs.Invalidate()
-                End If
                 Save(SaveAction.ChangeContent)
                 RaiseEvent ConnectionChanged(Me, New ConnectionChangedEventArgs(FormerValue, value))
             End If
         End Set
     End Property
+    Public ReadOnly Property Type As ExecutionType
     Public ReadOnly Property DataSourceName As String
         Get
             REM ONLY ATTEMPT TO CHANGE IF CURRENT VALUE IS NOTHING
@@ -396,20 +340,12 @@ End Class
             End If
         End Get
     End Property
-    Private ReadOnly FileDivider As String = vbNewLine + StrDup(10, EmDash) + vbNewLine
     Public ReadOnly Property FileCreated As Boolean
         Get
             Return File.Exists(Path)
         End Get
     End Property
-    Private Function FileElements() As String()
-
-        Using SR As New StreamReader(Path)
-            Dim FileContent As String = SR.ReadToEnd
-            Return Split(FileContent, FileDivider)
-        End Using
-
-    End Function
+    Friend ReadOnly Property DSN_Body As KeyValuePair(Of String, String)
     Public ReadOnly Property TextWasModified As Boolean
         Get
             Return If(FileCreated, Not FileTextMatchesText, Body.HasText)
@@ -418,9 +354,13 @@ End Class
     Public ReadOnly Property FileTextMatchesText As Boolean
         Get
             If FileCreated Then
-                'VBNEWLINE IS USED AS CARRIAGE RETURN IN THE .txt FILE BUT vbLf IS USED IN THE PANE.TEXT
-                Dim FileText As String = Replace(FileElements.Last, vbNewLine, vbLf)
-                Return FileText = Text
+                Dim fileText As String = DSN_Body.Value
+                fileText = Replace(fileText, vbCrLf, "♀")
+                fileText = Replace(fileText, vbLf, "♀")
+                Dim paneText As String = Text
+                paneText = Replace(paneText, vbCrLf, "♀")
+                paneText = Replace(paneText, vbLf, "♀")
+                Return fileText = paneText
             Else
                 Return False
             End If
@@ -490,9 +430,6 @@ End Class
                     End If
 #End Region
                 End If
-                If Tab IsNot Nothing AndAlso Tab.Parent IsNot Nothing Then
-                    Tab.ItemText = _Name
-                End If
             End If
         End Set
     End Property
@@ -507,6 +444,7 @@ End Class
             End If
         End Get
     End Property
+    Friend Property Favorite As Boolean
     Private _State As New ViewState
     Friend Property State As ViewState
         Get
@@ -527,25 +465,26 @@ End Class
                 Select Case True
 #Region " From None aka IsNew"
                     Case FormerState = ViewState.None And NewState = ViewState.OpenDraft
-                        AddControls()
+                        REM /// ( User clicked [+] AddTab )
+                        RaiseEvent VisibleChanged(Me, New ScriptVisibleChangedEventArgs(Me, True))
 
                     Case FormerState = ViewState.None And NewState = ViewState.OpenSaved
                         REM /// NOT LIKELY
-                        AddControls()
 
                     Case FormerState = ViewState.None And NewState = ViewState.ClosedSaved
-                            REM /// NEW FROM MY.SETTINGS.SCRIPTS
+                        REM /// NEW FROM MY.SETTINGS.SCRIPTS
 #End Region
 #Region " From Draft "
                     Case FormerState = ViewState.OpenDraft And NewState = ViewState.None
-                        REM /// Discard (User clicked X and doesn't want to save work)
-                        RemoveControls()
+                        REM /// Discard (User clicked [x] and doesn't want to save work)
+                        RaiseEvent VisibleChanged(Me, New ScriptVisibleChangedEventArgs(Me, False))
+                        Parent.Remove(Me)
 
                     Case FormerState = ViewState.OpenDraft And NewState = ViewState.OpenSaved
-                            REM /// Handled in Name Set since the only method to change from OpenDraft to OpenSaved is via IC_SaveAs -OR- Tree_ClosedScripts
+                        REM /// Handled in Name Set since the only method to change from OpenDraft to OpenSaved is via IC_SaveAs -OR- Tree_ClosedScripts
 
                     Case FormerState = ViewState.OpenDraft And NewState = ViewState.ClosedSaved
-                            REM /// No longer applies- OpenDraft can not become ClosedSaved, only OpenDraft to OpenSaved as immediately above
+                        REM /// No longer applies- OpenDraft can not become ClosedSaved, only OpenDraft to OpenSaved as immediately above
 
 #End Region
 #Region " From OpenSaved "
@@ -558,13 +497,13 @@ End Class
                     Case FormerState = ViewState.OpenSaved And NewState = ViewState.ClosedSaved
                         REM /// Save Text changes
                         Save(SaveAction.ChangeContent)
-                        RemoveControls()
+                        RaiseEvent VisibleChanged(Me, New ScriptVisibleChangedEventArgs(Me, False))
 
                     Case FormerState = ViewState.OpenSaved And NewState = ViewState.ClosedNotSaved
                         REM /// Discard any Text changes...revert back to FileText
-                        Text = FileElements().Last
+                        Text = DSN_Body.Value
                         _State = ViewState.ClosedSaved
-                        RemoveControls()
+                        RaiseEvent VisibleChanged(Me, New ScriptVisibleChangedEventArgs(Me, False))
 #End Region
 #Region " From ClosedSaved "
                     Case FormerState = ViewState.ClosedSaved And NewState = ViewState.None
@@ -579,7 +518,8 @@ End Class
                         REM /// Script to become visible
                         REM /// Drop Dummy Tab
                         REM /// Add at TabIndex
-                        AddControls()
+                        Body.Text = Text
+                        RaiseEvent VisibleChanged(Me, New ScriptVisibleChangedEventArgs(Me, True))
 #End Region
                 End Select
                 RaiseEvent StateChanged(Me, New ScriptStateChangedEventArgs(FormerState, NewState))
@@ -589,43 +529,14 @@ End Class
     Private _Text As String
     Friend Property Text() As String
         Get
-            If Pane IsNot Nothing Then _Text = Pane.Text
             Return _Text
         End Get
         Set(value As String)
-            _Text = value
-            Body.Text = value
-            If Pane IsNot Nothing Then Pane.Text = value
+            If _Text <> value Then
+                _Text = value
+                Body.Text = value
+            End If
         End Set
-    End Property
-    <NonSerialized> Friend _Tabs As Tabs
-    Public ReadOnly Property Tabs As Tabs
-        Get
-            Return _Tabs
-        End Get
-    End Property
-    <NonSerialized> Private _Tab As Tab
-    Public ReadOnly Property Tab As Tab
-        Get
-            If _Tab Is Nothing And _Tabs IsNot Nothing Then
-                Dim _Page As Tab = _Tabs.TabPages.Item(Name)
-                If _Page IsNot Nothing Then
-                    _Tab = _Page
-                End If
-            End If
-            Return _Tab
-        End Get
-    End Property
-    <NonSerialized> Public WithEvents Pane As RicherTextBox
-    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Friend Shadows ReadOnly Property ToString As String
-        Get
-            If IsNothing(Connection) Then
-                Return Join({String.Empty, Name, CreatedString, Text, DateTimeToString(Modified), DateTimeToString(Ran)}, Delimiter)
-            Else
-                Return Join({Connection.Key, Name, CreatedString, Text, DateTimeToString(Modified), DateTimeToString(Ran)}, Delimiter)
-            End If
-        End Get
     End Property
     Public Function Save(Action As SaveAction) As Boolean
 
@@ -642,12 +553,13 @@ End Class
             Return False
 
         Else
+            'vbCrLf (VBNEWLINE) IS USED AS CARRIAGE RETURN IN THE .txt FILE BUT vbLf IS USED IN THE PANE.TEXT ... vbNewLine MAKES THE .txt FILE MUCH MORE READABLE
             Dim ConnectionText As String = If(Connection Is Nothing, String.Empty, Connection.Properties("DSN"))
-            Dim ScriptText As String = Regex.Replace(If(Text, String.Empty), "[\n\r]", vbNewLine)      'vbNewLine MAKES THE .txt FILE MUCH MORE READABLE
+            Dim ScriptText As String = Regex.Replace(If(Text, String.Empty), vbLf, vbCrLf)
             Select Case Action
                 Case SaveAction.ChangeContent
                     Using SW As New StreamWriter(Path)
-                        SW.Write(Join({ConnectionText, ScriptText}, FileDivider))
+                        SW.Write(Join({ConnectionText, ScriptText}, BodyDelimiter))
                     End Using
                     File.SetLastWriteTime(Path, ActionTime)
 
@@ -655,63 +567,1102 @@ End Class
                     File.SetLastAccessTime(Path, ActionTime)
 
             End Select
+            _DSN_Body = New KeyValuePair(Of String, String)("DSN=" & ConnectionText, ScriptText)
             Return True
         End If
 
     End Function
-    Private Sub AddControls()
+    Public Overrides Function ToString() As String
 
-        '2 NEW OPEN...ADD TAB + PANE
-        _Tab = New Tab With {.HeaderBackColor = If(Connection Is Nothing, Color.Gainsboro, Connection.BackColor),
-                    .HeaderForeColor = If(Connection Is Nothing, Color.Black, Connection.ForeColor),
-                    .ItemText = Name,
-                    .Image = If(Body.InstructionType = ExecutionType.DDL, My.Resources.DDL,
-                             If(Body.InstructionType = ExecutionType.SQL, My.Resources.SQL,
-                             My.Resources.QuestionMark)),
-                    .Tag = Me,
-                    .AllowDrop = True}
+        Dim scriptText As String = If(Text, String.Empty)
+        Dim abbreviatedText As String = If(scriptText.Any, If(scriptText.Length > 10, scriptText.Substring(0, 10) & "...", scriptText), String.Empty)
+        Return Join({Name, DataSourceName, Type.ToString, abbreviatedText}, BlackOut)
 
-        Pane = New RicherTextBox With {.Name = "Pane",
-                    .Dock = DockStyle.Fill,
-                    .Multiline = True,
-                    .WordWrap = True,
-                    .AllowDrop = True,
-                    .AcceptsTab = True,
-                    .Font = My.Settings.Font_Pane,
-                    .Tag = Me,
-                    .EnableAutoDragDrop = True,
-                    .Text = Text}
-        Pane.AllowDrop = True
-        Tab.Controls.Clear()
-        Tab.Controls.Add(Pane)
-
-        Tabs.TabPages.Add(Tab)
-
+    End Function
+#End Region
+End Class
+Public Class BodyElements
+    Implements IDisposable
+#Region " DISPOSE "
+    Dim disposed As Boolean = False
+    ReadOnly Handle As SafeHandle = New Microsoft.Win32.SafeHandles.SafeFileHandle(IntPtr.Zero, True)
+    Public Sub Dispose() Implements IDisposable.Dispose
+        Dispose(True)
+        GC.SuppressFinalize(Me)
     End Sub
-    Private Sub RemoveControls()
+    Protected Overridable Sub Dispose(disposing As Boolean)
+        If disposed Then Return
+        If disposing Then
+            Handle.Dispose()
+            ' Free any other managed objects here.
+            ElementsWorker.Dispose()
+        End If
+        disposed = True
+    End Sub
+#End Region
+    Public Event ConnectionChanged(sender As Object, e As ConnectionChangedEventArgs)
+    Public Event TypeChanged(sender As Object, e As ScriptTypeChangedEventArgs)
+    Public Event Completed(sender As Object, e As EventArgs)
 
-        Pane.Controls.Clear()
-        Tab.Controls.Clear()
-        With Root.Script_Tabs
-            .TabPages.Remove(Tab)
-            .Invalidate()
+    Private WithEvents ElementsWorker As New BackgroundWorker With {.WorkerReportsProgress = False}
+    Private WithEvents ChangedTimer As New Timer With {.Interval = 400}         'When Connection or Instruction ( Text ) changes
+
+    Private Const NonCharacter As String = "©"
+    Private Const SelectPattern As String = "SELECT[^■]{1,}?(?=FROM)"
+    Private Const CommentPattern As String = "--[^\r\n]{1,}(?=\r|\n|$)"
+    Private Const ObjectPattern As String = "([A-Z0-9!%{}^~_@#$]{1,}([.][A-Z0-9!%{}^~_@#$]{1,}){0,2})"     'DataSource.Owner.Name
+    'Private Const OrderByPattern As String = "ORDER\s+BY\s+" & ObjectPattern & "(,\s+" & ObjectPattern & "){0,}"           * U N U S E D - BUT USEFUL
+    Private Const FromJoinCommaPattern As String = "(?<=FROM |JOIN )[\s]{0,}[A-Z0-9!%{}^~_@#$♥]{1,}([.][A-Z0-9!%{}^~_@#$♥]{1,}){0,2}([\s]{1,}[A-Z0-9!%{}^~_@#$]{1,}){0,1}|(?<=,)[\s]{0,}[A-Z0-9!%{}^~_@#$♥]{1,}([.][A-Z0-9!%{}^~_@#$♥]{1,}){0,2}([\s]{1,}[A-Z0-9!%{}^~_@#$]{1,}){0,1}"
+
+    Public Sub New()
+        IsBusy = True
+        Initializing = True
+        Connections = New ConnectionCollection()
+        Objects = New SystemObjectCollection
+    End Sub
+
+    Public ReadOnly Property HasText As Boolean
+        Get
+            Return If(Text, String.Empty).Any
+        End Get
+    End Property
+    Private ReadOnly Property Initializing As Boolean = False
+    Private ConnectionChange As Boolean = False
+    Private _Text As String
+    Public Property Text() As String
+        Get
+            Return _Text
+        End Get
+        Set(value As String)
+            If _Text <> value Then
+                ConnectionChange = False
+                _Text = value
+                _IsBusy = False
+                'Timer Stop/Start method ensures that pauses in keystroking >=400ms advance to Timer.Tick
+                If If(value, String.Empty).Any Then
+                    If Initializing Then
+                        'Start immediately
+                        ElementsWorker.RunWorkerAsync()
+                    Else
+                        With ChangedTimer
+                            .Stop()
+                            .Start()
+                        End With
+                    End If
+                End If
+            End If
+        End Set
+    End Property
+    Private LastType_ As ExecutionType
+    Public ReadOnly Property InstructionType As ExecutionType = ExecutionType.Null
+    Private LastConnection_ As Connection
+    Private Connection_ As Connection
+    Public Property Connection As Connection
+        Get
+            Return Connection_
+        End Get
+        Set(value As Connection)
+            ConnectionChange = value <> Connection_
+            If ConnectionChange Then
+                Connection_ = value
+                _IsBusy = False
+                ChangedTimer_Tick()
+            End If
+        End Set
+    End Property
+    Private Sub ChangedTimer_Tick() Handles ChangedTimer.Tick
+
+        With ChangedTimer
+            .Stop()
+            'If Class is currently working on Text, do no restart the process
+            If Not (IsBusy Or ElementsWorker.IsBusy) Then
+                _IsBusy = True
+                ElementsWorker.RunWorkerAsync()
+            End If
         End With
-        _Tab.Dispose()
 
     End Sub
-    '=======================================================================================================================================
-    '=========================================================    TIDY TEXT    =============================================================
-    '=======================================================================================================================================
+    Public ReadOnly Property UncommentedText As String
+    Public ReadOnly Property CountOrLimitText(Optional Limit As Integer = 0) As String
+        Get
+            'EITHER GET A FULL COUNT OF A QUERY Or LIMIT ROW COUNT IN THE FOLLOWING MANNER
+            'COUNT:    Select * From ABC ===> "Select COUNT(*)# FROM ("    SELECT * FROM ABC    "  ) WRAP"
+            'LIMIT:    Select * From ABC ===> "Select * FROM ("    SELECT * FROM ABC    "  ) WRAP FETCH FIRST n ROWS ONLY"
+            'ie) SELECT STATEMENT MUST BE MODIFIED
+            'a) SQL has With(s), INSERT TAKES PLACE NEAR END OF SQL
+            'b) SQL does not have With(s), INSERT TAKES PLACE AT START OF SQL
+
+            If If(UncommentedText, String.Empty).Any Then
+                Select Case InstructionType
+                    Case ExecutionType.SQL
+                        Dim Lines As New List(Of String)
+                        Dim SelectSection As String
+                        If Withs.Any Then
+                            'WITH STATEMENTS...
+                            '     With BASE (X, Y, Z) AS (SELECT * FROM C085365.PROFILES) Select * FROM BASE
+                            '===> With BASE (X, Y, Z) AS (SELECT * FROM C085365.PROFILES) Select * FROM (SELECT * FROM BASE) WRAP FETCH FIRST X ROWS ONLY
+
+                            Dim LastWith As StringData = Withs.Last.Block
+                            Dim WithSection As String = UncommentedText.Substring(0, LastWith.Finish)
+                            Lines.Add(WithSection)
+                            SelectSection = UncommentedText.Remove(0, LastWith.Finish)
+
+                        Else
+                            REM /// NO WITH STATEMENTS...INSERT AT POSITION 0 EITHER: SELECT * / SELECT COUNT(*) FROM (...) WRAP
+                            '     Select * FROM C085365.PROFILES
+                            '===> Select * FROM (SELECT * FROM C085365.PROFILES) WRAP FETCH FIRST X ROWS ONLY
+                            SelectSection = UncommentedText
+
+
+                        End If
+                        If Limit = 0 Then
+                            REM /// COUNT(*) QUERY
+                            Lines.Add("Select COUNT(*)# FROM (")
+                            Lines.Add(SelectSection)
+                            Lines.Add(") WRAP")
+
+                        Else
+                            REM /// SELECT QUERY
+                            Lines.Add("Select * FROM (")
+                            Lines.Add(SelectSection)
+                            Lines.Add(") WRAP")
+                            If IsNetezza() Then
+                                Lines.Add("LIMIT " & Limit)
+                            Else
+                                Lines.Add("FETCH FIRST " & Limit & " ROWS ONLY")
+                            End If
+
+                        End If
+                        Return Join(Lines.ToArray, vbNewLine)
+
+                    Case ExecutionType.DDL
+                        'DELETE FROM ABC WHERE X=0 ===> SELECT COUNT(*)# FROM ABC WHERE X=0 [REMOVE REPLACE DELETE WITH SELECT COUNT(*)#...]
+                        'INSERT INTO ABC WITH ABC...SELECT * FROM XYZ ===> SELECT COUNT(*)# FROM XYZ [REMOVE INSERT ...]
+                        'UPDATE ABC SET X=0 WHERE... ===> SELECT COUNT(*)# FROM ABC WHERE [REMOVE UPDATE ...]
+                        'Dim DDLs As New List(Of String)(Split)
+                        Return Nothing  'For now    ... translate DDL to SQL
+
+                    Case Else
+                        Return Nothing
+
+                End Select
+            Else
+                Return Nothing
+            End If
+        End Get
+    End Property
+    Public ReadOnly Property SystemText As String
+    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+    Private ReadOnly Property Connections As ConnectionCollection
+    Private ReadOnly Property Objects As SystemObjectCollection
+    Public ReadOnly Property IsBusy As Boolean
+    Public ReadOnly Property IsDDL() As Boolean
+    Public ReadOnly Property Labels As New List(Of InstructionElement)
+    Public ReadOnly Property GroupedLabels As Dictionary(Of InstructionElement.LabelName, List(Of InstructionElement))
+        Get
+            Dim gl As New Dictionary(Of InstructionElement.LabelName, List(Of InstructionElement))
+            Dim dl As New List(Of InstructionElement)(Labels.Distinct)
+            For Each Label In dl
+                If Not gl.ContainsKey(Label.Source) Then gl.Add(Label.Source, New List(Of InstructionElement))
+                gl(Label.Source).Add(Label)
+                gl(Label.Source).Sort(Function(x, y) x.Block.Start.CompareTo(y.Block.Start))
+            Next
+            Return gl
+        End Get
+    End Property
+    Public ReadOnly Property TablesFullName As List(Of String)
+        Get
+            If TablesObject.Any Then
+                Return TablesObject.Select(Function(t) t.FullName).ToList
+            Else
+                Return New List(Of String)
+            End If
+        End Get
+    End Property
+    Public ReadOnly Property TablesElement As List(Of InstructionElement)
+        Get
+            If GroupedLabels.ContainsKey(InstructionElement.LabelName.SystemTable) Then
+                Return GroupedLabels(InstructionElement.LabelName.SystemTable)
+            Else
+                Return New List(Of InstructionElement)
+            End If
+        End Get
+    End Property
+    Public ReadOnly Property TablesNeedObject As List(Of String)
+        Get
+            If TablesElement.Any Then
+                'TablesElement is the Body.Text- what the user writes vs TablesObject which is saved SystemObjects (Table)
+                'If an item in the Body is not in the saved SystemObjects, then add so an SystemObject can be retrieved from the Database
+                Dim BodyTables As New List(Of String)(TablesElement.Select(Function(te) te.FullName))
+                Dim HaveObjects As New List(Of String)
+                For Each Item In TablesObject
+                    If BodyTables.Contains(Item.FullName) Then
+                        HaveObjects.Add(Item.FullName)
+                    End If
+                Next
+                Return BodyTables.Except(HaveObjects).ToList
+            Else
+                Return New List(Of String)
+            End If
+        End Get
+    End Property
+    Private ReadOnly Property TablesObject As New List(Of SystemObject)
+    Public ReadOnly Property Withs As New List(Of InstructionElement)
+    Public ReadOnly Property DataSources As New Dictionary(Of String, List(Of SystemObject))
+    Public ReadOnly Property DataSource As SystemObject
+    Public ReadOnly Property ElementObjects As New Dictionary(Of InstructionElement, List(Of SystemObject))
+    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+    Public ReadOnly Property IsNetezza As Boolean
+        Get
+            If IsNothing(Connection) Then
+                Return False
+            Else
+                Return Connection.IsNetezza
+            End If
+        End Get
+    End Property
+    Public ReadOnly Property IsDB2 As Boolean
+        Get
+            If IsNothing(Connection) Then
+                Return False
+            Else
+                Return Connection.IsDB2
+            End If
+        End Get
+    End Property
+    '============================================================================================
+    Private Sub BeginObjectsWork(sender As Object, e As DoWorkEventArgs) Handles ElementsWorker.DoWork
+
+        If Not ConnectionChange Then
+            'Skip this work when only the Connection changed since only SystemText has a dependancy on Connection properties. 
+#Region " RESET COLLECTIONS "
+            Withs.Clear()
+            Labels.Clear()
+            ElementObjects.Clear()
+            TablesObject.Clear()
+            DataSources.Clear()
+#End Region
+            REM /// BELOW FUNCTIONS ARE ORDERED BY DEPENDANCY
+            '#1----------------------------COMMENTED TEXT...Commented text MUST be ignored
+            _UncommentedText = StripComments(Text)
+
+            '#2----------------------------Determineif DDL Or SQL
+            LastType_ = InstructionType
+            _InstructionType = GetInstructionType()
+            '----------------------------CLASSIFY TEXT
+            AssignLabels()
+
+            '----------------------------CROSS-REFERENCE TEXT AS AN OBJECT THAT RESIDES IN A DATABASE
+            AddSystemObjects()
+            '----------------------------DETEREMINE DATASOURCE
+            GetDataSources()
+            '----------------------------SET THE CONNECTION
+            LastConnection_ = Connection
+            Connection_ = GetConnection()
+        End If
+        '----------------------------SET THE DATABASE TEXT
+        _SystemText = If(GetSystemText(), Text)
+
+
+    End Sub
+    Private Sub EndObjectsWork(sender As Object, e As RunWorkerCompletedEventArgs) Handles ElementsWorker.RunWorkerCompleted
+
+        _Initializing = False
+        _IsBusy = False
+        If LastType_ <> InstructionType Then
+            RaiseEvent TypeChanged(Me, New ScriptTypeChangedEventArgs(LastType_, InstructionType))
+            LastType_ = InstructionType
+        End If
+        If LastConnection_ <> Connection Then
+            RaiseEvent ConnectionChanged(Me, New ConnectionChangedEventArgs(LastConnection_, Connection))
+            LastConnection_ = Connection
+        End If
+        ConnectionChange = False
+        RaiseEvent Completed(Me, Nothing)
+
+    End Sub
+    '============================================================================================
+#Region " FILL PROPERTIES AND VALUES - SEQUENTIAL ORDER "
+    Private Function StripComments(TextIn As String) As String
+
+        REM /// -- EXEMPTS TEXT FROM CONSIDERATION, BUT NOT IF IT IS IN APOSTROPHES (CONSTANTS)
+        REM /// 1] SELECT  '----------------------' = CONSTANT
+        REM /// 2] --SELECT 'SPG'                   = GREENOUT
+
+        Dim _UnCommentedText As String = If(IsNothing(TextIn), String.Empty, TextIn) 'RegEx THROWS AN ERROR FROM A NULL INPUT VALUE...
+
+        Dim GreenOuts As New List(Of StringData)(From M In Regex.Matches(_UnCommentedText, CommentPattern, RegexOptions.IgnoreCase) Select New StringData(M))
+        Dim Constants As New List(Of StringData)(From M In Regex.Matches(_UnCommentedText, "'[^'\r\n]{0,}'", RegexOptions.IgnoreCase) Select New StringData(M))
+
+        For Each Constant In Constants
+            With Constant
+                .BackColor = Color.Gainsboro
+                .ForeColor = Color.Black
+            End With
+            Labels.Add(New InstructionElement With {.Source = InstructionElement.LabelName.Constant,
+                             .Block = Constant,
+                             .Highlight = Constant})
+        Next
+        GreenOuts = (From G In GreenOuts Where (From C In Constants Where Not C.Contains(G)).Any).ToList
+        For Each GreenOut In GreenOuts
+            With GreenOut
+                .BackColor = Color.White
+                .ForeColor = Color.DarkGreen
+            End With
+            Labels.Add(New InstructionElement With {.Source = InstructionElement.LabelName.Comment,
+                         .Block = GreenOut,
+                         .Highlight = GreenOut})
+            _UnCommentedText = _UnCommentedText.Remove(GreenOut.Start, GreenOut.Length)
+            _UnCommentedText = _UnCommentedText.Insert(GreenOut.Start, StrDup(GreenOut.Length, "-"))
+        Next
+        Return _UnCommentedText
+
+    End Function
+    Private Function GetInstructionType() As ExecutionType
+
+        _IsDDL = False
+        REM /// _CommentsReplaced REMOVES POTENTIAL MATCHES FROM TEXT INSIDE A COMMENT...WHICH SHOULD NOT BE CONSIDERED
+        Dim _CurrentType As ExecutionType = ExecutionType.Null
+
+        If UncommentedText.Any Then
+            Dim Match_Comment As Match = Regex.Match(UncommentedText, "COMMENT\s{1,}ON\s{1,}(TABLE|COLUMN|FUNCTION|TRIGGER|DOCUMENT|PROCEDURE|ROLE|TRUSTED|MASK)\s{1,}", RegexOptions.IgnoreCase)
+            Dim Match_Drop As Match = Regex.Match(UncommentedText, "DROP[\s]{1,}(TABLE|VIEW|Function|TRIGGER)[\s]{1,}" & ObjectPattern, RegexOptions.IgnoreCase)
+            Dim Match_Insert As Match = Regex.Match(UncommentedText, "INSERT[\s]{1,}INTO[\s]{1,}" + ObjectPattern + "([\s]{0,}\([A-Z0-9!%{}^~_@#$]{1,}(,[\s]{0,}[A-Z0-9!%{}^~_@#$]{1,}){0,}\)){0,}", RegexOptions.IgnoreCase)
+            Dim Match_Delete As Match = Regex.Match(UncommentedText, "DELETE[\s]{1,}FROM[\s]{1,}" + ObjectPattern, RegexOptions.IgnoreCase)
+            Dim Match_Update As Match = Regex.Match(UncommentedText, "UPDATE[\s]{1,}" + ObjectPattern + "([\s]{1,}([A-Z0-9!%{}^~_@#$]{1,})){0,1}[\s]{1,}Set[\s]{1,}", RegexOptions.IgnoreCase)
+            Dim Match_CreateAlterDrop As Match = Regex.Match(UncommentedText, "(CREATE|ALTER|DROP)(\s{1,}OR REPLACE){0,1}\s{1,}((AUXILIARY\s+){0,1}TABLE|(BLOB\s+|CLOB\s+|LOB\s+)TABLESPACE|VIEW|Function|TRIGGER)[\s]{1,}" + ObjectPattern, RegexOptions.IgnoreCase)
+            Dim Match_GrantRevoke As Match = Regex.Match(UncommentedText, "(GRANT|REVOKE)[\s]{1,}((Select|UPDATE|INSERT|DELETE|ALTER|INDEX|REFERENCES|EXECUTE)[\s]{0,}[,]{0,1}[\s]{0,}){1,8}[\s]{1,}On[\s]{1,}" + ObjectPattern, RegexOptions.IgnoreCase)
+            _IsDDL = Match_Comment.Success Or Match_Drop.Success Or Match_Insert.Success Or Match_Delete.Success Or Match_Update.Success Or Match_CreateAlterDrop.Success Or Match_GrantRevoke.Success
+            If IsDDL Then
+                _CurrentType = ExecutionType.DDL
+            ElseIf Regex.Match(UncommentedText, SelectPattern, RegexOptions.IgnoreCase).Success Then
+                _CurrentType = ExecutionType.SQL
+            End If
+        End If
+        Return _CurrentType
+
+    End Function
+#Region " LABELS "
+    Private Sub AssignLabels()
+
+        REM /// REQUIRES KNOWING IF IsDDL + CALLS ParenthesisNodes
+        Dim TextIn As String = UncommentedText
+        Dim Blackout_Selects As String = TextIn
+        Dim BlackOut_Parentheses As String = TextIn
+        Dim Blackout_Handled As String = TextIn
+
+        If IsNothing(TextIn) OrElse TextIn.Length = 0 Then
+        Else
+            REM /// BEGIN BY IDENTIFYING SIMPLE OBJECTS
+#Region " UNION - ADD BLOCK "
+            Dim Unions As New List(Of StringData)(From M In Regex.Matches(TextIn, "[\s\r\n]{1,}\b(UNION ALL|UNION|EXCEPT|INTERSECT)\b[\s\r\n]{1,}", RegexOptions.IgnoreCase) Select New StringData(M))
+            For Each Union In Unions
+                With Union
+                    '.BackColor = My.Settings.Union_Back
+                    '.ForeColor = My.Settings.Union_Fore
+                End With
+                Labels.Add(New InstructionElement With {.Source = InstructionElement.LabelName.Union,
+                         .Block = Union,
+                         .Highlight = Union})
+            Next
+#End Region
+#Region " SELECT STATEMENTS "
+            Dim Selects As New List(Of StringData)(From M In Regex.Matches(TextIn, SelectPattern, RegexOptions.IgnoreCase) Select New StringData(M))
+            For Each SelectStatement In Selects
+                With SelectStatement
+                    .BackColor = Color.FromArgb(64, Color.Tomato)
+                    .ForeColor = Color.Black
+                End With
+                Blackout_Selects = ChangeText(Blackout_Selects, SelectStatement)
+                Labels.Add(New InstructionElement With {.Source = InstructionElement.LabelName.SelectBlock,
+                             .Block = SelectStatement,
+                             .Highlight = New StringData With {
+                                                .Start = SelectStatement.Start,
+                                                .Length = "SELECT".Length,
+                                                .Value = "SELECT"
+                                                }
+                            })
+                REM /// COMPLICATED TO DETERMINE END OF FIELD...EXAMPLE:    (CASE LEFT(R.SAI, 2) WHEN 'WW' THEN 'Y' ELSE 'N' END) --H.IN
+                Labels.AddRange(FieldsFromBlocks(SelectStatement, "SELECT[\s]{1,}"))
+            Next
+#End Region
+#Region " GROUP BY/ORDER BY "
+            Dim GroupBys As New List(Of StringData)(From M In Regex.Matches(TextIn, "\bGROUP[\s]{1,}BY\b[\s]{1,}([A-Z0-9!%{}^~_@#$]{1,}([.][A-Z0-9!%{}^~_@#$]{1,}){0,2})(,[\s]{1,}[A-Z0-9!%{}^~_@#$]{1,}([.][A-Z0-9!%{}^~_@#$]{1,}){0,2}){0,}", RegexOptions.IgnoreCase) Select New StringData(M))
+            For Each GroupBy In GroupBys
+                Dim GroupByHighlight = Regex.Match(GroupBy.Value, "\bGROUP[\s]{1,}BY\b", RegexOptions.IgnoreCase).Value
+                Labels.Add(New InstructionElement With {.Source = InstructionElement.LabelName.GroupBlock,
+                             .Block = GroupBy,
+                             .Highlight = New StringData With {.Start = GroupBy.Start,
+                             .Length = GroupByHighlight.Length,
+                             .Value = GroupByHighlight}})
+                Labels.AddRange(FieldsFromBlocks(GroupBy, "GROUP[\s]{1,}BY[\s]{1,}"))
+            Next
+            Dim OrderBys As New List(Of StringData)(From M In Regex.Matches(TextIn, "\bORDER[\s]{1,}BY\b[\s]{1,}([A-Z0-9!%{}^~_@#$]{1,}([.][A-Z0-9!%{}^~_@#$]{1,}){0,2})(,[\s]{1,}[A-Z0-9!%{}^~_@#$]{1,}([.][A-Z0-9!%{}^~_@#$]{1,}){0,2}){0,}", RegexOptions.IgnoreCase) Select New StringData(M))
+            For Each OrderBy In OrderBys
+                Dim OrderByHighlight = Regex.Match(OrderBy.Value, "\bORDER[\s]{1,}BY\b", RegexOptions.IgnoreCase).Value
+                Labels.Add(New InstructionElement With {.Source = InstructionElement.LabelName.OrderBlock,
+                             .Block = OrderBy,
+                             .Highlight = New StringData With {.Start = OrderBy.Start,
+                             .Length = OrderByHighlight.Length,
+                             .Value = OrderByHighlight}})
+                Labels.AddRange(FieldsFromBlocks(OrderBy, "ORDER[\s]{1,}BY[\s]{1,}"))
+            Next
+#End Region
+#Region " FETCH/LIMIT "
+            Dim Limits As New List(Of StringData)(From M In Regex.Matches(TextIn, "(FETCH[\s]{1,}FIRST[\s]{1,}[0-9]{1,}[\s]{1,}ROWS[\s]{1,}ONLY|LIMIT[\s]{1,}[0-9]{1,})", RegexOptions.IgnoreCase) Select New StringData(M))
+            For Each Limit In Limits
+                With Limit
+                    .BackColor = Color.FromArgb(64, Color.MediumVioletRed)
+                    .ForeColor = Color.Black
+                End With
+                Labels.Add(New InstructionElement With {.Source = InstructionElement.LabelName.Limit,
+                             .Block = Limit,
+                             .Highlight = New StringData With {.Start = Limit.Start,
+                             .Length = 5,
+                             .Value = Regex.Match(Limit.Value, "FETCH|LIMIT", RegexOptions.IgnoreCase).Value}})
+            Next
+#End Region
+            REM /// STRIP AWAY PARTS OF TEXT IDENTIFIED SO THEY ARE NOT CONSIDERED AGAIN
+            REM /// LOOKS FOR ACCEPTABLE OBJECT NAMING CONVENTIONS- CERTAIN CHARACTERS ARE NOT ALLOWED IN TABLE, VIEW, FUNCTION, AND TRIGGER NAMES + CAN BE AS: {1] DB.OWNER.NAME, 2] OWNER.NAME, 3] NAME}
+            Dim PotentialObjects As New List(Of StringData)(From M In Regex.Matches(TextIn, ObjectPattern, RegexOptions.IgnoreCase) Select New StringData(M))
+#Region " PROCEDURAL ACTIONS ON SYSTEM.TABLES "
+            If IsDDL Then
+                Dim Patterns As New Dictionary(Of String, String)
+#Region " TRIGGER SECTION - CAN CONTAIN TABLES, VIEWS, FUNCTIONS "
+                Patterns.Add("TriggerInsertDelete", "(BEFORE|AFTER|INSTEAD[\s]{1,}OF)[\s]{1,}(INSERT|DELETE)[\s]{1,}ON[\s]")
+                Patterns.Add("TriggerUpdate", "(BEFORE|AFTER|INSTEAD[\s]{1,}OF)[\s]{1,}(UPDATE[\s]{1,}OF[\s]{1,})([A-Z0-9!%{}^~_@#$]{1,})([\s]{0,}[,][\s]{0,}[A-Z0-9!%{}^~_@#$]{1,}){0,}[\s]{1,}ON[\s]{1,}")
+#End Region
+#Region " GRANT/REVOKE SECTION "
+                REM /// OTHER DDL COMMANDS: GRANT|REVOKE (SELECT|UPDATE|INSERT|DELETE|ALTER|INDEX|REFERENCES|EXECUTE) ON
+                Patterns.Add("GrantRevoke", "(GRANT|REVOKE)[\s]{1,}(SELECT|UPDATE|INSERT|DELETE|ALTER|INDEX|REFERENCES|EXECUTE)[\s]{1,}ON[\s]{1,}(FUNCTION[\s]{1,}){0,}")
+#End Region
+#Region " ALTER/DROP SECTION "
+                REM /// OTHER DDL COMMANDS: ALTER|DROP TABLE (CREATE WOULD BE NEW AND THEREFORE SHOULD NOT COUNT)
+                Patterns.Add("AlterDrop", "(ALTER|DROP)[\s]{1,}(TABLE|VIEW)[\s]{1,}")
+#End Region
+#Region " INSERT/UPDATE/DELETE SECTION "
+                REM /// OTHER DDL COMMANDS: INSERT INTO, UPDATE, DELETE FROM}
+                Patterns.Add("InsertUpdateDelete", "(INSERT[\s]{1,}INTO|DELETE[\s]{1,}FROM|UPDATE)[\s]{1,}")
+#End Region
+#Region " ITERATE PATTERNS...TextElements.Add(SystemTable) "
+                For Each Pattern In Patterns.Keys
+                    Dim Statements As New List(Of StringData)(From M In Regex.Matches(TextIn, Patterns(Pattern) + ObjectPattern, RegexOptions.IgnoreCase) Select New StringData(M))
+                    Dim KeyWords As New List(Of String)(From PK In Regex.Matches(Patterns(Pattern), "[A-Z]{2,}", RegexOptions.IgnoreCase) Select DirectCast(PK, Match).Value)
+                    Dim Tables = (From S In Statements, PO In PotentialObjects Where S.Contains(PO) And Not KeyWords.Intersect({PO.Value}).Any Select PO)
+                    For Each Table In Tables
+                        With Table
+                            '.BackColor = My.Settings.TableSystem_Back
+                            '.ForeColor = My.Settings.TableSystem_Fore
+                        End With
+                        Dim SystemTableElement As New InstructionElement With {.Source = InstructionElement.LabelName.SystemTable,
+                                     .Block = Table,
+                                     .Highlight = Table}
+                        Labels.Add(SystemTableElement)
+                    Next
+                    For Each Statement In Statements
+                        Blackout_Handled = ChangeText(TextIn, Statement)
+                    Next
+                Next
+#End Region
+            End If
+#End Region
+            Dim Root As New StringData(Blackout_Handled)
+            ParenthesisNodes(Root, TextIn)
+            BlackOut_Parentheses = Blackout_Handled
+#Region " WITH BLOCKS - ALWAYS TEXT OUTSIDE PARENTHESES: WITH ABC (X, Y, Z) AS (SELECT ...) "
+            REM /// EASIER TO CAPTURE WITH BLOCKS WHEN IGNORING CONTENT INSIDE WITH(ignore me)
+            For Each ParenthesesBlock As StringData In Root.All
+                BlackOut_Parentheses = ChangeText(BlackOut_Parentheses, ParenthesesBlock)
+            Next
+            Dim WithColors As New List(Of Color)({Color.SlateBlue, Color.OrangeRed, Color.Peru, Color.YellowGreen, Color.BlueViolet, Color.Olive, Color.DarkOliveGreen, Color.DarkMagenta})
+            REM /// 1] WITH DEBITS ■■■■ AS ■■■■ |2] WITH DEBITS AS ■■■■ |3] , FINAL ■■■■ AS ■■■■ |4] , FINAL AS ■■■■
+            Dim WithPattern As String = "(?<=WITH |,)[\s]{0,}[A-Z0-9!%{}^~_@#$]{1,}[\s]{0,}[■]{0,}[\s]AS[\s]{0,}[■]{1,}"
+            Dim WithBlocks As New List(Of StringData)(From M In Regex.Matches(BlackOut_Parentheses, WithPattern, RegexOptions.IgnoreCase) Select New StringData(M))
+            For Each WithBlock In WithBlocks
+                REM /// REGEX LOOKBEHIND MUST HAVE A FIXED LENGTH WHICH MEANS HAVING TO ADJUST THE StringData.START ACCOUNTING FOR PRECEDING SPACES
+                Dim WithStart As Integer = 0
+                For Each Item In WithBlock.Value
+                    If Item = " " Then
+                        WithStart += 1
+                    Else
+                        Exit For
+                    End If
+                Next
+                Dim NewStart As Integer = (WithBlock.Start + WithStart)
+                Dim NewLength As Integer = (WithBlock.Length - WithStart)
+                Dim WithValue As String = Split(WithBlock.Value.Substring(WithStart, NewLength), " ").First
+                WithValue = Split(WithValue, BlackOut).First
+                Dim WithElement As New InstructionElement With {
+                                 .Source = InstructionElement.LabelName.WithBlock,
+                                 .Block = New StringData With {
+                                             .Start = NewStart,
+                                             .Length = WithBlock.Length - WithStart,
+                                             .Value = TextIn.Substring(NewStart, NewLength)
+                                 },
+                                 .Highlight = New StringData With {
+                                            .Start = NewStart,
+                                            .Length = WithValue.Length,
+                                            .Value = WithValue,
+                                            .BackColor = WithColors(_Withs.Count Mod WithColors.Count)
+                                 }
+                                 }
+                Withs.Add(WithElement)
+            Next
+            Labels.AddRange(Withs)
+#End Region
+#Region " GET TABLES - WHICH ALWAYS FOLLOW <FROM> - 3 STAGES "
+            REM /// IT IS BEST TO HANDLE OUTSIDE () AND INSIDE () SEPARATELY
+#Region " OUTSIDE () "
+            Dim From_OutsideWiths As New List(Of InstructionElement)(FromBlocks(New StringData With {.Value = BlackOut_Parentheses}))
+            Labels.AddRange(From_OutsideWiths)
+#End Region
+#Region " INSIDE (a) - INNER FROM STATEMENTS ( NO NESTED FROM STATEMENT(s) ) "
+            REM /// (SELECT...FROM TABLENAME...WHERE)
+            REM /// NEED INNERMOST FROM STATEMENTS FIRST SINCE THEY WILL INTERFERE WITH OUTER FROM STATEMENTS...SELECT A, (SELECT B FROM) FROM (SELECT *)
+            Dim FromInnerValuePair As KeyValuePair(Of String, List(Of InstructionElement)) = FromWhittle(Blackout_Handled)
+            Labels.AddRange(FromInnerValuePair.Value)
+#End Region
+#Region " INSIDE (b) - OUTER FROM STATEMENTS ( HAS NESTED FROM STATEMENT(s) ) "
+            Dim FromOuterValuePair As KeyValuePair(Of String, List(Of InstructionElement)) = FromWhittle(FromInnerValuePair.Key)
+            Labels.AddRange(FromOuterValuePair.Value)
+#End Region
+#End Region
+        End If
+
+    End Sub
+    Private Shared Function ChangeText(FullString As String, _StringData As StringData, Optional Value As String = BlackOut) As String
+
+        Dim NewValue As String = FullString
+        With _StringData
+            NewValue = NewValue.Remove(.Start, .Length)
+            NewValue = NewValue.Insert(.Start, StrDup(.Length, Value))
+        End With
+        Return NewValue
+
+    End Function
+    Private Function FromWhittle(TextIn As String) As KeyValuePair(Of String, List(Of InstructionElement))
+
+        Dim Root As New StringData With {.Value = TextIn}
+        ParenthesisNodes(Root, TextIn)
+
+        Dim FromsAll As New List(Of StringData)(From PT In Root.All Where PT.Value.ToUpperInvariant.Contains("FROM"))
+        Dim FromsWithFroms As New List(Of StringData)(From FA In FromsAll Where (From P In FA.Parentheses Where P.Value.ToUpperInvariant.Contains("FROM")).Any)
+        Dim FromsNoFroms As New List(Of StringData)(FromsAll.Except(FromsWithFroms))
+        Dim FromElements As New List(Of InstructionElement)
+        Dim FromText As String = TextIn
+        For Each Section In FromsNoFroms
+            FromElements.AddRange(FromBlocks(Section))
+            FromText = FromText.Remove(Section.Start, Section.Length)
+            FromText = FromText.Insert(Section.Start, StrDup(Section.Length, BlackOut))
+        Next
+        Return New KeyValuePair(Of String, List(Of InstructionElement))(FromText, FromElements)
+
+    End Function
+    Private Function FromBlocks(_StringData As StringData) As List(Of InstructionElement)
+
+        Dim From_SectionValue As String = Nothing
+        Dim FromElements As New List(Of InstructionElement)
+        Dim WithList As New Dictionary(Of String, Color)
+        For Each _With In _Withs
+            If WithList.ContainsKey(_With.Highlight.Value) Then
+            Else
+                WithList.Add(_With.Highlight.Value, _With.Highlight.BackColor)
+            End If
+        Next
+
+        REM /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        REM /// ***** DUPLICATIONS DUE TO NESTED FROM STATEMENTS...ObjectsFromText.FromsInsideBubbles CALLS FOR EACH FROM IN A BUBBLE
+        REM /// FUNCTION TAKES A SECTION OF BODY.TEXT AND SEGMENTS TEXT BLOCKS OF FROM...=>|WHERE
+        REM /// FromBlockPattern IS NON-GREEDY SO NEED TO ITERATE MULTIPLE FROM's UNTIL ALL ARE GONE (EX. UNIONS)
+        REM /// FROM[^©] = FROM+ANYTHING UP TO A KEY WORD OR EOL... DO NOT USE <BlackOut> AS BUBBLES WILL HAVE BLACKED OUT ANY () IN THE FROM BLOCK
+        REM /// NonCharacter As String = "©"
+        REM /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        Dim FromBlockPattern As String = "FROM[\s]{1,}[^" & NonCharacter & "]{1,}?(?=\bWHERE\b|\bUNION\b|\bEXCEPT\b|\bINTERSECT\b|\bGROUP\b|\bORDER\b|\bLIMIT\b|\bFETCH\b|\z)"
+
+        REM /// GET THE FROM CHUNK FROM START TO END INCLUDING ALL JOINS, ETC UP TO BUT NOT INCLUDING WHERE, UNION, ETC
+        Dim From_Sections As New List(Of StringData)(From M In Regex.Matches(_StringData.Value, FromBlockPattern, RegexOptions.IgnoreCase) Select New StringData(M))
+
+        For Each From_Section In From_Sections
+            From_SectionValue = From_Section.Value
+            Dim Root As New StringData(From_Section.Value)
+            ParenthesisNodes(Root, From_SectionValue)
+            If Root.Parentheses.Any Then
+                Dim Base = Root.All.First
+                From_SectionValue = From_SectionValue.Remove(Base.Start, Base.Length)
+                From_SectionValue = From_SectionValue.Insert(Base.Start, StrDup(Base.Length, BlackOut))
+            End If
+            Do
+                REM /// FromBlockPattern IS LAZY...DO IS REQUIRED AS Regex.Match SET TO LAZY
+                Dim FromBlockMatch = Regex.Match(From_SectionValue, FromJoinCommaPattern, RegexOptions.IgnoreCase)
+                If FromBlockMatch.Success Then
+                    Dim InnerItems As New List(Of Match)(From R In Regex.Matches(From_SectionValue, FromJoinCommaPattern, RegexOptions.IgnoreCase) Select DirectCast(R, Match))
+                    REM /// InnerItems=EACH MATCH OF OTHER REFERENCED TABLES IN THE FROM BLOCK SUCH AS:     C085365.ACTIONS_TODAY AT
+                    For Each InnerItem In InnerItems
+                        Dim InnerChunk As String = From_SectionValue.Substring(InnerItem.Index, From_SectionValue.Length - InnerItem.Index)
+#Region " TESTING "
+                        If InnerItem.Value.Contains("Ø") Then
+                            Stop
+                        ElseIf InnerItem.Value.Contains("Ø") Then
+                            Stop
+                        End If
+#End Region
+                        Dim InnerStart As Integer = 0
+#Region " CLEANUP - REMOVE PRECEDING SPACES AND MOVE FORWARD THE START POSITION BASED ON COUNT OF PRECEDING SPACES "
+                        For Each Item In InnerItem.Value
+                            If Item = " " Then
+                                InnerStart += 1
+                            Else
+                                Exit For
+                            End If
+                        Next
+#End Region
+                        Dim NewStart As Integer = _StringData.Start + From_Section.Start + InnerItem.Index + InnerStart
+                        Dim InnerValue As String = Split(InnerItem.Value.Substring(InnerStart, InnerItem.Length - InnerStart), " ").First
+                        Dim SourceType As InstructionElement.LabelName = Nothing
+                        Dim HighlightBackColor As Color = Color.DarkBlue
+                        Dim HighlightForeColor As Color = Color.White
+
+                        If WithList.ContainsKey(InnerValue) Then
+                            REM /// WITH (a,b) AS (SELECT WILL MATCH IsRoutineTable SO CHECK FIRST
+                            SourceType = InstructionElement.LabelName.WithTable
+                            HighlightBackColor = Color.White
+                            HighlightForeColor = WithList(InnerValue)
+
+                        ElseIf InnerValue.ToUpper(Globalization.CultureInfo.InvariantCulture) = "TABLE" And Regex.Match(InnerChunk, "TABLE[■]{2,}", RegexOptions.IgnoreCase).Success Then
+                            REM /// TABLE(SELECT... IS NESTED SO CONTENT OF () *IS* BLACKED OUT
+                            SourceType = InstructionElement.LabelName.FloatingTable
+                            'HighlightBackColor = My.Settings.TableFloating_Back
+                            'HighlightForeColor = My.Settings.TableFloating_Fore
+
+                        ElseIf Regex.Match(InnerChunk, InnerValue & "[■]{1,}", RegexOptions.IgnoreCase).Success Then
+                            REM /// XMLTABLE( + OTHER ROUTINE TABLES ARE *NOT* NESTED WITH ANOTHER SELECT STATEMENT SO CONTENT OF () IS NOT BLACKED OUT
+                            SourceType = InstructionElement.LabelName.RoutineTable
+                            'HighlightBackColor = My.Settings.TableRoutine_Back
+                            'HighlightForeColor = My.Settings.TableRoutine_Fore
+
+                        Else
+                            SourceType = InstructionElement.LabelName.SystemTable
+                            'HighlightBackColor = My.Settings.TableSystem_Back
+                            'HighlightForeColor = My.Settings.TableSystem_Fore
+
+                        End If
+                        FromElements.Add(New InstructionElement With
+                                             {.Source = SourceType,
+                                              .Block = New StringData With {
+                                                    .Start = _StringData.Start + From_Section.Start,
+                                                    .Length = From_Section.Length,
+                                                    .Value = From_Section.Value,
+                                                    .BackColor = Color.FromArgb(64, Color.Black)},
+                                             .Highlight = New StringData With {
+                                                    .Start = NewStart,
+                                                    .Length = InnerValue.Length,
+                                                    .Value = InnerValue,
+                                                    .BackColor = HighlightBackColor,
+                                                    .ForeColor = HighlightForeColor}}
+                                                    )
+#Region " REPLACE THE FOUND OBJECT WITH A NON-CHARACTER USED IN THE PATTERN SO IT IS REMOVED FROM CONSIDERATION IN THE NEXT ITERATION "
+                        REM /// EACH ITERATION REMOVES A FOUND ITEM AND IS NOT CONSIDERED IN NEXT EVALUATION ///
+                        From_SectionValue = From_SectionValue.Remove(InnerItem.Index, InnerItem.Length)
+                        From_SectionValue = From_SectionValue.Insert(InnerItem.Index, StrDup(InnerItem.Length, NonCharacter))
+#End Region
+                    Next
+                Else
+                    REM /// ALL MATCHES HAVE BEEN REPLACED BY <NonCharacter>. NOTHING REMAINS
+                    Exit Do
+                End If
+            Loop
+        Next
+        FromElements.Sort(Function(x, y) String.Compare(x.Source.ToString.ToUpperInvariant, y.Source.ToString.ToUpperInvariant, StringComparison.Ordinal))
+        Labels.AddRange(FromElements)
+        Return FromElements
+
+    End Function
+    Private Shared Function FieldsFromBlocks(DataString As StringData, Pattern As String) As List(Of InstructionElement)
+
+        Dim Fields As New List(Of InstructionElement)
+        Dim SourceType As InstructionElement.LabelName
+        Dim FieldPattern As String = Nothing
+        Dim ForeColor As Color = Color.Black
+        If Pattern.Contains("GROUP") Then
+            SourceType = InstructionElement.LabelName.GroupField
+            FieldPattern = "\bGROUP[\s]{1,}BY\b[\s]{1,}"
+            ForeColor = Color.DarkOrange
+
+        ElseIf Pattern.Contains("ORDER") Then
+            SourceType = InstructionElement.LabelName.OrderField
+            FieldPattern = "\bORDER[\s]{1,}BY\b[\s]{1,}"
+            ForeColor = Color.Blue
+
+        ElseIf Pattern.Contains("SELECT") Then
+            SourceType = InstructionElement.LabelName.SelectField
+            FieldPattern = "\bSELECT\b[\s]{1,}"
+
+        End If
+        Dim FieldSection As String = DataString.Value.Remove(0, Regex.Match(DataString.Value, FieldPattern, RegexOptions.IgnoreCase).Length)
+        Dim FieldSectionNoParenthesis As String = FieldSection
+        REM /// REMOVE CONTENT INSIDE () SINCE FUNCTIONS, ETC OFTEN CONTAIN COMMAS WHICH IS NEEDED AS A "§" FOR THE FIELD
+        Dim Root As New StringData With {.Value = FieldSection}
+        ParenthesisNodes(Root, FieldSection)
+        For Each Section In Root.Parentheses
+            FieldSectionNoParenthesis = FieldSectionNoParenthesis.Remove(Section.Start, Section.Length)
+            FieldSectionNoParenthesis = FieldSectionNoParenthesis.Insert(Section.Start, StrDup(Section.Length, BlackOut))
+        Next
+        Dim DelimitMatches As New List(Of StringData)(From M In Regex.Matches(FieldSectionNoParenthesis, ",[ ]{0,}", RegexOptions.IgnoreCase) Select New StringData(M))
+        For Each Section In DelimitMatches
+            FieldSectionNoParenthesis = FieldSectionNoParenthesis.Remove(Section.Start, Section.Length)
+            FieldSectionNoParenthesis = FieldSectionNoParenthesis.Insert(Section.Start, StrDup(Section.Length, "½"))
+        Next
+        FieldSectionNoParenthesis = Regex.Replace(FieldSectionNoParenthesis, " ", "¾")
+        Dim FieldStart As Integer = (DataString.Value.Length - FieldSection.Length)
+        Dim FieldMatches As New List(Of StringData)(From M In Regex.Matches(FieldSectionNoParenthesis, "[^½\s®]{1,}", RegexOptions.IgnoreCase) Select New StringData(M))
+
+        For Each Field As StringData In FieldMatches
+            Dim FieldValue As String = FieldSection.Substring(Field.Start, Field.Length)
+            FieldValue = Regex.Replace(FieldValue, "[\t\r\n]", BlackOut)
+            FieldValue = Regex.Replace(FieldValue, "■$", String.Empty)
+            If FieldValue.StartsWith("½", StringComparison.InvariantCulture) Then Stop
+            Dim FieldElement As New StringData With {
+                                        .Start = DataString.Start + FieldStart + Field.Start,
+                                        .Length = Field.Length,
+                                        .Value = FieldValue,
+                                        .BackColor = Color.White,
+                                        .ForeColor = ForeColor
+                                        }
+            Fields.Add(New InstructionElement With {.Source = SourceType,
+                       .Block = FieldElement,
+                       .Highlight = FieldElement
+                       })
+        Next
+        Return Fields
+
+    End Function
+#End Region
+    Private Sub AddSystemObjects()
+
+        REM /// Translates ME.Text into a list of MY.SETTINGS.SystemObjects
+        REM /// LOCAL VARIABLE <SETTINGSOBJECTS> IS A REPLICA OF DataTool.SystemObjects (MY.SETTINGS.SystemObjects)
+        If TablesElement.Any Then
+            REM /// TEXT BUT NOT A QUERY OR PROCEDURE STATEMENT... ie) LIST: C085365.EMAILS, C085365.ADDRESSES, C.OPENACTH3, C.CUSTACTH3, C.CUSTINDH3
+            Dim UnstructuredItems As New List(Of StringData)(From M In Regex.Matches(Text, ObjectPattern, RegexOptions.IgnoreCase) Select New StringData(M))
+            For Each Item In UnstructuredItems
+                REM /// ONLY ADD WORDS THAT EXIST IN MY.SETTINGS.SystemObjects
+                TablesObject.AddRange(Objects.Items(Item.Value))
+            Next
+
+        Else
+            REM /// SCHEMAS SHOWS DEPTH OF DETAIL IN BODY.TEXT...FROM ACTIONS=1, C085365.ACTIONS=2, DSNA1.C085365.ACTIONS=3
+            REM /// USE SystemObjectCollection.Items(DataString As String)
+
+            '======================= ENUMERATION ERRORS FOR PSRR UNIVERSE PA
+            For Each Item In TablesElement
+                If Not ElementObjects.ContainsKey(Item) Then ElementObjects.Add(Item, Objects.Items(Item.Highlight.Value))
+            Next
+            For Each Item In TablesElement
+                TablesObject.AddRange(Objects.Items(Item.Highlight.Value))
+            Next
+            '======================= ENUMERATION ERRORS FOR PSRR UNIVERSE PA
+
+        End If
+        _TablesObject = TablesObject.Distinct.ToList
+        TablesObject.Sort(Function(f1, f2)
+                              Dim Level1 = String.Compare(f1.DSN, f2.DSN, StringComparison.InvariantCulture)
+                              If Level1 <> 0 Then
+                                  Return Level1
+                              Else
+                                  Dim Level2 = String.Compare(f1.Type.ToString, f2.Type.ToString, StringComparison.InvariantCulture)
+                                  If Level2 <> 0 Then
+                                      Return Level2
+                                  Else
+                                      Dim Level3 = String.Compare(f1.Owner, f2.Owner, StringComparison.InvariantCulture)
+                                      If Level3 <> 0 Then
+                                          Return Level3
+                                      Else
+                                          Dim Level4 = String.Compare(f1.Name, f2.Name, StringComparison.InvariantCulture)
+                                          Return Level4
+                                      End If
+                                  End If
+                              End If
+                          End Function)
+
+    End Sub
+    Private Sub GetDataSources()
+
+        Dim CommonObjects = From o In Objects, t In TablesObject Where t.DSN = o.DSN Group o By _DSN = o.DSN Into DSNGroup = Group Select New With {.DSN = _DSN, .Tables = DSNGroup.ToList}
+        Dim OrderedCount = CommonObjects.Where(Function(x) Not If(x.DSN, String.Empty).Length = 0).OrderByDescending(Function(x) x.Tables.Count)
+
+        _DataSources = OrderedCount.ToDictionary(Function(x) x.DSN, Function(y) y.Tables)
+        'SELECT * FROM profiles ===> C085365.PROFILES
+
+        If DataSources.Values.Any Then
+            Dim ObjectsInDatasource = DataSources.Values.First
+            'SYSIBM.SYSDUMMY1...and others exists in all DB2 databases
+            Dim CommonTableObjects = From t In TablesObject Group t By _DSN = t.DSN Into DSNGroup = Group Select New With {.DSN = _DSN, .Tables = DSNGroup.ToList}
+            Dim TableOrderedCount = CommonTableObjects.Where(Function(x) Not If(x.DSN, String.Empty).Length = 0).OrderByDescending(Function(x) x.Tables.Count)
+
+            Dim TableOrderedTop = TableOrderedCount.First.Tables
+            If ObjectsInDatasource.Intersect(TableOrderedTop).Any Then
+                _DataSource = TableOrderedTop.First
+            Else
+                _DataSource = ObjectsInDatasource.First
+            End If
+            '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■   TESTING
+            'If Text.Contains("Q085365.PSRR_UNIVERSES") And Text.Contains("CAST('NY' AS VARCHAR(5))") Then Stop
+            '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■   TESTING
+        Else
+            REM /// COULD NOT MATCH MY.SETTINGS.SYSTEMOBJECTS TO TEXT
+            _DataSource = Nothing
+        End If
+
+    End Sub
+    Private Function GetConnection() As Connection
+
+        If DataSource Is Nothing Then
+            'Check if a DSN is provided
+            Dim Datasource_Pattern As String = Join((From S In Connections.Sources Select Join({"\b", S, "\b"}, String.Empty)).ToArray, "|")
+            '(ABC|DEF|XYZ)
+            Dim MatchDatasourceName As Match = Regex.Match(Text, Datasource_Pattern, RegexOptions.IgnoreCase)
+            If MatchDatasourceName.Success Then
+                Return Connections.Item("DSN=" & MatchDatasourceName.Value)
+
+            Else
+                'Check if a UID is provided
+                Dim UserId_Pattern As String = Join((From S In Connections Where S.UserID.Length > 0 Select Join({"\b", S.UserID, "\b"}, String.Empty)).ToArray, "|")
+                Dim MatchUserId As Match = Regex.Match(Text, UserId_Pattern, RegexOptions.IgnoreCase)
+                If MatchUserId.Success Then
+                    Dim UIDs = From S In Connections Where S.UserID = MatchUserId.Value
+                    If UIDs.Any Then
+                        Return UIDs.First
+                    Else
+                        Return Nothing
+                    End If
+                Else
+                    Return Nothing
+                End If
+            End If
+        Else
+            Return _DataSource.Connection
+        End If
+
+    End Function
+    Private Function GetSystemText() As String
+
+        REM /// GETTING SYSTEMTEXT IS PREDICATED ON A SHORTHAND APPROACH TO SAVE TYPING THE OWNER NAME, FETCH, ETC
+        REM /// THIS ROUTINE WILL FILL IN THE BLANKS TO SUBMIT TO THE DATABASE
+        '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+        REM /// WHEN SUBMITTING A REQUEST TO DB2 - IF THE OBJECT IS NOT YOUR OWN, THE OWNER VALUE MUST BE PROVIDED
+        REM /// SINCE THE CONNECTION IS NOW SET...LOOK FOR SYSTEMOBJECTS IN ONE DATASOURCE
+
+        REM /// ME.SystemObjects - List(Of SystemObject), ME.SystemTables - List(Of Element)
+        REM /// OBJECTIVE IS TO CORRELATE Elements (TEXT) TO SystemObjects (DATABASE)
+        If Connection Is Nothing Then
+            Return Nothing
+        Else
+            Dim DatabaseText As String = Text
+            REM /// STEP 1] GET FULLNAMES (OWNER+NAME) FOR EACH TABLE/VIEW
+            Dim ConnectionDictionary As New Dictionary(Of InstructionElement, String)
+            For Each Element In ElementObjects.Keys
+                Dim FullName As String = Nothing
+                Dim ConnectionCollection = ElementObjects(Element).Where(Function(x) x.DSN = Connection.DataSource).ToList
+                If ConnectionCollection.Any Then
+                    REM /// IF THERE IS A LIST, IT WILL ONLY HAVE 1 ITEM. SYSTEM OBJECTS ARE DISTINCT AS: DSN+OWNER+NAME
+                    FullName = ConnectionCollection.First.FullName
+                    'If Text IsNot Nothing AndAlso Text.Contains("WITH DEPENDANTS") Then Stop
+                Else
+                    REM /// EITHER a) ELEMENT (KEY) HAS AN EMPTY LIST (VALUE) ... THEN NEW ITEM
+                    REM /// OR b) ELEMENT (KEY) HAS A LIST (VALUE) BUT NOT WITHIN THE DATASOURCE ... THEN NEW ITEM IN DATASOURCE
+                    REM /// NOW ENSURE OWNER+NAME
+                    Dim TableViewName As String = Element.Highlight.Value
+
+                    Dim XXX = Objects.Items(TableViewName)
+
+                    Dim Levels As String() = Split(TableViewName, ".")
+                    REM /// a) DSNA1.C.REALTIMEH3 b) C.REALTIMEH3 c) DSNA1.REALTIMEH3 d) REALTIMEH3
+                    Select Case Levels.Count
+                        Case 3
+                            REM /// a) DSNA1.C.REALTIMEH3
+                            FullName = Join({Levels(1), Levels(2)}, ".")
+                        Case 2
+                            REM /// b) C.REALTIMEH3 Or c) DSNA1.REALTIMEH3
+                            Dim SourcePattern As String = "(" & Join(Connections.Sources.ToArray, "|") & ")[\s]{0,}\."
+                            If Regex.Match(TableViewName, SourcePattern, RegexOptions.IgnoreCase).Success Then
+                                REM /// c) DSNA1.REALTIMEH3...OWNER NOT STATED
+                                FullName = Join({Connection.UserID, Levels(1)}, ".")
+                                'If Text IsNot Nothing AndAlso Text.Contains("WITH DEPENDANTS") Then Stop
+                            Else
+                                REM /// b) C.REALTIMEH3
+                                FullName = Join({Levels(0), Levels(1)}, ".")
+                                'If Text IsNot Nothing AndAlso Text.Contains("WITH DEPENDANTS") Then Stop
+                            End If
+                        Case 1
+                            REM /// d) REALTIMEH3...OWNER NOT STATED
+                            If Text.Contains("_v_relation_column VC") Then Stop
+                            'FullName = Join({_Connection.UserID, Levels(0)}, ".")
+                            FullName = Levels(0)
+                    End Select
+                    'If Text IsNot Nothing AndAlso Text.Contains("WITH DEPENDANTS") Then Stop
+                End If
+                ConnectionDictionary.Add(Element, FullName)
+            Next
+            REM /// STEP 2] UPDATE THE TEXT WITH THE FULLNAMES + CHANGE LIMIT TO FETCH (FOR DB2)
+            REM /// MUST SORT ON ALL OBJECTS SINCE CHANGING BOTH SystemTable AND Limit
+            Dim ReverseOrder As New List(Of InstructionElement)(Labels)
+            ReverseOrder.Sort(Function(y, x) x.Highlight.Start.CompareTo(y.Highlight.Start))
+            For Each Element In ReverseOrder
+                If Element.Source = InstructionElement.LabelName.SystemTable And ConnectionDictionary.ContainsKey(Element) Then
+                    REM /// IS SYSTEM TABLE
+                    With Element.Highlight
+                        DatabaseText = DatabaseText.Remove(.Start, .Length)
+                        DatabaseText = DatabaseText.Insert(.Start, ConnectionDictionary(Element))
+                    End With
+                Else
+                    REM /// LIMIT
+                    If Element.Source = InstructionElement.LabelName.Limit And Connection.IsDB2 Then
+                        Dim Limit As InstructionElement = Element
+                        With Limit
+                            Dim RowCount As Integer = Integer.Parse(Regex.Match(.Block.Value, "[0-9]{1,}", RegexOptions.None).Value, Globalization.CultureInfo.InvariantCulture)
+                            Try
+                                Dim LimitText As String = DatabaseText.Substring(.Block.Start, .Block.Length)
+                                If LimitText.ToUpper(Globalization.CultureInfo.InvariantCulture).StartsWith("LIMIT", StringComparison.InvariantCulture) Then
+                                    DatabaseText = DatabaseText.Remove(.Block.Start, .Block.Length)
+                                    DatabaseText = DatabaseText.Insert(.Block.Start, Join({"FETCH FIRST", RowCount.ToString(Globalization.CultureInfo.InvariantCulture), "ROWS ONLY"}))
+                                    If Not Regex.Match(DatabaseText, "FETCH\s+FIRST\s+[0-9]{1,9}\s+ROWS\s+ONLY", RegexOptions.IgnoreCase).Success Then
+                                        Stop
+                                    End If
+                                End If
+                            Catch ex As ArgumentOutOfRangeException
+                            End Try
+                        End With
+                    End If
+                End If
+            Next
+            'If Text = "DROP TABLE AXE" Then Stop
+            Return DatabaseText
+        End If
+
+    End Function
 #End Region
 End Class
 Public Class DataTool
     Inherits Control
 #Region " DECLARATIONS "
-    Private WithEvents Karen As New Hooker
-    Private ReadOnly DataDirectory As DirectoryInfo = Directory.CreateDirectory(MyDocuments & "\DataManager")
-    Private ReadOnly Path_Columns As String = DataDirectory.FullName & "\Columns.txt"
-    Private ReadOnly GothicFont As New Font("Century Gothic", 9, FontStyle.Regular)
-    Private ReadOnly Message As New Prompt With {.Font = GothicFont}
+#Region " organised "
+    Private WithEvents FunctionsStripBar As New ToolStrip With {
+        .Dock = DockStyle.Fill,
+        .Margin = New Padding(0),
+        .GripStyle = ToolStripGripStyle.Hidden,
+        .Font = GothicFont
+    }
+    Private WithEvents FileTree As New TreeViewer With {.Name = "Scripts",
+        .AutoSize = True,
+        .Margin = New Padding(0),
+        .MouseOverExpandsNode = False,
+        .Font = GothicFont}
+    Private WithEvents SaveAs As New ImageCombo With {.Margin = New Padding(0),
+        .Image = My.Resources.Save,
+        .Size = New Size(24, 24),
+        .Font = GothicFont,
+        .MinimumSize = New Size(26, 26),
+        .AutoSize = True}
+    Private WithEvents FilesButton As New ToolStripDropDownButton With {
+        .Margin = New Padding(0),
+        .Image = My.Resources.Folder,
+        .ImageScaling = ToolStripItemImageScaling.None,
+        .Font = GothicFont
+    }
+    Private WithEvents SettingsButton As New ToolStripDropDownButton With {
+        .Margin = New Padding(0),
+        .Image = My.Resources.settings,
+        .ImageScaling = ToolStripItemImageScaling.None,
+        .Font = GothicFont
+    }
+    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+    Private WithEvents SettingsTreeA As New TreeViewer With {
+        .Margin = New Padding(0),
+        .AutoSize = False,
+        .MinimumSize = New Size(250, 400),
+        .Dock = DockStyle.Fill,
+        .Font = GothicFont
+    }
+    Private ReadOnly SettingsTreeA_fontsColors As New Node With {
+        .CanAdd = False,
+        .CanDragDrop = False,
+        .CanEdit = False,
+        .CanRemove = False,
+        .Text = "Fonts and Colors",
+        .Font = GothicFont
+    }
+    Private ReadOnly SettingsTreeA_nodeDDL As New Node With {
+        .CanAdd = False,
+        .CanDragDrop = False,
+        .CanEdit = False,
+        .CanRemove = False,
+        .Text = "DDL settings",
+        .Font = GothicFont
+    }
+    Private WithEvents SettingsTreeB As New TreeViewer With {
+        .Margin = New Padding(0),
+        .AutoSize = False,
+        .MinimumSize = New Size(250, 400),
+        .Dock = DockStyle.Fill,
+        .Font = GothicFont
+    }
+    Private ReadOnly SettingsTreeB_font As New Node With {
+        .CanAdd = False,
+        .CanDragDrop = False,
+        .CanEdit = False,
+        .CanRemove = False,
+        .Text = "Font",
+        .Font = GothicFont
+    }
+    Private ReadOnly SettingsTreeB_forecolor As New Node With {
+        .CanAdd = False,
+        .CanDragDrop = False,
+        .CanEdit = False,
+        .CanRemove = False,
+        .Text = "Forecolor",
+        .Font = GothicFont
+    }
+    Private ReadOnly SettingsTreeB_backcolor As New Node With {
+        .CanAdd = False,
+        .CanDragDrop = False,
+        .CanEdit = False,
+        .CanRemove = False,
+        .Text = "Backcolor",
+        .Font = GothicFont
+    }
+    Private ReadOnly SettingsTreeB_nodeDDLprompt As New Node With {
+        .CanAdd = False,
+        .CanDragDrop = False,
+        .CanEdit = False,
+        .CanRemove = False,
+        .Text = "Prompt to continue",
+        .CheckBox = True,
+        .Checked = My.Settings.ddlPrompt,
+        .Font = GothicFont
+    }
+    Private ReadOnly SettingsTreeB_nodeDDLrowCount As New Node With {
+        .CanAdd = False,
+        .CanDragDrop = False,
+        .CanEdit = False,
+        .CanRemove = False,
+        .Text = "Retrieve row count",
+        .CheckBox = True,
+        .Checked = My.Settings.ddlRowCount,
+        .Font = GothicFont
+    }
+    Private ReadOnly SettingsTrees_dictionary As New Dictionary(Of Node, NodeCollection) From {
+            {SettingsTreeA_fontsColors, New NodeCollection(SettingsTreeB) From {SettingsTreeB_font, SettingsTreeB_forecolor, SettingsTreeB_backcolor}},
+            {SettingsTreeA_nodeDDL, New NodeCollection(SettingsTreeB) From {SettingsTreeB_nodeDDLprompt, SettingsTreeB_nodeDDLrowCount}}
+        }
+    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+    Friend Shared ReadOnly Connections As New ConnectionCollection
+    Private ReadOnly SystemObjects As New SystemObjectCollection
+    Private ReadOnly Jobs As New JobCollection
+    Private WithEvents Scripts As New ScriptCollection
+    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ Panel Sizing
+    Private ObjectsWidth As Integer = 200
+    Private SeparatorSizing As New Sizing
     Private WithEvents TLP_PaneGrid As New TableLayoutPanel With {.Dock = DockStyle.Fill,
         .ColumnCount = 3,
         .RowCount = 1,
@@ -719,6 +1670,15 @@ Public Class DataTool
         .AllowDrop = True,
         .Margin = New Padding(0),
         .Font = GothicFont}
+#End Region
+#Region " organise "
+    Private WithEvents Karen As New Hooker
+
+    Private ReadOnly DataDirectory As DirectoryInfo = Directory.CreateDirectory(MyDocuments & "\DataManager")
+    Private ReadOnly Path_Columns As String = DataDirectory.FullName & "\Columns.txt"
+    Private ReadOnly GothicFont As New Font("Century Gothic", 9, FontStyle.Regular)
+    Private ReadOnly Message As New Prompt With {.Font = GothicFont}
+
     Private WithEvents TLP_Objects As New TableLayoutPanel With {.Dock = DockStyle.Fill,
         .ColumnCount = 1,
         .RowCount = 3,
@@ -766,36 +1726,6 @@ Public Class DataTool
         .CheckBoxes = TreeViewer.CheckState.Mixed,
         .MultiSelect = True,
         .Font = GothicFont}
-    Private WithEvents TSDD_SaveAs As New ToolStripDropDown With {.AutoClose = False,
-        .Padding = New Padding(0),
-        .DropShadowEnabled = True,
-        .BackColor = Color.Firebrick,
-        .Renderer = New CustomRenderer,
-        .Font = GothicFont}
-    Private WithEvents IC_SaveAs As New ImageCombo With {.Image = My.Resources.Save,
-        .HintText = "Save Or Save As",
-        .Size = New Size(200, 28),
-        .Font = GothicFont}
-    Private ReadOnly SaveAsHost As New ToolStripControlHost(IC_SaveAs)
-    Private ReadOnly SaveAsItem As Integer = TSDD_SaveAs.Items.Add(SaveAsHost)
-    Private WithEvents TSDD_ClosedScripts As New ToolStripDropDown With {.AutoSize = False,
-        .AutoClose = False,
-        .Padding = New Padding(0),
-        .DropShadowEnabled = True,
-        .BackColor = Color.Transparent,
-        .Renderer = New CustomRenderer,
-        .Font = GothicFont}
-    Private WithEvents TLP_ClosedScripts As New TableLayoutPanel With {.Size = New Size(200, 200),
-        .ColumnCount = 1,
-        .RowCount = 1,
-        .Font = GothicFont}
-    Private ReadOnly TLPCSCS As Integer = TLP_ClosedScripts.ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 300})
-    Private ReadOnly TLPCSRS As Integer = TLP_ClosedScripts.RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 600})
-    Private WithEvents Tree_ClosedScripts As New TreeViewer With {.Name = "Scripts",
-        .AutoSize = True,
-        .Margin = New Padding(0),
-        .MouseOverExpandsNode = False,
-        .Font = GothicFont}
     Private WithEvents TT_Tabs As New ToolTip With {.ToolTipIcon = ToolTipIcon.Info}
     Private WithEvents TT_GridTip As New ToolTip With {.ToolTipIcon = ToolTipIcon.Info}
     Private WithEvents CMS_ExcelSheets As New ContextMenuStrip With {.AutoClose = False,
@@ -807,15 +1737,14 @@ Public Class DataTool
         .Font = GothicFont}
     Private ReadOnly OpenFileNode As Node = New Node With {.Text = "Open File",
         .Image = My.Resources.Folder,
-        .AllowEdit = False,
-        .AllowRemove = False,
-        .AllowDragDrop = False,
+        .CanEdit = False,
+        .CanRemove = False,
+        .CanDragDrop = False,
         .Font = GothicFont}
     Private WithEvents OpenFile As New OpenFileDialog
     Private WithEvents SaveFile As New SaveFileDialog
     '-----------------------------------------
     Private WithEvents DragNode As Node
-    Private ScriptsInitialized As Boolean
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Private WithEvents TT_PaneTip As New ToolTip With {.ToolTipIcon = ToolTipIcon.Info}
     Private WithEvents CMS_PaneOptions As New ContextMenuStrip With {.AutoClose = False,
@@ -921,6 +1850,7 @@ Public Class DataTool
     Private Pane_MouseLocation As Point
     Private Pane_MouseObject As InstructionElement
 #End Region
+#End Region
     Private Enum Sizing
         None
         MouseOverOPS
@@ -932,22 +1862,25 @@ Public Class DataTool
 #Region " ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ N E W ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ "
     Public Sub New(Optional TestMode As Boolean = False)
 
+        '*** Before changes=4394
         'Sync populates a Treeview with Checkmarks...those selected are imported. Submit how?
         'Interface to add, change, or remove a connection
         'Export / ETL
         'Casting using Select Min(Length(Trim(Field))), Max(Length(Trim(Field)))...Where Length(Trim(Field))>0
-
+        Dim timeStart As Date = Now
         Dock = DockStyle.Fill
         Me.TestMode = TestMode
-        Scripts_ = New ScriptCollection(Me)
+        Scripts.Load()
+        Dim timeStop As Date = Now
+        Dim timeElapsed = timeStop.Subtract(timeStart)
 
+#Region " FILL COLLECTIONS - { Connections, Jobs, SystemObjects, Scripts } "
 #Region " CONNECTIONS "
         Connections.SortCollection()
         'Connections.View()
         For Each Connection In Connections
             RaiseEvent Alert(Me, New AlertEventArgs("Initializing " & Connection.DataSource))
 #Region " TOP LEVEL "
-            AddHandler Connection.PasswordChanged, AddressOf ConnectionChanged
             Dim ColorKeys = ColorImages()
             Dim ColorImage As Image = ColorKeys(Connection.BackColor.Name)
             Dim ConnectionItem = TSMI_Connections.DropDownItems.Add(New ToolStripMenuItem With {
@@ -1105,7 +2038,6 @@ Public Class DataTool
         TSMI_Copy.DropDownItems.AddRange({TSMI_CopyPlainText, TSMI_CopyColorText})
         TSMI_Divider.DropDownItems.AddRange({TSMI_DividerSingle, TSMI_DividerDouble})
 #End Region
-
         Jobs.SortCollection()
         'Jobs.View()
 
@@ -1114,9 +2046,47 @@ Public Class DataTool
 
         Scripts.SortCollection()
         'Scripts.View()
-        'PaneHandlers(HandlerAction.Add)
+#End Region
 
 #Region " INITIALIZE CONTROLS "
+        '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ FunctionsStripBar
+        With FunctionsStripBar
+            .Items.Add(FilesButton)
+            .Items.Add(New ToolStripControlHost(SaveAs) With {.AutoSize = True})
+            .Items.Add(SettingsButton)
+        End With
+        '===============================================================================
+        Dim tlpFileTree As New TableLayoutPanel With {.Size = New Size(200, 200),
+        .ColumnCount = 1,
+        .RowCount = 1,
+        .Font = GothicFont,
+        .MinimumSize = New Size(20, 20),
+        .AutoSize = True}
+        With tlpFileTree
+            .Controls.Add(FileTree, 0, 0)
+        End With
+        FilesButton.DropDownItems.Add(New ToolStripControlHost(tlpFileTree) With {.AutoSize = True})
+        '===============================================================================
+        Dim tlpSettings As New TableLayoutPanel With {
+        .Size = New Size(600, 1000),
+        .Margin = New Padding(0),
+        .ColumnCount = 2,
+        .CellBorderStyle = TableLayoutPanelCellBorderStyle.InsetDouble,
+        .AutoSize = False
+        }
+        SettingsTreeA.Nodes.AddRange({SettingsTreeA_fontsColors, SettingsTreeA_nodeDDL})
+        With tlpSettings
+            .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 300})
+            .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 700})
+            .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 600})
+            .Controls.Add(SettingsTreeA, 0, 0)
+            .Controls.Add(SettingsTreeB, 1, 0)
+        End With
+        With SettingsButton
+            .DropDownItems.Add(New ToolStripControlHost(tlpSettings))
+        End With
+        '===============================================================================
+        '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ DatabaseObjects
         With TLP_Objects
             .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Percent, .Width = 100})
             .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 30})
@@ -1148,8 +2118,19 @@ Public Class DataTool
             .Controls.Add(TLP_Objects, 0, 0)
             .Controls.Add(Script_Tabs, 1, 0)
             .Controls.Add(Script_Grid, 2, 0)
-            Controls.Add(TLP_PaneGrid)
         End With
+        Dim tlpBasePanel As New TableLayoutPanel With {.Margin = New Padding(0),
+            .ColumnCount = 1,
+            .RowCount = 2,
+            .CellBorderStyle = TableLayoutPanelCellBorderStyle.Inset,
+            .Dock = DockStyle.Fill}
+        With tlpBasePanel
+            .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 36})
+            .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Percent, .Height = 100})
+            .Controls.Add(FunctionsStripBar, 0, 0)
+            .Controls.Add(TLP_PaneGrid, 0, 1)
+        End With
+        Controls.Add(tlpBasePanel)
         With Script_Grid
             With .Columns.HeaderStyle
                 .ShadeColor = Color.Purple
@@ -1163,11 +2144,7 @@ Public Class DataTool
             With .Rows.RowStyle
             End With
         End With
-        With TLP_ClosedScripts
-            .Controls.Add(Tree_ClosedScripts, 0, 0)
-            Dim TSCH_ClosedScripts As New ToolStripControlHost(TLP_ClosedScripts)
-            TSDD_ClosedScripts.Items.Add(TSCH_ClosedScripts)
-        End With
+
         For Each TextString In {"--", "=="}
             Dim _Image As New Bitmap(16, 16)
             Using G As Graphics = Graphics.FromImage(_Image)
@@ -1201,18 +2178,10 @@ Public Class DataTool
         AddHandler Grid_ExcelQueryExport.Click, AddressOf ExportToFile
 
     End Sub
-
     Protected Overrides Sub InitLayout()
         UpdateParentIcon_Text()
         MyBase.InitLayout()
     End Sub
-    Protected Overloads Overrides ReadOnly Property CreateParams() As CreateParams
-        Get
-            Dim cp As CreateParams = MyBase.CreateParams
-            cp.ExStyle = cp.ExStyle Or 33554432
-            Return cp
-        End Get
-    End Property
     Protected Overrides Sub OnParentChanged(e As EventArgs)
         UpdateParentIcon_Text()
         MyBase.OnParentChanged(e)
@@ -1227,59 +2196,36 @@ Public Class DataTool
 
     End Sub
 #End Region
+    Protected Overloads Overrides ReadOnly Property CreateParams() As CreateParams
+        Get
+            Dim cp As CreateParams = MyBase.CreateParams
+            cp.ExStyle = cp.ExStyle Or 33554432
+            Return cp
+        End Get
+    End Property
 
+    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ ALERTS
     Public Event Alert(sender As Object, e As AlertEventArgs)
-
+    Private Sub ScriptAlerts(sender As Object, e As AlertEventArgs)
+        RaiseEvent Alert(sender, e)
+    End Sub
+    Private Sub ViewerAlerts(sender As Object, e As AlertEventArgs) Handles Script_Grid.Alert
+        RaiseEvent Alert(sender, e)
+    End Sub
+    Private Sub TreeViewerAlerts(sender As Object, e As AlertEventArgs) Handles FileTree.Alert, Tree_Objects.Alert
+        RaiseEvent Alert(sender, e)
+    End Sub
+    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ ALERTS
 #Region " PROPERTIES - FUNCTIONS - METHODS "
-    Public Shared ReadOnly Connections As New ConnectionCollection
-    Public Shared ReadOnly SystemObjects As New SystemObjectCollection
-    Public Shared ReadOnly Jobs As New JobCollection
-    Private WithEvents Scripts_ As ScriptCollection
-    Public ReadOnly Property Scripts As ScriptCollection
-        Get
-            Return Scripts_
-        End Get
-    End Property
-    Private WithEvents ActiveTab_ As Tab
-    Private ReadOnly Property ActiveTab As Tab
-        Get
-            ActiveTab_ = Script_Tabs.TabPages.Item({Script_Tabs.SelectedIndex, 0}.Max)
-            ActiveTab_.AllowDrop = True
-            Return ActiveTab_
-        End Get
-    End Property
-    Private WithEvents ActivePane_ As RicherTextBox
-    Private ReadOnly Property ActivePane As RicherTextBox
-        Get
-            If ActiveTab IsNot Nothing Then
-                ActivePane_ = DirectCast(ActiveTab.Controls("Pane"), RicherTextBox)
-                FindAndReplace.Parent = ActivePane_
-            End If
-            Return ActivePane_
-        End Get
-    End Property
-    Private WithEvents ActiveScript_ As Script
-    Private ReadOnly Property ActiveScript As Script
-        Get
-            ActiveTab_ = Script_Tabs.SelectedTab
-            ActiveScript_ = DirectCast(ActiveTab.Tag, Script)
-            Return ActiveScript_
-        End Get
-    End Property
-    Private ReadOnly Property ActiveBody As BodyElements
-        Get
-            Return ActiveScript.Body
-        End Get
-    End Property
+    Public Property TestMode As Boolean = False
     Public ReadOnly Property Viewer As DataViewer
         Get
             Return Script_Grid
         End Get
     End Property
-    Public Property TestMode As Boolean = False
     Public ReadOnly Property Pane As RicherTextBox
         Get
-            Return ActivePane
+            Return ActivePane()
         End Get
     End Property
     Public ReadOnly Property Grid As DataViewer
@@ -1287,17 +2233,22 @@ Public Class DataTool
             Return Script_Grid
         End Get
     End Property
-    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ ALERTS
-    Private Sub ScriptAlerts(sender As Object, e As AlertEventArgs) Handles Scripts_.Alert
-        RaiseEvent Alert(sender, e)
-    End Sub
-    Private Sub ViewerAlerts(sender As Object, e As AlertEventArgs) Handles Script_Grid.Alert
-        RaiseEvent Alert(sender, e)
-    End Sub
-    Private Sub TreeViewerAlerts(sender As Object, e As AlertEventArgs) Handles Tree_ClosedScripts.Alert, Tree_Objects.Alert
-        RaiseEvent Alert(sender, e)
-    End Sub
-    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+    Private Function ActiveTab() As Tab
+        Return Script_Tabs.TabPages.Item({Script_Tabs.SelectedIndex, 0}.Max)
+    End Function
+    Private Function ActivePane() As RicherTextBox
+        If ActiveTab()?.Controls.Count = 0 Then
+            Return Nothing
+        Else
+            Return DirectCast(ActiveTab()?.Controls(0), RicherTextBox)
+        End If
+    End Function
+    Private Function ActiveScript() As Script
+        Return DirectCast(ActivePane()?.Tag, Script)
+    End Function
+    Private Function ActiveBody() As BodyElements
+        Return ActiveScript()?.Body
+    End Function
 #End Region
 
 #Region " CONNECTION MANAGEMENT "
@@ -1305,20 +2256,6 @@ Public Class DataTool
         With DirectCast(sender, ToolStripMenuItem)
             ActiveScript.Connection = Connections.Item("DSN=" & .Text & ";")
         End With
-    End Sub
-    Private Sub ConnectionChanged(sender As Object, e As ConnectionChangedEventArgs) Handles ActiveScript_.ConnectionChanged
-
-        If e.NewConnection Is Nothing Then
-            'Password change
-            Stop
-        Else
-            With e.NewConnection
-                Dim Message As String = "Currently connected to " & .DataSource
-                If .Properties.ContainsKey("NICKNAME") Then Message &= Join({String.Empty, "(", .Properties("NICKNAME"), ")"})
-                RaiseEvent Alert(e.NewConnection, New AlertEventArgs(Message))
-            End With
-        End If
-
     End Sub
     Private Sub ConnectionProperties_Showing(sender As Object, e As EventArgs)
 
@@ -1536,35 +2473,105 @@ Public Class DataTool
     End Sub
 #End Region
 
-#Region " TABLELAYOUTPANEL SIZING - PANE→|←GRID "
-    Private ObjectsWidth As Integer = 200
-    Private Sub ObjectsClose() Handles Button_ObjectsClose.Click
-        TLP_PaneGrid.ColumnStyles(0).Width = 0
+#Region " FUNCTIONS STRIPBAR "
+#Region " SETTINGS "
+    Private Sub SettingA_nodeClick(sender As Object, e As NodeEventArgs) Handles SettingsTreeA.NodeClicked
+
+        With SettingsTreeB.Nodes
+            .Clear()
+            .AddRange(SettingsTrees_dictionary(e.Node))
+        End With
+
     End Sub
-    Private SeparatorSizing As New Sizing
-    Private ReadOnly Property ObjectsPaneSeparator As Rectangle
-        Get
-            Dim OPS As New Rectangle
-            If ActivePane_ IsNot Nothing Then
-                Dim Pane_Location = ActivePane_.PointToScreen(New Point(0, 0))
-                OPS = New Rectangle(Pane_Location.X - 10, Pane_Location.Y, 10, ActivePane_.Height)
+    Private Sub SettingB_nodeChecked(sender As Object, e As NodeEventArgs) Handles SettingsTreeB.NodeChecked
+
+        With My.Settings
+            If sender Is SettingsTreeB_nodeDDLprompt Then .ddlPrompt = Not .ddlPrompt
+            If sender Is SettingsTreeB_nodeDDLrowCount Then .ddlRowCount = Not .ddlRowCount
+            .Save()
+        End With
+
+    End Sub
+#End Region
+#Region " OPEN + SAVE "
+    Private Sub FileTree_NodeAfterEdited(sender As Object, e As NodeEventArgs) Handles FileTree.NodeAfterEdited
+
+        Using cb As New CursorBusy
+            'USING Now.ToLongTimeString ENSURE NAME<>value AND ACTION IS TAKEN
+            Dim ClosedScript As Script = DirectCast(e.Node.Tag, Script)
+            ClosedScript.Name = Join({DateTimeToString(Now), e.ProposedText}, Delimiter)
+            If ClosedScript.Name = e.ProposedText Then e.Node.Text = e.ProposedText     'Script.Name will only change if it can
+            e.Node.Parent.SortChildren()
+            FileTree.Refresh()
+        End Using
+
+    End Sub
+    Private Sub FileTree_NodeAfterRemoved(sender As Object, e As NodeEventArgs) Handles FileTree.NodeAfterRemoved
+
+        Dim RemoveScript As Script = DirectCast(e.Node.Tag, Script)
+        RemoveScript.State = Script.ViewState.None
+
+    End Sub
+    Private Sub FileTree_NodeDoubleClicked(sender As Object, e As NodeEventArgs) Handles FileTree.NodeDoubleClicked
+
+        If e.Node.Tag IsNot Nothing Then
+            If e.Node.Tag.GetType Is GetType(Connection) Then
+                '( Root node = Connection ) Adding empty sql pane connected to clicked node Connection
+                Dim emptyScript As New Script With {.Connection = DirectCast(e.Node.Tag, Connection)}
+                Scripts.Add(emptyScript)
+                emptyScript.State = Script.ViewState.OpenDraft
+
+            ElseIf e.Node.Tag.GetType Is GetType(Script) Then
+                '( Child node = Script ) Adding populated sql pane from a closed script
+                Dim savedScript As Script = DirectCast(e.Node.Tag, Script)
+                savedScript.State = Script.ViewState.OpenSaved
+
             End If
-            Return OPS
-        End Get
-    End Property
-    Private ReadOnly Property PaneGridSeparator As Rectangle
-        Get
-            Dim PGS As New Rectangle
-            If ActivePane_ IsNot Nothing Then
-                Dim Grid_Location = Script_Grid.PointToScreen(New Point(0, 0))
-                Dim Pane_Location = ActivePane_.PointToScreen(New Point(0, 0))
-                Dim Pane_Right = Pane_Location.X + ActivePane_.Width
-                Dim PGS_Width As Integer = Grid_Location.X - Pane_Right
-                PGS = New Rectangle(Pane_Right, Pane_Location.Y, PGS_Width, ActivePane_.Height)
-            End If
-            Return PGS
-        End Get
-    End Property
+        End If
+        FilesButton.HideDropDown()
+
+    End Sub
+    Private Sub FileTree_NodeDragStart(sender As Object, e As NodeEventArgs) Handles FileTree.NodeDragStart
+
+        DragNode = e.Node
+        Dim dragScript As Script = DirectCast(DragNode.Tag, Script)
+        dragScript.Body.Text = dragScript.Text
+        If ActivePane() IsNot Nothing Then ActivePane.AllowDrop = True
+        Script_Grid.AllowDrop = True
+
+    End Sub
+    Private Sub FileTree_NodeClicked(sender As Object, e As NodeEventArgs) Handles FileTree.NodeClicked
+        If e.Node Is OpenFileNode Then
+            OpenFile.Tag = Nothing
+            OpenFile.ShowDialog()
+        End If
+    End Sub
+    '===============================================================================
+    Private Sub SaveAs_MouseEnter(sender As Object, e As EventArgs) Handles SaveAs.MouseEnter
+
+        If ActiveScript() IsNot Nothing Then
+            SaveAs.ForeColor = If(ActiveScript.FileTextMatchesText, Color.LightGray, Color.Black)
+            SaveAs.Text = ActiveScript.Name
+        End If
+
+    End Sub
+    Private Sub SaveAs_MouseLeave(sender As Object, e As EventArgs) Handles SaveAs.MouseLeave
+        SaveAs.Text = String.Empty
+    End Sub
+    Private Sub SaveAs_ImageClicked() Handles SaveAs.ImageClicked
+
+        If ActiveScript() IsNot Nothing Then
+            Using cb As New CursorBusy
+                'USING Now.ToLongTimeString ENSURE NAME<>value AND ACTION IS TAKEN
+                Dim ActiveScriptName As String = Join({DateTimeToString(Now), SaveAs.Text}, Delimiter)
+                ActiveScript.Name = ActiveScriptName
+            End Using
+        End If
+
+    End Sub
+#End Region
+#End Region
+#Region " PANEL SIZING - PANE→|←GRID "
     Private _ForceCapture As Boolean
     Protected Property ForceCapture() As Boolean
         Get
@@ -1574,6 +2581,35 @@ Public Class DataTool
             _ForceCapture = value
             TLP_PaneGrid.Capture = value
         End Set
+    End Property
+    Private Shadows Sub OnMouseCaptureChanged(sender As Object, e As EventArgs) Handles TLP_PaneGrid.MouseCaptureChanged
+        TLP_PaneGrid.Capture = _ForceCapture
+    End Sub
+    Private Sub ObjectsClose() Handles Button_ObjectsClose.Click
+        TLP_PaneGrid.ColumnStyles(0).Width = 0
+    End Sub
+    Private ReadOnly Property ObjectsPaneSeparator As Rectangle
+        Get
+            Dim OPS As New Rectangle
+            If ActivePane() IsNot Nothing Then
+                Dim Pane_Location = ActivePane.PointToScreen(New Point(0, 0))
+                OPS = New Rectangle(Pane_Location.X - 10, Pane_Location.Y, 10, ActivePane.Height)
+            End If
+            Return OPS
+        End Get
+    End Property
+    Private ReadOnly Property PaneGridSeparator As Rectangle
+        Get
+            Dim PGS As New Rectangle
+            If ActivePane() IsNot Nothing Then
+                Dim Grid_Location = Script_Grid.PointToScreen(New Point(0, 0))
+                Dim Pane_Location = ActivePane.PointToScreen(New Point(0, 0))
+                Dim Pane_Right = Pane_Location.X + ActivePane.Width
+                Dim PGS_Width As Integer = Grid_Location.X - Pane_Right
+                PGS = New Rectangle(Pane_Right, Pane_Location.Y, PGS_Width, ActivePane.Height)
+            End If
+            Return PGS
+        End Get
     End Property
     Private Sub OnPanelMouseOver(sender As Object, e As MouseEventArgs) Handles TLP_PaneGrid.MouseMove
 
@@ -1639,9 +2675,6 @@ Public Class DataTool
         End If
 
     End Sub
-    Private Shadows Sub OnMouseCaptureChanged(sender As Object, e As EventArgs) Handles TLP_PaneGrid.MouseCaptureChanged
-        TLP_PaneGrid.Capture = _ForceCapture
-    End Sub
     Private Sub OnPanelDown(sender As Object, e As MouseEventArgs) Handles TLP_PaneGrid.MouseDown
 
         If e.Button = MouseButtons.Left Then
@@ -1695,224 +2728,341 @@ Public Class DataTool
 
     End Sub
 #End Region
+#Region " Tabs Events "
+    Private Sub Tab_Clicked(sender As Object, e As TabsEventArgs) Handles Script_Tabs.TabClicked
 
-#Region " Manage Toolstrip Visibility {TSDD_SaveAs ( IC_SaveAs ) + TSDD_ClosedScripts ( Tree_ClosedScripts )} "
-    'Mouseover Tab close [X] shows SaveAs, if text has changed. Exit right stays visible. Exit left closes
-    'Mouseover AddTab shows ClosedScripts. Exit right stays visible. Exit left closes
-    Private Sub TabDirection(TabItem As Tab)
+        Select Case e.InZone
+            Case Tabs.Zone.Add
+                Dim newScript As New Script
+                Scripts.Add(newScript) 'CollectionChanged ... adds handlers
+                newScript.State = Script.ViewState.OpenDraft'VisibleChanged ... adds tab + pane
 
-        If TabItem IsNot Nothing Then
-            'Inside [X]=Show SaveAs ( if text has changed )
-            Dim RelativePosition As RelativeCursor = CursorToControlPosition(Script_Tabs, TabItem.Bounds)
-            Dim TabLocation As Point = Script_Tabs.PointToScreen(New Point(TabItem.Bounds.Right, 1))    'TabItem.Bounds.Top
-
-            If RelativePosition = RelativeCursor.RightOf Then
-                If TabItem Is Script_Tabs.AddTab Then
-                    TSDD_ClosedScripts.Location = TabLocation  'Upper-right corner
-                    Show_DropDown(TSDD_ClosedScripts, TabLocation)
-                    Hide_DropDown(TSDD_SaveAs)
-                    'ClosedScripts changes Size so the Cursor may end up outside the bounds when a Node is collapsed. Allow a 2s window before closing
-                    With New Timer With {.Interval = 2000}
-                        AddHandler .Tick, AddressOf HideTimer_ClosedScripts
-                        .Start()
-                    End With
-
-                Else
-                    Show_DropDown(TSDD_SaveAs, TabLocation)
-                    Hide_DropDown(TSDD_ClosedScripts)
-
-                End If
-
-            ElseIf RelativePosition = RelativeCursor.Inside Then
-                If TabItem Is Script_Tabs.AddTab Then
-                    If TSDD_SaveAs.Visible Then
-                        Return
+            Case Tabs.Zone.Image
+#Region " RUN "
+                If ActiveScript.Connection Is Nothing Then
+                    REM /// DSN HAS NOT YET BEEN SET. CLICKING THE TAB IS AUTO-SELECT
+                    Dim Tables = ActiveScript.Body.TablesFullName   '<======== NOT SURE ABOUT THIS
+                    If Tables.Any Then
+                        Message.Show("Datasource not found. One must be selected.", "The following tables do not exist in your saved items: " & vbNewLine & Join(Tables.ToArray, ","), Prompt.IconOption.Critical, Prompt.StyleOption.Blue)
+                    Else
+                        Message.Show("Datasource not found.", "One must be selected.", Prompt.IconOption.Critical, Prompt.StyleOption.Grey)
                     End If
-                    Show_DropDown(TSDD_ClosedScripts, TabLocation)
-
                 Else
-                    Show_DropDown(TSDD_SaveAs, TabLocation)
-                    Hide_DropDown(TSDD_ClosedScripts)
-
+                    REM /// DSN HAS BEEN SET. USE CURRENT VALUE. USER CAN CHANGE FROM ScriptPane_Run_DSNs (TSMI)
+                    RunScript()
                 End If
+#End Region
+            Case Tabs.Zone.Text
 
-            Else
-                If TabItem Is Script_Tabs.AddTab Then
-                    Hide_DropDown(TSDD_ClosedScripts)
-                    If RelativePosition = RelativeCursor.LeftOf Then Show_DropDown(TSDD_SaveAs, TabLocation)
+            Case Tabs.Zone.Close
+#Region " CLOSE "
+                Dim scriptActive As Script = ActiveScript()
+                Dim activeText As String = scriptActive.Text
+                Dim fileText As String = scriptActive.DSN_Body.Value
+                With scriptActive
+                    If .FileCreated Then
+                        Dim textA As String = .Text
+                        Dim textB As String = .DSN_Body.Value
 
-                Else
-                    Hide_DropDown(TSDD_SaveAs)
+                        If .FileTextMatchesText Then
+                            'NO CHANGES...DO NOTHING
+                            .State = Script.ViewState.ClosedNotSaved
+                        Else
+                            If Message.Show(.Body.InstructionType.ToString & " has changed", "Save your work?", Prompt.IconOption.YesNo, Prompt.StyleOption.Grey) = DialogResult.No Then
+                                'DO NOT WANT CHANGES SAVED...TEXT NEEDS TO REVERT TO FILE TEXT
+                                .State = Script.ViewState.ClosedNotSaved
+                            Else
+                                'DO WANT CHANGES SAVED
+                                .State = Script.ViewState.ClosedSaved
+                            End If
+                        End If
 
-                End If
-            End If
+                    ElseIf .Body.HasText Then
+                        Using message As New Prompt With {.TitleBarImage = My.Resources.Warning_.ToBitmap}
+                            If message.Show("You have unsaved work. Continue?",
+                                            "[Yes] to discard, [No] to cancel",
+                                            Prompt.IconOption.YesNo,
+                                            Color.GhostWhite,
+                                            Color.DarkGray,
+                                            Color.White,
+                                            Color.GhostWhite,
+                                            Color.GhostWhite,
+                                            Color.DarkBlue) = DialogResult.No Then
+                                'DO NOTHING AND LEAVE TAB OPEN
+                            Else
+                                'NO FILE, WITH TEXT...DISCARD EMPTY TAB
+                                .State = Script.ViewState.None
+                            End If
+                        End Using
+
+                    Else
+                        'NO FILE, NO TEXT...DISCARD EMPTY TAB
+                        .State = Script.ViewState.None
+                    End If
+                End With
+#End Region
+        End Select
+    End Sub
+    Private Sub Tabs_ZoneChange(sender As Object, e As TabsEventArgs) Handles Script_Tabs.ZoneMouseChange
+
+        If Not e.InZone = Tabs.Zone.None Then
+            TT_Tabs.Hide(Script_Tabs)
+            Dim TipLocation = Script_Tabs.PointToScreen(If(e.InTab, e.OutTab).Bounds.Location)
+            TipLocation.Offset(ActiveTab.Bounds.Width, 3)
+
+            Select Case e.InZone
+                Case Tabs.Zone.Add
+
+                Case Tabs.Zone.Image
+                    Dim TipValues As String = Nothing
+                    With ActiveScript()
+                        TipValues = "Run Script|" & Bulletize({"Current datasource is " & If(IsNothing(.Connection), "undetermined", .DataSourceName),
+                                            "Type is " & If(.Body.InstructionType = ExecutionType.Null, "undetermined", .Body.InstructionType.ToString),
+                                            Join({"Text has", If(.TextWasModified, String.Empty, " not"), " changed"}, String.Empty),
+                                            Join({"Last modified", .Modified.ToShortDateString, "@", .Modified.ToShortTimeString}),
+                                            Join({"Last successful run", .Ran.ToShortDateString, "@", .Ran.ToShortTimeString}),
+                                            "Location=" & If(.Path, "None - not saved")})
+                    End With
+                    Tabs_TipManager(TipValues, TipLocation)
+
+                Case Tabs.Zone.Text
+                    Tabs_TipManager("Reorder tab|Drag tab and drop in new position", TipLocation)
+
+                Case Tabs.Zone.Close
+                    If Not ActiveScript.Body.HasText Then
+                        Tabs_TipManager("Close Tab|Click to close empty tab", TipLocation)
+
+                    ElseIf ActiveScript.FileTextMatchesText Then
+                        Tabs_TipManager("Close Tab|Click to close saved script", TipLocation)
+
+                    Else
+
+                    End If
+            End Select
         End If
 
     End Sub
-    Private Sub Show_DropDown(TSDD As ToolStripDropDown, Optional Location As Point = Nothing)
+    Private Sub Tabs_TipManager(ToolTipText As String, Location As Point)
 
-        If TSDD Is TSDD_ClosedScripts Then
-            RemoveHandler Karen.Moused, AddressOf Hook_MouseDown
-            Karen.Unsubscribe()
-            AddHandler Karen.Moused, AddressOf Hook_MouseDown
-            Karen.Subscribe()
-            With TSDD
-                .AutoClose = False
-                .Show(Location)
+        If IsNothing(ToolTipText) Then
+            TT_Tabs.Hide(Script_Tabs)
+
+        Else
+            Dim TextValues As String() = Split(ToolTipText, "|")
+            TT_Tabs.ToolTipTitle = TextValues.First
+            TT_Tabs.Show(TextValues.Last, Script_Tabs, Location, 3000)
+
+        End If
+
+    End Sub
+#End Region
+#Region " Active Events "
+    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ ActiveScript
+    Private Sub Scripts_CollectionChanged(sender As Object, e As ScriptsEventArgs) Handles Scripts.CollectionChanged
+
+        If e.State = CollectionChangeAction.Refresh Then
+            With FileTree
+                .Nodes.SortOrder = SortOrder.Ascending
+                .Nodes.Insert(0, OpenFileNode)
             End With
 
-        ElseIf TSDD Is TSDD_SaveAs Then
-            If ActiveScript IsNot Nothing AndAlso ActiveScript.TextWasModified Or TSDD Is TSDD_ClosedScripts And ScriptsInitialized Then
-                'Do not show SaveAs when ScriptText has not changed
-                With TSDD
-                    .AutoClose = False
-                    .Show(Location)
-                End With
-            End If
+        ElseIf e.State = CollectionChangeAction.Add Then
+            Dim addScript As Script = e.Item
+            With FileTree
+                Dim ConnectionName As String = If(addScript.Connection Is Nothing, "Undetermined", addScript.Connection.DataSource)
+                Dim DatabaseColor As Color = If(addScript.Connection Is Nothing, Color.Blue, addScript.Connection.BackColor)
+                Dim Database_Image As Image = ChangeImageColor(My.Resources.Sync, Color.FromArgb(255, 64, 64, 64), DatabaseColor)
 
-        End If
-
-    End Sub
-    Private Sub Hook_MouseDown(sender As Object, e As Gma.System.MouseKeyHook.MouseEventExtArgs)
-
-        If Not CursorOverControl(TSDD_ClosedScripts) Then
-            RemoveHandler Karen.Moused, AddressOf Hook_MouseDown
-            Karen.Unsubscribe()
-            Hide_DropDown(TSDD_ClosedScripts)
-        End If
-
-    End Sub
-    Private Sub Hide_DropDowns() Handles IC_SaveAs.MouseLeave
-        Hide_DropDown(TSDD_SaveAs)
-        Hide_DropDown(TSDD_ClosedScripts)
-    End Sub
-    Private Shared Sub Hide_DropDown(TSDD As ToolStripDropDown)
-        With TSDD
-            .AutoClose = True
-            .Hide()
-        End With
-    End Sub
-    Private Sub HideTimer_ClosedScripts(sender As Object, e As EventArgs)
-
-        With DirectCast(sender, Timer)
-            RemoveHandler .Tick, AddressOf HideTimer_ClosedScripts
-            .Stop()
-            If CursorOverControl(Tree_ClosedScripts) Or Tree_ClosedScripts.OptionsOpen Then
-                AddHandler .Tick, AddressOf HideTimer_ClosedScripts
-                .Start()
-            Else
-                If Not CursorToControlPosition(Script_Tabs, Script_Tabs.AddTab.Bounds) = RelativeCursor.Inside Then
-                    Hide_DropDown(TSDD_ClosedScripts)
+                If Not .Nodes.Exists(Function(n) n.Name = ConnectionName) Then
+                    .Nodes.Add(New Node With {
+                            .Text = ConnectionName,
+                            .Name = ConnectionName,
+                            .Image = Database_Image,
+                            .CanAdd = False,
+                            .CanDragDrop = False,
+                            .CanEdit = False,
+                            .CanRemove = False,
+                            .Separator = Node.SeparatorPosition.Above,
+                            .Tag = addScript.Connection})
                 End If
+                Dim ConnectionNode As Node = .Nodes.Item(ConnectionName)
+                If addScript.Connection Is Nothing Then ConnectionNode.BackColor = Color.FromArgb(128, Color.Gainsboro)
+                ConnectionNode.Nodes.Add(New Node With {
+                            .Text = addScript.Name,
+                            .Name = addScript.Name,
+                            .Image = addScript.TabImage,
+                            .CanAdd = False,
+                            .CanEdit = True,
+                            .CanRemove = True,
+                            .CanFavorite = True,
+                            .Favorite = addScript.Favorite,
+                            .Tag = addScript,
+                            .CursorGlowColor = DatabaseColor
+                                         })
+                ConnectionNode.Nodes.SortOrder = SortOrder.Ascending
+            End With
+            AddHandler addScript.VisibleChanged, AddressOf Script_VisibleChanged
+            AddHandler addScript.NameChanged, AddressOf Script_NameChanged
+            AddHandler addScript.TypeChanged, AddressOf Script_TypeChanged
+            AddHandler addScript.ConnectionChanged, AddressOf Script_ConnectionChanged
+            AddHandler addScript.GenericEvent, AddressOf Script_GenericEvent
+
+        ElseIf e.State = CollectionChangeAction.Remove Then
+            Dim removeScript As Script = e.Item
+            Dim RemoveNode As Node = FileTree.Nodes.ItemByTag(removeScript)
+            RemoveNode.RemoveMe()
+            RemoveHandler removeScript.VisibleChanged, AddressOf Script_VisibleChanged
+            RemoveHandler removeScript.NameChanged, AddressOf Script_NameChanged
+            RemoveHandler removeScript.TypeChanged, AddressOf Script_TypeChanged
+            RemoveHandler removeScript.ConnectionChanged, AddressOf Script_ConnectionChanged
+            RemoveHandler removeScript.GenericEvent, AddressOf Script_GenericEvent
+
+        End If
+
+    End Sub
+    Private Sub Script_VisibleChanged(sender As Object, e As ScriptVisibleChangedEventArgs)
+
+        Dim scriptNode As Node = FileTree.Nodes.ItemByTag(e.Item)
+        If e.Visible Then
+            Dim visibleScript As Script = e.Item
+            Dim newTab As New Tab With {
+                .HeaderBackColor = If(visibleScript.Connection Is Nothing, Color.Gainsboro, visibleScript.Connection.BackColor),
+                .HeaderForeColor = If(visibleScript.Connection Is Nothing, Color.Black, visibleScript.Connection.ForeColor),
+                .ItemText = visibleScript.Name,
+                .Image = visibleScript.TabImage,
+                .Tag = visibleScript,
+                .AllowDrop = True
+            }
+            Dim newPane As New RicherTextBox With {
+                .Name = "Pane",
+                .Dock = DockStyle.Fill,
+                .Multiline = True,
+                .WordWrap = True,
+                .AllowDrop = True,
+                .AcceptsTab = True,
+                .Font = My.Settings.Font_Pane,
+                .Tag = visibleScript,
+                .EnableAutoDragDrop = True,
+                .Text = visibleScript.Text
+            }
+            newTab.Controls.Add(newPane)
+            Script_Tabs.TabPages.Add(newTab)
+            visibleScript.TabPage_ = newTab
+            AddHandler newTab.TextChanged, AddressOf AutoWidth
+            With newPane
+                AddHandler .TextChanged, AddressOf ActivePane_TextChanged
+                AddHandler .KeyDown, AddressOf ActivePane_KeyDown
+                AddHandler .MouseDown, AddressOf ActivePane_MouseDown
+                AddHandler .MouseEnter, AddressOf ActivePane_MouseEnter
+                AddHandler .MouseMove, AddressOf ActivePane_MouseMove
+                AddHandler .SelectionChanged, AddressOf ActivePane_SelectionChanged
+                AddHandler .ScrolledVertical, AddressOf ActivePane_ScrolledVertical
+                AddHandler .DragStart, AddressOf ActivePane_DragStart
+                AddHandler .DragOver, AddressOf ActivePane_DragOver
+                AddHandler .DragDrop, AddressOf ActivePane_DragDrop
+            End With
+            Dim NodeColor As Color = If(visibleScript.Connection Is Nothing, Color.Black, visibleScript.Connection.BackColor)
+            Dim bmp As Bitmap = My.Resources.Eye
+            If bmp IsNot Nothing Then
+                Using g As Graphics = Graphics.FromImage(bmp)
+                    Using Attributes As Imaging.ImageAttributes = New Imaging.ImageAttributes()
+                        Dim rect As Rectangle = New Rectangle(0, 0, bmp.Width, bmp.Height)
+                        g.DrawImage(bmp, rect, 0, 0, rect.Width, rect.Height, GraphicsUnit.Pixel, Attributes)
+                        Using SolidLine As New Pen(Color.FromArgb(192, NodeColor), 3)
+                            g.DrawLine(SolidLine, New Point(rect.Left + 1, rect.Bottom - 3), New Point(rect.Right - 1, rect.Bottom - 3))
+                        End Using
+                    End Using
+                End Using
             End If
+            scriptNode.Image = bmp
+
+        Else
+            Dim invisibleScript As Script = e.Item
+            Dim oldTab As Tab = invisibleScript.TabPage
+            Dim oldPane As RicherTextBox = DirectCast(oldTab.Controls.Item("Pane"), RicherTextBox)
+            RemoveHandler oldTab.TextChanged, AddressOf AutoWidth
+            With oldPane
+                RemoveHandler .TextChanged, AddressOf ActivePane_TextChanged
+                RemoveHandler .KeyDown, AddressOf ActivePane_KeyDown
+                RemoveHandler .MouseDown, AddressOf ActivePane_MouseDown
+                RemoveHandler .MouseEnter, AddressOf ActivePane_MouseEnter
+                RemoveHandler .MouseMove, AddressOf ActivePane_MouseMove
+                RemoveHandler .SelectionChanged, AddressOf ActivePane_SelectionChanged
+                RemoveHandler .ScrolledVertical, AddressOf ActivePane_ScrolledVertical
+                RemoveHandler .DragStart, AddressOf ActivePane_DragStart
+                RemoveHandler .DragOver, AddressOf ActivePane_DragOver
+                RemoveHandler .DragDrop, AddressOf ActivePane_DragDrop
+            End With
+            scriptNode.Image = e.Item.TabImage
+            invisibleScript.TabPage.Controls.Remove(oldPane)
+            Script_Tabs.TabPages.Remove(oldTab)
+            oldPane.Dispose()
+            oldTab.Dispose()
+        End If
+
+    End Sub
+    Private Sub Script_NameChanged(sender As Object, e As ScriptNameChangedEventArgs)
+
+        Dim changedScript As Script = DirectCast(sender, Script)
+        FileTree.Nodes.ItemByTag(changedScript).Text = e.CurrentName
+        changedScript.TabPage.ItemText = changedScript.Name
+        Script_Tabs.Refresh()
+
+    End Sub
+    Private Sub Script_TypeChanged(sender As Object, e As ScriptTypeChangedEventArgs)
+
+        With DirectCast(sender, Script)
+            If .TabPage IsNot Nothing Then 'If dragging a closed script ( no tab ) - this event can fire
+                .TabPage.ItemText = .Name
+                .TabPage.Image = .TabImage
+            End If
+            Script_Tabs.Refresh()
         End With
 
     End Sub
-#End Region
+    Private Sub Script_ConnectionChanged(sender As Object, e As ConnectionChangedEventArgs)
 
-#Region " IC_CloseAndSave EVENTS "
-    Private Sub SaveAs_Showing() Handles TSDD_SaveAs.Opening
-        IC_SaveAs.Text = ActiveScript.Name
-    End Sub
-    Private Sub SaveAs_ImageClicked() Handles IC_SaveAs.ValueSubmitted, IC_SaveAs.ImageClicked
+        If e.NewConnection Is Nothing Then
+            'Password change
+            'AddHandler Connection.PasswordChanged, AddressOf ConnectionChanged *** USE???
 
-        Using cb As New CursorBusy
-            'USING Now.ToLongTimeString ENSURE NAME<>value AND ACTION IS TAKEN
-            Dim ActiveScriptName As String = Join({DateTimeToString(Now), IC_SaveAs.Text}, Delimiter)
-            ActiveScript.Name = ActiveScriptName
-        End Using
-
-    End Sub
-#End Region
-
-#Region " Tree_ClosedScripts EVENTS "
-    Private Sub ClosedScripts_SizeChanged(sender As Object, e As EventArgs)
-
-        With TLP_ClosedScripts
-            .ColumnStyles(0).Width = {Tree_ClosedScripts.Width, WorkingArea.Width - TSDD_ClosedScripts.Left}.Min
-            .RowStyles(0).Height = {Tree_ClosedScripts.Height, WorkingArea.Height - TSDD_ClosedScripts.Top}.Min
-            .Width = Convert.ToInt32(.ColumnStyles(0).Width + 3)
-            .Height = Convert.ToInt32(.RowStyles(0).Height + 3)
-            TSDD_ClosedScripts.Size = .Size
-        End With
-
-    End Sub
-    Private Sub ClosedScript_NodeDragStart(sender As Object, e As NodeEventArgs) Handles Tree_ClosedScripts.NodeDragStart
-
-        DragNode = e.Node
-        If ActivePane IsNot Nothing Then ActivePane.AllowDrop = True
-        Script_Grid.AllowDrop = True
-
-    End Sub
-    Private Sub ClosedScript_NodeDragOver(sender As Object, e As DragEventArgs) Handles Script_Tabs.DragOver, Script_Grid.DragOver
-
-        Dim DragNode As Node = DirectCast(e.Data.GetData(GetType(Node)), Node)
-        If DragNode IsNot Nothing Then
-            If DragNode.AllowDragDrop Then
-                e.Effect = DragDropEffects.All
-            Else
-                e.Effect = DragDropEffects.None
-            End If
+        Else
+            With e.NewConnection
+                Dim scriptConnection As Script = DirectCast(sender, Script)
+                If scriptConnection.TabPage IsNot Nothing Then 'If dragging a closed script ( no tab ) - this event can fire
+                    scriptConnection.TabPage.HeaderBackColor = e.NewConnection.BackColor
+                    scriptConnection.TabPage.HeaderForeColor = e.NewConnection.ForeColor
+                End If
+                Dim Message As String = "Currently connected to " & .DataSource
+                If .Properties.ContainsKey("NICKNAME") Then Message &= Join({String.Empty, "(", .Properties("NICKNAME"), ")"})
+                RaiseEvent Alert(e.NewConnection, New AlertEventArgs(Message))
+            End With
         End If
 
     End Sub
-    Private Sub ClosedScript_NodeDroppedTabs(sender As Object, e As DragEventArgs) Handles Script_Tabs.DragDrop
-        Pane_NodeDropped(e)
+    Private Sub Script_GenericEvent(sender As Object, e As AlertEventArgs)
+        RaiseEvent Alert(sender, e)
     End Sub
-    Private Sub ClosedScript_NodeDroppedPane(sender As Object, e As DragEventArgs) Handles ActivePane_.DragDrop
-        Pane_NodeDropped(e)
+    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ ActivePane
+    Private Sub ActivePane_MouseEnter(sender As Object, e As EventArgs)
+
+        FindAndReplace.Parent = DirectCast(sender, RicherTextBox)
+        CMS_PaneOptions.Close()
+
     End Sub
-    Private Sub ClosedScript_NodeClicked(sender As Object, e As NodeEventArgs) Handles Tree_ClosedScripts.NodeClicked
-        If e.Node Is OpenFileNode Then
-            OpenFile.Tag = Nothing
-            OpenFile.ShowDialog()
-        End If
-    End Sub
-    'Open Closed Script
-    Private Sub ClosedScript_NodeDoubleClicked(sender As Object, e As NodeEventArgs) Handles Tree_ClosedScripts.NodeDoubleClicked
+    Private Sub ActivePane_TextChanged(sender As Object, e As EventArgs)
 
-        Hide_DropDowns()
-        If e.Node.Tag IsNot Nothing Then
-            If e.Node.Tag.GetType Is GetType(Connection) Then
-                'New Pane with Connection
-                Scripts.Add(New Script With {
-                            ._Tabs = Script_Tabs,
-                            .Connection = DirectCast(e.Node.Tag, Connection),
-                            .State = Script.ViewState.OpenDraft})
-
-            ElseIf e.Node.Tag.GetType Is GetType(Script) Then
-                'Opening a Closed Script
-                Dim NodeScript As Script = DirectCast(e.Node.Tag, Script)
-                NodeScript.State = Script.ViewState.OpenSaved
-
-            End If
+        ActiveScript.Text = ActivePane.Text
+        If ActiveScript.FileTextMatchesText Then
+            SaveAs.ForeColor = Color.LightGray
+            SaveAs.Text = String.Empty
+        Else
+            SaveAs.ForeColor = Color.Black
+            SaveAs.Text = ActiveScript.Name
         End If
 
     End Sub
-    Private Sub ClosedScript_NodeRemoveClicked(sender As Object, e As NodeEventArgs) Handles Tree_ClosedScripts.NodeAfterRemoved
-
-        Dim RemoveScript As Script = DirectCast(e.Node.Tag, Script)
-        RemoveScript.State = Script.ViewState.None
-
-    End Sub
-    Private Sub ClosedScript_NodeEditClicked(sender As Object, e As NodeEventArgs) Handles Tree_ClosedScripts.NodeAfterEdited
-
-        Using cb As New CursorBusy
-            'USING Now.ToLongTimeString ENSURE NAME<>value AND ACTION IS TAKEN
-            Dim ClosedScript As Script = DirectCast(e.Node.Tag, Script)
-            ClosedScript.Name = Join({DateTimeToString(Now), e.ProposedText}, Delimiter)
-            If ClosedScript.Name = e.ProposedText Then e.Node.Text = e.ProposedText     'Script.Name will only change if it can
-            e.Node.Parent.SortChildren()
-            Tree_ClosedScripts.Refresh()
-        End Using
-
-    End Sub
-    Private Sub Nodes_Changed(sender As Object, e As NodeEventArgs) Handles Tree_ClosedScripts.NodesChanged
-
-    End Sub
-#End Region
-#Region " SCRIPT CONTROL EVENTS "
-    Private Sub ActivePane_KeyDown(sender As Object, e As KeyEventArgs) Handles ActivePane_.KeyDown
+    Private Sub ActivePane_KeyDown(sender As Object, e As KeyEventArgs)
 
         If Control.ModifierKeys = Keys.Control Then
             Select Case e.KeyCode
@@ -1939,7 +3089,7 @@ Public Class DataTool
         End If
 
     End Sub
-    Private Sub ActivePane_MouseDown(sender As Object, e As MouseEventArgs) Handles ActivePane_.MouseDown
+    Private Sub ActivePane_MouseDown(sender As Object, e As MouseEventArgs)
 
         With CMS_PaneOptions
             If e.Button = MouseButtons.Left Then
@@ -2022,12 +3172,10 @@ Public Class DataTool
         End With
 
     End Sub
-    Private Sub ActivePane_MouseEnter(sender As Object, e As EventArgs) Handles ActivePane_.MouseEnter
-        CMS_PaneOptions.Close()
-    End Sub
-    Private Sub ActivePane_MouseMove(sender As Object, e As MouseEventArgs) Handles ActivePane_.MouseMove
+    Private Sub ActivePane_MouseMove(sender As Object, e As MouseEventArgs)
 
-        With ActivePane
+        With ActivePane()
+
             If Pane_MouseLocation <> e.Location Then
                 Pane_MouseLocation = e.Location
                 Dim CharacterIndex As Integer = .GetCharIndexFromPosition(e.Location)
@@ -2079,12 +3227,9 @@ Public Class DataTool
         End With
 
     End Sub
-    Private Sub ActivePane_TextChanged(sender As Object, e As EventArgs) Handles ActivePane_.TextChanged
-        ActiveBody.Text = ActivePane.Text
-    End Sub
-    Private Sub ActivePane_SelectionChanged(sender As Object, e As EventArgs) Handles ActivePane_.SelectionChanged
+    Private Sub ActivePane_SelectionChanged(sender As Object, e As EventArgs)
 
-        With ActivePane
+        With ActivePane()
             FindAndReplace.StartAt = .SelectionStart
             Dim Statement As String = .Text
             Dim Parentheses As New List(Of Match)(From M In Regex.Matches(Statement, "\(|\)", RegexOptions.IgnoreCase) Select DirectCast(M, Match))
@@ -2112,7 +3257,7 @@ Public Class DataTool
         End With
 
     End Sub
-    Private Sub ActivePane_ScrolledV(sender As Object, e As RicherEventArgs) Handles ActivePane_.ScrolledVertical
+    Private Sub ActivePane_ScrolledVertical(sender As Object, e As RicherEventArgs)
 
         With New Timer With {.Interval = 250}
             AddHandler .Tick, AddressOf ScrollTimer_Tick
@@ -2129,7 +3274,274 @@ Public Class DataTool
         FindAndReplace.Top = 0
 
     End Sub
+    Private Sub ActivePane_DragStart(sender As Object, e As DragEventArgs)
+        Data.SetData(ActivePane.GetType, ActivePane)
+    End Sub
+    Private Sub ActivePane_DragOver(sender As Object, e As DragEventArgs)
+
+        Dim Grid = Data.GetData(GetType(DataTool))
+        If Grid IsNot Nothing Then
+            TLP_PaneGrid.ColumnStyles(0).Width = ObjectsWidth
+        End If
+
+    End Sub
+    Private Sub ActivePane_DragDrop(sender As Object, e As DragEventArgs)
+        'A ClosedScript node was dropped on an active pane
+        Pane_NodeDropped(e)
+    End Sub
+#End Region
+#Region " ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ RUN SCRIPT "
+    Private Sub RunScript(Optional _Script As Script = Nothing)
+
+        Script_Grid.Columns.CancelWorkers()
+        With TT_GridTip
+            .ToolTipTitle = Nothing
+            .Show(Nothing, Me, 1)
+            .Hide(Me)
+        End With
+
+        _Script = If(_Script, ActiveScript())
+
+        With _Script
+            If .Body.HasText And _Script.Connection IsNot Nothing Then
+                If .Connection.CanConnect Then
+                    If .Type = ExecutionType.DDL Then
+#Region " D D L "
+                        Cursor.Current = Cursors.WaitCursor
+                        Dim procedure As New DDL(.Connection, .Body.SystemText, My.Settings.ddlPrompt, My.Settings.ddlRowCount)
+                        If procedure.ProceduresOK.Any Then
+                            RaiseEvent Alert(_Script, New AlertEventArgs("Running procedure " & .Name))
+                            With procedure
+                                AddHandler .Completed, AddressOf Execute_Completed
+                                .Name = _Script.CreatedString
+                                .Tag = _Script
+                                .Execute(True)
+                            End With
+                        Else
+                            RaiseEvent Alert(Me, New AlertEventArgs("Procedure cancelled"))
+                        End If
+#End Region
+
+                    ElseIf .Type = ExecutionType.SQL Then
+#Region " S Q L "
+                        RaiseEvent Alert(_Script, New AlertEventArgs("Running query " & .Name))
+                        'https://www.ibm.com/support/knowledgecenter/SSEPEK_11.0.0/cattab/src/tpc/db2z_catalogtablesintro.html
+                        If .Connection.IsFile Then
+                            For Each SheetName In SystemObjects
+                                'SQL_Statement = Replace(SQL_Statement, SheetName.Name, "[" & SheetName.Name & "]")
+                            Next
+
+                        Else
+                            Dim TablesNeed As String() = .Body.TablesNeedObject.ToArray
+                            If TablesNeed.Any Then
+                                RaiseEvent Alert(.Body, New AlertEventArgs("Adding to profile: " & Join(TablesNeed, ",") & "-(RunQuery)"))
+                                Dim TableColumnSQL As String = ColumnSQL(TablesNeed)
+                                With New SQL(.Connection, TableColumnSQL)
+                                    AddHandler .Completed, AddressOf ColumnsSQL_Completed
+                                    .Execute()
+                                End With
+                            End If
+                            Dim BodyText As String = .Body.SystemText
+                            With New SQL(.Connection, BodyText)
+                                AddHandler .Completed, AddressOf Execute_Completed
+                                .Name = _Script.CreatedString
+                                .Execute()
+                            End With
+                        End If
+#End Region
+                    ElseIf .Type = ExecutionType.Null Then
+
+                    End If
+                Else
+                    Dim Items As New List(Of String)
+                    If .Connection.MissingUserID Then Items.Add("userid")
+                    If .Connection.MissingPassword Then Items.Add("password")
+                    Message.Show("Can not connect", "Connection is missing " & Join(Items.ToArray, " and "), Prompt.IconOption.Critical, Prompt.StyleOption.Blue)
+                End If
+            Else
+                Stop
+                Message.Show("No datasource found or selected", "Please set your connection", Prompt.IconOption.Critical, Prompt.StyleOption.Blue)
+            End If
+        End With
+
+    End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+    Private Sub Execute_OKd(sender As Object, e As ResponseEventArgs)
+
+        With DirectCast(sender, DDL)
+            Dim ddlScript As Script = DirectCast(.Tag, Script)
+            RaiseEvent Alert(ddlScript, New AlertEventArgs("Running procedure " & ddlScript.Name))
+        End With
+
+    End Sub
+    Private Sub Execute_Completed(sender As Object, e As ResponseEventArgs)
+
+        Cursor.Current = Cursors.Default
+        Script_Grid?.Timer?.StopTicking()
+
+        Dim IsQuery As Boolean = sender.GetType Is GetType(SQL)
+        Dim ItemName As String
+
+        If IsQuery Then
+            With DirectCast(sender, SQL)
+                ItemName = .Name
+                RemoveHandler .Completed, AddressOf Execute_Completed
+            End With
+
+        Else
+            With DirectCast(sender, DDL)
+                ItemName = .Name
+                RemoveHandler .Completed, AddressOf Execute_Completed
+            End With
+        End If
+
+        With TT_GridTip
+            Dim BulletMessage As String = e.Message
+            Dim FlatMessage As String
+            Dim CreatedDate As Date = StringToDateTime(ItemName)
+            Dim _Script As Script = Scripts.Item(CreatedDate)
+
+            .ToolTipTitle = Join({If(IsQuery, "Query", "Procedure"), _Script.Name, If(e.Succeeded, "succeeded", "failed")})
+
+            If e.Succeeded Then
+                _Script.Save(Script.SaveAction.UpdateExecutionTime)
+                Dim ElapsedMessage As String = Nothing
+                With e.ElapsedTime
+                    If .Seconds < 1 Then
+                        ElapsedMessage = Join({ .Milliseconds, "milliseconds"})
+
+                    ElseIf .Minutes < 1 Then
+                        ElapsedMessage = Math.Round(.TotalSeconds, 3) & " seconds"
+
+                    Else
+                        ElapsedMessage = Join({ .Minutes, "minutes", .Seconds, "seconds"})
+
+                    End If
+                End With
+                If IsQuery Then
+                    'Show message immediately as it can take time to set datasource, etc
+                    BulletMessage = Bulletize({e.Columns.ToString(InvariantCulture) & " columns", e.Rows.ToString(InvariantCulture) & " rows", ElapsedMessage})
+                    TLP_PaneGrid.ColumnStyles(0).Width = 0
+                    Script_Grid?.Timer?.StartTicking(Color.LawnGreen)
+                    With New Worker
+                        .Tag = e.Table
+                        AddHandler .DoWork, AddressOf Async_StartDatasourceWidth
+                        AddHandler .RunWorkerCompleted, AddressOf Async_EndDatasourceWidth
+                        .RunWorkerAsync()
+                    End With
+                Else
+                    BulletMessage = Bulletize({ElapsedMessage})
+
+                End If
+
+            Else
+                BulletMessage = Bulletize({e.Message})
+
+            End If
+            If ActivePane() IsNot Nothing Then 'If dragging a closed script ( and no pane currently open ) - this will throw an error
+                .Show(String.Empty, ActivePane, 1)
+                .Hide(Script_Grid)
+                .Show(BulletMessage, ActivePane, 10 * 1000)
+            End If
+            FlatMessage = Join(Split(BulletMessage, "● ").Skip(1).ToArray, " ● ")
+            RaiseEvent Alert(e, New AlertEventArgs(Join({ .ToolTipTitle, ":", FlatMessage})))
+        End With
+
+    End Sub
+    Private Sub Async_StartDatasourceWidth(sender As Object, e As DoWorkEventArgs)
+        With DirectCast(sender, Worker)
+            RemoveHandler .DoWork, AddressOf Async_StartDatasourceWidth
+            SetSafeControlPropertyValue(Script_Grid, "DataSource", DirectCast(.Tag, DataTable))
+        End With
+    End Sub
+    Private Sub Async_EndDatasourceWidth(sender As Object, e As RunWorkerCompletedEventArgs)
+        AutoWidth(Script_Grid)
+    End Sub
+    Private Sub ColumnsSQL_Completed(sender As Object, e As ResponseEventArgs)
+
+        With DirectCast(sender, SQL)
+            RemoveHandler .Completed, AddressOf ColumnsSQL_Completed
+            .Table.Namespace = "<Retrieved>"
+            Dim ColumnData = DataTableToListOfColumnProperties(.Table)
+            If ColumnData.Any Then
+                Dim Objects_Retrieved As New List(Of String)
+                Dim Columns_Retrieved As New List(Of String)
+                Dim Nodes = From CD In ColumnData Group CD By Source = CD.SystemInfo.DSN Into SourceGrp = Group Select New With {
+                    .DateSource = Source, .Owners = From SG In SourceGrp Group SG By ObjectOwner = SG.SystemInfo.Owner Into OwnerGrp = Group Select New With {
+                    .Owner = ObjectOwner, .Names = From OG In OwnerGrp Group OG By ObjectInfo = OG.SystemInfo Into NameGrp = Group Select New With {
+                    .Info = ObjectInfo, .Columns = NameGrp}}}
+
+                For Each _SourceNode In Nodes
+                    Dim SourceNode As Node = Tree_Objects.Nodes.Item(Aliases(_SourceNode.DateSource))
+                    For Each _OwnerNode In _SourceNode.Owners
+                        Dim OwnerNode As Node = SourceNode.Nodes.Item(_OwnerNode.Owner)
+                        If OwnerNode Is Nothing Then
+                            OwnerNode = SourceNode.Nodes.Add(_OwnerNode.Owner, _OwnerNode.Owner)
+                        End If
+                        For Each _NameNode In _OwnerNode.Names
+                            Dim NameNode As Node = OwnerNode.Nodes.Item(_NameNode.Info.Name)
+                            If NameNode Is Nothing Then
+                                NameNode = OwnerNode.Nodes.Add(_NameNode.Info.Name, _NameNode.Info.Name, Type_Image(_NameNode.Info.Type))
+                            End If
+                            NameNode.Tag = _NameNode.Info
+                            Objects_Retrieved.Add(_NameNode.Info.ToString)
+                            For Each _ColumnNode In _NameNode.Columns
+                                Dim ColumnNode As Node = NameNode.Nodes.Item(_ColumnNode.Name)
+                                If ColumnNode Is Nothing Then
+                                    ColumnNode = NameNode.Nodes.Add(New Node With {.Text = _ColumnNode.Name,
+                                                                    .Name = _ColumnNode.Name,
+                                                                    .CanAdd = False,
+                                                                    .CanDragDrop = False,
+                                                                    .CheckBox = False})
+                                End If
+                                Columns_Retrieved.Add(_ColumnNode.ToString)
+                            Next
+                        Next
+                    Next
+                Next
+                Dim Objects_Saved = PathToList(SystemObjects.Path)
+                Dim Objects_New = Objects_Retrieved.Except(Objects_Saved)
+
+                If Objects_New.Any Then
+                    For Each ObjectString In Objects_New
+                        SystemObjects.Add(New SystemObject(ObjectString))
+                    Next
+                    SystemObjects.SortCollection()
+                    SystemObjects.Save()
+                End If
+
+                Dim Columns_Saved = PathToList(Path_Columns)
+                Dim Columns_New = Columns_Retrieved.Except(Columns_Saved)
+                If Columns_New.Any Then
+                    Columns_Saved.AddRange(Columns_New)
+                    Columns_Saved.Sort()
+                    Using SW As New StreamWriter(Path_Columns)
+                        SW.Write(Join(Columns_Saved.ToArray, vbNewLine))
+                    End Using
+                End If
+            End If
+        End With
+
+    End Sub
+#End Region
+#Region " FileTree EVENTS "
+    Private Sub ClosedScript_NodeDragOver(sender As Object, e As DragEventArgs) Handles Script_Tabs.DragOver, Script_Grid.DragOver
+
+        Dim DragNode As Node = DirectCast(e.Data.GetData(GetType(Node)), Node)
+        If DragNode IsNot Nothing Then
+            If DragNode.CanDragDrop Then
+                e.Effect = DragDropEffects.All
+            Else
+                e.Effect = DragDropEffects.None
+            End If
+        End If
+
+    End Sub
+    Private Sub ClosedScript_NodeDroppedTabs(sender As Object, e As DragEventArgs) Handles Script_Tabs.DragDrop
+        Pane_NodeDropped(e)
+    End Sub
+#End Region
+#Region " SCRIPT CONTROL EVENTS "
     Private Sub FindRequest(sender As Object, e As ZoneEventArgs) Handles FindAndReplace.ZoneClicked
 
         Dim Text_Search As String = ActivePane.Text
@@ -2139,7 +3551,7 @@ Public Class DataTool
 
             Case Zone.Identifier.Close
                 'Remove the Highlights
-                With ActivePane
+                With ActivePane()
                     Dim _SelectionStart As Integer = .SelectionStart
                     .SelectAll()
                     .SelectionBackColor = Color.Transparent
@@ -2162,7 +3574,7 @@ Public Class DataTool
                             _rtf = .Rtf
                         End With
                     End Using
-                    With ActivePane
+                    With ActivePane()
                         .Rtf = _rtf
                         .SelectionStart = Match.Key
                         Dim CurrentPosition As Point = .GetPositionFromCharIndex(.SelectionStart)
@@ -2225,7 +3637,7 @@ Public Class DataTool
             ActivePane.Rtf = _rtf
             ActivePane.SelectionStart = SelectionStart
         Else
-            With ActivePane
+            With ActivePane()
                 Dim _SelectionStart As Integer = .SelectionStart
                 .SelectAll()
                 .SelectionBackColor = Color.Transparent
@@ -2239,7 +3651,7 @@ Public Class DataTool
     Private Sub InsertComment(sender As Object, e As EventArgs) Handles TSMI_Comment.Click
 
         If ActiveBody.HasText Then
-            'RemoveHandler ActivePane.SelectionChanged, AddressOf ActivePane_SelectionChanged
+            'RemoveHandler ActivePane.SelectionChanged, AddressOf ActivePaneSelectionChanged
             Dim SelectionStart As Integer = ActivePane.SelectionStart
             Dim SelectionLength As Integer = ActivePane.SelectionLength
             Dim OldTextLength As Integer = ActivePane.Text.Length
@@ -2257,7 +3669,7 @@ Public Class DataTool
             ActivePane.Text = NewBodyText
             ActivePane.SelectionStart = LineStarts.Last.Index
             ActivePane.SelectionLength = {0, (LineStarts.First.Index + LineStarts.First.Length) - (LineStarts.Last.Index) + (NewBodyText.Length - OldTextLength)}.Max
-            'AddHandler ActivePane.SelectionChanged, AddressOf ActivePane_SelectionChanged
+            'AddHandler ActivePane.SelectionChanged, AddressOf ActivePaneSelectionChanged
             TidyText()
         End If
 
@@ -2279,7 +3691,7 @@ Public Class DataTool
     Private Sub InsertDividers(sender As Object, e As EventArgs) Handles TSMI_DividerDouble.Click, TSMI_DividerSingle.Click
 
         Dim Separator As String = If(sender Is TSMI_DividerSingle, StrDup(30, "-"), "--" & StrDup(20, "=")) & vbNewLine
-        With ActivePane
+        With ActivePane()
             Dim CharIndex = .SelectionStart
             Dim LineNbr = .GetLineFromCharIndex(CharIndex)
             Dim LineStart = .GetFirstCharIndexFromLine(LineNbr)
@@ -2290,7 +3702,8 @@ Public Class DataTool
     End Sub
     Private Function GetCommentMatch() As StringData
 
-        With ActivePane
+        With ActivePane()
+
             If .Lines.Any Then
                 If ActiveBody.Labels IsNot Nothing Then
                     Dim Comments = ActiveBody.Labels.Where(Function(x) x.Source = InstructionElement.LabelName.Comment)
@@ -2434,13 +3847,13 @@ Public Class DataTool
         Return SameImage(Base64ToImage(LightOn), TSMI_TipSwitch.Image)
 
     End Function
-    '=====================================================================================
+    '===============================================================================
 
 #Region " TIDY TEXT + SUPPORTING DECLARATIONS/FUNCTIONS "
     Private SelectionIndex As Integer
     Public Sub TidyText()
 
-        With ActivePane
+        With ActivePane()
             Dim ShowChangedText As Boolean = False
             If ShowChangedText Then ShowTextChange(Text, Text)
             Dim TextToTidy As String = .Text
@@ -2591,182 +4004,7 @@ Public Class DataTool
 
     End Function
 #End Region
-
 #End Region
-#Region " TABS EVENTS "
-    Private Sub Tabs_PageAdded(sender As Object, e As ControlEventArgs) Handles Script_Tabs.ControlAdded
-
-        AddHandler e.Control.TextChanged, AddressOf AutoWidth
-        With DirectCast(e.Control, Tab)
-            If .Tag IsNot Nothing Then
-                Dim TabScript As Script = DirectCast(.Tag, Script)
-                If TabScript.Connection IsNot Nothing Then
-                    .HeaderBackColor = TabScript.Connection.BackColor
-                    .HeaderForeColor = TabScript.Connection.ForeColor
-                End If
-            End If
-        End With
-
-    End Sub
-    Private Sub Tabs_PageDropped(sender As Object, e As ControlEventArgs) Handles Script_Tabs.ControlRemoved
-        REM /// TABMOUSEREGION WILL BE CURRENT TAB SINCE YOU HAVE TO CLICK THE <X> TO CLOSE, IE) MOUSED OVER TAB BEING DROPPED
-        RemoveHandler e.Control.TextChanged, AddressOf AutoWidth
-    End Sub
-    Private Sub Tabs_TabChange(sender As Object, e As TabsEventArgs) Handles Script_Tabs.TabWidthChanged, Script_Tabs.TabMouseChange
-
-        If e.AfterBounds = Nothing And e.AfterBounds = Nothing Then
-            If e.InTab IsNot Nothing Then TabDirection(e.InTab) 'Script_Tabs.PointToScreen(New Point(e.InTab.Bounds.Right, 1))
-        Else
-            e.InTab.Bounds = e.AfterBounds
-            TabDirection(If(e.OutTab, e.InTab))
-            'TSDD_SaveAs.Location = Script_Tabs.PointToScreen(New Point(e.AfterBounds.Right, 1))
-        End If
-
-    End Sub
-    Private Sub Tabs_ZoneChange(sender As Object, e As TabsEventArgs) Handles Script_Tabs.ZoneMouseChange
-
-        If Not e.InZone = Tabs.Zone.None Then
-            TabDirection(If(e.OutTab, e.InTab))
-            TT_Tabs.Hide(Script_Tabs)
-            Dim TipLocation = Script_Tabs.PointToScreen(If(e.InTab, e.OutTab).Bounds.Location)
-            TipLocation.Offset(ActiveTab.Bounds.Width, 3)
-
-            Select Case e.InZone
-                Case Tabs.Zone.Add
-                    If Not ScriptsInitialized Then Tabs_TipManager("Please wait|Collection initializing", TipLocation)
-
-                Case Tabs.Zone.Image
-                    Dim TipValues As String = Nothing
-                    With ActiveScript
-                        TipValues = "Run Script|" & Bulletize({"Current datasource is " & If(IsNothing(.Connection), "undetermined", .DataSourceName),
-                                            "Type is " & If(.Body.InstructionType = ExecutionType.Null, "undetermined", .Body.InstructionType.ToString),
-                                            Join({"Text has", If(.TextWasModified, String.Empty, " not"), " changed"}, String.Empty),
-                                            Join({"Last modified", .Modified.ToShortDateString, "@", .Modified.ToShortTimeString}),
-                                            Join({"Last successful run", .Ran.ToShortDateString, "@", .Ran.ToShortTimeString}),
-                                            "Location=" & If(.Path, "None - not saved")})
-                    End With
-                    Tabs_TipManager(TipValues, TipLocation)
-
-                Case Tabs.Zone.Text
-                    Tabs_TipManager("Reorder tab|Drag tab and drop in new position", TipLocation)
-
-                Case Tabs.Zone.Close
-                    If Not ActiveScript.Body.HasText Then
-                        Tabs_TipManager("Close Tab|Click to close empty tab", TipLocation)
-
-                    ElseIf ActiveScript.FileTextMatchesText Then
-                        Tabs_TipManager("Close Tab|Click to close saved script", TipLocation)
-
-                    Else
-
-                    End If
-            End Select
-        End If
-
-    End Sub
-    Private Sub Tabs_TipManager(ToolTipText As String, Location As Point)
-
-        If IsNothing(ToolTipText) Then
-            TT_Tabs.Hide(Script_Tabs)
-
-        Else
-            Dim TextValues As String() = Split(ToolTipText, "|")
-            TT_Tabs.ToolTipTitle = TextValues.First
-            TT_Tabs.Show(TextValues.Last, Script_Tabs, Location, 3000)
-
-        End If
-
-    End Sub
-    Private Sub Tab_Clicked(sender As Object, e As TabsEventArgs) Handles Script_Tabs.TabClicked
-
-        Hide_DropDowns()
-
-        Select Case e.InZone
-            Case Tabs.Zone.Add
-                Scripts.Add(New Script With {._Tabs = Script_Tabs, .State = Script.ViewState.OpenDraft})
-                Dim paneActive = ActivePane
-
-            Case Tabs.Zone.Image
-#Region " RUN "
-                If IsNothing(ActiveScript.Connection) Then
-                    REM /// DSN HAS NOT YET BEEN SET. CLICKING THE TAB IS AUTO-SELECT
-                    Dim Tables = ActiveScript.Body.TablesFullName   '<======== NOT SURE ABOUT THIS
-                    If Tables.Any Then
-                        Message.Show("Datasource not found. One must be selected.", "The following tables do not exist in your saved items: " & vbNewLine & Join(Tables.ToArray, ","), Prompt.IconOption.Critical, Prompt.StyleOption.Blue)
-                    Else
-                        Message.Show("Datasource not found.", "One must be selected.", Prompt.IconOption.Critical, Prompt.StyleOption.Grey)
-                    End If
-                Else
-                    REM /// DSN HAS BEEN SET. USE CURRENT VALUE. USER CAN CHANGE FROM ScriptPane_Run_DSNs (TSMI)
-                    RunScript()
-                End If
-#End Region
-            Case Tabs.Zone.Text
-
-            Case Tabs.Zone.Close
-#Region " CLOSE "
-                With ActiveScript
-                    If .FileCreated Then
-                        If .FileTextMatchesText Then
-                            'NO CHANGES...DO NOTHING
-                            .State = Script.ViewState.ClosedNotSaved
-                        Else
-                            If Message.Show(.Body.InstructionType.ToString & " has changed", "Save your work?", Prompt.IconOption.YesNo, Prompt.StyleOption.Grey) = DialogResult.No Then
-                                'DO NOT WANT CHANGES SAVED...TEXT NEEDS TO REVERT TO FILE TEXT
-                                .State = Script.ViewState.ClosedNotSaved
-                            Else
-                                'DO WANT CHANGES SAVED
-                                .State = Script.ViewState.ClosedSaved
-                            End If
-                        End If
-
-                    ElseIf .Body.HasText Then
-                        Using message As New Prompt With {.TitleBarImage = My.Resources.Warning_.ToBitmap}
-                            If message.Show("You have unsaved work. Continue?",
-                                            "[Yes] to discard, [No] to cancel",
-                                            Prompt.IconOption.YesNo,
-                                            Color.GhostWhite,
-                                            Color.DarkGray,
-                                            Color.White,
-                                            Color.GhostWhite,
-                                            Color.GhostWhite,
-                                            Color.DarkBlue) = DialogResult.No Then
-                                'DO NOTHING AND LEAVE TAB OPEN
-                            Else
-                                'NO FILE, WITH TEXT...DISCARD EMPTY TAB
-                                .State = Script.ViewState.None
-                            End If
-                        End Using
-
-                    Else
-                        'NO FILE, NO TEXT...DISCARD EMPTY TAB
-                        .State = Script.ViewState.None
-                    End If
-                End With
-#End Region
-        End Select
-    End Sub
-#End Region
-
-    Public Sub AddPane(Instruction As String, Optional Run As Boolean = False)
-
-        Dim startupScript As Script = Scripts.Add(New Script With {._Tabs = Script_Tabs,
-                                              .State = Script.ViewState.OpenDraft,
-                                              .Name = "adhoc",
-                                              .Text = Instruction})
-        Dim paneActive = ActivePane
-        If Run Then AddHandler Scripts_.CollectionChanged, AddressOf ScriptsLoaded
-
-    End Sub
-    Private Sub ScriptsLoaded(sender As Object, e As ScriptsEventArgs)
-
-        If e.State = CollectionChangeAction.Refresh Then
-            RemoveHandler Scripts_.CollectionChanged, AddressOf ScriptsLoaded
-            Dim startupScript As Script = Scripts.Item("adhoc")
-            RunScript(startupScript)
-        End If
-
-    End Sub
 
 #Region " OBJECT EVENTS "
 #Region " Tree_Objects POPULATION "
@@ -2922,10 +4160,10 @@ Public Class DataTool
                                                     .Image = ChangeImageColor(My.Resources.Sync, Color.FromArgb(255, 64, 64, 64), DatabaseColor),
                                                     .Separator = Node.SeparatorPosition.Above,
                                                     .Tag = Connection,
-                                                    .AllowAdd = False,
-                                                    .AllowDragDrop = False,
-                                                    .AllowEdit = False,
-                                                    .AllowRemove = False})
+                                                    .CanAdd = False,
+                                                    .CanDragDrop = False,
+                                                    .CanEdit = False,
+                                                    .CanRemove = False})
                 End If
                 If ClockLoadTime Then
                     Intervals.Add(Connection.DataSource, Stop_Watch.Elapsed)
@@ -2993,10 +4231,10 @@ Public Class DataTool
                     Dim OwnerNode = SourceNode.Nodes.Add(New Node With {.Text = Owner.Key,
                                             .Name = Owner.Key,
                                             .BackColor = If(Owner.Key = _Connection.UserID, Color.Gainsboro, Color.Transparent),
-                                            .AllowAdd = False,
-                                            .AllowDragDrop = False,
-                                            .AllowEdit = False,
-                                            .AllowRemove = False})
+                                            .CanAdd = False,
+                                            .CanDragDrop = False,
+                                            .CanEdit = False,
+                                            .CanRemove = False})
                     For Each ObjectType In Owner.Value
                         Dim TypeImage As Image = Nothing
                         If ObjectType.Key = SystemObject.ObjectType.Routine Then TypeImage = My.Resources.Gear
@@ -3009,7 +4247,7 @@ Public Class DataTool
                                           .Image = TypeImage,
                                           .Checked = True,
                                           .Tag = Item,
-                                          .AllowAdd = False})
+                                          .CanAdd = False})
                         Next
                     Next
                 Next
@@ -3041,14 +4279,14 @@ Public Class DataTool
     Private Sub ObjectNode_StartDrag(sender As Object, e As NodeEventArgs) Handles Tree_Objects.NodeDragStart
 
         'Root=DataSource, Level 1=Owner, Level 2=Name + Image {Trigger, Table, View, Routine}
-        If ActivePane IsNot Nothing And e.Node.Level = 2 Then   'Dragging a Table, Routine, Trigger or View
+        If ActivePane() IsNot Nothing And e.Node.Level = 2 Then   'Dragging a Table, Routine, Trigger or View
 #Region " DRAG UP Or DOWN ON Tree_Objects "
 
 #End Region
 #Region " DRAGGED NODE EXITS Tree_Objects "
 
 #End Region
-            Dim A_S = ActiveScript
+            Dim A_S = ActiveScript()
             Dim NodeObject = NodeProperties(e.Node)
             ActivePane.AllowDrop = True
             Script_Grid.AllowDrop = True
@@ -3075,20 +4313,15 @@ Public Class DataTool
         End If
 
     End Sub
-
-    Private Sub Pane_DragEnter(sender As Object, e As DragEventArgs) Handles ActivePane_.DragEnter
-        'Stop
-    End Sub
     Private Sub Pane_NodeDropped(e As DragEventArgs)
 
-        Hide_DropDowns()
         Dim DroppedNode As Node = DirectCast(e.Data.GetData(GetType(Node)), Node)
         If DroppedNode IsNot Nothing Then
             With DroppedNode
                 If .TreeViewer Is Tree_Objects Then
                     AutoWidth(ActivePane)
 
-                ElseIf .TreeViewer Is Tree_ClosedScripts Then
+                ElseIf .TreeViewer Is FileTree Then
                     If .Tag.GetType = GetType(Script) Then
                         Dim ClosedScript As Script = DirectCast(.Tag, Script)
                         Dim PanesNoText As New List(Of Script)(From S In Scripts Where S.State = Script.ViewState.OpenDraft And Not S.Body.HasText)
@@ -3102,16 +4335,16 @@ Public Class DataTool
                 End If
             End With
         End If
+        FilesButton.HideDropDown()
 
     End Sub
-
     Private Sub Grid_NodeDropped(sender As Object, e As DragEventArgs) Handles Script_Grid.DragDrop
 
         Dim DroppedNode As Node = DirectCast(e.Data.GetData(GetType(Node)), Node)
         With DroppedNode
             If .TreeViewer Is Tree_Objects Then
 
-            ElseIf .TreeViewer Is Tree_ClosedScripts Then
+            ElseIf .TreeViewer Is FileTree Then
                 Dim _Script As Script = DirectCast(.Tag, Script)
                 RunScript(_Script)
 
@@ -3156,19 +4389,8 @@ Public Class DataTool
 
 #Region " ActivePane.Text Or Script_Tabs.Tab Or Script_Grid DRAG ONTO Tree_Objects [ E T L ] "
     Private ReadOnly Data As New DataObject
-    Private Sub Pane_StartDrag(sender As Object, e As DragEventArgs) Handles ActivePane_.DragStart
-        Data.SetData(ActivePane_.GetType, ActivePane_)
-    End Sub
     Private Sub Tab_StartDrag(sender As Object, e As TabsEventArgs) Handles Script_Tabs.TabDragDrop
         Data.SetData(Script_Tabs.GetType, Script_Tabs)
-    End Sub
-    Private Sub Pane_DragOver() Handles ActivePane_.DragOver
-
-        Dim Grid = Data.GetData(GetType(DataTool))
-        If Grid IsNot Nothing Then
-            TLP_PaneGrid.ColumnStyles(0).Width = ObjectsWidth
-        End If
-
     End Sub
     Private Sub TreeObjects_DragDrop(sender As Object, e As DragEventArgs) Handles Tree_Objects.DragDrop
 
@@ -3207,7 +4429,7 @@ Public Class DataTool
             If Not DragNode Is DropNode Then
 
             End If
-        ElseIf DragNode.TreeViewer Is Tree_ClosedScripts Then
+        ElseIf DragNode.TreeViewer Is FileTree Then
             REM /// FUTURE OPTION TO SCHEDULE JOBS
             Dim SourceScript As Script = DirectCast(DragNode.Tag, Script)
             Dim DestinationObject As SystemObject = DirectCast(DropNode.Tag, SystemObject)
@@ -3379,232 +4601,8 @@ Public Class DataTool
 
         With Tree_Objects
             .AutoWidth()
-            ObjectsWidth = 3 + .TotalSize.Width + 3
+            ObjectsWidth = 3 + .UnRestrictedSize.Width + 3
             TLP_PaneGrid.ColumnStyles(0).Width = ObjectsWidth
-        End With
-
-    End Sub
-#End Region
-
-#Region " RUN SCRIPT "
-    Private Sub RunScript(Optional _Script As Script = Nothing)
-
-        Script_Grid.Columns.CancelWorkers()
-        With TT_GridTip
-            .ToolTipTitle = Nothing
-            .Show(Nothing, Me, 1)
-            .Hide(Me)
-        End With
-
-        If IsNothing(_Script) Then _Script = ActiveScript
-        With _Script
-            With .Body
-                If .HasText And Not IsNothing(_Script.Connection) Then
-                    If _Script.Connection.CanConnect Then
-                        If .InstructionType = ExecutionType.DDL Then
-#Region " D D L "
-                            Cursor.Current = Cursors.WaitCursor
-                            Dim procedure As New DDL(.Connection, .SystemText, True, True)
-                            If procedure.ProceduresOK.Any Then
-                                RaiseEvent Alert(_Script, New AlertEventArgs("Running procedure " & _Script.Name))
-                                With procedure
-                                    AddHandler .Completed, AddressOf Execute_Completed
-                                    .Name = _Script.CreatedString
-                                    .Tag = _Script
-                                    .Execute(True)
-                                End With
-                            Else
-                                RaiseEvent Alert(Me, New AlertEventArgs("Procedure cancelled"))
-                            End If
-#End Region
-
-                        ElseIf .InstructionType = ExecutionType.SQL Then
-#Region " S Q L "
-                            RaiseEvent Alert(_Script, New AlertEventArgs("Running query " & _Script.Name))
-                            'https://www.ibm.com/support/knowledgecenter/SSEPEK_11.0.0/cattab/src/tpc/db2z_catalogtablesintro.html
-                            With _Script
-                                If .Connection.IsFile Then
-                                    For Each SheetName In SystemObjects
-                                        'SQL_Statement = Replace(SQL_Statement, SheetName.Name, "[" & SheetName.Name & "]")
-                                    Next
-
-                                Else
-                                    Dim TablesNeed As String() = .Body.TablesNeedObject.ToArray
-                                    If TablesNeed.Any Then
-                                        RaiseEvent Alert(.Body, New AlertEventArgs("Adding to profile: " & Join(TablesNeed, ",") & "-(RunQuery)"))
-                                        Dim TableColumnSQL As String = ColumnSQL(TablesNeed)
-                                        With New SQL(.Connection, TableColumnSQL)
-                                            AddHandler .Completed, AddressOf ColumnsSQL_Completed
-                                            .Execute()
-                                        End With
-                                    End If
-                                    Dim BodyText As String = .Body.SystemText
-                                    With New SQL(.Connection, BodyText)
-                                        AddHandler .Completed, AddressOf Execute_Completed
-                                        .Name = _Script.CreatedString
-                                        .Execute()
-                                    End With
-                                End If
-                            End With
-#End Region
-                        ElseIf .InstructionType = ExecutionType.Null Then
-
-                        End If
-                    Else
-                        Dim Items As New List(Of String)
-                        If _Script.Connection.MissingUserID Then Items.Add("userid")
-                        If _Script.Connection.MissingPassword Then Items.Add("password")
-                        Message.Show("Can not connect", "Connection is missing " & Join(Items.ToArray, " and "), Prompt.IconOption.Critical, Prompt.StyleOption.Blue)
-                    End If
-                Else
-                    Message.Show("No datasource found or selected", "Please set your connection", Prompt.IconOption.Critical, Prompt.StyleOption.Blue)
-                End If
-            End With
-        End With
-
-    End Sub
-    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Private Sub Execute_OKd(sender As Object, e As ResponseEventArgs)
-
-        With DirectCast(sender, DDL)
-            Dim ddlScript As Script = DirectCast(.Tag, Script)
-            RaiseEvent Alert(ddlScript, New AlertEventArgs("Running procedure " & ddlScript.Name))
-        End With
-
-    End Sub
-    Private Sub Execute_Completed(sender As Object, e As ResponseEventArgs)
-
-        Cursor.Current = Cursors.Default
-
-        Dim IsQuery As Boolean = sender.GetType Is GetType(SQL)
-        Dim ItemName As String
-
-        If IsQuery Then
-            With DirectCast(sender, SQL)
-                ItemName = .Name
-                RemoveHandler .Completed, AddressOf Execute_Completed
-            End With
-
-        Else
-            With DirectCast(sender, DDL)
-                ItemName = .Name
-                RemoveHandler .Completed, AddressOf Execute_Completed
-            End With
-        End If
-
-        With TT_GridTip
-            .Show(String.Empty, ActivePane, 1)
-            .Hide(Script_Grid)
-            Dim BulletMessage As String = e.Message
-            Dim FlatMessage As String
-            Dim CreatedDate As Date = StringToDateTime(ItemName)
-            Dim _Script As Script = Scripts.Item(CreatedDate)
-
-            .ToolTipTitle = Join({If(IsQuery, "Query", "Procedure"), _Script.Name, If(e.Succeeded, "succeeded", "failed")})
-
-            If e.Succeeded Then
-                _Script.Save(Script.SaveAction.UpdateExecutionTime)
-                Dim ElapsedMessage As String = Nothing
-                With e.ElapsedTime
-                    If .Seconds < 1 Then
-                        ElapsedMessage = Join({ .Milliseconds, "milliseconds"})
-
-                    ElseIf .Minutes < 1 Then
-                        ElapsedMessage = Math.Round(.TotalSeconds, 3) & " seconds"
-
-                    Else
-                        ElapsedMessage = Join({ .Minutes, "minutes", .Seconds, "seconds"})
-
-                    End If
-                End With
-                If IsQuery Then
-                    'Show message immediately as it can take time to set datasource, etc
-                    BulletMessage = Bulletize({e.Columns.ToString(InvariantCulture) & " columns", e.Rows.ToString(InvariantCulture) & " rows", ElapsedMessage})
-                    .Show(BulletMessage, ActivePane, 10 * 1000)
-
-                    Script_Grid.DataSource = e.Table
-                    Script_Grid.Refresh()
-                    TLP_PaneGrid.ColumnStyles(0).Width = 0
-                    AutoWidth(Script_Grid)
-                Else
-                    BulletMessage = Bulletize({ElapsedMessage})
-                    .Show(BulletMessage, ActivePane, 10 * 1000)
-
-                End If
-
-            Else
-                BulletMessage = Bulletize({e.Message})
-                .Show(BulletMessage, ActivePane, 10 * 1000)
-
-            End If
-            FlatMessage = Join(Split(BulletMessage, "● ").Skip(1).ToArray, " ● ")
-            RaiseEvent Alert(e, New AlertEventArgs(Join({ .ToolTipTitle, ":", FlatMessage})))
-        End With
-
-    End Sub
-    Private Sub ColumnsSQL_Completed(sender As Object, e As ResponseEventArgs)
-
-        With DirectCast(sender, SQL)
-            RemoveHandler .Completed, AddressOf ColumnsSQL_Completed
-            .Table.Namespace = "<Retrieved>"
-            Dim ColumnData = DataTableToListOfColumnProperties(.Table)
-            If ColumnData.Any Then
-                Dim Objects_Retrieved As New List(Of String)
-                Dim Columns_Retrieved As New List(Of String)
-                Dim Nodes = From CD In ColumnData Group CD By Source = CD.SystemInfo.DSN Into SourceGrp = Group Select New With {
-                    .DateSource = Source, .Owners = From SG In SourceGrp Group SG By ObjectOwner = SG.SystemInfo.Owner Into OwnerGrp = Group Select New With {
-                    .Owner = ObjectOwner, .Names = From OG In OwnerGrp Group OG By ObjectInfo = OG.SystemInfo Into NameGrp = Group Select New With {
-                    .Info = ObjectInfo, .Columns = NameGrp}}}
-
-                For Each _SourceNode In Nodes
-                    Dim SourceNode As Node = Tree_Objects.Nodes.Item(Aliases(_SourceNode.DateSource))
-                    For Each _OwnerNode In _SourceNode.Owners
-                        Dim OwnerNode As Node = SourceNode.Nodes.Item(_OwnerNode.Owner)
-                        If OwnerNode Is Nothing Then
-                            OwnerNode = SourceNode.Nodes.Add(_OwnerNode.Owner, _OwnerNode.Owner)
-                        End If
-                        For Each _NameNode In _OwnerNode.Names
-                            Dim NameNode As Node = OwnerNode.Nodes.Item(_NameNode.Info.Name)
-                            If NameNode Is Nothing Then
-                                NameNode = OwnerNode.Nodes.Add(_NameNode.Info.Name, _NameNode.Info.Name, Type_Image(_NameNode.Info.Type))
-                            End If
-                            NameNode.Tag = _NameNode.Info
-                            Objects_Retrieved.Add(_NameNode.Info.ToString)
-                            For Each _ColumnNode In _NameNode.Columns
-                                Dim ColumnNode As Node = NameNode.Nodes.Item(_ColumnNode.Name)
-                                If ColumnNode Is Nothing Then
-                                    ColumnNode = NameNode.Nodes.Add(New Node With {.Text = _ColumnNode.Name,
-                                                                    .Name = _ColumnNode.Name,
-                                                                    .AllowAdd = False,
-                                                                    .AllowDragDrop = False,
-                                                                    .CheckBox = False})
-                                End If
-                                Columns_Retrieved.Add(_ColumnNode.ToString)
-                            Next
-                        Next
-                    Next
-                Next
-                Dim Objects_Saved = PathToList(SystemObjects.Path)
-                Dim Objects_New = Objects_Retrieved.Except(Objects_Saved)
-
-                If Objects_New.Any Then
-                    For Each ObjectString In Objects_New
-                        SystemObjects.Add(New SystemObject(ObjectString))
-                    Next
-                    SystemObjects.SortCollection()
-                    SystemObjects.Save()
-                End If
-
-                Dim Columns_Saved = PathToList(Path_Columns)
-                Dim Columns_New = Columns_Retrieved.Except(Columns_Saved)
-                If Columns_New.Any Then
-                    Columns_Saved.AddRange(Columns_New)
-                    Columns_Saved.Sort()
-                    Using SW As New StreamWriter(Path_Columns)
-                        SW.Write(Join(Columns_Saved.ToArray, vbNewLine))
-                    End Using
-                End If
-            End If
         End With
 
     End Sub
@@ -3953,6 +4951,7 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
                         'Dim ConnectionString As String = String.Empty
                         'Dim SQL As String = String.Empty
                         'Dim WithQuery As Boolean = SaveFile.Title = "+ Query"
+                        AddHandler Alerts, AddressOf FileSaved
                         DataTableToExcel(QueryTable, SaveFile.FileName, True, False, False, True, True)
 
                     Case Extensions.Text
@@ -3973,107 +4972,10 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
         SaveFile.Tag = Nothing
 
     End Sub
+    Private Sub FileSaved(sender As Object, e As AlertEventArgs)
+        RaiseEvent Alert(sender, e)
+    End Sub
 #End Region
-
-    Private Sub Scripts_Changed(sender As Object, e As ScriptsEventArgs) Handles Scripts_.CollectionChanged
-
-        If e.State = CollectionChangeAction.Refresh Then
-            'RemoveHandler ActivePane_.SelectionChanged, AddressOf ActivePane_SelectionChanged
-            'AddHandler ActivePane_.SelectionChanged, AddressOf ActivePane_SelectionChanged
-            RemoveHandler Tree_ClosedScripts.SizeChanged, AddressOf ClosedScripts_SizeChanged
-            AddHandler Tree_ClosedScripts.SizeChanged, AddressOf ClosedScripts_SizeChanged
-            For Each Script In Scripts
-                ScriptToNode(Script)
-            Next
-            With Tree_ClosedScripts
-                .Nodes.SortOrder = SortOrder.Ascending
-                .Nodes.Insert(0, OpenFileNode)
-            End With
-            ScriptsInitialized = True
-
-        ElseIf e.State = CollectionChangeAction.Add Then
-            If ScriptsInitialized Then ScriptToNode(e.Item)
-
-        ElseIf e.State = CollectionChangeAction.Remove Then
-            Dim RemoveNode As Node = Tree_ClosedScripts.Nodes.ItemByTag(e.Item)
-            If RemoveNode IsNot Nothing Then
-                RemoveNode.Parent.Nodes.Remove(RemoveNode)
-            End If
-            RemoveHandler e.Item.StateChanged, AddressOf Script_StateChanged
-            RemoveHandler e.Item.NameChanged, AddressOf Script_NameChanged
-
-        End If
-
-    End Sub
-    Private Sub ScriptToNode(Item As Script)
-
-        AddHandler Item.StateChanged, AddressOf Script_StateChanged
-        AddHandler Item.NameChanged, AddressOf Script_NameChanged
-        With Tree_ClosedScripts
-            Dim ConnectionName As String = If(Item.Connection Is Nothing, "Undetermined", Item.Connection.DataSource)
-            Dim DatabaseColor As Color = If(Item.Connection Is Nothing, Color.Blue, Item.Connection.BackColor)
-            Dim Database_Image As Image = ChangeImageColor(My.Resources.Sync, Color.FromArgb(255, 64, 64, 64), DatabaseColor)
-
-            If Not .Nodes.Exists(Function(n) n.Name = ConnectionName) Then
-                .Nodes.Add(New Node With {
-                            .Text = ConnectionName,
-                            .Name = ConnectionName,
-                            .Image = Database_Image,
-                            .AllowAdd = False,
-                            .AllowDragDrop = False,
-                            .AllowEdit = False,
-                            .AllowRemove = False,
-                            .Separator = Node.SeparatorPosition.Above,
-                            .Tag = Item.Connection})
-            End If
-            Dim ConnectionNode As Node = .Nodes.Item(ConnectionName)
-            If Item.Connection Is Nothing Then ConnectionNode.BackColor = Color.FromArgb(128, Color.Gainsboro)
-            ConnectionNode.Nodes.Add(New Node With {.Text = Item.Name,
-                                                    .Name = Item.Name,
-                                                    .Image = If(Item.Body.InstructionType = ExecutionType.DDL, My.Resources.DDL, My.Resources.SQL),
-                                                    .AllowAdd = False,
-                                                    .AllowEdit = True,
-                                                    .AllowRemove = True,
-                                                    .Tag = Item})
-            ConnectionNode.Nodes.SortOrder = SortOrder.Ascending
-        End With
-
-    End Sub
-    Private Sub Script_StateChanged(sender As Object, e As ScriptStateChangedEventArgs)
-
-        Dim ScriptItem As Script = DirectCast(sender, Script)
-        Dim ScriptNode As Node = Tree_ClosedScripts.Nodes.ItemByTag(ScriptItem)
-
-        If e.FormerState = Script.ViewState.OpenSaved And (e.CurrentState = Script.ViewState.ClosedSaved Or e.CurrentState = Script.ViewState.ClosedNotSaved) Then
-            'Closing
-            ScriptNode.Image = If(ScriptItem.Body.IsDDL, My.Resources.DDL, My.Resources.SQL)
-
-        ElseIf e.CurrentState = Script.ViewState.OpenSaved And (e.FormerState = Script.ViewState.ClosedSaved Or e.FormerState = Script.ViewState.ClosedNotSaved) Then
-            'Opening
-            Dim NodeColor As Color = If(ScriptItem.Connection Is Nothing, Color.Black, ScriptItem.Connection.BackColor)
-            Dim bmp As Bitmap = My.Resources.Eye
-            If bmp IsNot Nothing Then
-                Using g As Graphics = Graphics.FromImage(bmp)
-                    Using Attributes As Imaging.ImageAttributes = New Imaging.ImageAttributes()
-                        Dim rect As Rectangle = New Rectangle(0, 0, bmp.Width, bmp.Height)
-                        g.DrawImage(bmp, rect, 0, 0, rect.Width, rect.Height, GraphicsUnit.Pixel, Attributes)
-                        Using SolidLine As New Pen(Color.FromArgb(192, NodeColor), 3)
-                            g.DrawLine(SolidLine, New Point(rect.Left + 1, rect.Bottom - 3), New Point(rect.Right - 1, rect.Bottom - 3))
-                        End Using
-                    End Using
-                End Using
-            End If
-            ScriptNode.Image = bmp
-
-        ElseIf e.FormerState = Script.ViewState.OpenDraft And e.CurrentState = Script.ViewState.None Then
-            Scripts.Remove(ScriptItem)
-
-        End If
-
-    End Sub
-    Private Sub Script_NameChanged(sender As Object, e As ScriptNameChangedEventArgs)
-        Tree_ClosedScripts.Nodes.ItemByTag(sender).Text = e.CurrentName
-    End Sub
 
     Private Sub TSMI_FontClicked() Handles TSMI_Font.Click
 
@@ -4171,8 +5073,11 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
         Return Join(NewLines.ToArray, vbNewLine)
 
     End Function
-    Private Sub AutoWidth(sender As Object, Optional e As Object = Nothing) Handles Script_Grid.ColumnsSized
+    Private Sub AutoWidth(sender As Object, Optional e As EventArgs = Nothing) Handles Script_Grid.ColumnsSized
 
+        'Optional e As Object = Nothing .... allows for other EventArgs to come here for resizing
+        'Must use ActivePane if sender is a Worker, otherwise the Get throws a cross-thread error
+        Script_Grid?.Timer?.StopTicking()
         If TLP_PaneGrid.ColumnStyles.Count >= 2 Then
 
             Dim Column_1_Width As Integer = 0
@@ -4186,7 +5091,7 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
             If ActivePane Is Nothing Then
                 'Only DummyTab showing...Leave Column1Percent @ 50
             Else
-                If Not ActivePane.HasText And Script_Grid.DataSource Is Nothing Then
+                If Not ActivePane.Text.Any And Script_Grid.DataSource Is Nothing Then
                     'Both Pane and Grid are empty...Leave Column1Percent @ 50
                 Else
                     AutoSize = True
@@ -4203,7 +5108,7 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
                     Dim Pane_BestWidth As Integer = ActivePane.IdealWidth(True)
 #End Region
 #Region " RULE 3 - Allow the Grid.Width as much space as possible without affecting above 2 Rules "
-                    Dim Grid_BestWidth As Integer = Script_Grid.TotalSize.Width
+                    Dim Grid_BestWidth As Integer = Script_Grid.Width 'Script_Grid.TotalSize.Width
 #End Region
                     'Sender is one of 3 Controls {Script_Grid.RetrievedData, ActiveTab.TextChanged, ActivePane.DroppedText}
 
@@ -4263,7 +5168,6 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
 
             TLP_PaneGrid.ColumnStyles(1).Width = Column1Percent
             TLP_PaneGrid.ColumnStyles(2).Width = ColumnToPercent
-
         End If
 
     End Sub

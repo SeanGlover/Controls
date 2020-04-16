@@ -10,8 +10,6 @@ Imports System.Text.RegularExpressions
 Imports System.Data.OleDb
 Imports System.ComponentModel
 Imports System.Runtime.InteropServices
-Imports org.apache.pdfbox.pdmodel
-Imports org.apache.pdfbox.util
 Imports System.Reflection
 Imports System.Globalization
 Public Module Functions
@@ -38,7 +36,7 @@ Public Module Functions
     Public Const AlphaNumericPattern As String = "([A-Z]+\d+|\d+[A-Z]+)\w*"
     Public Const NumberPattern As String = "[0-9]{1,3}([,][0-9]{1,3}){0,4}[.][0-9]{2}"
     Public Const CommentPattern As String = "--[^\r\n]{1,}(?=\r|\n|$)"
-    Public Const FilePattern As String = "^[A-Z]:(\\[^\/\\:*<>|]{1,}){1,}\.(txt|gif|pdf|xls|doc)"
+    Public Const FilePattern As String = "^[A-Z]:(\\[^\/\\:*<>|]{1,}){1,}\.[a-z]{3,4}"
     Public Const SelectPattern As String = "SELECT[^■]{1,}?(?=FROM)"
     Public Const ObjectPattern As String = "([A-Z0-9!%{}^~_@#$]{1,}([.][A-Z0-9!%{}^~_@#$]{1,}){0,2})"     'DataSource.Owner.Name
     Public Const FieldPattern As String = "[\s]{1,}\([A-Z0-9!%{}^~_@#$]{1,}(,[\s]{0,}[A-Z0-9!%{}^~_@#$]{1,}){0,}\)"
@@ -84,22 +82,26 @@ Public Module Functions
     End Function
     Public Function ResizeImage(ByVal image As Image, ByVal width As Integer, ByVal height As Integer) As Bitmap
 
-        Dim destRect = New Rectangle(0, 0, width, height)
-        Dim destImage = New Bitmap(width, height)
-        destImage.SetResolution(image.HorizontalResolution, image.VerticalResolution)
+        If image Is Nothing Then
+            Return Nothing
+        Else
+            Dim destRect = New Rectangle(0, 0, width, height)
+            Dim destImage = New Bitmap(width, height)
+            destImage.SetResolution(image.HorizontalResolution, image.VerticalResolution)
 
-        Using g = Graphics.FromImage(destImage)
-            g.CompositingMode = Drawing2D.CompositingMode.SourceCopy
-            g.CompositingQuality = Drawing2D.CompositingQuality.HighQuality
-            g.InterpolationMode = Drawing2D.InterpolationMode.HighQualityBicubic
-            g.SmoothingMode = Drawing2D.SmoothingMode.HighQuality
-            g.PixelOffsetMode = Drawing2D.PixelOffsetMode.HighQuality
-            Using wrapMode = New ImageAttributes()
-                wrapMode.SetWrapMode(Drawing2D.WrapMode.TileFlipXY)
-                g.DrawImage(image, destRect, 0, 0, image.Width, image.Height, GraphicsUnit.Pixel, wrapMode)
+            Using g = Graphics.FromImage(destImage)
+                g.CompositingMode = Drawing2D.CompositingMode.SourceCopy
+                g.CompositingQuality = Drawing2D.CompositingQuality.HighQuality
+                g.InterpolationMode = Drawing2D.InterpolationMode.HighQualityBicubic
+                g.SmoothingMode = Drawing2D.SmoothingMode.HighQuality
+                g.PixelOffsetMode = Drawing2D.PixelOffsetMode.HighQuality
+                Using wrapMode = New ImageAttributes()
+                    wrapMode.SetWrapMode(Drawing2D.WrapMode.TileFlipXY)
+                    g.DrawImage(image, destRect, 0, 0, image.Width, image.Height, GraphicsUnit.Pixel, wrapMode)
+                End Using
             End Using
-        End Using
-        Return destImage
+            Return destImage
+        End If
 
     End Function
     Public Function SameImage(Image1 As Image, Image2 As Image) As Boolean
@@ -1745,196 +1747,6 @@ Public Module Functions
 
     End Sub
 End Module
-
-Namespace Pdf2Text
-    Public Class ConversionEventArgs
-        Inherits EventArgs
-        Public ReadOnly Property Succeeded As Boolean
-        Public ReadOnly Property Message As String
-        Public Sub New(Success As Boolean, Optional Message As String = Nothing)
-            Succeeded = Success
-            Me.Message = Message
-        End Sub
-    End Class
-    Public Class ConversionCollection
-        Inherits List(Of Conversion)
-        Public Event Completed(sender As Object, e As ConversionEventArgs)
-        Public Event ItemCompleted(sender As Object, e As ConversionEventArgs)
-        Public ReadOnly Property Items As List(Of String)
-        Public ReadOnly Property SourceFolder As String
-        Public ReadOnly Property DestinationFolder As String
-        Public ReadOnly Property Started As New Date
-        Public ReadOnly Property Ended As New Date
-        Public ReadOnly Property Succeeded As Boolean
-            Get
-                Return Where(Function(p) p.Succeeded).Count = Count
-            End Get
-        End Property
-        Public Sub New(SourceItems As List(Of String), DestinationFolder As String)
-            'Get only provided items
-            _Items = SourceItems
-            _DestinationFolder = DestinationFolder
-            Fill()
-        End Sub
-        Public Sub New(Items As String())
-            'Get only provided items + Destination MUST be provided in With {.DestinationFolder=""}
-            If Items Is Nothing Then
-
-            Else
-                _Items = Items.ToList
-                Fill()
-            End If
-
-        End Sub
-        Public Sub New(Items As List(Of String))
-            'Get only provided items + Destination MUST be provided in With {.DestinationFolder=""}
-            _Items = Items
-            Fill()
-        End Sub
-        Public Sub New(SourceFolder As String)
-            _SourceFolder = SourceFolder
-            _DestinationFolder = SourceFolder
-            'All items in a Folder
-            _Items = GetFiles(SourceFolder, ".pdf")
-            Fill()
-        End Sub
-        Public Sub New(SourceFolder As String, DestinationFolder As String)
-            _SourceFolder = SourceFolder
-            _DestinationFolder = DestinationFolder
-            'All items in a Folder
-            _Items = GetFiles(SourceFolder, ".pdf")
-            Fill()
-        End Sub
-        Private Sub Fill()
-
-            For Each pdf In Items
-                Dim pdf_Filename As String = Split(pdf, "\").Last
-                Dim Destination_Path As String = DestinationFolder & Replace(pdf_Filename, ".pdf", ".txt")
-                Add(New Conversion(pdf, Destination_Path))
-                Last.Parent = Me
-                AddHandler Last.Completed, AddressOf ConversionCompleted
-            Next
-
-        End Sub
-        Public Sub StartConversions()
-
-            _Started = Now
-            If Count = 0 Then
-                _Ended = _Started
-                RaiseEvent Completed(Me, New ConversionEventArgs(False))
-            Else
-                For Each pdfItem In Me
-                    pdfItem.Convert()
-                Next
-            End If
-
-        End Sub
-        Private Sub ConversionCompleted(sender As Object, e As ConversionEventArgs)
-
-            With DirectCast(sender, Conversion)
-                RemoveHandler .Completed, AddressOf ConversionCompleted
-                RaiseEvent ItemCompleted(sender, New ConversionEventArgs(.Succeeded))
-                If Where(Function(p) p.Ended > New Date).Count = Count Then
-                    _Ended = Now
-                    RaiseEvent Completed(Me, New ConversionEventArgs(.Succeeded))
-                End If
-            End With
-
-        End Sub
-    End Class
-    Public Class Conversion
-        Public Event Completed(sender As Object, e As ConversionEventArgs)
-        Public ReadOnly Property PdfPath As String
-        Public ReadOnly Property TxtPath As String
-        Friend Property Parent As ConversionCollection
-        Public ReadOnly Property Index As Integer
-            Get
-                If Parent Is Nothing Then
-                    Return 0
-                Else
-                    Return Parent.IndexOf(Me)
-                End If
-
-            End Get
-        End Property
-        Public ReadOnly Property Started As New Date
-        Public ReadOnly Property Ended As New Date
-        Public ReadOnly Property Succeeded As Boolean
-        Public ReadOnly Property Content As String
-        Private WithEvents Worker As New BackgroundWorker With {.WorkerReportsProgress = False}
-        Public Sub New(pdfPath As String)
-
-            _PdfPath = pdfPath
-            _TxtPath = Replace(pdfPath, ".pdf", ".txt")
-
-        End Sub
-        Public Sub New(pdfPath As String, txtPath As String)
-
-            _PdfPath = pdfPath
-            _TxtPath = txtPath
-
-        End Sub
-        Public Sub Convert()
-
-            Dim Items = {PdfPath}
-            If File.Exists(PdfPath) Then
-                'Parallel.ForEach(Items.Where(Function(i) i.Any), 0 = 0, Console.Read)
-                With Worker
-                    AddHandler .DoWork, AddressOf PdfWorker_DoWork
-                    AddHandler .RunWorkerCompleted, AddressOf PdfWorker_Completed
-                    Do While .IsBusy
-                    Loop
-                    .RunWorkerAsync()
-                End With
-            Else
-                _Started = Now
-                _Ended = _Started
-                _Succeeded = False
-                RaiseEvent Completed(Me, New ConversionEventArgs(False, PdfPath & " not found"))
-            End If
-
-        End Sub
-        Private Sub PdfWorker_DoWork(sender As Object, e As DoWorkEventArgs)
-
-            _Started = Now
-            With DirectCast(sender, BackgroundWorker)
-                RemoveHandler .DoWork, AddressOf PdfWorker_DoWork
-
-            End With
-            Dim doc As PDDocument = Nothing
-            Try
-                doc = PDDocument.load(PdfPath)
-                Dim Stripper As New PDFTextStripper()
-                _Content = Stripper.getText(doc)
-                _Succeeded = True
-                Using sw As StreamWriter = New StreamWriter(TxtPath)
-                    sw.WriteLine(Content)
-                End Using
-
-            Catch ex As Exception       ' java.io.IOException
-                _Succeeded = False
-                _Content = String.Empty
-
-            Finally
-                If doc IsNot Nothing Then
-                    doc.close()
-                End If
-
-            End Try
-            _Ended = Now
-
-        End Sub
-        Private Sub PdfWorker_Completed(sender As Object, e As RunWorkerCompletedEventArgs)
-
-            With DirectCast(sender, BackgroundWorker)
-                RemoveHandler .RunWorkerCompleted, AddressOf PdfWorker_Completed
-            End With
-            _Ended = Now
-            RaiseEvent Completed(Me, New ConversionEventArgs(True))
-
-        End Sub
-    End Class
-End Namespace
 
 Namespace TLP
     Public Module Sizing

@@ -8,11 +8,12 @@ Imports Controls
 
 Public Enum NodeRegion
     Expander
+    Favorite
     CheckBox
     Image
     Node
 End Enum
-Public Structure HitRegion
+Public Class HitRegion
     Implements IEquatable(Of HitRegion)
     Public Property Region As NodeRegion
     Public Property Node As Node
@@ -35,7 +36,7 @@ Public Structure HitRegion
             Return False
         End If
     End Function
-End Structure
+End Class
 Public Class NodeEventArgs
     Inherits EventArgs
     Public ReadOnly Property Node As Node
@@ -54,7 +55,7 @@ Public Class NodeEventArgs
 End Class
 Public Class TreeViewer
     Inherits Control
-    Private WithEvents GH As New Hooker
+    Private WithEvents Karen As New Hooker
     Public WithEvents VScroll As New VScrollBar
     Public WithEvents HScroll As New HScrollBar
     'Private WithEvents NodeTimer As New Threading.Timer(New Threading.TimerCallback(AddressOf NodeTimer_Tick),
@@ -62,7 +63,6 @@ Public Class TreeViewer
     '1000,
     '1000)
     Private WithEvents NodeTimer As New Timer With {.Interval = 200}
-    Private WithEvents SizeTimer As New Timer With {.Interval = 100}
     Private WithEvents CursorTimer As New Timer With {.Interval = 300}
     Private WithEvents ScrollTimer As New Timer With {.Interval = 50}
 #Region " TREEVIEW GLOBAL FUNCTIONS (CMS) "
@@ -104,6 +104,7 @@ Public Class TreeViewer
     Private _Cursor As Cursor
     Private VisibleIndex As Integer, RollingHeight As Integer, RollingWidth As Integer
     Private ExpandImage As Image, CollapseImage As Image
+    Private FavoriteImage As Image = Base64ToImage(StarString)
 
     Public Event Alert(sender As Object, e As AlertEventArgs)
 
@@ -216,6 +217,7 @@ Public Class TreeViewer
 
         If e IsNot Nothing Then
             With e.Graphics
+                'Dim bColor As Color = If(UnRestrictedSize.Height > Height And Not VScroll.Visible, Color.Yellow, BackColor)
                 .FillRectangle(New SolidBrush(BackColor), ClientRectangle)
                 If BackgroundImage IsNot Nothing Then
                     Dim xOffset As Integer = {ClientRectangle.Width, Math.Abs(Convert.ToInt32((ClientRectangle.Width - BackgroundImage.Width) / 2))}.Min
@@ -224,129 +226,116 @@ Public Class TreeViewer
                     .DrawImage(BackgroundImage, ImageBounds)
                 End If
                 If Nodes.Any Then
-                    Try
-                        DrawNodes(e.Graphics)
-                        If RootLines And Nodes.Count > 1 Then
-                            Using Pen As New Pen(LineColor) With {.DashStyle = LineStyle}
-                                Dim LineLeft As Integer = Convert.ToInt32(Nodes.First.ExpandCollapseBounds.Left / 2)
-                                Dim LineTop As Integer = 2 + Nodes.First.ExpandCollapseBounds.Top + Convert.ToInt32(Nodes.First.ExpandCollapseBounds.Height / 2)
-                                Dim TopPoint As New Point(LineLeft, {0, LineTop}.Max)
-                                Dim LineBottom As Integer = Nodes.Last.Bounds.Top + Convert.ToInt32(Nodes.Last.Height / 2)
-                                Dim BottomPoint As New Point(LineLeft, {LineBottom, Height}.Min)
-                                .DrawLine(Pen, TopPoint, BottomPoint)
+                    For Each Node As Node In Nodes.Draw
+                        With Node
+                            If .Separator = Node.SeparatorPosition.Above And Node IsNot Nodes.First Then
+                                Using Pen As New Pen(Color.Blue, 1)
+                                    Pen.DashStyle = DashStyle.DashDot
+                                    e.Graphics.DrawLine(Pen, New Point(0, .Bounds.Top), New Point(ClientRectangle.Right, .Bounds.Top))
+                                End Using
+
+                            ElseIf .Separator = Node.SeparatorPosition.Below And Node IsNot Nodes.Last Then
+                                Using Pen As New Pen(Color.Blue, 1)
+                                    Pen.DashStyle = DashStyle.DashDot
+                                    e.Graphics.DrawLine(Pen, New Point(0, .Bounds.Bottom), New Point(ClientRectangle.Right, .Bounds.Bottom))
+                                End Using
+
+                            End If
+
+                            If .HasChildren Then
+                                If Node.Expanded Then
+                                    e.Graphics.DrawImage(CollapseImage, Node.ExpandCollapseBounds)
+                                Else
+                                    e.Graphics.DrawImage(ExpandImage, Node.ExpandCollapseBounds)
+                                End If
+                            End If
+                            If .CanFavorite Then
+                                e.Graphics.DrawImage(If(.Favorite, My.Resources.star, My.Resources.starEmpty), Node.FavoriteBounds)
+                            End If
+#Region " CHECKBOX "
+                            If .CheckBox Then
+                                Using CheckFont As New Font("Marlett", 10)
+                                    If .PartialChecked Then
+                                        Using Brush As New SolidBrush(Color.FromArgb(192, Color.LightGray))
+                                            e.Graphics.FillRectangle(Brush, .CheckBounds)
+                                        End Using
+                                        TextRenderer.DrawText(e.Graphics, "a".ToString(InvariantCulture), CheckFont, .CheckBounds, Color.DarkGray, TextFormatFlags.NoPadding Or TextFormatFlags.HorizontalCenter Or TextFormatFlags.Bottom)
+                                    Else
+                                        Using Brush As New SolidBrush(Color.White)
+                                            e.Graphics.FillRectangle(Brush, .CheckBounds)
+                                        End Using
+                                        TextRenderer.DrawText(e.Graphics, If(.Checked, "a".ToString(InvariantCulture), String.Empty), CheckFont, .CheckBounds, Color.Blue, TextFormatFlags.NoPadding Or TextFormatFlags.HorizontalCenter Or TextFormatFlags.Bottom)
+                                    End If
+                                End Using
+                                Using Pen As New Pen(Color.Blue, 1)
+                                    e.Graphics.DrawRectangle(Pen, .CheckBounds)
+                                End Using
+                            End If
+#End Region
+                            Dim SelectionBounds As New Rectangle(.ImageBounds.Left, .Bounds.Top, .ImageBounds.Width + .Bounds.Width + 5, .Bounds.Height)
+                            Using Brush As New SolidBrush(If(DragData.DropHighlightNode Is Node, DropHighlightColor, .BackColor))
+                                SelectionBounds.Inflate(-1, -1)
+                                e.Graphics.FillRectangle(Brush, SelectionBounds)
                             End Using
-                        End If
-                    Catch ex As Exception
-                    End Try
+                            If Not IsNothing(.Image) Then
+                                e.Graphics.DrawImage(.Image, .ImageBounds)
+                            End If
+                            TextRenderer.DrawText(e.Graphics, .Text, .Font, .Bounds, .ForeColor, .TextBackColor, TextFormatFlags.LeftAndRightPadding Or TextFormatFlags.NoPadding Or TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
+                            If CurrentMouseNode Is Node Then
+                                Using SemiTransparentBrush As New SolidBrush(Color.FromArgb(128, Color.Gainsboro))
+                                    e.Graphics.FillRectangle(SemiTransparentBrush, .Bounds)
+                                End Using
+                            End If
+                            If .Selected Then
+                                Using SemiTransparentBrush As New SolidBrush(Color.FromArgb(128, Color.Gainsboro))
+                                    e.Graphics.FillRectangle(SemiTransparentBrush, SelectionBounds)
+                                    SelectionBounds.Inflate(1, 1)
+                                End Using
+                                e.Graphics.DrawRectangle(Pens.Black, SelectionBounds)
+                            End If
+                            Using Pen As New Pen(LineColor) With {.DashStyle = LineStyle}
+                                Dim ExpandCollapseCenter As Integer = Convert.ToInt32(.ExpandCollapseBounds.Height / 2)
+                                Dim VerticalCenter As Integer = .ExpandCollapseBounds.Top + ExpandCollapseCenter
+                                Dim NodeHorizontalLeftPoint As Point
+                                Dim NodeHorizontalRightPoint As Point
+                                Dim NodeVerticalTopPoint As Point
+                                Dim NodeVerticalBottomPoint As Point
+                                If .HasChildren And .Expanded Then
+                                    REM /// VERTICAL LINE DOWN
+                                    NodeVerticalTopPoint = New Point(.ExpandCollapseBounds.Left + ExpandCollapseCenter, .ExpandCollapseBounds.Bottom)
+                                    NodeVerticalBottomPoint = New Point(.ExpandCollapseBounds.Left + ExpandCollapseCenter, { .Nodes.Last.ExpandCollapseBounds.Top + ExpandCollapseCenter, ClientRectangle.Height}.Min)
+                                    e.Graphics.DrawLine(Pen, NodeVerticalTopPoint, NodeVerticalBottomPoint)
+                                End If
+                                If IsNothing(.Parent) Then
+                                    If RootLines And Nodes.Count > 1 Then
+                                        e.Graphics.DrawLine(Pen, New Point(Convert.ToInt32(.ExpandCollapseBounds.Left / 2), VerticalCenter), New Point(.ExpandCollapseBounds.Left, VerticalCenter))
+                                    End If
+                                Else
+                                    REM /// HORIZONTAL LINES LEFT OF EXPAND/COLLAPSE
+                                    NodeHorizontalLeftPoint = New Point(.Parent.ExpandCollapseBounds.Left + ExpandCollapseCenter + 1, VerticalCenter)
+                                    NodeHorizontalRightPoint = New Point(.ExpandCollapseBounds.Left, VerticalCenter)
+                                    e.Graphics.DrawLine(Pen, NodeHorizontalLeftPoint, NodeHorizontalRightPoint)
+                                End If
+                            End Using
+                        End With
+                    Next
+                    If RootLines And Nodes.Count > 1 Then
+                        Using Pen As New Pen(LineColor) With {.DashStyle = LineStyle}
+                            Dim LineLeft As Integer = Convert.ToInt32(Nodes.First.ExpandCollapseBounds.Left / 2)
+                            Dim LineTop As Integer = 2 + Nodes.First.ExpandCollapseBounds.Top + Convert.ToInt32(Nodes.First.ExpandCollapseBounds.Height / 2)
+                            Dim TopPoint As New Point(LineLeft, {0, LineTop}.Max)
+                            Dim LineBottom As Integer = Nodes.Last.Bounds.Top + Convert.ToInt32(Nodes.Last.Height / 2)
+                            Dim BottomPoint As New Point(LineLeft, {LineBottom, Height}.Min)
+                            .DrawLine(Pen, TopPoint, BottomPoint)
+                        End Using
+                    End If
+                Else
+                    HScroll.Hide()
+                    VScroll.Hide()
                 End If
             End With
             ControlPaint.DrawBorder3D(e.Graphics, ClientRectangle, Border3DStyle.Sunken)
         End If
-
-    End Sub
-    Private Sub DrawNodes(ByVal Graphics As Graphics)
-
-        Try
-            'SetupScrolls()
-
-            For Each Node As Node In Nodes.Draw
-                With Node
-                    If .Separator = Node.SeparatorPosition.Above And Node IsNot Nodes.First Then
-                        Using Pen As New Pen(Color.Blue, 1)
-                            Pen.DashStyle = DashStyle.DashDot
-                            Graphics.DrawLine(Pen, New Point(0, .Bounds.Top), New Point(ClientRectangle.Right, .Bounds.Top))
-                        End Using
-
-                    ElseIf .Separator = Node.SeparatorPosition.Below And Node IsNot Nodes.Last Then
-                        Using Pen As New Pen(Color.Blue, 1)
-                            Pen.DashStyle = DashStyle.DashDot
-                            Graphics.DrawLine(Pen, New Point(0, .Bounds.Bottom), New Point(ClientRectangle.Right, .Bounds.Bottom))
-                        End Using
-
-                    End If
-
-                    If .HasChildren Then
-                        If Node.Expanded Then
-                            Graphics.DrawImage(CollapseImage, Node.ExpandCollapseBounds)
-                        Else
-                            Graphics.DrawImage(ExpandImage, Node.ExpandCollapseBounds)
-                        End If
-                    End If
-#Region " CHECKBOX "
-                    If .CheckBox Then
-                        Using CheckFont As New Font("Marlett", 10)
-                            If .PartialChecked Then
-                                Using Brush As New SolidBrush(Color.FromArgb(192, Color.LightGray))
-                                    Graphics.FillRectangle(Brush, .CheckBounds)
-                                End Using
-                                TextRenderer.DrawText(Graphics, "a".ToString(InvariantCulture), CheckFont, .CheckBounds, Color.DarkGray, TextFormatFlags.NoPadding Or TextFormatFlags.HorizontalCenter Or TextFormatFlags.Bottom)
-                            Else
-                                Using Brush As New SolidBrush(Color.White)
-                                    Graphics.FillRectangle(Brush, .CheckBounds)
-                                End Using
-                                TextRenderer.DrawText(Graphics, If(.Checked, "a".ToString(InvariantCulture), String.Empty), CheckFont, .CheckBounds, Color.Blue, TextFormatFlags.NoPadding Or TextFormatFlags.HorizontalCenter Or TextFormatFlags.Bottom)
-                            End If
-                        End Using
-
-                        Using Pen As New Pen(Color.Blue, 1)
-                            Graphics.DrawRectangle(Pen, .CheckBounds)
-                        End Using
-                    End If
-#End Region
-                    Dim SelectionBounds As New Rectangle(.ImageBounds.Left, .Bounds.Top, .ImageBounds.Width + .Bounds.Width + 5, .Bounds.Height)
-
-                    Using Brush As New SolidBrush(If(DragData.DropHighlightNode Is Node, DropHighlightColor, .BackColor))
-                        SelectionBounds.Inflate(-1, -1)
-                        Graphics.FillRectangle(Brush, SelectionBounds)
-                    End Using
-
-                    If Not IsNothing(.Image) Then
-                        Graphics.DrawImage(.Image, .ImageBounds)
-                    End If
-
-                    TextRenderer.DrawText(Graphics, .Text, .Font, .Bounds, .ForeColor, .TextBackColor, TextFormatFlags.LeftAndRightPadding Or TextFormatFlags.NoPadding Or TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
-
-                    If CurrentMouseNode Is Node Then
-                        Using SemiTransparentBrush As New SolidBrush(Color.FromArgb(128, Color.Gainsboro))
-                            Graphics.FillRectangle(SemiTransparentBrush, .Bounds)
-                        End Using
-                    End If
-
-                    If .Selected Then
-                        Using SemiTransparentBrush As New SolidBrush(Color.FromArgb(128, Color.Gainsboro))
-                            Graphics.FillRectangle(SemiTransparentBrush, SelectionBounds)
-                            SelectionBounds.Inflate(1, 1)
-                        End Using
-                        Graphics.DrawRectangle(Pens.Black, SelectionBounds)
-                    End If
-                    Using Pen As New Pen(LineColor) With {.DashStyle = LineStyle}
-                        Dim ExpandCollapseCenter As Integer = Convert.ToInt32(.ExpandCollapseBounds.Height / 2)
-                        Dim VerticalCenter As Integer = .ExpandCollapseBounds.Top + ExpandCollapseCenter
-                        Dim NodeHorizontalLeftPoint As Point
-                        Dim NodeHorizontalRightPoint As Point
-                        Dim NodeVerticalTopPoint As Point
-                        Dim NodeVerticalBottomPoint As Point
-                        If .HasChildren And .Expanded Then
-                            REM /// VERTICAL LINE DOWN
-                            NodeVerticalTopPoint = New Point(.ExpandCollapseBounds.Left + ExpandCollapseCenter, .ExpandCollapseBounds.Bottom)
-                            NodeVerticalBottomPoint = New Point(.ExpandCollapseBounds.Left + ExpandCollapseCenter, { .Nodes.Last.ExpandCollapseBounds.Top + ExpandCollapseCenter, ClientRectangle.Height}.Min)
-                            Graphics.DrawLine(Pen, NodeVerticalTopPoint, NodeVerticalBottomPoint)
-                        End If
-                        If IsNothing(.Parent) Then
-                            If RootLines And Nodes.Count > 1 Then
-                                Graphics.DrawLine(Pen, New Point(Convert.ToInt32(.ExpandCollapseBounds.Left / 2), VerticalCenter), New Point(.ExpandCollapseBounds.Left, VerticalCenter))
-                            End If
-                        Else
-                            REM /// HORIZONTAL LINES LEFT OF EXPAND/COLLAPSE
-                            NodeHorizontalLeftPoint = New Point(.Parent.ExpandCollapseBounds.Left + ExpandCollapseCenter + 1, VerticalCenter)
-                            NodeHorizontalRightPoint = New Point(.ExpandCollapseBounds.Left, VerticalCenter)
-                            Graphics.DrawLine(Pen, NodeHorizontalLeftPoint, NodeHorizontalRightPoint)
-                        End If
-                    End Using
-                End With
-            Next
-        Catch ex As Exception
-        End Try
 
     End Sub
 #End Region
@@ -376,9 +365,9 @@ Public Class TreeViewer
         End If
     End Sub
     Private Sub NodeEditingOptions_Opening() Handles TSMI_NodeEditing.DropDownOpening
-        GH.Subscribe()
+        Karen.Subscribe()
     End Sub
-    Private Sub Hook_Moused() Handles GH.Moused
+    Private Sub Hook_Moused() Handles Karen.Moused
 
         Dim CoCOptions As String = If(CursorOverControl(TSDD_Options), "[Y]", "[N]") & " TSDD_Options"
         Dim CoCNodeEdit As String = If(CursorOverControl(IC_NodeEdit), "[Y]", "[N]") & " IC_NodeEdit"
@@ -397,7 +386,7 @@ Public Class TreeViewer
         Else
             MessageOver = "Over none, Not over any:" & Join(NotOvers.ToArray, ",")
             HideOptions()
-            GH.Unsubscribe()
+            Karen.Unsubscribe()
         End If
         'RaiseEvent Alert(Me, New AlertEventArgs(MessageOver & " *** " & Now.ToLongTimeString))
 
@@ -406,7 +395,7 @@ Public Class TreeViewer
 
         _OptionsOpen = True
 
-        REM /// TEST IF THE NODE ALLOWS EDITING, ADDS, OR REMOVAL SO AS TO HIDE THE EDIT OPTION IF NONE EXIST
+        REM /// TEST IF THE NODE CanS EDITING, ADDS, OR REMOVAL SO AS TO HIDE THE EDIT OPTION IF NONE EXIST
         REM /// TLP_NodePermissions.Controls={1.Edit, 2.Add, 3.Remove}
         Dim SelectedNode As Node = Nothing
         Dim EditVisible As Boolean = False
@@ -419,16 +408,16 @@ Public Class TreeViewer
             REM /// A NODE IS SELECTED- NOW CHECK IF THE PERMISSION PROPERTIES
             SelectedNode = SelectedNodes.First
             With SelectedNode
-                EditVisible = .AllowEdit
-                AddVisible = .AllowAdd
-                RemoveVisible = .AllowRemove
+                EditVisible = .CanEdit
+                AddVisible = .CanAdd
+                RemoveVisible = .CanRemove
                 TSMI_Sort.Visible = .HasChildren
             End With
 
         Else
             REM /// NOTHING SELECTED SO CAN ONLY POTENTIALLY ADD
             EditVisible = False
-            AddVisible = AllowAdd
+            AddVisible = CanAdd
             RemoveVisible = False
 
         End If
@@ -549,7 +538,7 @@ Public Class TreeViewer
 
         If SelectedNodes.Count = 1 Then
             Dim editNode As Node = SelectedNodes.First
-            If editNode.AllowEdit And IC_NodeEdit.Text <> editNode.Text Then
+            If editNode.CanEdit And IC_NodeEdit.Text <> editNode.Text Then
                 RaiseEvent NodeBeforeEdited(Me, New NodeEventArgs(editNode, IC_NodeEdit.Text))
                 If Not editNode.CancelAction Then
                     editNode.Text = IC_NodeEdit.Text
@@ -559,12 +548,12 @@ Public Class TreeViewer
             End If
             TSMI_NodeEditing.HideDropDown()
         End If
-        GH.Unsubscribe()
+        Karen.Unsubscribe()
 
     End Sub
     Private Sub NodeAddRequested() Handles IC_NodeAdd.ValueSubmitted, IC_NodeAdd.ItemSelected
 
-        GH.Unsubscribe()
+        Karen.Unsubscribe()
 
         Dim TheNodes As NodeCollection = Nothing
         If Not SelectedNodes.Any Then
@@ -584,12 +573,12 @@ Public Class TreeViewer
                 If Item.CancelAction Then
                     Item.Dispose()
                 Else
-                    REM /// BEFORE ADDING ALLOWS FOR SETTING TO NOTHING ∴ CANCELLING
+                    REM /// BEFORE ADDING CanS FOR SETTING TO NOTHING ∴ CANCELLING
                     TheNodes.Add(Item)
                     RaiseEvent NodeAfterAdded(Me, New NodeEventArgs(Item, IC_NodeAdd.Text))
                 End If
             Else
-                REM /// ADDING A RANGE DOES NOT ALLOW FOR TESTING BEFORE ADD
+                REM /// ADDING A RANGE DOES NOT Can FOR TESTING BEFORE ADD
                 TheNodes.AddRange(Items)
                 RaiseEvent NodeAfterAdded(Me, New NodeEventArgs(Items))
             End If
@@ -602,7 +591,7 @@ Public Class TreeViewer
         Dim TheNodes As NodeCollection '= TryCast(SelectedNodes, Children)
         If SelectedNodes.Any Then
             For Each Node As Node In SelectedNodes
-                If Node.AllowRemove Then
+                If Node.CanRemove Then
                     RaiseEvent NodeBeforeRemoved(Me, New NodeEventArgs(Node))
                     If Not Node.CancelAction Then
                         If IsNothing(Node.Parent) Then
@@ -623,7 +612,7 @@ Public Class TreeViewer
     Private Sub HideOptions()
 
         _OptionsOpen = False
-        GH.Unsubscribe()
+        Karen.Unsubscribe()
         TSDD_Options.AutoClose = True
         TSDD_Options.Hide()
         TSMI_NodeEditing.HideDropDown()
@@ -681,7 +670,7 @@ Public Class TreeViewer
         End Get
     End Property
     Public Property MouseOverExpandsNode As Boolean = False
-    Public Property AllowAdd As Boolean = True
+    Public Property CanAdd As Boolean = True
     Private _MultiSelect As Boolean = False
     Public Property MultiSelect As Boolean
         Get
@@ -699,22 +688,14 @@ Public Class TreeViewer
             End If
         End Set
     End Property
-    Public ReadOnly Property TotalSize As Size
-    Public ReadOnly Property RootSize As Size
+    Public ReadOnly Property UnRestrictedSize As Size
         Get
-            ResizeMe()
-            If Nodes.Any Then
-                With Nodes.Roots
-                    Dim HT = .Select(Function(x) x.Height).Sum
-                    Dim WH = .Select(Function(x) x.Bounds.Right).Max
-                    Return New Size(WH, HT)
-                End With
-            End If
+            Return New Size(VScrollWidth + RollingWidth + Offset.X, RollingHeight + Offset.Y)
         End Get
     End Property
     Public ReadOnly Property NodeHeight As Integer
         Get
-            Return Convert.ToInt32(Nodes.All.Average(Function(a) a.Height))
+            Return CInt(Nodes.All.Average(Function(a) a.Height))
         End Get
     End Property
     Public ReadOnly Property SelectedNodes As List(Of Node)
@@ -730,6 +711,7 @@ Public Class TreeViewer
     Public Property DropHighlightColor As Color = Color.Gainsboro
     Public Property Offset As New Point(5, 3)
     Public Overrides Property AutoSize As Boolean = True
+    Public Property StopMe As Boolean
     Private _CheckBoxes As CheckState = CheckState.Mixed
     Public Property CheckBoxes As CheckState
         Get
@@ -785,6 +767,7 @@ Public Class TreeViewer
     Public Event NodeCollapsed(ByVal sender As Object, ByVal e As NodeEventArgs)
     Public Event NodeClicked(ByVal sender As Object, ByVal e As NodeEventArgs)
     Public Event NodeRightClicked(ByVal sender As Object, ByVal e As NodeEventArgs)
+    Public Event NodeFavorited(sender As Object, e As NodeEventArgs)
     Public Event NodeDoubleClicked(ByVal sender As Object, ByVal e As NodeEventArgs)
 #End Region
 #Region " MOUSE EVENTS "
@@ -812,7 +795,7 @@ Public Class TreeViewer
                             Case NodeRegion.Expander
                                 ._Clicked = True
                                 If .HasChildren Then
-                                    ._Expanded = Not (.Expanded)
+                                    ._Expanded = Not .Expanded
                                     If .Expanded Then
                                         .Expand()
                                         RaiseEvent NodeExpanded(Me, New NodeEventArgs(HitNode))
@@ -822,9 +805,13 @@ Public Class TreeViewer
                                     End If
                                 End If
 
+                            Case NodeRegion.Favorite
+                                .Favorite = Not .Favorite
+                                RaiseEvent NodeFavorited(Me, New NodeEventArgs(HitNode))
+
                             Case NodeRegion.CheckBox
                                 ._Clicked = True
-                                .Checked = Not (.Checked)
+                                .Checked = Not .Checked
                                 RaiseEvent NodeChecked(Me, New NodeEventArgs(HitNode))
 
                             Case NodeRegion.Image, NodeRegion.Node
@@ -854,7 +841,7 @@ Public Class TreeViewer
 
         If e IsNot Nothing Then
             If e.Button = MouseButtons.None Then
-                CurrentMouseNode = HitTest(e.Location).Node
+                CurrentMouseNode = HitTest(e.Location)?.Node
                 If CurrentMouseNode IsNot LastMouseNode Then
                     If MouseOverExpandsNode Then
                         If CurrentMouseNode Is Nothing Then
@@ -872,7 +859,7 @@ Public Class TreeViewer
                     If Not .MousePoints.Contains(e.Location) Then .MousePoints.Add(e.Location)
                     .IsDragging = If(.DragNode Is Nothing, False, .MousePoints.Count >= 5 And Not .DragNode.Bounds.Contains(.MousePoints.Last))
                     If .IsDragging Then
-                        OnDragStart(e)
+                        OnDragStart()
                         Dim Data As New DataObject
                         Data.SetData(GetType(Node), .DragNode)
                         MyBase.OnDragOver(New DragEventArgs(Data, 0, e.X, e.Y, DragDropEffects.Copy Or DragDropEffects.Move, DragDropEffects.All))
@@ -941,28 +928,42 @@ Public Class TreeViewer
     End Sub
 #End Region
 #Region " DRAG & DROP "
-    Private Sub OnDragStart(e As MouseEventArgs)
+    Private Sub OnDragStart()
 
         With DragData
-            Dim CursorSize As New Size()
-
-            If .DragNode.AllowDragDrop Then
+            If .DragNode.CanDragDrop Then
 #Region " CUSTOM CURSOR WITH NODE.TEXT "
-                Using Graphics As Graphics = CreateGraphics()
-                    CursorSize = TextRenderer.MeasureText(Graphics, .DragNode.Text, .DragNode.Font)
-                End Using
-                Dim CursorBounds As New Rectangle(0, 0, CursorSize.Width, NodeHeight)
-                Dim xOff As Integer = 4, yOff As Integer = 2
-                CursorBounds.Inflate(xOff * 2, yOff * 2)
-                Dim bmp As New Bitmap(CursorBounds.Width, CursorBounds.Height)
+                Dim nodeFont As New Font(.DragNode.Font.FontFamily, .DragNode.Font.Size + 4, FontStyle.Bold)
+                Dim textSize As Size = MeasureText(.DragNode.Text, nodeFont)
+                Dim cursorBounds As New Rectangle(New Point(0, 0), textSize)
+                Dim shadowDepth As Integer = 16
+                cursorBounds.Inflate(shadowDepth, shadowDepth)
+                Dim bmp As New Bitmap(cursorBounds.Width, cursorBounds.Height)
                 Using Graphics As Graphics = Graphics.FromImage(bmp)
                     Graphics.SmoothingMode = SmoothingMode.AntiAlias
-                    Graphics.FillRectangle(Brushes.White, CursorBounds)
-                    Graphics.DrawString(.DragNode.Text, Font, Brushes.Black, New Point(xOff, yOff))
-                    CursorBounds.Offset(xOff, yOff)
-                    CursorBounds.Inflate(-xOff, -yOff)
-                    Graphics.DrawRectangle(Pens.CornflowerBlue, CursorBounds)
-                    bmp.MakeTransparent(Color.White)
+                    Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic
+                    Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality
+                    Graphics.TextRenderingHint = Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit
+                    Dim fadingRectangle As New Rectangle(0, 0, bmp.Width, bmp.Height)
+                    Dim fadeFactor As Integer
+                    For P = 0 To shadowDepth - 1
+                        fadeFactor = 16 + (P * 5)
+                        fadingRectangle.Inflate(-1, -1)
+                        Using fadingBrush As New SolidBrush(Color.FromArgb(fadeFactor, .DragNode.CursorGlowColor)) '16, 21, 26, 31, 36
+                            Using fadingPen As New Pen(fadingBrush, 1)
+                                Graphics.DrawRectangle(fadingPen, fadingRectangle)
+                            End Using
+                        End Using
+                    Next
+                    Using fadedBrush As New SolidBrush(Color.FromArgb(fadeFactor, Color.Gainsboro))
+                        Graphics.FillRectangle(fadedBrush, fadingRectangle)
+                    End Using
+                    Graphics.DrawRectangle(Pens.Silver, fadingRectangle)
+                    Dim Format As New StringFormat With {
+    .Alignment = StringAlignment.Center,
+    .LineAlignment = StringAlignment.Center
+}
+                    Graphics.DrawString(.DragNode.Text, nodeFont, Brushes.Black, fadingRectangle, Format)
                 End Using
                 _Cursor = CursorHelper.CreateCursor(bmp, 0, Convert.ToInt32(bmp.Height / 2))
 #End Region
@@ -1059,7 +1060,7 @@ Public Class TreeViewer
             Dim Location As Point = PointToClient(New Point(e.X, e.Y))
             Dim HitRegion As HitRegion = HitTest(Location)
             Dim HitNode As Node = HitRegion.Node
-            If DragNode IsNot Nothing AndAlso DragNode.AllowDragDrop And HitNode IsNot Nothing AndAlso HitNode.AllowDragDrop Then
+            If DragNode IsNot Nothing AndAlso DragNode.CanDragDrop And HitNode IsNot Nothing AndAlso HitNode.CanDragDrop Then
                 e.Data.SetData(GetType(Node), HitNode)
                 RaiseEvent NodeDropped(Me, New NodeEventArgs(HitNode))
             End If
@@ -1123,11 +1124,87 @@ Public Class TreeViewer
         RefreshNodeBounds_Lines(Nodes)
 
         REM /// TOTAL SIZE + RESIZE THE CONTROL IF AUTOSIZE
-        ResizeMe()
-        UpdateDrawNodes()
+#Region " DETERMINE THE MAXIMUM POSSIBLE SIZE OF THE CONTROL AND COMPARE TO THE UNRESTRICTED SIZE "
+        Dim screenLocation As Point = PointToScreen(New Point(0, 0))
+        Dim wa As Size = WorkingArea.Size
+        Dim maxScreenSize As New Size(wa.Width - screenLocation.X, wa.Height - screenLocation.Y)
+        Dim maxParentSize As New Size
+        Dim maxUserSize As Size = MaximumSize
+        Dim unboundedSize As Size = UnRestrictedSize 'This is strictly the space size required to fit all node text ( does NOT include ScrollBars )
+#Region " DETERMINE IF A PARENT RESTRICTS THE SIZE OF THE TREEVIEWER - LOOK FOR <.AutoSize> IN PARENT CONTROL PROPERTIES "
+        If Parent IsNot Nothing Then
+            Dim controlType As Type = Parent.GetType
+            Dim properties As Reflection.PropertyInfo() = controlType.GetProperties
+            Dim growParent As Boolean = False
+            For Each controlProperty In properties
+                If controlProperty.Name = "AutoSize" Then
+                    Dim propertyValue As Boolean = DirectCast(controlProperty.GetValue(Parent), Boolean)
+                    If propertyValue Then growParent = True
+                    Exit For
+                End If
+            Next
+            If Not growParent Then maxParentSize = New Size(Parent.Width, Parent.Height)
+            If Not Parent.MaximumSize.IsEmpty Then maxParentSize = Parent.MaximumSize
+        End If
+#End Region
+        Dim maxSize As New Size
+        Dim sizes As New List(Of Size) From {maxScreenSize, maxParentSize, maxUserSize}
+        Dim nonZeroWidths As New List(Of Integer)(From s In sizes Where s.Width > 0 Select s.Width)
+        Dim nonZeroHeights As New List(Of Integer)(From s In sizes Where s.Height > 0 Select s.Height)
+        Dim maxWidth As Integer = nonZeroWidths.Min
+        Dim maxHeight As Integer = nonZeroHeights.Min
+        If AutoSize Then 'Can resize
+            Dim proposedWidth = {UnRestrictedSize.Width, maxWidth}.Min
+            Dim proposedHeight = {UnRestrictedSize.Height, maxHeight}.Min
 
-        REM /// ADJUST SCROLL HEIGHTS, WIDTHS, VISIBLE
-        SetupScrolls()
+            Dim hScrollVisible As Boolean = UnRestrictedSize.Width > maxWidth
+            If hScrollVisible Then proposedHeight = {proposedHeight + HScrollHeight, maxHeight}.Min
+
+            Dim vscrollVisible As Boolean = UnRestrictedSize.Height > maxHeight
+            If vscrollVisible Then proposedWidth = {proposedWidth + VScrollWidth, maxWidth}.Min
+            Width = proposedWidth
+            Height = proposedHeight
+            maxWidth = Width
+            maxHeight = Height
+        Else
+            maxWidth = {Width, maxWidth}.Min
+            maxHeight = {Height, maxHeight}.Min
+        End If
+        With HScroll
+            .Minimum = 0
+            .Maximum = {0, UnRestrictedSize.Width - 1}.Max
+            .Visible = UnRestrictedSize.Width > maxWidth
+            .Left = 0
+            .Width = maxWidth
+            .Top = Height - .Height
+            .LargeChange = maxWidth
+            If .Visible Then
+                If .Value > maxWidth - Width Then .Value = {maxWidth - Width, .Minimum}.Max
+                .Show()
+            Else
+                .Value = 0
+                .Hide()
+            End If
+        End With
+        With VScroll
+            .Minimum = 0
+            .Maximum = {0, UnRestrictedSize.Height - 1}.Max
+            .Visible = UnRestrictedSize.Height > maxHeight
+            .Left = maxWidth - VScrollWidth
+            .Height = maxHeight
+            .Top = 0
+            .LargeChange = maxHeight
+            If .Visible Then
+                If .Value > maxHeight - Height Then .Value = {maxHeight - Height, .Minimum}.Max
+                .Show()
+            Else
+                .Value = 0
+                .Hide()
+            End If
+        End With
+        If Nodes.Any And StopMe Then Stop
+#End Region
+        UpdateDrawNodes()
 
         REM /// FINALLY- REPAINT
         Invalidate()
@@ -1161,22 +1238,28 @@ Public Class TreeViewer
             Dim HorizontalSpacing As Integer = 3
             REM EXPAND/COLLAPSE
             ._ExpandCollapseBounds.X = Offset.X + HorizontalSpacing + If(IsNothing(.Parent), If(RootLines, 6, 0), .Parent.ExpandCollapseBounds.Right + HorizontalSpacing)
-            ._ExpandCollapseBounds.Y = Y + Convert.ToInt32((.Height - ExpandHeight) / 2)
+            ._ExpandCollapseBounds.Y = Y + CInt((.Height - ExpandHeight) / 2)
             ._ExpandCollapseBounds.Width = If(.HasChildren, ExpandHeight, 0)
             ._ExpandCollapseBounds.Height = ExpandHeight
 
+            REM FAVORITE
+            ._FavoriteBounds.X = ._ExpandCollapseBounds.Right + If(._ExpandCollapseBounds.Width = 0, 0, HorizontalSpacing)
+            ._FavoriteBounds.Y = Y + CInt((.Height - FavoriteImage.Height) / 2)
+            ._FavoriteBounds.Width = If(.CanFavorite, FavoriteImage.Width, 0)
+            ._FavoriteBounds.Height = If(.CanFavorite, FavoriteImage.Height, .Height)
+
             REM CHECKBOX
-            ._CheckBounds.X = ._ExpandCollapseBounds.Right + If(._ExpandCollapseBounds.Width = 0, 0, HorizontalSpacing)
+            ._CheckBounds.X = ._FavoriteBounds.Right + If(._FavoriteBounds.Width = 0, 0, HorizontalSpacing)
             ._CheckBounds.Width = If(.CheckBox, CheckHeight, 0)
             ._CheckBounds.Height = CheckHeight
-            ._CheckBounds.Y = Y + Convert.ToInt32((.Height - ._CheckBounds.Height) / 2)
+            ._CheckBounds.Y = Y + CInt((.Height - ._CheckBounds.Height) / 2)
 
             REM IMAGE
             ._ImageBounds.X = ._CheckBounds.Right + If(._CheckBounds.Width = 0, 0, HorizontalSpacing)
             ._ImageBounds.Height = If(IsNothing(.Image), 0, If(.ImageScaling, .Height, .Image.Height))
             'MAKE IMAGE SQUARE IF SCALING
             ._ImageBounds.Width = If(IsNothing(.Image), 0, If(.ImageScaling, ._ImageBounds.Height, .Image.Width))
-            ._ImageBounds.Y = Y + Convert.ToInt32((.Height - ._ImageBounds.Height) / 2)
+            ._ImageBounds.Y = Y + CInt((.Height - ._ImageBounds.Height) / 2)
 
             REM TEXT
             ._Bounds.X = ._ImageBounds.Right + If(._ImageBounds.Width = 0, 0, HorizontalSpacing)
@@ -1184,89 +1267,6 @@ Public Class TreeViewer
             ._Bounds.Width = TextRenderer.MeasureText(.Text, .Font).Width
             ._Bounds.Height = .Height
         End With
-
-    End Sub
-    Private Sub ResizeMe()
-
-        Dim _TotalWidth As Integer = VScrollWidth + VScroll.Width + RollingWidth + Offset.X      'Pad Right
-        Dim _TotalHeight As Integer = HScroll.Height + RollingHeight + Offset.Y    'Pad Bottom
-        _TotalSize = New Size(_TotalWidth, _TotalHeight)
-        If Nodes.Any And AutoSize Then
-            Dim NewSize = New Size({_TotalWidth, MaximumSize.Width}.Min, {_TotalHeight, MaximumSize.Height}.Min)
-            If NewSize <> Size Then Size = NewSize
-            Width = _TotalWidth
-            Height = _TotalHeight
-            'If NewSize <> Size Then SetSafeControlPropertyValue(Me, "Size", NewSize)
-            'SetSafeControlPropertyValue(Me, "Width", _TotalWidth)
-            'SetSafeControlPropertyValue(Me, "Height", _TotalHeight)
-        End If
-
-    End Sub
-    Private Sub SetupScrolls()
-
-        If Not Nodes.Any Or Height = 0 Then
-            HScroll.Hide()
-            VScroll.Hide()
-        Else
-            With HScroll
-                .Minimum=0
-                .Maximum = {0, TotalSize.Width - 1}.Max
-                .Visible = TotalSize.Width > Width
-                'SetSafeControlPropertyValue(HScroll, "Minimum", 0)
-                'SetSafeControlPropertyValue(HScroll, "Maximum", {0, TotalSize.Width - 1}.Max)
-                'SetSafeControlPropertyValue(HScroll, "Visible", TotalSize.Width > Width)
-                If .Visible Then
-                    .Height = HScrollHeight
-                    .Top = Height - .Height
-                    .Left = 0
-                    .LargeChange = Width
-                    .Width = If(VScroll.Visible, Width - VScroll.Width, Width)
-                    If .Value > (TotalSize.Width - Width) Then .Value = TotalSize.Width - Width
-                    'SetSafeControlPropertyValue(HScroll, "Height", HScrollHeight)
-                    'SetSafeControlPropertyValue(HScroll, "Top", Height - .Height)
-                    'SetSafeControlPropertyValue(HScroll, "Left", 0)
-                    'SetSafeControlPropertyValue(HScroll, "LargeChange", Width)
-                    'SetSafeControlPropertyValue(HScroll, "Width", If(VScroll.Visible, Width - VScroll.Width, Width))
-                    'If .Value > (TotalSize.Width - Width) Then SetSafeControlPropertyValue(HScroll, "Value", TotalSize.Width - Width)
-                    .Show()
-                Else
-                    .Height = 0
-                    .Value = 0
-                    'SetSafeControlPropertyValue(HScroll, "Height", 0)
-                    'SetSafeControlPropertyValue(HScroll, "Value", 0)
-                    .Hide()
-                End If
-            End With
-            With VScroll
-                .Minimum = 0
-                .Maximum = {0, TotalSize.Height - 1}.Max
-                .Visible = TotalSize.Height > Height
-                'SetSafeControlPropertyValue(VScroll, "Minimum", 0)
-                'SetSafeControlPropertyValue(VScroll, "Maximum", {0, TotalSize.Height - 1}.Max)
-                'SetSafeControlPropertyValue(VScroll, "Visible", TotalSize.Height > Height)
-                If .Visible Then
-                    .Width = VScrollWidth
-                    .Top=0
-                    .Left=Width - .Width
-                    .SmallChange = NodeHeight
-                    .LargeChange = Height
-                    .Height=Height
-                    If .Value > (TotalSize.Height - Height) Then .Value = TotalSize.Height - Height
-                    'SetSafeControlPropertyValue(VScroll, "Width", VScrollWidth)
-                    'SetSafeControlPropertyValue(VScroll, "Top", 0)
-                    'SetSafeControlPropertyValue(VScroll, "Left", Width - .Width)
-                    'SetSafeControlPropertyValue(VScroll, "SmallChange", NodeHeight)
-                    'SetSafeControlPropertyValue(VScroll, "LargeChange", Height)
-                    'SetSafeControlPropertyValue(VScroll, "Height", Height)
-                    'If .Value > (TotalSize.Height - Height) Then SetSafeControlPropertyValue(VScroll, "Value", TotalSize.Height - Height)
-                    .Show()
-                Else
-                    .Width = 0
-                    .Value = 0
-                    .Hide()
-                End If
-            End With
-        End If
 
     End Sub
 #Region " SCROLLING, SCROLLING, SCROLLING "
@@ -1312,18 +1312,11 @@ Public Class TreeViewer
         MyBase.OnFontChanged(e)
     End Sub
     Protected Overrides Sub OnSizeChanged(e As EventArgs)
-        If RR Then
-        Else
-            VScroll.Left = Width - VScroll.Width
-            VScroll.Top = Height - HScroll.Height
-            SizeTimer.Stop()
-            SizeTimer.Start()
-        End If
+
+        If Not RR Then RequiresRepaint()
+        Invalidate()
         MyBase.OnSizeChanged(e)
-    End Sub
-    Private Sub SizeTimer_Tick() Handles SizeTimer.Tick
-        SizeTimer.Stop()
-        RequiresRepaint()
+
     End Sub
     Friend Sub NodeTimer_Start(TickNode As Node)
 
@@ -1348,23 +1341,34 @@ Public Class TreeViewer
 #Region " METHODS / FUNCTIONS "
     Public Function HitTest(Location As Point) As HitRegion
 
-        Dim Region As New HitRegion
-        Dim ExpandBounds As New List(Of Node)(From N In Nodes.Draw Where N.ExpandCollapseBounds.Contains(Location))
-        Dim CheckBounds As New List(Of Node)(From N In Nodes.Draw Where N.CheckBounds.Contains(Location))
-        Dim ImageBounds As New List(Of Node)(From N In Nodes.Draw Where N.ImageBounds.Contains(Location))
-        Dim NodeBounds As New List(Of Node)(From N In Nodes.Draw Where N.Bounds.Contains(Location))
+        Dim nodeRows = (From N In Nodes.Draw).ToDictionary(Function(k) k, Function(v) New Rectangle(0, v.Bounds.Y, Width, NodeHeight))
+        Dim nodeBounds As New List(Of Node)(From N In nodeRows Where N.Value.Contains(Location) Select N.Key)
+        If nodeBounds.Any Then
+            Dim hitNode As Node = nodeBounds.First
+            With hitNode
+                If .ExpandCollapseBounds.Contains(Location) Then
+                    Return New HitRegion With {.Node = hitNode, .Region = NodeRegion.Expander}
 
-        Dim HitBounds As New List(Of Node)(ExpandBounds.Union(CheckBounds).Union(NodeBounds))
-        If HitBounds.Any Then
-            With Region
-                .Node = HitBounds.First
-                If ExpandBounds.Any Then .Region = NodeRegion.Expander
-                If CheckBounds.Any Then .Region = NodeRegion.CheckBox
-                If ImageBounds.Any Then .Region = NodeRegion.Image
-                If NodeBounds.Any Then .Region = NodeRegion.Node
+                ElseIf .FavoriteBounds.Contains(Location) Then
+                    Return New HitRegion With {.Node = hitNode, .Region = NodeRegion.Favorite}
+
+                ElseIf .CheckBounds.Contains(Location) Then
+                    Return New HitRegion With {.Node = hitNode, .Region = NodeRegion.CheckBox}
+
+                ElseIf .ImageBounds.Contains(Location) Then
+                    Return New HitRegion With {.Node = hitNode, .Region = NodeRegion.Image}
+
+                ElseIf .Bounds.Contains(Location) Then
+                    Return New HitRegion With {.Node = hitNode, .Region = NodeRegion.Node}
+
+                Else
+                    Return New HitRegion With {.Node = hitNode, .Region = NodeRegion.Node}
+                End If
             End With
+
+        Else
+            Return Nothing
         End If
-        Return Region
 
     End Function
     Public Sub ExpandNodes()
@@ -1734,6 +1738,7 @@ Public Class Node
         End Get
     End Property
     Public ReadOnly Property Nodes As NodeCollection
+    Public Property CursorGlowColor As Color = Color.LimeGreen
     Public ReadOnly Property HasChildren As Boolean
         Get
             Return Nodes.Any
@@ -1817,9 +1822,9 @@ Public Class Node
             RequiresRepaint()
         End Set
     End Property
-    Public Property AllowEdit As Boolean = True
-    Public Property AllowAdd As Boolean = True
-    Public Property AllowRemove As Boolean = True
+    Public Property CanEdit As Boolean = True
+    Public Property CanAdd As Boolean = True
+    Public Property CanRemove As Boolean = True
     Public Property CancelAction As Boolean = False
     Private _ImageScaling As Boolean = False
     Public Property ImageScaling As Boolean
@@ -1931,6 +1936,12 @@ Public Class Node
     Public ReadOnly Property ExpandCollapseBounds As Rectangle
         Get
             Return _ExpandCollapseBounds
+        End Get
+    End Property
+    Friend _FavoriteBounds As New Rectangle(0, 0, 0, 0)
+    Public ReadOnly Property FavoriteBounds As Rectangle
+        Get
+            Return _FavoriteBounds
         End Get
     End Property
     Friend _CheckBounds As New Rectangle(0, 0, 0, 0)
@@ -2102,7 +2113,20 @@ Public Class Node
             Return GetDataType(SortValue)
         End Get
     End Property
-    Public Property AllowDragDrop As Boolean = True
+    Public Property CanDragDrop As Boolean = True
+    Public Property CanFavorite As Boolean = False
+    Private Favorite_ As Boolean = False
+    Public Property Favorite As Boolean
+        Get
+            Return Favorite_
+        End Get
+        Set(value As Boolean)
+            If value <> Favorite_ Then
+                Favorite_ = value
+                RequiresRepaint()
+            End If
+        End Set
+    End Property
     Private _SortValue As String = String.Empty
     Public Property SortValue As String
         Get
@@ -2153,6 +2177,9 @@ Public Class Node
     Public Sub Click()
         _Selected = True
         RequiresRepaint()
+    End Sub
+    Public Sub RemoveMe()
+        Parent?.Nodes.Remove(Me)
     End Sub
     Private Sub ShowHide(Nodes As List(Of Node), Optional Flag As Boolean = True)
 

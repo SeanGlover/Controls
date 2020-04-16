@@ -77,6 +77,7 @@ Public Class DataViewer
     Public WithEvents VScroll As New VScrollBar With {.Minimum = 0}
     Public WithEvents HScroll As New HScrollBar With {.Minimum = 0}
     Private WithEvents HeaderOptions As New ToolStripDropDown With {.AutoClose = False}
+    Public WithEvents GridOptions As New ContextMenuStrip With {.AutoClose = False}
     Private WithEvents HeaderBackColor As New ImageCombo With {.ColorPicker = True,
         .Size = New Size(200, 24)}
     Private WithEvents HeaderShadeColor As New ImageCombo With {.ColorPicker = True,
@@ -85,6 +86,8 @@ Public Class DataViewer
         .Size = New Size(200, 24)}
     Private WithEvents HeaderGridAlignment As New ImageCombo With {.DataSource = EnumNames(GetType(ContentAlignment)),
         .Size = New Size(200, 24)}
+    Private WithEvents HeaderDistinctTree As New TreeViewer With {.Margin = New Padding(0),
+        .AutoSize = True}
     Private ReadOnly ColumnHeadTip As ToolTip = New ToolTip With {.BackColor = Color.Black, .ForeColor = Color.White}
     Private ControlKeyDown As Boolean
 #End Region
@@ -116,17 +119,30 @@ Public Class DataViewer
         Margin = New Padding(1)
         MaximumSize = WorkingArea.Size
         Application.EnableVisualStyles()
-        Using colorFont As New Font("Century Gothic", 9)
-            HeaderBackColor.Font = colorFont
-            HeaderShadeColor.Font = colorFont
-            HeaderForeColor.Font = colorFont
-            HeaderGridAlignment.Font = colorFont
-        End Using
+        Dim colorFont As New Font("Century Gothic", 9)
+        HeaderBackColor.Font = colorFont
+        HeaderShadeColor.Font = colorFont
+        HeaderForeColor.Font = colorFont
+        HeaderGridAlignment.Font = colorFont
+        HeaderDistinctTree.Font = colorFont
         With HeaderOptions.Items
             .Add(New ToolStripControlHost(HeaderBackColor))
             .Add(New ToolStripControlHost(HeaderShadeColor))
             .Add(New ToolStripControlHost(HeaderForeColor))
             .Add(New ToolStripControlHost(HeaderGridAlignment))
+            Dim filterTSMI As New ToolStripMenuItem With {.Text = "Filter".ToString(InvariantCulture), .Image = My.Resources.Filtered, .Tag = False, .Name = "Filter"}
+            AddHandler filterTSMI.MouseEnter, AddressOf Filter_Enter
+            AddHandler filterTSMI.MouseLeave, AddressOf Filter_Leave
+            AddHandler filterTSMI.Click, AddressOf Filter_Click
+            Dim tlpTree As New TableLayoutPanel With {.ColumnCount = 1,
+                .RowCount = 1,
+                .Size = New Size(400, 600),
+                .MaximumSize = New Size(250, 400)}
+            With tlpTree
+                .Controls.Add(HeaderDistinctTree, 0, 0)
+            End With
+            filterTSMI.DropDownItems.Add(New ToolStripControlHost(tlpTree) With {.AutoSize = True})
+            .Add(filterTSMI)
         End With
 
     End Sub
@@ -523,6 +539,7 @@ Public Class DataViewer
             Return TotalSize.Width > ClientRectangle.Width
         End Get
     End Property
+    Friend ReadOnly Property DistinctValues As New Dictionary(Of String, Dictionary(Of String, Cell))
     Private _DataSource As Object
     <Browsable(True)>
     <DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)>
@@ -586,17 +603,16 @@ Public Class DataViewer
                 End If
 #End Region
                 Dim startLoad As Date = Now
-                Dim columnNames As New List(Of String)
                 For Each DataColumn As DataColumn In Table_.Columns
-                    columnNames.Add(DataColumn.ColumnName)
+                    DistinctValues.Add(DataColumn.ColumnName, New Dictionary(Of String, Cell))
                     Dim NewColumn = Columns.Add(New Column(DataColumn))
                     Columns.ColumnWidth(NewColumn)
                 Next
-                If columnNames.Any Then
+                If DistinctValues.Any Then
                     If Table_.AsEnumerable.Any Then
                         RaiseEvent RowsLoading(Me, New ViewerEventArgs(Table_))
                         For Each row As DataRow In Table.Rows
-                            Rows.Add(New Row(columnNames, row.ItemArray))
+                            Rows.Add(New Row(DistinctValues.Keys.ToList, row.ItemArray))
                         Next
                         _LoadTime = Now.Subtract(startLoad)
                         RaiseEvent RowsLoaded(Me, New ViewerEventArgs(Table_))
@@ -625,6 +641,7 @@ Public Class DataViewer
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Private Sub ColumnsSizingStart() Handles Columns_.CollectionSizingStart
+        Timer?.StartTicking(Color.LimeGreen)
     End Sub
     Private Sub ColumnSized(sender As Object, e As EventArgs) Handles Columns_.ColumnSized
 
@@ -637,6 +654,34 @@ Public Class DataViewer
 
         RaiseEvent ColumnsSized(Me, Nothing)
         Invalidate()
+        Timer?.StopTicking()
+        'With New Worker
+        '    AddHandler .DoWork, AddressOf LoadDistinctValues
+        '    AddHandler .RunWorkerCompleted, AddressOf LoadedDistinctValues
+        '    .RunWorkerAsync()
+        'End With
+
+    End Sub
+    Private Sub LoadDistinctValues(sender As Object, e As DoWorkEventArgs)
+
+        With DirectCast(sender, Worker)
+            RemoveHandler .DoWork, AddressOf LoadDistinctValues
+            For Each column In Columns
+                DistinctValues(column.Name).Clear()
+                For Each row In Rows
+                    Dim rowCell As Cell = row.Cells.Item(column.Name)
+                    Dim cellText As String = If(rowCell.Text, String.Empty)
+                    If Not DistinctValues(column.Name).ContainsKey(cellText) Then DistinctValues(column.Name).Add(cellText, rowCell)
+                Next
+            Next
+        End With
+
+    End Sub
+    Private Sub LoadedDistinctValues(sender As Object, e As RunWorkerCompletedEventArgs)
+
+        With DirectCast(sender, Worker)
+            RemoveHandler .RunWorkerCompleted, AddressOf LoadedDistinctValues
+        End With
 
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ C L E A R ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
@@ -653,6 +698,7 @@ Public Class DataViewer
             .SelectionRowStyle = New CellStyle With {.BackColor = Color.DarkSlateGray, .ShadeColor = Color.Gray, .ForeColor = Color.White, .Font = New Font("Century Gothic", 8)}
             .Clear()
         End With
+        DistinctValues.Clear()
         VisibleColumns.Clear()
         VisibleRows.Clear()
         VScroll.Value = 0
@@ -691,7 +737,6 @@ Public Class DataViewer
                             Dim rowCount As String = Rows.Count.ToString(InvariantCulture)
                             Dim sortOrder As String = .SortOrder.ToString
                             Dim alignment As String = StringFormatToContentAlignString(.GridStyle.Alignment)
-
                             Dim Bullets As New Dictionary(Of String, List(Of String)) From {
                             { .Text, {"Type is " & formatName,
                             "Datatype is " & formatType,
@@ -793,6 +838,11 @@ Public Class DataViewer
                 .AutoClose = True
                 .Hide()
             End With
+            With GridOptions
+                .Tag = Nothing
+                .AutoClose = True
+                .Hide()
+            End With
             With _MouseData
                 If e IsNot Nothing And .CurrentAction = MouseInfo.Action.MouseOverHead And .Column IsNot Nothing Then
                     If e.Button = MouseButtons.Left Then
@@ -826,6 +876,23 @@ Public Class DataViewer
                             If alignIndex.Any Then HeaderGridAlignment.SelectedIndex = alignIndex.First
 
                             HeaderOptions.AutoClose = False
+                            With HeaderDistinctTree.Nodes
+                                .Clear()
+                                For Each header In DistinctValues
+                                    If header.Key = _MouseData.Column.Name Then
+                                        Dim headerValues = header.Value.OrderBy(Function(hv) hv.Key)
+                                        If MouseData.Column.DataType = GetType(Image) Then
+                                            For Each distinctValue In header.Value
+                                                .Add(String.Empty, distinctValue.Value.ValueImage)
+                                            Next
+                                        Else
+                                            For Each distinctValue In header.Value
+                                                .Add(distinctValue.Key)
+                                            Next
+                                        End If
+                                    End If
+                                Next
+                            End With
                             HeaderOptions.Show(PointToScreen(New Point(.Column.HeadBounds.Right, .Column.HeadBounds.Bottom)))
                         End If
                     End If
@@ -834,20 +901,27 @@ Public Class DataViewer
                     .CurrentAction = MouseInfo.Action.HeaderEdgeClicked
                     .Point = e.Location
 
-                ElseIf .CurrentAction = MouseInfo.Action.MouseOverGrid And e.Button = MouseButtons.Left Then
-                    .CurrentAction = MouseInfo.Action.CellClicked
-                    .Row.Selected = Not MouseData.Row.Selected  'Row.Selected may not take the value if Me.FullRowSelect=False
-                    Dim cellSelectedCounter As Integer
-                    Rows.ForEach(Function(row) As Row
-                                     For Each cell In row.Cells.Values.Except({ .Cell}).Where(Function(c) c.Selected)
-                                         cell.Selected = False
-                                         cellSelectedCounter += 1
-                                     Next
-                                     Return Nothing
-                                 End Function)
-                    .Cell.Selected = If(cellSelectedCounter = 0, Not .Cell.Selected, True)
-                    RaiseEvent CellClicked(Me, New ViewerEventArgs(MouseData))
+                ElseIf .CurrentAction = MouseInfo.Action.MouseOverGrid Then
+                    If e.Button = MouseButtons.Left Then
+                        .CurrentAction = MouseInfo.Action.CellClicked
+                        .Row.Selected = Not MouseData.Row.Selected  'Row.Selected may not take the value if Me.FullRowSelect=False
+                        Dim cellSelectedCounter As Integer
+                        Rows.ForEach(Function(row) As Row
+                                         For Each cell In row.Cells.Values.Except({ .Cell}).Where(Function(c) c.Selected)
+                                             cell.Selected = False
+                                             cellSelectedCounter += 1
+                                         Next
+                                         Return Nothing
+                                     End Function)
+                        .Cell.Selected = If(cellSelectedCounter = 0, Not .Cell.Selected, True)
+                        RaiseEvent CellClicked(Me, New ViewerEventArgs(MouseData))
 
+                    ElseIf e.Button = MouseButtons.Right Then
+                        GridOptions.AutoClose = True
+                        Dim relativePoint As Point = PointToScreen(New Point(.CellBounds.Right - HScroll.Value, .CellBounds.Top))
+                        GridOptions.Show(relativePoint)
+
+                    End If
                 End If
             End With
             MyBase.OnMouseDown(e)
@@ -1046,6 +1120,39 @@ Public Class DataViewer
         Dim mouseColumn As Column = DirectCast(HeaderOptions.Tag, Column)
         If sender Is HeaderGridAlignment Then mouseColumn.GridStyle.Alignment = ContentAlignToStringFormat(HeaderGridAlignment.Text) : RaiseEvent Alert(mouseColumn.GridStyle, New AlertEventArgs(ContentAlignToStringFormat(HeaderGridAlignment.Text).ToString))
 
+    End Sub
+    Private Sub Filter_Enter(sender As Object, e As EventArgs)
+        HeaderDistinctTree.Parent.Size = HeaderDistinctTree.UnRestrictedSize
+        DirectCast(sender, ToolStripMenuItem).ShowDropDown()
+    End Sub
+    Private Sub Filter_Click(sender As Object, e As EventArgs)
+        With DirectCast(sender, ToolStripMenuItem)
+            .Tag = Not DirectCast(.Tag, Boolean)
+            If DirectCast(.Tag, Boolean) Then
+                .HideDropDown()
+            Else
+                HeaderDistinctTree.Parent.Size = HeaderDistinctTree.UnRestrictedSize
+                .ShowDropDown()
+            End If
+        End With
+    End Sub
+    Private Sub Filter_Leave(sender As Object, e As EventArgs)
+        With DirectCast(sender, ToolStripMenuItem)
+            If DirectCast(.Tag, Boolean) Then .HideDropDown()
+        End With
+    End Sub
+    Protected Overrides Sub OnVisibleChanged(e As EventArgs)
+        With HeaderOptions
+            .Tag = Nothing
+            .AutoClose = True
+            .Hide()
+        End With
+        With GridOptions
+            .Tag = Nothing
+            .AutoClose = True
+            .Hide()
+        End With
+        MyBase.OnVisibleChanged(e)
     End Sub
 #End Region
 End Class
@@ -1291,10 +1398,10 @@ Public Class ColumnCollection
                 cellValues.Add(rowCell.Value)
                 If rowCell IsNot Nothing Then
                     cellTypes.Add(rowCell.DataType)
+                    Dim cellText As String = If(rowCell.Text, String.Empty)
                     If rowCell.ValueImage Is Nothing Then
                         Dim rowStyle As CellStyle = row.Style
-                        .ContentWidth = { .ContentWidth, TextRenderer.MeasureText(rowCell.Text, rowStyle.Font).Width}.Max
-
+                        .ContentWidth = { .ContentWidth, TextRenderer.MeasureText(cellText, rowStyle.Font).Width}.Max
                     Else
                         Try
                             .ContentWidth = { .ContentWidth, rowCell.ValueImage.Width}.Max
@@ -1591,7 +1698,7 @@ End Class
         End Get
     End Property
     Public Property Visible As Boolean = True
-    Private Function SizeWidth(sz As Size) As Integer
+    Private Shared Function SizeWidth(sz As Size) As Integer
         Return If(sz.Width = 0, 0, 2)
     End Function
     Private Sub HeaderStyle_PropertyChanged(sender As Object, e As StyleEventArgs) Handles HeaderStyle_.PropertyChanged
@@ -2431,6 +2538,7 @@ End Class
             If disposing Then
                 ' TODO: dispose managed state (managed objects).
                 _Font.Dispose()
+                _Alignment.Dispose()
             End If
             ' TODO: free unmanaged resources (unmanaged objects) and override Finalize() below.
             ' TODO: set large fields to null.
@@ -2583,6 +2691,7 @@ Public Class ViewerHelper
             Me.Viewer = viewer
             Me.BaseForm = baseForm
             TickForm.Show(baseForm)
+            'TickForm.Visible = False
         End If
 
     End Sub
@@ -2637,7 +2746,7 @@ Public Class ViewerHelper
         TimerTicks = 0
         TickTimer.Stop()
         With TickForm
-            .Visible = False
+            .Hide()
             .BackgroundImage = Nothing
         End With
 

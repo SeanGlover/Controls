@@ -14,7 +14,7 @@ Public Class Prompt
     Private WithEvents YES As New Button With {.Text = "Yes", .Font = PreferredFont, .Margin = New Padding(0), .Size = New Size(100, ButtonBarHeight - 6), .ImageAlign = ContentAlignment.MiddleLeft, .Image = My.Resources.ButtonYes, .BackColor = Color.GhostWhite, .ForeColor = Color.Black, .FlatStyle = FlatStyle.Popup}
     Private WithEvents NO As New Button With {.Text = "No", .Font = PreferredFont, .Margin = New Padding(0), .Size = New Size(100, ButtonBarHeight - 6), .ImageAlign = ContentAlignment.MiddleLeft, .Image = My.Resources.ButtonNo, .BackColor = Color.GhostWhite, .ForeColor = Color.Black, .FlatStyle = FlatStyle.Popup}
     Private WithEvents PromptTimer As New Timer With {.Interval = 5000}
-    Private WorkingSpace As Rectangle = Screen.PrimaryScreen.Bounds
+    Private ReadOnly ParentControl As Control
     Public Enum IconOption
 
         Critical
@@ -35,8 +35,9 @@ Public Class Prompt
         Psychedelic
         Custom
     End Enum
-    Public Sub New()
+    Public Sub New(Optional parentWindow As Control = Nothing)
 
+        ParentControl = parentWindow
         SetStyle(ControlStyles.AllPaintingInWmPaint, True)
         SetStyle(ControlStyles.ContainerControl, True)
         SetStyle(ControlStyles.DoubleBuffer, True)
@@ -52,7 +53,7 @@ Public Class Prompt
         MinimizeBox = False
         MaximizeBox = False
         MinimumSize = New Size(300, 3 + 112 + 3)     'IconHeight + Padding
-        MaximumSize = New Size(Convert.ToInt32(0.7 * WorkingSpace.Width), Convert.ToInt32(0.7 * WorkingSpace.Height))
+        MaximumSize = New Size(Convert.ToInt32(0.7 * WorkingArea.Width), Convert.ToInt32(0.7 * WorkingArea.Height))
         Controls.Add(Table)
         Controls.AddRange({OK, YES, NO})
         KeyPreview = True
@@ -138,6 +139,16 @@ Public Class Prompt
         Get
             Return New Rectangle(0, 0, Width, TitleBarHeight)
         End Get
+    End Property
+    Private AutoCloseSeconds_ As Integer = 3
+    Public Property AutoCloseSeconds As Integer
+        Get
+            Return AutoCloseSeconds_
+        End Get
+        Set(value As Integer)
+            AutoCloseSeconds_ = value
+            PromptTimer.Interval = 1000 * value
+        End Set
     End Property
     Private Const IconPadding As Integer = 3
     Private ReadOnly Property IconBounds As New Rectangle(IconPadding, IconPadding, Icon.Width, Icon.Height)
@@ -326,15 +337,7 @@ Public Class Prompt
 
         PromptTimer.Stop()
         DialogResult = DialogResult.None
-        Hide()
-
-    End Sub
-    Private Sub Message_Closing(sender As Object, e As System.ComponentModel.CancelEventArgs) Handles MyBase.Closing
-
-        Table.DataSource = Nothing
-        TitleMessage = String.Empty
-        BodyMessage = String.Empty
-        Dim result As Integer = NativeMethods.SetForegroundWindow(MainWindow.Handle)
+        Close()
 
     End Sub
     Protected Overrides Sub OnFontChanged(e As EventArgs)
@@ -381,7 +384,18 @@ Public Class Prompt
 
     End Sub
 #End Region
+    Private Shadows Sub OnShown()
+    End Sub
+    Private Sub Message_Closing(sender As Object, e As System.ComponentModel.CancelEventArgs) Handles MyBase.Closing
 
+        Table.DataSource = Nothing
+        TitleMessage = String.Empty
+        BodyMessage = String.Empty
+        If MainWindow IsNot Nothing Then
+            Dim result As Integer = NativeMethods.SetForegroundWindow(MainWindow.Handle)
+        End If
+
+    End Sub
     Public Overloads Function Show(BodyMessage As String, Optional Type As IconOption = IconOption.OK, Optional ColorTheme As StyleOption = StyleOption.Plain, Optional AutoCloseSeconds As Integer = 3) As DialogResult
         Return Show(String.Empty, If(BodyMessage, String.Empty), Type, ColorTheme, AutoCloseSeconds)
     End Function
@@ -419,17 +433,17 @@ Public Class Prompt
     End Function
     Public Overloads Function Show(TitleMessage As String, BodyMessage As String, Optional Type As IconOption = IconOption.OK, Optional ColorTheme As StyleOption = StyleOption.Plain, Optional AutoCloseSeconds As Integer = 3) As DialogResult
 
-        _MainWindow = Process.GetCurrentProcess
-        Dim ProcessList As New List(Of Process)(Process.GetProcesses)
-        ProcessList.Sort(Function(p1, p2)
-                             Dim level1 = String.Compare(p1.MainWindowTitle, p2.MainWindowTitle, StringComparison.InvariantCulture)
-                             Return level1
-                         End Function)
-
         ControlBox = False
         Me.TitleMessage = TitleMessage
         Text = TitleMessage
         PromptTimer.Interval = 1000 * AutoCloseSeconds
+
+        'Dim ProcessList As New List(Of Process)(Process.GetProcesses)
+        'ProcessList.Sort(Function(p1, p2)
+        '                     Dim level1 = String.Compare(p1.MainWindowTitle, p2.MainWindowTitle, StringComparison.InvariantCulture)
+        '                     Return level1
+        '                 End Function)
+        '_MainWindow = ProcessList.First
 
         BodyMessage = If(BodyMessage, String.Empty)
         Me.BodyMessage = BodyMessage
@@ -466,7 +480,7 @@ Public Class Prompt
             Case StyleOption.Grey
                 _AlternatingRowColor = Color.DarkGray
                 _BackgroundColor = Color.Gainsboro
-                _TextColor = Color.Black
+                _TextColor = Color.White
                 _ShadeColor = Color.Silver
                 _AccentColor = Color.Gray
                 BorderColor = Color.Black
@@ -521,9 +535,11 @@ Public Class Prompt
         ForeColor = TextColor
         PathColors = {Color.Gray, BackColor, ShadeColor, AccentColor}.ToList
         ResizeMe()
-        Hide()
-        ShowDialog()
-
+        If ParentControl Is Nothing Then
+            ShowDialog()
+        Else
+            ShowDialog(ParentControl)
+        End If
         Return DialogResult
 
     End Function
