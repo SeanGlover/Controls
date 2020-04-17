@@ -130,7 +130,7 @@ Public Class DataViewer
             .Add(New ToolStripControlHost(HeaderShadeColor))
             .Add(New ToolStripControlHost(HeaderForeColor))
             .Add(New ToolStripControlHost(HeaderGridAlignment))
-            Dim filterTSMI As New ToolStripMenuItem With {.Text = "Filter".ToString(InvariantCulture), .Image = My.Resources.Filtered, .Tag = False, .Name = "Filter"}
+            Dim filterTSMI As New ToolStripMenuItem With {.Text = "Filter".ToString(InvariantCulture), .Image = My.Resources.FilterCancel, .Tag = False, .Name = "Filter"}
             AddHandler filterTSMI.MouseEnter, AddressOf Filter_Enter
             AddHandler filterTSMI.MouseLeave, AddressOf Filter_Leave
             AddHandler filterTSMI.Click, AddressOf Filter_Click
@@ -655,33 +655,6 @@ Public Class DataViewer
         RaiseEvent ColumnsSized(Me, Nothing)
         Invalidate()
         Timer?.StopTicking()
-        'With New Worker
-        '    AddHandler .DoWork, AddressOf LoadDistinctValues
-        '    AddHandler .RunWorkerCompleted, AddressOf LoadedDistinctValues
-        '    .RunWorkerAsync()
-        'End With
-
-    End Sub
-    Private Sub LoadDistinctValues(sender As Object, e As DoWorkEventArgs)
-
-        With DirectCast(sender, Worker)
-            RemoveHandler .DoWork, AddressOf LoadDistinctValues
-            For Each column In Columns
-                DistinctValues(column.Name).Clear()
-                For Each row In Rows
-                    Dim rowCell As Cell = row.Cells.Item(column.Name)
-                    Dim cellText As String = If(rowCell.Text, String.Empty)
-                    If Not DistinctValues(column.Name).ContainsKey(cellText) Then DistinctValues(column.Name).Add(cellText, rowCell)
-                Next
-            Next
-        End With
-
-    End Sub
-    Private Sub LoadedDistinctValues(sender As Object, e As RunWorkerCompletedEventArgs)
-
-        With DirectCast(sender, Worker)
-            RemoveHandler .RunWorkerCompleted, AddressOf LoadedDistinctValues
-        End With
 
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ C L E A R ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
@@ -1118,7 +1091,10 @@ Public Class DataViewer
         If sender Is HeaderShadeColor Then Columns.HeaderStyle.ShadeColor = Color.FromName(HeaderShadeColor.Text)
         If sender Is HeaderForeColor Then Columns.HeaderStyle.ForeColor = Color.FromName(HeaderForeColor.Text)
         Dim mouseColumn As Column = DirectCast(HeaderOptions.Tag, Column)
-        If sender Is HeaderGridAlignment Then mouseColumn.GridStyle.Alignment = ContentAlignToStringFormat(HeaderGridAlignment.Text) : RaiseEvent Alert(mouseColumn.GridStyle, New AlertEventArgs(ContentAlignToStringFormat(HeaderGridAlignment.Text).ToString))
+        If sender Is HeaderGridAlignment Then
+            mouseColumn.GridStyle.Alignment = ContentAlignToStringFormat(HeaderGridAlignment.Text)
+            RaiseEvent Alert(mouseColumn.GridStyle, New AlertEventArgs(mouseColumn.GridStyle.Alignment.ToString))
+        End If
 
     End Sub
     Private Sub Filter_Enter(sender As Object, e As EventArgs)
@@ -1393,12 +1369,17 @@ Public Class ColumnCollection
             Dim cellTypes As New List(Of Type)
             Dim cellValues As New List(Of Object)
             .ContentWidth = .MinimumWidth
+            Parent.DistinctValues(.Name).Clear()
             For Each row In Parent.Rows
                 Dim rowCell As Cell = row.Cells(.Name)
                 cellValues.Add(rowCell.Value)
                 If rowCell IsNot Nothing Then
                     cellTypes.Add(rowCell.DataType)
                     Dim cellText As String = If(rowCell.Text, String.Empty)
+                    Try
+                        If Not Parent.DistinctValues(.Name).ContainsKey(cellText) Then Parent.DistinctValues(.Name).Add(cellText, rowCell)
+                    Catch ex As InvalidOperationException
+                    End Try
                     If rowCell.ValueImage Is Nothing Then
                         Dim rowStyle As CellStyle = row.Style
                         .ContentWidth = { .ContentWidth, TextRenderer.MeasureText(cellText, rowStyle.Font).Width}.Max
@@ -2301,7 +2282,7 @@ End Class
             If disposing Then
                 ' TODO: dispose managed state (managed objects).
                 _Parent.Dispose()
-                ValueImage?.Dispose()
+                _ValueImage?.Dispose()
 
             End If
             ' TODO: free unmanaged resources (unmanaged objects) and override Finalize() below.

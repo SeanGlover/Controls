@@ -1512,11 +1512,9 @@ End Class
             End If
         End Get
     End Property
-    Public Shadows ReadOnly Property ToString As String
-        Get
-            Return Join({DSN, Type.ToString, DBName, TSName, Owner, Name}, Delimiter)
-        End Get
-    End Property
+    Public Overrides Function ToString() As String
+        Return Join({DSN, Type.ToString, DBName, TSName, Owner, Name}, Delimiter)
+    End Function
 #End Region
 End Class
 '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
@@ -1965,6 +1963,7 @@ End Class
     Public ReadOnly Property Busy As Boolean
     Public ReadOnly Property Ended As Date
     Public ReadOnly Property Response As ResponseEventArgs
+    Public ReadOnly Property Connection As Connection
     Public ReadOnly Property Status As TriState
         Get
             If Response Is Nothing Then
@@ -1985,12 +1984,14 @@ End Class
 
         Me.ConnectionString = If(ConnectionString, String.Empty)
         Me.Instruction = If(Instruction, String.Empty)
+        Connection = New Connection(ConnectionString)
 
     End Sub
     Public Sub New(Connection As Connection, Instruction As String)
 
         ConnectionString = If(Connection Is Nothing, String.Empty, Connection.ToString)
         Me.Instruction = If(Instruction, String.Empty)
+        Connection = New Connection(ConnectionString)
 
     End Sub
     Public Sub Execute(Optional RunInBackground As Boolean = True)
@@ -2030,7 +2031,7 @@ End Class
                         End If
 #End Region
                     Case Regex.Match(Extension, "xl[a-z]{1,2}", RegexOptions.IgnoreCase).Success
-#Region " /// EXCELFILE "
+#Region " /// EXCELFILE * NEED CODE TO READ AN EXCEL FILE WITHOUT A READER "
                         Try
                             Dim ExcelConnectionACE As String = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" & ConnectionString & ";Extended Properties=""Excel 12.0;HDR=Yes;IMEX=1;"""
                             Dim ExcelConnectionJet As String = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=" & ConnectionString & ";Extended Properties=""Excel 8.0;HDR=Yes;"""
@@ -2123,6 +2124,9 @@ End Class
         _Busy = False
         If Not e.Succeeded Then rf = New ResponseFailure(e)
     End Sub
+    Public Overrides Function ToString() As String
+        Return If(Name Is Nothing, String.Empty, Name & BlackOut) & Join({If(Connection Is Nothing, "DSN=?", Connection.DataSource), If(Response Is Nothing, "Not executed", "Succeeded=" & Response.Succeeded)}, BlackOut)
+    End Function
 End Class
 Public Class DDL
     Implements IDisposable
@@ -2859,9 +2863,9 @@ Public Class ETL
 
             _Started = Now
             If IsFile(ConnectionString) Then
-                If GetFileNameExtension(ConnectionString).Value = Extensions.Text Then
+                If GetFileNameExtension(ConnectionString).Value = ExtensionNames.Text Then
                     DataTableToTextFile(Table, ConnectionString)
-                ElseIf GetFileNameExtension(ConnectionString).Value = Extensions.Excel Then
+                ElseIf GetFileNameExtension(ConnectionString).Value = ExtensionNames.Excel Then
                     DataTableToExcel(Table, ConnectionString, False, False, False, True, True)
                 Else
                 End If
@@ -3826,13 +3830,14 @@ Public Module iData
                 Dim Sheet As Excel.Worksheet = DirectCast(Book.Sheets.Add, Excel.Worksheet)
                 Dim col, row As Integer
 
-                ' Copy the DataTable to an object array
+                ' Copy the DataTable to an object array - multi-dimensional array ( defined column and row count )
                 Dim rawData(Table.Rows.Count, Table.Columns.Count - 1) As Object
 
                 If IncludeHeaders Then
                     ' Copy the column names to the first row of the object array
                     For col = 0 To Table.Columns.Count - 1
-                        rawData(0, col) = Table.Columns(col).ColumnName.ToUpperInvariant
+                        Dim headerName As String = Table.Columns(col).ColumnName.ToUpperInvariant
+                        rawData(0, col) = headerName
                     Next
                 End If
 

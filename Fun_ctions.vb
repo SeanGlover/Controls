@@ -222,11 +222,11 @@ Public Module Functions
     Public Function ExtensionToImage(path As String) As Image
 
         Dim kvp = GetFileNameExtension(path).Value
-        Return If(kvp = Extensions.PortableDocumentFormat, My.Resources.adobe,
-                        If(kvp = Extensions.Excel, My.Resources.Excel,
-                        If(kvp = Extensions.CommaSeparated, My.Resources.csv,
-                        If(kvp = Extensions.SQL, My.Resources.DDL,
-                        If(kvp = Extensions.Text, My.Resources.txt, My.Resources.Folder)))))
+        Return If(kvp = ExtensionNames.PortableDocumentFormat, My.Resources.adobe,
+                        If(kvp = ExtensionNames.Excel, My.Resources.Excel,
+                        If(kvp = ExtensionNames.CommaSeparated, My.Resources.csv,
+                        If(kvp = ExtensionNames.SQL, My.Resources.DDL,
+                        If(kvp = ExtensionNames.Text, My.Resources.txt, My.Resources.Folder)))))
 
     End Function
 #Region " RANDOM NUMBERS "
@@ -1197,7 +1197,7 @@ Public Module Functions
             'Could be Fullpath, but no extension as C:\Users\SEANGlover\Desktop\PSRR\DDL_SQL\ABC
             Dim kvp = GetFileNameExtension(FilePathOrName)
             If IsFile(FilePathOrName) Then
-                If kvp.Value = Extensions.None Then
+                If kvp.Value = ExtensionNames.None Then
                     FilePathOrName &= ".txt"
                 Else
                     'Is a filepath and has extension ( valid or not ) however does not exist at location
@@ -1207,7 +1207,7 @@ Public Module Functions
             Else
                 'Not a file format so could be Name only as ABC Or Name + Extension as ABC.txt...Assume to Desktop
                 FilePathOrName = Desktop & "\" & FilePathOrName
-                If kvp.Value = Extensions.None Then FilePathOrName &= ".txt"
+                If kvp.Value = ExtensionNames.None Then FilePathOrName &= ".txt"
 
             End If
             'Try again after cleanup
@@ -1234,7 +1234,7 @@ Public Module Functions
     Public Function IsURL(address As String) As Boolean
         Return Regex.Match(address, My.Settings.patternURL, RegexOptions.IgnoreCase).Success
     End Function
-    <Flags()> Public Enum Extensions
+    <Flags()> Public Enum ExtensionNames
         None
         Invalid
         Excel
@@ -1278,7 +1278,7 @@ Public Module Functions
         Return (From Folder In SafeWalk.EnumerateFiles(Path, "*" & Extension, Level)).ToList
 
     End Function
-    Public Function GetFileNameExtension(Path As String) As KeyValuePair(Of String, Extensions)
+    Public Function GetFileNameExtension(Path As String) As KeyValuePair(Of String, ExtensionNames)
 
         Dim NameAndFilter As String = Split(Path, "\").Last
         Dim FileNameExtension As String() = Split(NameAndFilter, ".")
@@ -1286,34 +1286,34 @@ Public Module Functions
 
         If FileNameExtension.Count = 1 Then
             'Missing extension
-            Return New KeyValuePair(Of String, Extensions)(FileName, Extensions.None)
+            Return New KeyValuePair(Of String, ExtensionNames)(FileName, ExtensionNames.None)
 
         ElseIf FileNameExtension.Count = 2 Then
             Dim FileFilter As String = FileNameExtension.Last.ToUpperInvariant
             Select Case True
                 Case FileFilter.StartsWith("XL", StringComparison.InvariantCulture)
-                    Return New KeyValuePair(Of String, Extensions)(FileName, Extensions.Excel)
+                    Return New KeyValuePair(Of String, ExtensionNames)(FileName, ExtensionNames.Excel)
 
                 Case FileFilter = "TXT"
-                    Return New KeyValuePair(Of String, Extensions)(FileName, Extensions.Text)
+                    Return New KeyValuePair(Of String, ExtensionNames)(FileName, ExtensionNames.Text)
 
                 Case FileFilter = "CSV"
-                    Return New KeyValuePair(Of String, Extensions)(FileName, Extensions.CommaSeparated)
+                    Return New KeyValuePair(Of String, ExtensionNames)(FileName, ExtensionNames.CommaSeparated)
 
                 Case FileFilter = "SQL"
-                    Return New KeyValuePair(Of String, Extensions)(FileName, Extensions.SQL)
+                    Return New KeyValuePair(Of String, ExtensionNames)(FileName, ExtensionNames.SQL)
 
                 Case FileFilter = "PDF"
-                    Return New KeyValuePair(Of String, Extensions)(FileName, Extensions.PortableDocumentFormat)
+                    Return New KeyValuePair(Of String, ExtensionNames)(FileName, ExtensionNames.PortableDocumentFormat)
 
                 Case Else
-                    Return New KeyValuePair(Of String, Extensions)(FileName, Extensions.Unknown)
+                    Return New KeyValuePair(Of String, ExtensionNames)(FileName, ExtensionNames.Unknown)
 
             End Select
 
         Else
             'Can never have 2 or more . in a filepath
-            Return New KeyValuePair(Of String, Extensions)(FileName, Extensions.Invalid)
+            Return New KeyValuePair(Of String, ExtensionNames)(FileName, ExtensionNames.Invalid)
         End If
 
     End Function
@@ -1645,10 +1645,12 @@ Public Module Functions
         If Types Is Nothing Then
             Return Nothing
         Else
+            If test Then
+                'If test Then Stop
+                'If Types.Contains("D081") Then Stop
+            End If
             Dim typeList = From t In Types Select GetDataType(t)
             Dim aggregateType As Type = GetDataType(typeList.ToList)
-            'If test Then Stop
-            'If Types.Contains("D081") Then Stop
             Return aggregateType
         End If
 
@@ -2284,25 +2286,27 @@ Friend Module html
 
     End Sub
 End Module
-Friend Class PropertyConverter
+Public NotInheritable Class PropertyConverter
     Inherits TypeConverter
+    Public Sub New()
+    End Sub
     Public Overloads Overrides Function CanConvertFrom(ByVal context As ITypeDescriptorContext, ByVal sourceType As Type) As Boolean
-        If (sourceType.Equals(GetType(String))) Then
+        If sourceType?.Equals(GetType(String)) Then
             Return True
         Else
             Return MyBase.CanConvertFrom(context, sourceType)
         End If
     End Function
     Public Overloads Overrides Function CanConvertTo(ByVal context As ITypeDescriptorContext, ByVal destinationType As Type) As Boolean
-        If (destinationType.Equals(GetType(String))) Then
+        If destinationType?.Equals(GetType(String)) Then
             Return True
         Else
             Return MyBase.CanConvertTo(context, destinationType)
         End If
     End Function
     Public Overloads Overrides Function ConvertTo(ByVal context As ITypeDescriptorContext, ByVal culture As Globalization.CultureInfo, ByVal value As Object, ByVal destinationType As Type) As Object
-        If (destinationType.Equals(GetType(String))) Then
-            Return value.ToString()
+        If destinationType?.Equals(GetType(String)) Then
+            Return value?.ToString()
         Else
             Return MyBase.ConvertTo(context, culture, value, destinationType)
         End If
@@ -2948,80 +2952,7 @@ Public NotInheritable Class NativeMethods
 End Class
 #End Region
 
-Class Module1
-    Public Shared Sub Main()
-        ' This variable holds the amount of indenting that 
-        ' should be used when displaying each line of information.
-        Dim indent As Integer = 0
-        ' Display information about the EXE assembly.
-        Dim a As Assembly = GetType(Module1).Assembly
-        Display(indent, "Assembly identity={0}", a.FullName)
-        Display((indent + 1), "Codebase={0}", a.CodeBase)
-        ' Display the set of assemblies our assemblies reference.
-        Display(indent, "Referenced assemblies:")
-        For Each an As AssemblyName In a.GetReferencedAssemblies
-            Display((indent + 1), "Name={0}, Version={1}, Culture={2}, PublicKey token={3}", an.Name, an.Version, an.CultureInfo.Name, BitConverter.ToString(an.GetPublicKeyToken))
-        Next
-        Display(indent, "")
-        ' Display information about each assembly loading into this AppDomain.
-        For Each b As Assembly In AppDomain.CurrentDomain.GetAssemblies
-            Display(indent, "Assembly: {0}", b)
-            ' Display information about each module of this assembly.
-            For Each m As [Module] In b.GetModules(True)
-                Display((indent + 1), "Module: {0}", m.Name)
-            Next
-            ' Display information about each type exported from this assembly.
-            indent = (indent + 1)
-            For Each t As Type In b.GetExportedTypes
-                Display(0, "")
-                Display(indent, "Type: {0}", t)
-                ' For each type, show its members & their custom attributes.
-                indent = (indent + 1)
-                For Each mi As MemberInfo In t.GetMembers
-                    Display(indent, "Member: {0}", mi.Name)
-                    DisplayAttributes(indent, mi)
-                    ' If the member is a method, display information about its parameters.
-                    If (mi.MemberType = MemberTypes.Method) Then
-                        For Each pi As ParameterInfo In CType(mi, MethodInfo).GetParameters
-                            Display((indent + 1), "Parameter: Type={0}, Name={1}", pi.ParameterType, pi.Name)
-                        Next
-                    End If
-
-                    ' If the member is a property, display information about the property's accessor methods.
-                    If (mi.MemberType = MemberTypes.Property) Then
-                        For Each am As MethodInfo In CType(mi, PropertyInfo).GetAccessors
-                            Display((indent + 1), "Accessor method: {0}", am)
-                        Next
-                    End If
-
-                Next
-                indent = (indent - 1)
-            Next
-            indent = (indent - 1)
-        Next
-    End Sub
-    ' Displays the custom attributes applied to the specified member.
-    Public Shared Sub DisplayAttributes(ByVal indent As Integer, ByVal mi As MemberInfo)
-        ' Get the set of custom attributes; if none exist, just return.
-        Dim attrs() As Object = mi.GetCustomAttributes(False)
-        If (attrs.Length = 0) Then
-            Return
-        End If
-
-        ' Display the custom attributes applied to this member.
-        Display((indent + 1), "Attributes:")
-        For Each o As Object In attrs
-            Display((indent + 2), "{0}", o.ToString)
-        Next
-    End Sub
-    ' Display a formatted string indented by the specified amount.
-    Public Shared Sub Display(ByVal indent As Integer, ByVal format As String, ParamArray ByVal param() As Object)
-        Console.Write(New String(ChrW(32), (indent * 2)))
-        Console.WriteLine(format, param)
-    End Sub
-End Class
-
-Class CustomToolTip
+Public NotInheritable Class CustomToolTip
     Inherits ToolTip
     Public Sub New()
         MyBase.New

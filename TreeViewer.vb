@@ -21,10 +21,18 @@ Public Class HitRegion
         Return Region.GetHashCode Xor Node.GetHashCode
     End Function
     Public Overloads Function Equals(ByVal other As HitRegion) As Boolean Implements IEquatable(Of HitRegion).Equals
-        Return Region = other.Region AndAlso Node Is other.Node
+        If other Is Nothing Then
+            Return Me Is Nothing
+        Else
+            Return Region = other.Region AndAlso Node Is other.Node
+        End If
     End Function
     Public Shared Operator =(ByVal value1 As HitRegion, ByVal value2 As HitRegion) As Boolean
-        Return value1.Equals(value2)
+        If value1 Is Nothing Then
+            Return value2 Is Nothing
+        Else
+            Return value1.Equals(value2)
+        End If
     End Operator
     Public Shared Operator <>(ByVal value1 As HitRegion, ByVal value2 As HitRegion) As Boolean
         Return Not value1 = value2
@@ -654,6 +662,7 @@ Public Class TreeViewer
 #End Region
 #Region " PROPERTIES "
     Public ReadOnly Property OptionsOpen As Boolean
+    Public Property FavoritesFirst As Boolean = True
     Private _ExpanderStyle As ExpandStyle = ExpandStyle.PlusMinus
     Public Property ExpanderStyle As ExpandStyle
         Get
@@ -1033,7 +1042,7 @@ Public Class TreeViewer
             e.Effect = DragDropEffects.All
             Dim Location As Point = PointToClient(New Point(e.X, e.Y))
             Dim HitRegion As HitRegion = HitTest(Location)
-            Dim HitNode As Node = HitRegion.Node
+            Dim HitNode As Node = HitRegion?.Node
             If Not HitNode Is DragData.DropHighlightNode Then
                 DragData.DropHighlightNode = HitNode
                 Invalidate()
@@ -1228,6 +1237,7 @@ Public Class TreeViewer
                 End If
                 NodeIndex += 1
             End With
+            If FavoritesFirst Then Node.Nodes.SortAscending(False) 'Do not let the Sort require repaint as it cycles back here to an infinate loop
         Next
 
     End Sub
@@ -1296,6 +1306,7 @@ Public Class TreeViewer
         If Y_Change = 0 Then Exit Sub
         For Each Node As Node In Nodes.Visible
             Node._ExpandCollapseBounds.Y += Y_Change
+            Node._FavoriteBounds.Y += Y_Change
             Node._CheckBounds.Y += Y_Change
             Node._ImageBounds.Y += Y_Change
             Node._Bounds.Y += Y_Change
@@ -1666,48 +1677,166 @@ Public NotInheritable Class NodeCollection
         Dim Nodes As New List(Of Node)((From N In All Where N.Tag Is TagObject).ToArray)
         Return If(Nodes.Any, Nodes.First, Nothing)
     End Function
-    Private Sub SortAscending()
+    Friend Sub SortAscending(Optional repaint As Boolean = True)
 
-        Select Case CollectionDataType
-            Case GetType(String)
-                Sort(Function(x, y) String.Compare(x.Text, y.Text, StringComparison.Ordinal))
+        If TreeViewer?.FavoritesFirst Then
+            Select Case CollectionDataType
+                Case GetType(String)
+                    Sort(Function(x, y)
+                             Dim Level1 = y.Favorite.CompareTo(x.Favorite) 'False=0, True=1 
+                             If Level1 <> 0 Then
+                                 Return Level1
+                             Else
+                                 Dim Level2 = String.Compare(x.Text, y.Text, StringComparison.InvariantCulture)
+                                 Return Level2
+                             End If
+                         End Function)
 
-            Case GetType(Boolean)
-                Sort(Function(x, y) Convert.ToBoolean(x.Text, InvariantCulture).CompareTo(Convert.ToBoolean(y.Text, InvariantCulture)))
+                Case GetType(Boolean)
+                    Sort(Function(x, y)
+                             Dim Level1 = y.Favorite.CompareTo(x.Favorite)
+                             If Level1 <> 0 Then
+                                 Return Level1
+                             Else
+                                 Dim Level2 = Convert.ToBoolean(x.Text, InvariantCulture).CompareTo(Convert.ToBoolean(y.Text, InvariantCulture))
+                                 Return Level2
+                             End If
+                         End Function)
 
-            Case GetType(Decimal), GetType(Double)
-                Sort(Function(x, y) Convert.ToDecimal(x.Text, InvariantCulture).CompareTo(Convert.ToDecimal(y.Text, InvariantCulture)))
+                Case GetType(Decimal), GetType(Double)
+                    Sort(Function(x, y)
+                             Dim Level1 = y.Favorite.CompareTo(x.Favorite)
+                             If Level1 <> 0 Then
+                                 Return Level1
+                             Else
+                                 Dim Level2 = Convert.ToDecimal(x.Text, InvariantCulture).CompareTo(Convert.ToDecimal(y.Text, InvariantCulture))
+                                 Return Level2
+                             End If
+                         End Function)
 
-            Case GetType(Date)
-                Sort(Function(x, y) Convert.ToDateTime(x.Text, InvariantCulture).CompareTo(Convert.ToDateTime(y.Text, InvariantCulture)))
+                Case GetType(Date)
+                    Sort(Function(x, y)
+                             Dim Level1 = y.Favorite.CompareTo(x.Favorite)
+                             If Level1 <> 0 Then
+                                 Return Level1
+                             Else
+                                 Dim Level2 = Convert.ToDateTime(x.Text, InvariantCulture).CompareTo(Convert.ToDateTime(y.Text, InvariantCulture))
+                                 Return Level2
+                             End If
+                         End Function)
 
-            Case GetType(Long), GetType(Integer), GetType(Short), GetType(Short), GetType(Byte)
-                Sort(Function(x, y) Convert.ToInt32(x.Text, InvariantCulture).CompareTo(Convert.ToInt32(y.Text, InvariantCulture)))
+                Case GetType(Long), GetType(Integer), GetType(Short), GetType(Byte)
+                    Sort(Function(x, y)
+                             Dim Level1 = y.Favorite.CompareTo(x.Favorite)
+                             If Level1 <> 0 Then
+                                 Return Level1
+                             Else
+                                 Dim Level2 = Convert.ToInt64(x.Text, InvariantCulture).CompareTo(Convert.ToInt64(y.Text, InvariantCulture))
+                                 Return Level2
+                             End If
+                         End Function)
+            End Select
+        Else
+            Select Case CollectionDataType
+                Case GetType(String)
+                    Sort(Function(x, y) String.Compare(x.Text, y.Text, StringComparison.Ordinal))
 
-        End Select
-        If Not IsNothing(TreeViewer) Then TreeViewer.RequiresRepaint()
+                Case GetType(Boolean)
+                    Sort(Function(x, y) Convert.ToBoolean(x.Text, InvariantCulture).CompareTo(Convert.ToBoolean(y.Text, InvariantCulture)))
+
+                Case GetType(Decimal), GetType(Double)
+                    Sort(Function(x, y) Convert.ToDecimal(x.Text, InvariantCulture).CompareTo(Convert.ToDecimal(y.Text, InvariantCulture)))
+
+                Case GetType(Date)
+                    Sort(Function(x, y) Convert.ToDateTime(x.Text, InvariantCulture).CompareTo(Convert.ToDateTime(y.Text, InvariantCulture)))
+
+                Case GetType(Long), GetType(Integer), GetType(Short), GetType(Byte)
+                    Sort(Function(x, y) Convert.ToInt64(x.Text, InvariantCulture).CompareTo(Convert.ToInt64(y.Text, InvariantCulture)))
+
+            End Select
+        End If
+        If repaint Then TreeViewer?.RequiresRepaint()
 
     End Sub
-    Private Sub SortDescending()
+    Friend Sub SortDescending(Optional repaint As Boolean = True)
 
-        Select Case CollectionDataType
-            Case GetType(String)
-                Sort(Function(y, x) String.Compare(x.Text, y.Text, StringComparison.Ordinal))
+        If TreeViewer?.FavoritesFirst Then
+            Select Case CollectionDataType
+                Case GetType(String)
+                    Sort(Function(y, x)
+                             Dim Level1 = x.Favorite.CompareTo(y.Favorite)
+                             If Level1 <> 0 Then
+                                 Return Level1
+                             Else
+                                 Dim Level2 = String.Compare(x.Text, y.Text, StringComparison.InvariantCulture)
+                                 Return Level2
+                             End If
+                         End Function)
 
-            Case GetType(Boolean)
-                Sort(Function(y, x) Convert.ToBoolean(x.Text, InvariantCulture).CompareTo(Convert.ToBoolean(y.Text, InvariantCulture)))
+                Case GetType(Boolean)
+                    Sort(Function(y, x)
+                             Dim Level1 = x.Favorite.CompareTo(y.Favorite)
+                             If Level1 <> 0 Then
+                                 Return Level1
+                             Else
+                                 Dim Level2 = Convert.ToBoolean(x.Text, InvariantCulture).CompareTo(Convert.ToBoolean(y.Text, InvariantCulture))
+                                 Return Level2
+                             End If
+                         End Function)
 
-            Case GetType(Decimal), GetType(Double)
-                Sort(Function(y, x) Convert.ToDecimal(x.Text, InvariantCulture).CompareTo(Convert.ToDecimal(y.Text, InvariantCulture)))
+                Case GetType(Decimal), GetType(Double)
+                    Sort(Function(y, x)
+                             Dim Level1 = x.Favorite.CompareTo(y.Favorite)
+                             If Level1 <> 0 Then
+                                 Return Level1
+                             Else
+                                 Dim Level2 = Convert.ToDecimal(x.Text, InvariantCulture).CompareTo(Convert.ToDecimal(y.Text, InvariantCulture))
+                                 Return Level2
+                             End If
+                         End Function)
 
-            Case GetType(Date)
-                Sort(Function(y, x) Convert.ToDateTime(x.Text, InvariantCulture).CompareTo(Convert.ToDateTime(y.Text, InvariantCulture)))
+                Case GetType(Date)
+                    Sort(Function(y, x)
+                             Dim Level1 = x.Favorite.CompareTo(y.Favorite)
+                             If Level1 <> 0 Then
+                                 Return Level1
+                             Else
+                                 Dim Level2 = Convert.ToDateTime(x.Text, InvariantCulture).CompareTo(Convert.ToDateTime(y.Text, InvariantCulture))
+                                 Return Level2
+                             End If
+                         End Function)
 
-            Case GetType(Long), GetType(Integer), GetType(Short), GetType(Short), GetType(Byte)
-                Sort(Function(y, x) Convert.ToInt32(x.Text, InvariantCulture).CompareTo(Convert.ToInt32(y.Text, InvariantCulture)))
+                Case GetType(Long), GetType(Integer), GetType(Short), GetType(Byte)
+                    Sort(Function(y, x)
+                             Dim Level1 = x.Favorite.CompareTo(y.Favorite)
+                             If Level1 <> 0 Then
+                                 Return Level1
+                             Else
+                                 Dim Level2 = Convert.ToInt64(x.Text, InvariantCulture).CompareTo(Convert.ToInt64(y.Text, InvariantCulture))
+                                 Return Level2
+                             End If
+                         End Function)
+            End Select
+        Else
+            Select Case CollectionDataType
+                Case GetType(String)
+                    Sort(Function(y, x) String.Compare(x.Text, y.Text, StringComparison.Ordinal))
 
-        End Select
-        If Not IsNothing(TreeViewer) Then TreeViewer.RequiresRepaint()
+                Case GetType(Boolean)
+                    Sort(Function(y, x) Convert.ToBoolean(x.Text, InvariantCulture).CompareTo(Convert.ToBoolean(y.Text, InvariantCulture)))
+
+                Case GetType(Decimal), GetType(Double)
+                    Sort(Function(y, x) Convert.ToDecimal(x.Text, InvariantCulture).CompareTo(Convert.ToDecimal(y.Text, InvariantCulture)))
+
+                Case GetType(Date)
+                    Sort(Function(y, x) Convert.ToDateTime(x.Text, InvariantCulture).CompareTo(Convert.ToDateTime(y.Text, InvariantCulture)))
+
+                Case GetType(Long), GetType(Integer), GetType(Short), GetType(Byte)
+                    Sort(Function(y, x) Convert.ToInt64(x.Text, InvariantCulture).CompareTo(Convert.ToInt64(y.Text, InvariantCulture)))
+
+            End Select
+        End If
+        If repaint Then TreeViewer?.RequiresRepaint()
 
     End Sub
 #End Region
@@ -2123,6 +2252,7 @@ Public Class Node
         Set(value As Boolean)
             If value <> Favorite_ Then
                 Favorite_ = value
+                If TreeViewer?.FavoritesFirst Then Parent?.Nodes.SortAscending()
                 RequiresRepaint()
             End If
         End Set

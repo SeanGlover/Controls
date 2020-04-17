@@ -263,7 +263,7 @@ End Class
         OpenSaved
     End Enum
     Public Enum SaveAction
-        ChangeName
+        ChangeFavorite
         ChangeContent
         UpdateExecutionTime
     End Enum
@@ -285,7 +285,8 @@ End Class
 
         _Path = If(ScriptPath, String.Empty)
         _State = ViewState.ClosedSaved
-        _Name = GetFileNameExtension(ScriptPath).Key
+        Dim fileName As String = GetFileNameExtension(ScriptPath).Key
+        _Name = Replace(fileName, "♥", String.Empty)
         _Created = File.GetCreationTime(ScriptPath)
         Dim dsnBody As String()
         Using SR As New StreamReader(Path)
@@ -295,7 +296,7 @@ End Class
         Dim dsn = DSN_Body.Key
         _Connection = DataTool.Connections.Item(dsn)
         _Type = If(_Path.EndsWith(".ddl", StringComparison.InvariantCulture), ExecutionType.DDL, If(_Path.EndsWith(".sql", StringComparison.InvariantCulture), ExecutionType.SQL, ExecutionType.Null))
-        _Favorite = Name.StartsWith("♥", StringComparison.CurrentCulture)
+        Favorite_ = fileName.StartsWith("♥", StringComparison.CurrentCulture)
         _Text = DSN_Body.Value
 
     End Sub
@@ -444,7 +445,18 @@ End Class
             End If
         End Get
     End Property
+    Private Favorite_ As Boolean
     Friend Property Favorite As Boolean
+        Get
+            Return Favorite_
+        End Get
+        Set(value As Boolean)
+            If value <> Favorite_ Then
+                Favorite_ = value
+                Save(SaveAction.ChangeFavorite)
+            End If
+        End Set
+    End Property
     Private _State As New ViewState
     Friend Property State As ViewState
         Get
@@ -566,6 +578,38 @@ End Class
                 Case SaveAction.UpdateExecutionTime
                     File.SetLastAccessTime(Path, ActionTime)
 
+                Case SaveAction.ChangeFavorite
+                    Dim formerPath As String = Path
+                    Dim newPath As String = Replace(Path, "♥", String.Empty)
+                    If Favorite Then
+                        Dim pathElements As New List(Of String)(Regex.Split(newPath, "[\\\/]", RegexOptions.None))
+                        Dim fileName As String = pathElements.Last
+                        pathElements.Remove(fileName)
+                        pathElements.Add("♥" & fileName)
+                        newPath = Join(pathElements.ToArray, "\")
+                    End If
+                    Try
+                        Using SW As New StreamWriter(newPath)
+                            SW.Write(Join({ConnectionText, ScriptText}, BodyDelimiter))
+                        End Using
+                        _Path = newPath
+                    Catch ex As IOException
+                        Using message As New Prompt
+                            message.Show("Failed to save file", ex.Message, Prompt.IconOption.Critical, Prompt.StyleOption.Grey)
+                        End Using
+                    End Try
+                    Try
+                        File.SetLastWriteTime(newPath, Modified) 'Keep original
+                        File.SetLastAccessTime(newPath, Ran) 'Keep original
+                    Catch ex As IOException
+                    End Try
+                    Try
+                        File.Delete(formerPath)
+                    Catch ex As IOException
+                        Using message As New Prompt
+                            message.Show("Failed to delete file", ex.Message, Prompt.IconOption.Critical, Prompt.StyleOption.Grey)
+                        End Using
+                    End Try
             End Select
             _DSN_Body = New KeyValuePair(Of String, String)("DSN=" & ConnectionText, ScriptText)
             Return True
@@ -793,12 +837,11 @@ Public Class BodyElements
             If TablesElement.Any Then
                 'TablesElement is the Body.Text- what the user writes vs TablesObject which is saved SystemObjects (Table)
                 'If an item in the Body is not in the saved SystemObjects, then add so an SystemObject can be retrieved from the Database
-                Dim BodyTables As New List(Of String)(TablesElement.Select(Function(te) te.FullName))
+                Dim BodyTables As New List(Of String)(TablesElement.Select(Function(te) te.Name))
                 Dim HaveObjects As New List(Of String)
+                Dim eo = ElementObjects
                 For Each Item In TablesObject
-                    If BodyTables.Contains(Item.FullName) Then
-                        HaveObjects.Add(Item.FullName)
-                    End If
+                    If BodyTables.Contains(Item.Name) Or BodyTables.Contains(Item.FullName) Then HaveObjects.Add(Item.Name)
                 Next
                 Return BodyTables.Except(HaveObjects).ToList
             Else
@@ -1547,6 +1590,10 @@ Public Class DataTool
     Inherits Control
 #Region " DECLARATIONS "
 #Region " organised "
+    Private ReadOnly DataDirectory As DirectoryInfo = Directory.CreateDirectory(MyDocuments & "\DataManager")
+    Private ReadOnly Path_Columns As String = DataDirectory.FullName & "\Columns.txt"
+    Private ReadOnly GothicFont As New Font("Century Gothic", 9, FontStyle.Regular)
+    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
     Private WithEvents FunctionsStripBar As New ToolStrip With {
         .Dock = DockStyle.Fill,
         .Margin = New Padding(0),
@@ -1557,7 +1604,8 @@ Public Class DataTool
         .AutoSize = True,
         .Margin = New Padding(0),
         .MouseOverExpandsNode = False,
-        .Font = GothicFont}
+        .Font = GothicFont,
+        .FavoritesFirst = True}
     Private WithEvents SaveAs As New ImageCombo With {.Margin = New Padding(0),
         .Image = My.Resources.Save,
         .Size = New Size(24, 24),
@@ -1607,54 +1655,60 @@ Public Class DataTool
         .Dock = DockStyle.Fill,
         .Font = GothicFont
     }
-    Private ReadOnly SettingsTreeB_font As New Node With {
-        .CanAdd = False,
-        .CanDragDrop = False,
-        .CanEdit = False,
-        .CanRemove = False,
-        .Text = "Font",
+    Private ReadOnly SettingsTrees_dictionary As Dictionary(Of Node, NodeCollection)
+    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+    Private WithEvents TLP_Objects As New TableLayoutPanel With {
+        .Dock = DockStyle.Fill,
+        .ColumnCount = 1,
+        .RowCount = 3,
+        .CellBorderStyle = TableLayoutPanelCellBorderStyle.Inset,
+        .Margin = New Padding(0),
         .Font = GothicFont
     }
-    Private ReadOnly SettingsTreeB_forecolor As New Node With {
-        .CanAdd = False,
-        .CanDragDrop = False,
-        .CanEdit = False,
-        .CanRemove = False,
-        .Text = "Forecolor",
-        .Font = GothicFont
+    Friend WithEvents Script_Tabs As New Tabs With {
+        .Dock = DockStyle.Fill,
+        .UserCanAdd = True,
+        .UserCanReorder = True,
+        .MouseOverSelection = True,
+        .AddNewTabColor = Color.Black,
+        .Font = GothicFont,
+        .Alignment = TabAlignment.Top,
+        .Multiline = True,
+        .Margin = New Padding(0),
+        .SelectedTabColor = Color.Black
     }
-    Private ReadOnly SettingsTreeB_backcolor As New Node With {
-        .CanAdd = False,
-        .CanDragDrop = False,
-        .CanEdit = False,
-        .CanRemove = False,
-        .Text = "Backcolor",
-        .Font = GothicFont
+    Private WithEvents Script_Grid As New DataViewer With {.Dock = DockStyle.Fill,
+        .Font = GothicFont,
+        .AllowDrop = True,
+        .Margin = New Padding(0)
     }
-    Private ReadOnly SettingsTreeB_nodeDDLprompt As New Node With {
-        .CanAdd = False,
-        .CanDragDrop = False,
-        .CanEdit = False,
-        .CanRemove = False,
-        .Text = "Prompt to continue",
-        .CheckBox = True,
-        .Checked = My.Settings.ddlPrompt,
-        .Font = GothicFont
-    }
-    Private ReadOnly SettingsTreeB_nodeDDLrowCount As New Node With {
-        .CanAdd = False,
-        .CanDragDrop = False,
-        .CanEdit = False,
-        .CanRemove = False,
-        .Text = "Retrieve row count",
-        .CheckBox = True,
-        .Checked = My.Settings.ddlRowCount,
-        .Font = GothicFont
-    }
-    Private ReadOnly SettingsTrees_dictionary As New Dictionary(Of Node, NodeCollection) From {
-            {SettingsTreeA_fontsColors, New NodeCollection(SettingsTreeB) From {SettingsTreeB_font, SettingsTreeB_forecolor, SettingsTreeB_backcolor}},
-            {SettingsTreeA_nodeDDL, New NodeCollection(SettingsTreeB) From {SettingsTreeB_nodeDDLprompt, SettingsTreeB_nodeDDLrowCount}}
-        }
+#Region " EXPORT DATA "
+    Private ReadOnly Grid_FileExport As New ToolStripMenuItem With {.Text = "File",
+        .Image = My.Resources.Folder,
+        .Font = GothicFont}
+    Private ReadOnly Grid_csvExport As New ToolStripMenuItem With {.Text = ".csv",
+        .Image = My.Resources.csv,
+        .Font = GothicFont}
+    Private ReadOnly Grid_txtExport As New ToolStripMenuItem With {.Text = ".txt",
+        .Image = My.Resources.txt,
+        .Font = GothicFont}
+    Private ReadOnly Grid_ExcelExport As New ToolStripMenuItem With {.Text = "Excel",
+        .Image = My.Resources.Excel,
+        .Font = GothicFont}
+    Private ReadOnly Grid_ExcelQueryExport As New ToolStripMenuItem With {.Text = "+ Query",
+        .Image = My.Resources.ExcelQuery,
+        .Font = GothicFont}
+    Private WithEvents Grid_DatabaseExport As New ToolStripMenuItem With {.Text = "Database",
+        .Image = My.Resources.Database.ToBitmap,
+        .Font = GothicFont}
+#End Region
+    Private WithEvents CMS_PaneOptions As New ContextMenuStrip With {.AutoClose = False,
+        .Padding = New Padding(0),
+        .ImageScalingSize = New Size(15, 15),
+        .DropShadowEnabled = True,
+        .Renderer = New CustomRenderer,
+        .BackColor = Color.Gainsboro,
+        .Font = GothicFont}
     '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
     Friend Shared ReadOnly Connections As New ConnectionCollection
     Private ReadOnly SystemObjects As New SystemObjectCollection
@@ -1672,33 +1726,7 @@ Public Class DataTool
         .Font = GothicFont}
 #End Region
 #Region " organise "
-    Private WithEvents Karen As New Hooker
-
-    Private ReadOnly DataDirectory As DirectoryInfo = Directory.CreateDirectory(MyDocuments & "\DataManager")
-    Private ReadOnly Path_Columns As String = DataDirectory.FullName & "\Columns.txt"
-    Private ReadOnly GothicFont As New Font("Century Gothic", 9, FontStyle.Regular)
     Private ReadOnly Message As New Prompt With {.Font = GothicFont}
-
-    Private WithEvents TLP_Objects As New TableLayoutPanel With {.Dock = DockStyle.Fill,
-        .ColumnCount = 1,
-        .RowCount = 3,
-        .CellBorderStyle = TableLayoutPanelCellBorderStyle.Inset,
-        .Margin = New Padding(0),
-        .Font = GothicFont}
-    Friend WithEvents Script_Tabs As New Tabs With {.Dock = DockStyle.Fill,
-        .UserCanAdd = True,
-        .UserCanReorder = True,
-        .MouseOverSelection = True,
-        .AddNewTabColor = Color.Black,
-        .Font = GothicFont,
-        .Alignment = TabAlignment.Top,
-        .Multiline = True,
-        .Margin = New Padding(0),
-        .SelectedTabColor = Color.Black}
-    Private WithEvents Script_Grid As New DataViewer With {.Dock = DockStyle.Fill,
-        .Font = GothicFont,
-        .AllowDrop = True,
-        .Margin = New Padding(0)}
     Private WithEvents Button_ObjectsSync As New Button With {.Dock = DockStyle.Fill,
         .Text = String.Empty,
         .TextImageRelation = TextImageRelation.Overlay,
@@ -1747,13 +1775,6 @@ Public Class DataTool
     Private WithEvents DragNode As Node
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Private WithEvents TT_PaneTip As New ToolTip With {.ToolTipIcon = ToolTipIcon.Info}
-    Private WithEvents CMS_PaneOptions As New ContextMenuStrip With {.AutoClose = False,
-        .Padding = New Padding(0),
-        .ImageScalingSize = New Size(15, 15),
-        .DropShadowEnabled = True,
-        .Renderer = New CustomRenderer,
-        .BackColor = Color.Gainsboro,
-        .Font = GothicFont}
     '-----------------------------------------
     Private WithEvents TSMI_Connections As New ToolStripMenuItem With {.Text = "Connections",
         .Image = My.Resources.Database.ToBitmap,
@@ -1812,8 +1833,6 @@ Public Class DataTool
         .RowCount = 2,
         .CellBorderStyle = TableLayoutPanelCellBorderStyle.Inset,
         .Font = GothicFont}
-    Private ReadOnly TSCH_TypeHost As New ToolStripControlHost(TLP_Type) With {.ImageScaling = ToolStripItemImageScaling.None}
-    Private ReadOnly A2 As Integer = TSMI_ObjectType.DropDownItems.Add(TSCH_TypeHost)
     Private WithEvents FindAndReplace As New FindReplace With {.Font = GothicFont}
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Private ReadOnly ObjectsSet As New DataSet With {.DataSetName = "Objects"}
@@ -1826,27 +1845,6 @@ Public Class DataTool
     Private ReadOnly ObjectsDictionary As New Dictionary(Of String, Dictionary(Of String, Dictionary(Of SystemObject.ObjectType, List(Of SystemObject))))
     Private ReadOnly ConnectionsDictionary As New Dictionary(Of String, Boolean)
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-#Region " EXPORT DATA "
-    Private WithEvents CMS_GridOptions As ContextMenuStrip
-    Private ReadOnly Grid_FileExport As New ToolStripMenuItem With {.Text = "File",
-        .Image = My.Resources.Folder,
-        .Font = GothicFont}
-    Private ReadOnly Grid_csvExport As New ToolStripMenuItem With {.Text = ".csv",
-        .Image = My.Resources.csv,
-        .Font = GothicFont}
-    Private ReadOnly Grid_txtExport As New ToolStripMenuItem With {.Text = ".txt",
-        .Image = My.Resources.txt,
-        .Font = GothicFont}
-    Private ReadOnly Grid_ExcelExport As New ToolStripMenuItem With {.Text = "Excel",
-        .Image = My.Resources.Excel,
-        .Font = GothicFont}
-    Private ReadOnly Grid_ExcelQueryExport As New ToolStripMenuItem With {.Text = "+ Query",
-        .Image = My.Resources.ExcelQuery,
-        .Font = GothicFont}
-    Private WithEvents Grid_DatabaseExport As New ToolStripMenuItem With {.Text = "Database",
-        .Image = My.Resources.Database.ToBitmap,
-        .Font = GothicFont}
-#End Region
     Private Pane_MouseLocation As Point
     Private Pane_MouseObject As InstructionElement
 #End Region
@@ -2074,7 +2072,21 @@ Public Class DataTool
         .CellBorderStyle = TableLayoutPanelCellBorderStyle.InsetDouble,
         .AutoSize = False
         }
-        SettingsTreeA.Nodes.AddRange({SettingsTreeA_fontsColors, SettingsTreeA_nodeDDL})
+        SettingsTreeA.Nodes.AddRange({
+                                     SettingsTreeA_fontsColors,
+                                     SettingsTreeA_nodeDDL
+                                     })
+        Dim mainSettings As New Dictionary(Of String, String) From {
+                {"Fonts and Colors", "Pane|ViewerHeader|ViewerGrid|Application" & BlackOut & "Backcolor|Forecolor"},
+                {"DDL", "DDL"}
+            }
+        For Each mainSetting In mainSettings
+            SettingsTrees_dictionary.Add(New Node With {.Text = mainSetting.Key}, New NodeCollection(SettingsTreeB))
+            For Each subSetting In Split(mainSetting.Key, "|")
+
+            Next
+        Next
+        Stop
         With tlpSettings
             .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 300})
             .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 700})
@@ -2144,6 +2156,11 @@ Public Class DataTool
             With .Rows.RowStyle
             End With
         End With
+
+        Dim TSCH_TypeHost As New ToolStripControlHost(TLP_Type) With {.ImageScaling = ToolStripItemImageScaling.None}
+        TSMI_ObjectType.DropDownItems.Add(TSCH_TypeHost)
+
+        Script_Grid.GridOptions.Items.AddRange({Grid_FileExport, Grid_DatabaseExport})
 
         For Each TextString In {"--", "=="}
             Dim _Image As New Bitmap(16, 16)
@@ -2436,7 +2453,6 @@ Public Class DataTool
         TT_Submit.Hide(buttonSubmit)
 
     End Sub
-
     Private Sub ResizeConnections(tlpConnection As TableLayoutPanel, tlpProperties As TableLayoutPanel)
 
         Dim connectionResize = DirectCast(tlpConnection.Tag, Connection)
@@ -2486,8 +2502,8 @@ Public Class DataTool
     Private Sub SettingB_nodeChecked(sender As Object, e As NodeEventArgs) Handles SettingsTreeB.NodeChecked
 
         With My.Settings
-            If sender Is SettingsTreeB_nodeDDLprompt Then .ddlPrompt = Not .ddlPrompt
-            If sender Is SettingsTreeB_nodeDDLrowCount Then .ddlRowCount = Not .ddlRowCount
+            'If sender Is SettingsTreeB_nodeDDLprompt Then .ddlPrompt = Not .ddlPrompt
+            'If sender Is SettingsTreeB_nodeDDLrowCount Then .ddlRowCount = Not .ddlRowCount
             .Save()
         End With
 
@@ -2545,6 +2561,12 @@ Public Class DataTool
             OpenFile.Tag = Nothing
             OpenFile.ShowDialog()
         End If
+    End Sub
+    Private Sub FileTree_NodeFavorited(sender As Object, e As NodeEventArgs) Handles FileTree.NodeFavorited
+
+        Dim favoriteScript As Script = DirectCast(e.Node.Tag, Script)
+        favoriteScript.Favorite = e.Node.Favorite
+
     End Sub
     '===============================================================================
     Private Sub SaveAs_MouseEnter(sender As Object, e As EventArgs) Handles SaveAs.MouseEnter
@@ -2909,13 +2931,13 @@ Public Class DataTool
 
         ElseIf e.State = CollectionChangeAction.Remove Then
             Dim removeScript As Script = e.Item
-            Dim RemoveNode As Node = FileTree.Nodes.ItemByTag(removeScript)
-            RemoveNode.RemoveMe()
             RemoveHandler removeScript.VisibleChanged, AddressOf Script_VisibleChanged
             RemoveHandler removeScript.NameChanged, AddressOf Script_NameChanged
             RemoveHandler removeScript.TypeChanged, AddressOf Script_TypeChanged
             RemoveHandler removeScript.ConnectionChanged, AddressOf Script_ConnectionChanged
             RemoveHandler removeScript.GenericEvent, AddressOf Script_GenericEvent
+            Dim RemoveNode As Node = FileTree.Nodes.ItemByTag(removeScript)
+            RemoveNode.RemoveMe()
 
         End If
 
@@ -3330,7 +3352,6 @@ Public Class DataTool
                             For Each SheetName In SystemObjects
                                 'SQL_Statement = Replace(SQL_Statement, SheetName.Name, "[" & SheetName.Name & "]")
                             Next
-
                         Else
                             Dim TablesNeed As String() = .Body.TablesNeedObject.ToArray
                             If TablesNeed.Any Then
@@ -4500,6 +4521,7 @@ Public Class DataTool
         MsgBox(IC_ObjectsSearch.Text)
     End Sub
 #End Region
+
 #Region " MAKE CHANGES TO SYSTEMOBJECTS FILE - 2 SOURCES {BULK IMPORT Or RunQuery RESULTS} "
     Private Sub ObjectNode_Checked(sender As Object, e As NodeEventArgs) Handles Tree_Objects.NodeChecked
 
@@ -4537,6 +4559,7 @@ Public Class DataTool
 
     End Sub
 #End Region
+
     Private Shared Function Image_Type(_Image As Image) As SystemObject.ObjectType
 
         If SameImage(_Image, My.Resources.Gear) Then
@@ -4611,9 +4634,9 @@ Public Class DataTool
 #Region " OPEN FILE "
     Private Sub OpenFileClosed(sender As Object, e As EventArgs) Handles OpenFile.FileOk
 
-        Dim _FileType As Extensions = GetFileNameExtension(OpenFile.FileName).Value
+        Dim _FileType As ExtensionNames = GetFileNameExtension(OpenFile.FileName).Value
         Dim SQL_Statement As String = String.Empty
-        If _FileType = Extensions.Excel Then
+        If _FileType = ExtensionNames.Excel Then
             Dim Sheets As New List(Of String)(ExcelSheetNames(OpenFile.FileName))
             If Sheets.Count = 1 Then
                 SQL_Statement = "Select * FROM [" & Sheets.First & "]"
@@ -4622,7 +4645,7 @@ Public Class DataTool
                 Exit Sub
             End If
 
-        ElseIf _FileType = Extensions.Text Then
+        ElseIf _FileType = ExtensionNames.Text Then
             SQL_Statement = "Select * FROM [" & Split(OpenFile.FileName, "\").Last & "]"
 
         End If
@@ -4663,25 +4686,6 @@ Public Class DataTool
 #End Region
 
 #Region " EXPORT "
-    Private Sub ExportOptions_Opening(sender As Object, e As MouseEventArgs) Handles Script_Grid.MouseClick
-
-        Dim canExport As Boolean = Script_Grid.Table IsNot Nothing AndAlso Script_Grid.Table.AsEnumerable.Any
-        If canExport And e.Button = MouseButtons.Right Then
-            CMS_GridOptions = New ContextMenuStrip With {.Name = "Options",
-                .Text = "Options".ToString(InvariantCulture),
-                .Font = GothicFont}
-            With CMS_GridOptions
-                AddHandler .Closed, AddressOf ExportOptions_Closing
-                .Items.AddRange({Grid_FileExport, Grid_DatabaseExport})
-                .Show(Cursor.Position)
-            End With
-        End If
-
-    End Sub
-    Private Sub ExportOptions_Closing(sender As Object, e As EventArgs)
-        RemoveHandler CMS_GridOptions.Closed, AddressOf ExportOptions_Closing
-        CMS_GridOptions = Nothing
-    End Sub
     Private Sub ExportConnection_Opening(sender As Object, e As EventArgs)
 
         Dim tsmi As ToolStripMenuItem = DirectCast(sender, ToolStripMenuItem)
@@ -4946,7 +4950,7 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
             If Not IsNothing(QueryTable) AndAlso QueryTable.AsEnumerable.Any Then
 
                 Select Case GetFileNameExtension(SaveFile.FileName).Value
-                    Case Extensions.Excel
+                    Case ExtensionNames.Excel
                         ' DOES NOT WORK !!! USER MUST RUN EXCEL AS ADMINISTRATOR IN Windows10 + ConnectionString/SQL=String.Empty
                         'Dim ConnectionString As String = String.Empty
                         'Dim SQL As String = String.Empty
@@ -4954,11 +4958,11 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
                         AddHandler Alerts, AddressOf FileSaved
                         DataTableToExcel(QueryTable, SaveFile.FileName, True, False, False, True, True)
 
-                    Case Extensions.Text
+                    Case ExtensionNames.Text
                         DataTableToTextFile(QueryTable, SaveFile.FileName)
 
-                    Case Extensions.CommaSeparated
-                    Case Extensions.SQL
+                    Case ExtensionNames.CommaSeparated
+                    Case ExtensionNames.SQL
 
                 End Select
             Else
