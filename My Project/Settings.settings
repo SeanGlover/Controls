@@ -2,71 +2,62 @@
 <SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="My" GeneratedClassName="MySettings" UseMySettingsClassName="true">
   <Profiles />
   <Settings>
-    <Setting Name="DontShowObjectsMessage" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">False</Value>
+    <Setting Name="applicationFont" Type="System.Drawing.Font" Scope="User">
+      <Value Profile="(Default)">Century Gothic, 10.2pt</Value>
     </Setting>
-    <Setting Name="Font_Pane" Type="System.Drawing.Font" Scope="User">
-      <Value Profile="(Default)">Segoe UI, 9.75pt</Value>
-    </Setting>
-    <Setting Name="Select_Back" Type="System.Drawing.Color" Scope="User">
-      <Value Profile="(Default)">Lavender</Value>
-    </Setting>
-    <Setting Name="Select_Fore" Type="System.Drawing.Color" Scope="User">
-      <Value Profile="(Default)">Purple</Value>
-    </Setting>
-    <Setting Name="Union_Back" Type="System.Drawing.Color" Scope="User">
+    <Setting Name="applicationBackColor" Type="System.Drawing.Color" Scope="User">
       <Value Profile="(Default)">White</Value>
     </Setting>
-    <Setting Name="Union_Fore" Type="System.Drawing.Color" Scope="User">
-      <Value Profile="(Default)">Fuchsia</Value>
-    </Setting>
-    <Setting Name="Group_Back" Type="System.Drawing.Color" Scope="User">
-      <Value Profile="(Default)">PeachPuff</Value>
-    </Setting>
-    <Setting Name="Group_Fore" Type="System.Drawing.Color" Scope="User">
-      <Value Profile="(Default)">OrangeRed</Value>
-    </Setting>
-    <Setting Name="Order_Back" Type="System.Drawing.Color" Scope="User">
-      <Value Profile="(Default)">AliceBlue</Value>
-    </Setting>
-    <Setting Name="Order_Fore" Type="System.Drawing.Color" Scope="User">
-      <Value Profile="(Default)">Blue</Value>
-    </Setting>
-    <Setting Name="Limit_Back" Type="System.Drawing.Color" Scope="User">
-      <Value Profile="(Default)">Bisque</Value>
-    </Setting>
-    <Setting Name="Limit_Fore" Type="System.Drawing.Color" Scope="User">
-      <Value Profile="(Default)">SaddleBrown</Value>
-    </Setting>
-    <Setting Name="TableSystem_Back" Type="System.Drawing.Color" Scope="User">
+    <Setting Name="applicationForeColor" Type="System.Drawing.Color" Scope="User">
       <Value Profile="(Default)">Black</Value>
     </Setting>
-    <Setting Name="TableSystem_Fore" Type="System.Drawing.Color" Scope="User">
-      <Value Profile="(Default)">White</Value>
+    <Setting Name="paneFont" Type="System.Drawing.Font" Scope="User">
+      <Value Profile="(Default)">Segoe UI, 9.75pt</Value>
     </Setting>
-    <Setting Name="TableRoutine_Back" Type="System.Drawing.Color" Scope="User">
-      <Value Profile="(Default)">DimGray</Value>
+    <Setting Name="paneBackColor" Type="System.Drawing.Color" Scope="User">
+      <Value Profile="(Default)" />
     </Setting>
-    <Setting Name="TableRoutine_Fore" Type="System.Drawing.Color" Scope="User">
-      <Value Profile="(Default)">White</Value>
+    <Setting Name="paneForeColor" Type="System.Drawing.Color" Scope="User">
+      <Value Profile="(Default)">Black</Value>
     </Setting>
-    <Setting Name="TableFloating_Back" Type="System.Drawing.Color" Scope="User">
-      <Value Profile="(Default)">Gray</Value>
+    <Setting Name="gridHeaderForeColor" Type="System.Drawing.Color" Scope="User">
+      <Value Profile="(Default)" />
     </Setting>
-    <Setting Name="TableFloating_Fore" Type="System.Drawing.Color" Scope="User">
-      <Value Profile="(Default)">White</Value>
+    <Setting Name="gridHeaderBackColor" Type="System.Drawing.Color" Scope="User">
+      <Value Profile="(Default)" />
     </Setting>
-    <Setting Name="WithBlock_Fore" Type="System.Drawing.Color" Scope="User">
-      <Value Profile="(Default)">Gainsboro</Value>
+    <Setting Name="gridHeaderShadeColor" Type="System.Drawing.Color" Scope="User">
+      <Value Profile="(Default)" />
     </Setting>
-    <Setting Name="patternURL" Type="System.String" Scope="User">
-      <Value Profile="(Default)">((([A-Za-z]{3,9}:(?:\/\/)?)(?:[\-;:&amp;=\+\$,\w]+@)?[A-Za-z0-9\.\-]+|(?:www\.|[\-;:&amp;=\+\$,\w]+@)[A-Za-z0-9\.\-]+)((?:\/[\+~%\/\.\w\-_]*)?\??(?:[\-\+=&amp;;%@\.\w_]*)#?(?:[\.\!\/\\\w]*))?)</Value>
+    <Setting Name="gridRowBackColor" Type="System.Drawing.Color" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="gridRowForeColor" Type="System.Drawing.Color" Scope="User">
+      <Value Profile="(Default)">Black</Value>
+    </Setting>
+    <Setting Name="gridRowAlternatingBackColor" Type="System.Drawing.Color" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="gridRowAlternatingForeColor" Type="System.Drawing.Color" Scope="User">
+      <Value Profile="(Default)">Black</Value>
+    </Setting>
+    <Setting Name="gridRowSelectionBackColor" Type="System.Drawing.Color" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="gridRowSelectionForeColor" Type="System.Drawing.Color" Scope="User">
+      <Value Profile="(Default)">Black</Value>
     </Setting>
     <Setting Name="ddlPrompt" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
     <Setting Name="ddlRowCount" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="DontShowObjectsMessage" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="gridFont" Type="System.Drawing.Font" Scope="User">
+      <Value Profile="(Default)">Segoe UI, 9.75pt</Value>
     </Setting>
   </Settings>
 </SettingsFile>

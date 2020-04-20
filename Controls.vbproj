@@ -512,6 +512,12 @@
   <ItemGroup>
     <None Include="Resources\star.png" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\saved.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\savedNot.png" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>

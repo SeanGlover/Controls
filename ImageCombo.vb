@@ -123,28 +123,26 @@ Public NotInheritable Class ImageCombo
 #End Region
             Else
 #Region " REGULAR PROPERTIES "
-                If Not Text.Any Then TextRenderer.DrawText(e.Graphics, HintText, Font, TextBounds, Color.LightGray, TextFormatFlags.VerticalCenter)
+                If Text.Any Then
+                    If PasswordProtected And Not TextIsVisible Then
+                        Dim lettersRight As Integer = LetterWidths.Values.Last
+                        Using Brush As New HatchBrush(HatchStyle.LightUpwardDiagonal, SystemColors.WindowText, BackColor)
+                            e.Graphics.FillRectangle(Brush, New Rectangle(Image.Width, 0, lettersRight - Image.Width, Height))
+                        End Using
 
+                    Else
+                        Dim TextFlags As TextFormatFlags = TextFormatFlags.NoPadding Or TextFormatFlags.Left Or TextFormatFlags.VerticalCenter
+                        If WrapText Then TextFlags = TextFlags Or TextFormatFlags.WordBreak
+                        TextRenderer.DrawText(e.Graphics, Replace(Text, "&", "&&"), Font, TextBounds, ForeColor, TextFlags)
+
+                    End If
+                Else
+                    TextRenderer.DrawText(e.Graphics, HintText, Font, TextBounds, Color.LightGray, TextFormatFlags.VerticalCenter)
+                End If
                 If Enabled Then
                     e.Graphics.DrawImage(EyeImage, EyeBounds)
                     e.Graphics.DrawImage(ClearTextImage, ClearTextBounds)
                     e.Graphics.DrawImage(DropImage, DropBounds)
-                End If
-
-                If PasswordProtected And Not TextIsVisible And Text?.Any Then
-                    Dim lettersRight As Integer = LetterWidths.Values.Last
-                    Using Brush As New HatchBrush(HatchStyle.LightUpwardDiagonal, SystemColors.WindowText, BackColor)
-                        e.Graphics.FillRectangle(Brush, New Rectangle(Image.Width, 0, lettersRight - Image.Width, Height))
-                    End Using
-
-                Else
-                    Dim TextFlags As TextFormatFlags = TextFormatFlags.NoPadding Or TextFormatFlags.Left Or TextFormatFlags.VerticalCenter
-                    If WrapText Then TextFlags = TextFlags Or TextFormatFlags.WordBreak
-                    TextRenderer.DrawText(e.Graphics, Replace(Text, "&", "&&"), Font, TextBounds, ForeColor, TextFlags)
-
-                End If
-
-                If Enabled Then
                     Dim HighlightRectangle As Rectangle = Nothing
                     If Mouse_Region = MouseRegion.Image Then HighlightRectangle = New Rectangle(ImageBounds.X, 0, ImageBounds.Width, Height)
                     If Mouse_Region = MouseRegion.Eye Then HighlightRectangle = EyeDrawBounds
@@ -153,13 +151,11 @@ Public NotInheritable Class ImageCombo
                     Using Brush As New SolidBrush(Color.FromArgb(60, SelectionColor))
                         e.Graphics.FillRectangle(Brush, HighlightRectangle)
                     End Using
-
                     If _HasFocus And CursorShouldBeVisible Then
                         Using Pen As New Pen(SelectionColor)
                             e.Graphics.DrawLine(Pen, CursorBounds.X, CursorBounds.Y, CursorBounds.X, CursorBounds.Bottom)
                         End Using
                     End If
-
                     Using Brush As New SolidBrush(Color.FromArgb(60, SelectionColor))
                         e.Graphics.FillRectangle(Brush, SelectionBounds)
                     End Using
@@ -187,10 +183,8 @@ Public NotInheritable Class ImageCombo
             Return AutoSize_
         End Get
         Set(value As Boolean)
-            If AutoSize_ <> value Then
-                AutoSize_ = value
-                ResizeMe()
-            End If
+            AutoSize_ = value
+            ResizeMe()
         End Set
     End Property
     Public ReadOnly Property ErrorText As String
@@ -324,7 +318,7 @@ Public NotInheritable Class ImageCombo
                     .Items.Clear()
                     REM /// INITIALIZE THEM
                     For Each ColorItem In ColorImages()
-                        .Items.Add(ColorItem.Key, ColorItem.Value)
+                        .Items.Add(ColorItem.Key.Name, ColorItem.Value)
                     Next
                 End With
             Else
@@ -809,11 +803,11 @@ Public NotInheritable Class ImageCombo
                 RaiseEvent ImageClicked(Me, New ImageComboEventArgs)
 
             ElseIf Mouse_Region = MouseRegion.ClearText Then
+                RaiseEvent ClearTextClicked(Me, New ImageComboEventArgs)
                 If IsReadOnly Then Exit Sub
                 Text = String.Empty
                 SelectedIndex = -1
                 ResizeMe()
-                RaiseEvent ClearTextClicked(Me, New ImageComboEventArgs)
 
             ElseIf Mouse_Region = MouseRegion.DropDown Then
                 _DropItems = Items

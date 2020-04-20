@@ -1003,24 +1003,57 @@ Public Module Functions
 
     End Function
 #End Region
-    Public Function ColorImages() As Dictionary(Of String, Image)
+    Public Function FontImages() As Dictionary(Of String, Image)
 
-        Dim ColorImageCollection As New Dictionary(Of String, Image)
+        Dim FontImageCollection As New Dictionary(Of String, Image)
+        REM /// INITIALIZE THEM
+        Using ifc As Text.InstalledFontCollection = New Text.InstalledFontCollection()
+            For Each availableFont In ifc.Families
+                Using bmpFont As New Font(availableFont, 9, FontStyle.Regular)
+                    Dim fontSize As Size = MeasureText(availableFont.Name, bmpFont)
+                    Dim _Image As New Bitmap(fontSize.Width, fontSize.Height)
+                    Using G As Graphics = Graphics.FromImage(_Image)
+                        G.SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
+                        G.InterpolationMode = Drawing2D.InterpolationMode.HighQualityBicubic
+                        G.PixelOffsetMode = Drawing2D.PixelOffsetMode.HighQuality
+                        G.TextRenderingHint = Text.TextRenderingHint.SingleBitPerPixelGridFit
+                        Using Brush As New SolidBrush(Color.White)
+                            G.DrawRectangle(Pens.Black, 0, 0, _Image.Width - 1, _Image.Height - 1)
+                            G.FillRectangle(Brush, 2, 2, _Image.Width - 4, _Image.Height - 4)
+                        End Using
+                        Using Format As New StringFormat With {
+        .Alignment = StringAlignment.Center,
+        .LineAlignment = StringAlignment.Center
+    }
+                            G.DrawString(availableFont.Name, bmpFont, Brushes.Black, New Rectangle(New Point(0, 0), fontSize), Format)
+                        End Using
+                    End Using
+                    FontImageCollection.Add(availableFont.Name, _Image)
+                End Using
+            Next
+        End Using
+        Return FontImageCollection
+
+    End Function
+    Public Function ColorImages() As Dictionary(Of Color, Image)
+
+        Dim ColorImageCollection As New Dictionary(Of Color, Image)
         REM /// INITIALIZE THEM
         Dim X As Color = Color.Beige
         Dim ColorType As Type = X.GetType
         Dim ColorList() As PropertyInfo = ColorType.GetProperties(BindingFlags.Static Or BindingFlags.DeclaredOnly Or BindingFlags.Public)
         Dim Colors As New List(Of String)(From CL In ColorList Select CL.Name)
         Dim ComboImage As Image = Nothing
-        For Each ItemColor In Colors
+        For Each colorName In Colors
             Dim _Image As New Bitmap(16, 16)
-            Using G As Drawing.Graphics = Drawing.Graphics.FromImage(_Image)
-                Using Brush As New SolidBrush(Color.FromName(ItemColor))
+            Dim colorValue As Color = Color.FromName(colorName)
+            Using G As Graphics = Graphics.FromImage(_Image)
+                Using Brush As New SolidBrush(colorValue)
                     G.DrawRectangle(Pens.Black, 0, 0, _Image.Width - 1, _Image.Height - 1)
                     G.FillRectangle(Brush, 2, 2, _Image.Width - 4, _Image.Height - 4)
                 End Using
             End Using
-            ColorImageCollection.Add(ItemColor, _Image)
+            ColorImageCollection.Add(colorValue, _Image)
         Next
         Return ColorImageCollection
 
@@ -1232,7 +1265,7 @@ Public Module Functions
         End If
     End Function
     Public Function IsURL(address As String) As Boolean
-        Return Regex.Match(address, My.Settings.patternURL, RegexOptions.IgnoreCase).Success
+        Return Regex.Match(address, "((([A-Za-z]{3,9}:(?:\/\/)?)(?:[\-;:&=\+\$,\w]+@)?[A-Za-z0-9\.\-]+|(?:www\.|[\-;:&=\+\$,\w]+@)[A-Za-z0-9\.\-]+)((?:\/[\+~%\/\.\w\-_]*)?\??(?:[\-\+=&;%@\.\w_]*)#?(?:[\.\!\/\\\w]*))?)", RegexOptions.IgnoreCase).Success
     End Function
     <Flags()> Public Enum ExtensionNames
         None

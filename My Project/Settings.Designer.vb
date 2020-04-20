@@ -56,243 +56,174 @@ Namespace My
         
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("False")>  _
-        Public Property DontShowObjectsMessage() As Boolean
+         Global.System.Configuration.DefaultSettingValueAttribute("Century Gothic, 10.2pt")>  _
+        Public Property applicationFont() As Global.System.Drawing.Font
             Get
-                Return CType(Me("DontShowObjectsMessage"),Boolean)
+                Return CType(Me("applicationFont"),Global.System.Drawing.Font)
             End Get
             Set
-                Me("DontShowObjectsMessage") = value
-            End Set
-        End Property
-        
-        <Global.System.Configuration.UserScopedSettingAttribute(),  _
-         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("Segoe UI, 9.75pt")>  _
-        Public Property Font_Pane() As Global.System.Drawing.Font
-            Get
-                Return CType(Me("Font_Pane"),Global.System.Drawing.Font)
-            End Get
-            Set
-                Me("Font_Pane") = value
-            End Set
-        End Property
-        
-        <Global.System.Configuration.UserScopedSettingAttribute(),  _
-         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("Lavender")>  _
-        Public Property Select_Back() As Global.System.Drawing.Color
-            Get
-                Return CType(Me("Select_Back"),Global.System.Drawing.Color)
-            End Get
-            Set
-                Me("Select_Back") = value
-            End Set
-        End Property
-        
-        <Global.System.Configuration.UserScopedSettingAttribute(),  _
-         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("Purple")>  _
-        Public Property Select_Fore() As Global.System.Drawing.Color
-            Get
-                Return CType(Me("Select_Fore"),Global.System.Drawing.Color)
-            End Get
-            Set
-                Me("Select_Fore") = value
+                Me("applicationFont") = value
             End Set
         End Property
         
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
          Global.System.Configuration.DefaultSettingValueAttribute("White")>  _
-        Public Property Union_Back() As Global.System.Drawing.Color
+        Public Property applicationBackColor() As Global.System.Drawing.Color
             Get
-                Return CType(Me("Union_Back"),Global.System.Drawing.Color)
+                Return CType(Me("applicationBackColor"),Global.System.Drawing.Color)
             End Get
             Set
-                Me("Union_Back") = value
-            End Set
-        End Property
-        
-        <Global.System.Configuration.UserScopedSettingAttribute(),  _
-         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("Fuchsia")>  _
-        Public Property Union_Fore() As Global.System.Drawing.Color
-            Get
-                Return CType(Me("Union_Fore"),Global.System.Drawing.Color)
-            End Get
-            Set
-                Me("Union_Fore") = value
-            End Set
-        End Property
-        
-        <Global.System.Configuration.UserScopedSettingAttribute(),  _
-         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("PeachPuff")>  _
-        Public Property Group_Back() As Global.System.Drawing.Color
-            Get
-                Return CType(Me("Group_Back"),Global.System.Drawing.Color)
-            End Get
-            Set
-                Me("Group_Back") = value
-            End Set
-        End Property
-        
-        <Global.System.Configuration.UserScopedSettingAttribute(),  _
-         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("OrangeRed")>  _
-        Public Property Group_Fore() As Global.System.Drawing.Color
-            Get
-                Return CType(Me("Group_Fore"),Global.System.Drawing.Color)
-            End Get
-            Set
-                Me("Group_Fore") = value
-            End Set
-        End Property
-        
-        <Global.System.Configuration.UserScopedSettingAttribute(),  _
-         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("AliceBlue")>  _
-        Public Property Order_Back() As Global.System.Drawing.Color
-            Get
-                Return CType(Me("Order_Back"),Global.System.Drawing.Color)
-            End Get
-            Set
-                Me("Order_Back") = value
-            End Set
-        End Property
-        
-        <Global.System.Configuration.UserScopedSettingAttribute(),  _
-         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("Blue")>  _
-        Public Property Order_Fore() As Global.System.Drawing.Color
-            Get
-                Return CType(Me("Order_Fore"),Global.System.Drawing.Color)
-            End Get
-            Set
-                Me("Order_Fore") = value
-            End Set
-        End Property
-        
-        <Global.System.Configuration.UserScopedSettingAttribute(),  _
-         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("Bisque")>  _
-        Public Property Limit_Back() As Global.System.Drawing.Color
-            Get
-                Return CType(Me("Limit_Back"),Global.System.Drawing.Color)
-            End Get
-            Set
-                Me("Limit_Back") = value
-            End Set
-        End Property
-        
-        <Global.System.Configuration.UserScopedSettingAttribute(),  _
-         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("SaddleBrown")>  _
-        Public Property Limit_Fore() As Global.System.Drawing.Color
-            Get
-                Return CType(Me("Limit_Fore"),Global.System.Drawing.Color)
-            End Get
-            Set
-                Me("Limit_Fore") = value
+                Me("applicationBackColor") = value
             End Set
         End Property
         
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
          Global.System.Configuration.DefaultSettingValueAttribute("Black")>  _
-        Public Property TableSystem_Back() As Global.System.Drawing.Color
+        Public Property applicationForeColor() As Global.System.Drawing.Color
             Get
-                Return CType(Me("TableSystem_Back"),Global.System.Drawing.Color)
+                Return CType(Me("applicationForeColor"),Global.System.Drawing.Color)
             End Get
             Set
-                Me("TableSystem_Back") = value
+                Me("applicationForeColor") = value
             End Set
         End Property
         
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("White")>  _
-        Public Property TableSystem_Fore() As Global.System.Drawing.Color
+         Global.System.Configuration.DefaultSettingValueAttribute("Segoe UI, 9.75pt")>  _
+        Public Property paneFont() As Global.System.Drawing.Font
             Get
-                Return CType(Me("TableSystem_Fore"),Global.System.Drawing.Color)
+                Return CType(Me("paneFont"),Global.System.Drawing.Font)
             End Get
             Set
-                Me("TableSystem_Fore") = value
+                Me("paneFont") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute()>  _
+        Public Property paneBackColor() As Global.System.Drawing.Color
+            Get
+                Return CType(Me("paneBackColor"),Global.System.Drawing.Color)
+            End Get
+            Set
+                Me("paneBackColor") = value
             End Set
         End Property
         
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("DimGray")>  _
-        Public Property TableRoutine_Back() As Global.System.Drawing.Color
+         Global.System.Configuration.DefaultSettingValueAttribute("Black")>  _
+        Public Property paneForeColor() As Global.System.Drawing.Color
             Get
-                Return CType(Me("TableRoutine_Back"),Global.System.Drawing.Color)
+                Return CType(Me("paneForeColor"),Global.System.Drawing.Color)
             End Get
             Set
-                Me("TableRoutine_Back") = value
+                Me("paneForeColor") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute()>  _
+        Public Property gridHeaderForeColor() As Global.System.Drawing.Color
+            Get
+                Return CType(Me("gridHeaderForeColor"),Global.System.Drawing.Color)
+            End Get
+            Set
+                Me("gridHeaderForeColor") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute()>  _
+        Public Property gridHeaderBackColor() As Global.System.Drawing.Color
+            Get
+                Return CType(Me("gridHeaderBackColor"),Global.System.Drawing.Color)
+            End Get
+            Set
+                Me("gridHeaderBackColor") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute()>  _
+        Public Property gridHeaderShadeColor() As Global.System.Drawing.Color
+            Get
+                Return CType(Me("gridHeaderShadeColor"),Global.System.Drawing.Color)
+            End Get
+            Set
+                Me("gridHeaderShadeColor") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute()>  _
+        Public Property gridRowBackColor() As Global.System.Drawing.Color
+            Get
+                Return CType(Me("gridRowBackColor"),Global.System.Drawing.Color)
+            End Get
+            Set
+                Me("gridRowBackColor") = value
             End Set
         End Property
         
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("White")>  _
-        Public Property TableRoutine_Fore() As Global.System.Drawing.Color
+         Global.System.Configuration.DefaultSettingValueAttribute("Black")>  _
+        Public Property gridRowForeColor() As Global.System.Drawing.Color
             Get
-                Return CType(Me("TableRoutine_Fore"),Global.System.Drawing.Color)
+                Return CType(Me("gridRowForeColor"),Global.System.Drawing.Color)
             End Get
             Set
-                Me("TableRoutine_Fore") = value
+                Me("gridRowForeColor") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute()>  _
+        Public Property gridRowAlternatingBackColor() As Global.System.Drawing.Color
+            Get
+                Return CType(Me("gridRowAlternatingBackColor"),Global.System.Drawing.Color)
+            End Get
+            Set
+                Me("gridRowAlternatingBackColor") = value
             End Set
         End Property
         
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("Gray")>  _
-        Public Property TableFloating_Back() As Global.System.Drawing.Color
+         Global.System.Configuration.DefaultSettingValueAttribute("Black")>  _
+        Public Property gridRowAlternatingForeColor() As Global.System.Drawing.Color
             Get
-                Return CType(Me("TableFloating_Back"),Global.System.Drawing.Color)
+                Return CType(Me("gridRowAlternatingForeColor"),Global.System.Drawing.Color)
             End Get
             Set
-                Me("TableFloating_Back") = value
+                Me("gridRowAlternatingForeColor") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute()>  _
+        Public Property gridRowSelectionBackColor() As Global.System.Drawing.Color
+            Get
+                Return CType(Me("gridRowSelectionBackColor"),Global.System.Drawing.Color)
+            End Get
+            Set
+                Me("gridRowSelectionBackColor") = value
             End Set
         End Property
         
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("White")>  _
-        Public Property TableFloating_Fore() As Global.System.Drawing.Color
+         Global.System.Configuration.DefaultSettingValueAttribute("Black")>  _
+        Public Property gridRowSelectionForeColor() As Global.System.Drawing.Color
             Get
-                Return CType(Me("TableFloating_Fore"),Global.System.Drawing.Color)
+                Return CType(Me("gridRowSelectionForeColor"),Global.System.Drawing.Color)
             End Get
             Set
-                Me("TableFloating_Fore") = value
-            End Set
-        End Property
-        
-        <Global.System.Configuration.UserScopedSettingAttribute(),  _
-         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("Gainsboro")>  _
-        Public Property WithBlock_Fore() As Global.System.Drawing.Color
-            Get
-                Return CType(Me("WithBlock_Fore"),Global.System.Drawing.Color)
-            End Get
-            Set
-                Me("WithBlock_Fore") = value
-            End Set
-        End Property
-        
-        <Global.System.Configuration.UserScopedSettingAttribute(),  _
-         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("((([A-Za-z]{3,9}:(?:\/\/)?)(?:[\-;:&=\+\$,\w]+@)?[A-Za-z0-9\.\-]+|(?:www\.|[\-;:&"& _ 
-            "=\+\$,\w]+@)[A-Za-z0-9\.\-]+)((?:\/[\+~%\/\.\w\-_]*)?\??(?:[\-\+=&;%@\.\w_]*)#?("& _ 
-            "?:[\.\!\/\\\w]*))?)")>  _
-        Public Property patternURL() As String
-            Get
-                Return CType(Me("patternURL"),String)
-            End Get
-            Set
-                Me("patternURL") = value
+                Me("gridRowSelectionForeColor") = value
             End Set
         End Property
         
@@ -317,6 +248,30 @@ Namespace My
             End Get
             Set
                 Me("ddlRowCount") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("False")>  _
+        Public Property DontShowObjectsMessage() As Boolean
+            Get
+                Return CType(Me("DontShowObjectsMessage"),Boolean)
+            End Get
+            Set
+                Me("DontShowObjectsMessage") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("Segoe UI, 9.75pt")>  _
+        Public Property gridFont() As Global.System.Drawing.Font
+            Get
+                Return CType(Me("gridFont"),Global.System.Drawing.Font)
+            End Get
+            Set
+                Me("gridFont") = value
             End Set
         End Property
     End Class

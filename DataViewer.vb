@@ -88,6 +88,18 @@ Public Class DataViewer
         .Size = New Size(200, 24)}
     Private WithEvents HeaderDistinctTree As New TreeViewer With {.Margin = New Padding(0),
         .AutoSize = True}
+    Private WithEvents GridBackColor As New ImageCombo With {.ColorPicker = True,
+        .Size = New Size(200, 24)}
+    Private WithEvents GridForeColor As New ImageCombo With {.ColorPicker = True,
+        .Size = New Size(200, 24)}
+    Private WithEvents GridAlternatingBackColor As New ImageCombo With {.ColorPicker = True,
+        .Size = New Size(200, 24)}
+    Private WithEvents GridAlternatingForeColor As New ImageCombo With {.ColorPicker = True,
+        .Size = New Size(200, 24)}
+    Private WithEvents GridSelectionBackColor As New ImageCombo With {.ColorPicker = True,
+        .Size = New Size(200, 24)}
+    Private WithEvents GridSelectionForeColor As New ImageCombo With {.ColorPicker = True,
+        .Size = New Size(200, 24)}
     Private ReadOnly ColumnHeadTip As ToolTip = New ToolTip With {.BackColor = Color.Black, .ForeColor = Color.White}
     Private ControlKeyDown As Boolean
 #End Region
@@ -143,6 +155,31 @@ Public Class DataViewer
             End With
             filterTSMI.DropDownItems.Add(New ToolStripControlHost(tlpTree) With {.AutoSize = True})
             .Add(filterTSMI)
+        End With
+        With GridOptions.Items
+            Dim tlpFontsColors As New TableLayoutPanel With {
+                .ColumnCount = 2,
+                .RowCount = 6,
+                .Size = New Size(400 + 4, 4 + 6 * 26),
+                .Margin = New Padding(0),
+                .CellBorderStyle = TableLayoutPanelCellBorderStyle.Inset}
+            With tlpFontsColors
+                .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 200})
+                .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 200})
+                For i = 1 To 6
+                    .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 26})
+                Next
+            End With
+            'Dim icFonts As New ImageCombo With {.Size = New Size(200, 26)}
+            'For Each item In FontImages()
+            '    Using itemFont As New Font(item.Key, 10, FontStyle.Regular)
+            '        Dim fontItem As ComboItem = icFonts.Items.Add(item.Key, item.Value)
+            '    End Using
+            'Next
+            Dim gridFontsColors As New ToolStripMenuItem("Grid row fonts and colors".ToString(InvariantCulture))
+            gridFontsColors.Font = Gothic
+            gridFontsColors.DropDownItems.Add(New ToolStripControlHost(tlpFontsColors))
+            .Add(gridFontsColors)
         End With
 
     End Sub
@@ -2309,9 +2346,11 @@ Public NotInheritable Class StyleEventArgs
     Inherits EventArgs
     Public ReadOnly Property PropertyName As String
     Public ReadOnly Property ChangedProperty As CellStyle.Properties
-    Public Sub New(value As CellStyle.Properties)
-        ChangedProperty = value
-        PropertyName = value.ToString
+    Public ReadOnly Property PropertyValue As Object
+    Public Sub New(changedProperty As CellStyle.Properties, changedValue As Object)
+        Me.ChangedProperty = changedProperty
+        PropertyName = changedProperty.ToString
+        PropertyValue = changedValue
     End Sub
 End Class
 <Serializable()> <TypeConverter(GetType(PropertyConverter))> Public Class CellStyle
@@ -2345,7 +2384,7 @@ End Class
         Set(ByVal value As Font)
             If value IsNot _Font Then
                 _Font = value
-                RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.Font))
+                RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.Font, value))
             End If
         End Set
     End Property
@@ -2363,7 +2402,7 @@ End Class
         Set(ByVal value As Color)
             If value <> _BackColor Then
                 _BackColor = value
-                RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.BackColor))
+                RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.BackColor, value))
             End If
         End Set
     End Property
@@ -2381,7 +2420,7 @@ End Class
         Set(ByVal value As Color)
             If value <> _ForeColor Then
                 _ForeColor = value
-                RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.ForeColor))
+                RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.ForeColor, value))
             End If
         End Set
     End Property
@@ -2399,7 +2438,7 @@ End Class
         Set(ByVal value As Color)
             If value <> _ShadeColor Then
                 _ShadeColor = value
-                RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.ShadeColor))
+                RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.ShadeColor, value))
             End If
         End Set
     End Property
@@ -2418,7 +2457,7 @@ End Class
         Set(ByVal value As StringFormat)
             If value IsNot _Alignment Then
                 _Alignment = value
-                RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.Alignment))
+                RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.Alignment, value))
             End If
         End Set
     End Property
@@ -2437,7 +2476,7 @@ End Class
             If value <> _ImageScaling Then
                 _ImageScaling = value
                 If value = Scaling.GrowParent Then _Height = {Padding.Top + CInt(Font.GetHeight) + Padding.Bottom, Height}.Max
-                RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.ImageScaling))
+                RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.ImageScaling, value))
             End If
         End Set
     End Property
@@ -2455,7 +2494,7 @@ End Class
         Set(ByVal value As Integer)
             If value <> _Height Then
                 _Height = value
-                RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.Height))
+                RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.Height, value))
             End If
         End Set
     End Property
@@ -2473,7 +2512,7 @@ End Class
         Set(ByVal value As Padding)
             If value <> _Padding Then
                 _Padding = value
-                RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.Padding))
+                RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.Padding, value))
             End If
         End Set
     End Property

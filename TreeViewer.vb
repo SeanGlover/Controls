@@ -786,7 +786,7 @@ Public Class TreeViewer
 
         If e IsNot Nothing Then
             Dim HitRegion As HitRegion = HitTest(e.Location)
-            Dim HitNode As Node = HitRegion.Node
+            Dim HitNode As Node = HitRegion?.Node
             DragData = New DragInfo With {.DragNode = HitNode,
                 .IsDragging = False,
                 .MousePoints = New List(Of Point)}
@@ -1589,9 +1589,10 @@ Public NotInheritable Class NodeCollection
                     End If
 
                 End If
-                .Font = TreeViewer.Font
-                TreeViewer.NodeTimer_Start(AddNode)
-
+                If TreeViewer IsNot Nothing Then
+                    .Font = TreeViewer.Font
+                    TreeViewer.NodeTimer_Start(AddNode)
+                End If
             End With
             MyBase.Add(AddNode)
         End If
@@ -2260,7 +2261,7 @@ Public Class Node
     Private _SortValue As String = String.Empty
     Public Property SortValue As String
         Get
-            If _SortValue.Length = 0 Then
+            If If(_SortValue, String.Empty).Length = 0 Then
                 _SortValue = Text
             End If
             Return _SortValue

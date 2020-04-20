@@ -331,6 +331,11 @@ End Class
         End Set
     End Property
     Public ReadOnly Property Type As ExecutionType
+    Private ReadOnly Property FileExtension As String
+        Get
+            Return "." & If(Type = ExecutionType.Null, "txt", Type.ToString.ToLowerInvariant)
+        End Get
+    End Property
     Public ReadOnly Property DataSourceName As String
         Get
             REM ONLY ATTEMPT TO CHANGE IF CURRENT VALUE IS NOTHING
@@ -406,27 +411,29 @@ End Class
                         RaiseEvent NameChanged(Me, New ScriptNameChangedEventArgs(FormerName, _Name))
                     Else
 #Region " CREATE NEW FILE "
-                        'FileCreated + _Name = FormerName OR Not FileCreated
-                        Dim NewName As String = _Name & ".txt"
-                        Dim SourcePath As String = If(Path, MyDocuments & "\DataManager\Scripts\" & NewName)
-                        Dim Directory = IO.Path.GetDirectoryName(SourcePath)
-                        Dim DestinationPath As String = IO.Path.Combine(Directory, NewName)
-                        Using message As New Prompt
-                            If File.Exists(DestinationPath) AndAlso message.Show("File already exists", Join({"Replace", NewName, "with", FormerName, "?"}), Prompt.IconOption.YesNo, Prompt.StyleOption.Blue) = DialogResult.No Then
-                                'CANCELLED...UNDO NAME CHANGE
-                                _Name = FormerName
-                            Else
-                                'CREATING A NEW FILE ERASES THE FILE...NOT LIKE A FOLDER
-                                _Path = DestinationPath
-                                If FileCreated Then
-                                    File.Move(SourcePath, DestinationPath)
+                        If _Name.Any Then
+                            'FileCreated + _Name = FormerName OR Not FileCreated
+                            Dim NewName As String = _Name & FileExtension
+                            Dim SourcePath As String = If(Path, MyDocuments & "\DataManager\Scripts\" & NewName)
+                            Dim Directory = IO.Path.GetDirectoryName(SourcePath)
+                            Dim DestinationPath As String = IO.Path.Combine(Directory, NewName)
+                            Using message As New Prompt
+                                If File.Exists(DestinationPath) AndAlso message.Show("File already exists", Join({"Replace", NewName, "with", FormerName, "?"}), Prompt.IconOption.YesNo, Prompt.StyleOption.Blue) = DialogResult.No Then
+                                    'CANCELLED...UNDO NAME CHANGE
+                                    _Name = FormerName
                                 Else
-                                    State = ViewState.OpenSaved
+                                    'CREATING A NEW FILE ERASES THE FILE...NOT LIKE A FOLDER
+                                    _Path = DestinationPath
+                                    If FileCreated Then
+                                        File.Move(SourcePath, DestinationPath)
+                                    Else
+                                        State = ViewState.OpenSaved
+                                    End If
+                                    Save(SaveAction.ChangeContent)
+                                    RaiseEvent NameChanged(Me, New ScriptNameChangedEventArgs(FormerName, _Name))
                                 End If
-                                Save(SaveAction.ChangeContent)
-                                RaiseEvent NameChanged(Me, New ScriptNameChangedEventArgs(FormerName, _Name))
-                            End If
-                        End Using
+                            End Using
+                        End If
 #End Region
                     End If
 #End Region
@@ -494,6 +501,7 @@ End Class
 
                     Case FormerState = ViewState.OpenDraft And NewState = ViewState.OpenSaved
                         REM /// Handled in Name Set since the only method to change from OpenDraft to OpenSaved is via IC_SaveAs -OR- Tree_ClosedScripts
+                        Parent.Add(Me)
 
                     Case FormerState = ViewState.OpenDraft And NewState = ViewState.ClosedSaved
                         REM /// No longer applies- OpenDraft can not become ClosedSaved, only OpenDraft to OpenSaved as immediately above
@@ -568,8 +576,19 @@ End Class
             'vbCrLf (VBNEWLINE) IS USED AS CARRIAGE RETURN IN THE .txt FILE BUT vbLf IS USED IN THE PANE.TEXT ... vbNewLine MAKES THE .txt FILE MUCH MORE READABLE
             Dim ConnectionText As String = If(Connection Is Nothing, String.Empty, Connection.Properties("DSN"))
             Dim ScriptText As String = Regex.Replace(If(Text, String.Empty), vbLf, vbCrLf)
+
             Select Case Action
                 Case SaveAction.ChangeContent
+                    Dim splitPath As String() = Split(Path, ".")
+                    Dim extensions As New List(Of String) From {"txt", "sql", "ddl"}
+                    extensions.Remove(splitPath.Last)
+                    For Each otherExtension In extensions
+                        Dim otherPath As String = Join({splitPath.First, otherExtension}, ".")
+                        If File.Exists(otherPath) Then
+                            Stop
+                            File.Delete(otherPath)
+                        End If
+                    Next
                     Using SW As New StreamWriter(Path)
                         SW.Write(Join({ConnectionText, ScriptText}, BodyDelimiter))
                     End Using
@@ -1592,7 +1611,7 @@ Public Class DataTool
 #Region " organised "
     Private ReadOnly DataDirectory As DirectoryInfo = Directory.CreateDirectory(MyDocuments & "\DataManager")
     Private ReadOnly Path_Columns As String = DataDirectory.FullName & "\Columns.txt"
-    Private ReadOnly GothicFont As New Font("Century Gothic", 9, FontStyle.Regular)
+    Private ReadOnly GothicFont As Font = My.Settings.applicationFont
     '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
     Private WithEvents FunctionsStripBar As New ToolStrip With {
         .Dock = DockStyle.Fill,
@@ -1608,9 +1627,9 @@ Public Class DataTool
         .FavoritesFirst = True}
     Private WithEvents SaveAs As New ImageCombo With {.Margin = New Padding(0),
         .Image = My.Resources.Save,
-        .Size = New Size(24, 24),
+        .Size = New Size(.Image.Width + 2, .Image.Width + 2),
         .Font = GothicFont,
-        .MinimumSize = New Size(26, 26),
+        .MinimumSize = .Size,
         .AutoSize = True}
     Private WithEvents FilesButton As New ToolStripDropDownButton With {
         .Margin = New Padding(0),
@@ -1632,22 +1651,6 @@ Public Class DataTool
         .Dock = DockStyle.Fill,
         .Font = GothicFont
     }
-    Private ReadOnly SettingsTreeA_fontsColors As New Node With {
-        .CanAdd = False,
-        .CanDragDrop = False,
-        .CanEdit = False,
-        .CanRemove = False,
-        .Text = "Fonts and Colors",
-        .Font = GothicFont
-    }
-    Private ReadOnly SettingsTreeA_nodeDDL As New Node With {
-        .CanAdd = False,
-        .CanDragDrop = False,
-        .CanEdit = False,
-        .CanRemove = False,
-        .Text = "DDL settings",
-        .Font = GothicFont
-    }
     Private WithEvents SettingsTreeB As New TreeViewer With {
         .Margin = New Padding(0),
         .AutoSize = False,
@@ -1655,7 +1658,43 @@ Public Class DataTool
         .Dock = DockStyle.Fill,
         .Font = GothicFont
     }
-    Private ReadOnly SettingsTrees_dictionary As Dictionary(Of Node, NodeCollection)
+    Private ReadOnly SettingsTrees_dictionary As New Dictionary(Of Node, NodeCollection)
+    Dim SettingsDictionary As New Dictionary(Of String, Dictionary(Of String, Dictionary(Of String, String))) From {
+        {"Fonts and Colors", New Dictionary(Of String, Dictionary(Of String, String)) From {
+                {"Pane", New Dictionary(Of String, String) From {
+                {"Font", "paneFont"},
+                {"Backcolor", "paneBackColor"},
+                {"Forecolor", "paneForeColor"}
+        }},
+                {"ViewerHeader", New Dictionary(Of String, String) From {
+                {"Backcolor", "gridHeaderBackColor"},
+                {"Forecolor", "gridHeaderForeColor"},
+                {"Shadecolor", "gridHeaderShadeColor"}
+        }},
+                {"ViewerGrid", New Dictionary(Of String, String) From {
+                {"Font", "gridFont"},
+                {"RowBackcolor", "gridRowBackColor"},
+                {"RowForecolor", "gridRowForeColor"},
+                {"AlternatingRowBackcolor", "gridRowAlternatingBackColor"},
+                {"AlternatingRowForecolor", "gridRowAlternatingForeColor"},
+                {"SelectionRowBackcolor", "gridRowSelectionBackColor"},
+                {"SelectionRowForecolor", "gridRowSelectionForeColor"}
+        }},
+                {"Application", New Dictionary(Of String, String) From {
+                {"Font", "applicationFont"},
+                {"Backcolor", "applicationBackColor"},
+                {"Forecolor", "applicationForeColor"}
+        }}
+        }
+        },
+        {"DDL Settings", New Dictionary(Of String, Dictionary(Of String, String)) From {
+                {"Dialogue", New Dictionary(Of String, String) From {
+                {"Prompt to OK", "ddlPrompt"},
+                {"Get row count", "ddlRowCount"}
+        }}
+        }
+        }
+        }
     '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
     Private WithEvents TLP_Objects As New TableLayoutPanel With {
         .Dock = DockStyle.Fill,
@@ -1709,7 +1748,7 @@ Public Class DataTool
         .Renderer = New CustomRenderer,
         .BackColor = Color.Gainsboro,
         .Font = GothicFont}
-    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ Collections
     Friend Shared ReadOnly Connections As New ConnectionCollection
     Private ReadOnly SystemObjects As New SystemObjectCollection
     Private ReadOnly Jobs As New JobCollection
@@ -1810,7 +1849,7 @@ Public Class DataTool
     Private WithEvents TSMI_Font As New ToolStripMenuItem With {.Text = "Font",
         .Image = My.Resources.Info,
         .Font = GothicFont}
-    Private WithEvents Dialogue_Font As New FontDialog With {.Font = My.Settings.Font_Pane}
+    Private WithEvents Dialogue_Font As New FontDialog With {.Font = My.Settings.paneFont}
     '-----------------------------------------
     Private WithEvents TSMI_ObjectType As New ToolStripMenuItem With {.Text = String.Empty,
         .Image = My.Resources.Info,
@@ -1880,7 +1919,7 @@ Public Class DataTool
             RaiseEvent Alert(Me, New AlertEventArgs("Initializing " & Connection.DataSource))
 #Region " TOP LEVEL "
             Dim ColorKeys = ColorImages()
-            Dim ColorImage As Image = ColorKeys(Connection.BackColor.Name)
+            Dim ColorImage As Image = ColorKeys(Connection.BackColor)
             Dim ConnectionItem = TSMI_Connections.DropDownItems.Add(New ToolStripMenuItem With {
                                                                         .Text = Connection.DataSource,
                                                                         .Name = Connection.ToString,
@@ -2072,21 +2111,43 @@ Public Class DataTool
         .CellBorderStyle = TableLayoutPanelCellBorderStyle.InsetDouble,
         .AutoSize = False
         }
-        SettingsTreeA.Nodes.AddRange({
-                                     SettingsTreeA_fontsColors,
-                                     SettingsTreeA_nodeDDL
-                                     })
-        Dim mainSettings As New Dictionary(Of String, String) From {
-                {"Fonts and Colors", "Pane|ViewerHeader|ViewerGrid|Application" & BlackOut & "Backcolor|Forecolor"},
-                {"DDL", "DDL"}
-            }
-        For Each mainSetting In mainSettings
-            SettingsTrees_dictionary.Add(New Node With {.Text = mainSetting.Key}, New NodeCollection(SettingsTreeB))
-            For Each subSetting In Split(mainSetting.Key, "|")
-
+        For Each rootSetting In SettingsDictionary
+            Dim rootNode As New Node With {
+        .CanAdd = False,
+        .CanDragDrop = False,
+        .CanEdit = False,
+        .CanRemove = False,
+        .Text = rootSetting.Key,
+        .Font = GothicFont
+    }
+            SettingsTreeA.Nodes.Add(rootNode)
+            Dim nodesB As New NodeCollection(SettingsTreeB)
+            SettingsTrees_dictionary.Add(rootNode, nodesB)
+            For Each subSetting In rootSetting.Value
+                Dim subNode As New Node With {
+        .CanAdd = False,
+        .CanDragDrop = False,
+        .CanEdit = False,
+        .CanRemove = False,
+        .Text = subSetting.Key,
+        .Font = GothicFont
+    }
+                nodesB.Add(subNode)
+                For Each subSubSetting In subSetting.Value
+                    Dim subSubNode As New Node With {
+        .CanAdd = False,
+        .CanDragDrop = False,
+        .CanEdit = False,
+        .CanRemove = False,
+        .Text = subSubSetting.Key,
+        .Name = subSubSetting.Value,
+        .Font = GothicFont
+    }
+                    subNode.Nodes.Add(subSubNode)
+                Next
             Next
         Next
-        Stop
+
         With tlpSettings
             .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 300})
             .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 700})
@@ -2144,23 +2205,36 @@ Public Class DataTool
         End With
         Controls.Add(tlpBasePanel)
         With Script_Grid
-            With .Columns.HeaderStyle
-                .ShadeColor = Color.Purple
-                .BackColor = Color.Black
-                .ForeColor = Color.White
+            With .Columns
+                With .HeaderStyle
+                    .ShadeColor = My.Settings.gridHeaderShadeColor
+                    .BackColor = My.Settings.gridHeaderBackColor
+                    .ForeColor = My.Settings.gridHeaderForeColor
+                    AddHandler .PropertyChanged, AddressOf Viewer_CellStyleChanged
+                End With
             End With
-            With .Rows.AlternatingRowStyle
-                .BackColor = Color.GhostWhite
-                .ForeColor = Color.Black
+            With .Rows
+                With .AlternatingRowStyle
+                    .BackColor = My.Settings.gridRowAlternatingBackColor
+                    .ForeColor = My.Settings.gridRowAlternatingForeColor
+                    AddHandler .PropertyChanged, AddressOf Viewer_CellStyleChanged
+                End With
+                With .RowStyle
+                    .BackColor = My.Settings.gridRowBackColor
+                    .ForeColor = My.Settings.gridRowForeColor
+                    AddHandler .PropertyChanged, AddressOf Viewer_CellStyleChanged
+                End With
+                With .SelectionRowStyle
+                    .BackColor = My.Settings.gridRowSelectionBackColor
+                    .ForeColor = My.Settings.gridRowSelectionForeColor
+                    AddHandler .PropertyChanged, AddressOf Viewer_CellStyleChanged
+                End With
             End With
-            With .Rows.RowStyle
-            End With
+            .GridOptions.Items.AddRange({Grid_FileExport, Grid_DatabaseExport})
         End With
 
         Dim TSCH_TypeHost As New ToolStripControlHost(TLP_Type) With {.ImageScaling = ToolStripItemImageScaling.None}
         TSMI_ObjectType.DropDownItems.Add(TSCH_TypeHost)
-
-        Script_Grid.GridOptions.Items.AddRange({Grid_FileExport, Grid_DatabaseExport})
 
         For Each TextString In {"--", "=="}
             Dim _Image As New Bitmap(16, 16)
@@ -2491,19 +2565,88 @@ Public Class DataTool
 
 #Region " FUNCTIONS STRIPBAR "
 #Region " SETTINGS "
+    Private Sub Viewer_CellStyleChanged(sender As Object, e As StyleEventArgs)
+
+        Dim settingStyle As CellStyle = DirectCast(sender, CellStyle)
+        Dim mySettings As New List(Of System.Configuration.SettingsPropertyValue)(From pv In My.Settings.PropertyValues Select DirectCast(pv, System.Configuration.SettingsPropertyValue))
+        Dim changedSetting As System.Configuration.SettingsPropertyValue = Nothing
+        Dim changedName As String = Nothing
+        With Script_Grid
+            If sender Is .Columns.HeaderStyle Then
+                changedName = "gridHeader"
+
+            ElseIf sender Is .Rows.AlternatingRowStyle Then
+                changedName = "gridRowAlternating"
+
+            ElseIf sender Is .Rows.RowStyle Then
+                changedName = "gridRow"
+
+            ElseIf sender Is .Rows.SelectionRowStyle Then
+                changedName = "gridRowSelection"
+
+            End If
+        End With
+        Dim changedProperties As New List(Of System.Configuration.SettingsPropertyValue)(From ms In mySettings Where ms.Name.Contains(changedName & e.PropertyName))
+        If changedProperties.Any Then changedSetting = changedProperties.First
+        changedSetting.PropertyValue = e.PropertyValue
+        My.Settings.Save()
+
+        If SettingsTreeB.Nodes.Any Then
+            Dim settingNode As Node = SettingsTreeB.Nodes.ItemByTag(changedSetting)
+            If settingNode IsNot Nothing Then
+                Dim settingColor As Color = DirectCast(changedSetting.PropertyValue, Color)
+                With settingNode
+                    .Image = ColorImages(settingColor)
+                    Dim nodeText As String = .Text
+                    Dim textElements As String() = Regex.Split(nodeText, " \(", RegexOptions.None)
+                    .Text = textElements.First & " (" & settingColor.Name & ")"
+                End With
+            End If
+        End If
+
+    End Sub
     Private Sub SettingA_nodeClick(sender As Object, e As NodeEventArgs) Handles SettingsTreeA.NodeClicked
 
         With SettingsTreeB.Nodes
             .Clear()
-            .AddRange(SettingsTrees_dictionary(e.Node))
+            Dim settingNodes As NodeCollection = SettingsTrees_dictionary(e.Node)
+            .AddRange(settingNodes)
+            For Each settingNode As Node In settingNodes
+                For Each childNode In settingNode.Nodes
+                    With childNode
+                        Dim settingItem As System.Configuration.SettingsPropertyValue = My.Settings.PropertyValues(.Name)
+                        Select Case settingItem.Property.PropertyType
+                            Case GetType(Boolean)
+                                .CheckBox = True
+                                .Checked = DirectCast(settingItem.PropertyValue, Boolean)
+
+                            Case GetType(Color)
+                                Dim settingColor As Color
+                                If settingItem.PropertyValue Is Nothing Then
+                                    If .Name.ToUpperInvariant.Contains("BACK") Then settingColor = Color.White
+                                    If .Name.ToUpperInvariant.Contains("FORE") Then settingColor = Color.Black
+                                    If .Name.ToUpperInvariant.Contains("SHADE") Then settingColor = Color.Gainsboro
+                                Else
+                                    settingColor = DirectCast(settingItem.PropertyValue, Color)
+                                End If
+                                .Image = ColorImages(settingColor)
+                                Dim nodeText As String = .Text
+                                Dim textElements As String() = Regex.Split(nodeText, " \(", RegexOptions.None)
+                                .Text = textElements.First & " (" & settingColor.Name & ")"
+                        End Select
+                        .Tag = settingItem
+                    End With
+                Next
+            Next
         End With
+        SettingsTreeB.ExpandNodes()
 
     End Sub
     Private Sub SettingB_nodeChecked(sender As Object, e As NodeEventArgs) Handles SettingsTreeB.NodeChecked
 
         With My.Settings
-            'If sender Is SettingsTreeB_nodeDDLprompt Then .ddlPrompt = Not .ddlPrompt
-            'If sender Is SettingsTreeB_nodeDDLrowCount Then .ddlRowCount = Not .ddlRowCount
+            Dim settingItem As System.Configuration.SettingsPropertyValue = My.Settings.PropertyValues(e.Node.Name)
+            settingItem.PropertyValue = e.Node.Checked
             .Save()
         End With
 
@@ -2571,16 +2714,36 @@ Public Class DataTool
     '===============================================================================
     Private Sub SaveAs_MouseEnter(sender As Object, e As EventArgs) Handles SaveAs.MouseEnter
 
+        SaveAs.MaximumSize = Nothing
         If ActiveScript() IsNot Nothing Then
-            SaveAs.ForeColor = If(ActiveScript.FileTextMatchesText, Color.LightGray, Color.Black)
-            SaveAs.Text = ActiveScript.Name
+            If ActiveScript() IsNot Nothing Then
+                SaveAs.Text = ActiveScript.Name
+                SaveAs.Image = If(ActiveScript.FileTextMatchesText, My.Resources.saved, My.Resources.savedNot)
+            End If
         End If
+        SaveAs.AutoSize = True
 
     End Sub
     Private Sub SaveAs_MouseLeave(sender As Object, e As EventArgs) Handles SaveAs.MouseLeave
+
+        SaveAs.AutoSize = True
         SaveAs.Text = String.Empty
+        SaveAs.MaximumSize = New Size(My.Resources.Save.Width + 2, My.Resources.Save.Width + 2)
+
     End Sub
-    Private Sub SaveAs_ImageClicked() Handles SaveAs.ImageClicked
+    Private Sub SaveAs_TextChanged(sender As Object, e As EventArgs)
+
+        If If(SaveAs.Text, String.Empty).Any Then
+            SaveAs.AutoSize = True
+            RemoveHandler SaveAs.TextChanged, AddressOf SaveAs_TextChanged
+        End If
+
+    End Sub
+    Private Sub SaveAs_ClearTextClicked(sender As Object, e As EventArgs) Handles SaveAs.ClearTextClicked
+        SaveAs.AutoSize = False
+        AddHandler SaveAs.TextChanged, AddressOf SaveAs_TextChanged
+    End Sub
+    Private Sub SaveAs_ImageClicked() Handles SaveAs.ImageClicked, SaveAs.ValueSubmitted
 
         If ActiveScript() IsNot Nothing Then
             Using cb As New CursorBusy
@@ -2937,7 +3100,7 @@ Public Class DataTool
             RemoveHandler removeScript.ConnectionChanged, AddressOf Script_ConnectionChanged
             RemoveHandler removeScript.GenericEvent, AddressOf Script_GenericEvent
             Dim RemoveNode As Node = FileTree.Nodes.ItemByTag(removeScript)
-            RemoveNode.RemoveMe()
+            RemoveNode?.RemoveMe()
 
         End If
 
@@ -2962,7 +3125,7 @@ Public Class DataTool
                 .WordWrap = True,
                 .AllowDrop = True,
                 .AcceptsTab = True,
-                .Font = My.Settings.Font_Pane,
+                .Font = My.Settings.paneFont,
                 .Tag = visibleScript,
                 .EnableAutoDragDrop = True,
                 .Text = visibleScript.Text
@@ -3001,24 +3164,26 @@ Public Class DataTool
         Else
             Dim invisibleScript As Script = e.Item
             Dim oldTab As Tab = invisibleScript.TabPage
-            Dim oldPane As RicherTextBox = DirectCast(oldTab.Controls.Item("Pane"), RicherTextBox)
             RemoveHandler oldTab.TextChanged, AddressOf AutoWidth
-            With oldPane
-                RemoveHandler .TextChanged, AddressOf ActivePane_TextChanged
-                RemoveHandler .KeyDown, AddressOf ActivePane_KeyDown
-                RemoveHandler .MouseDown, AddressOf ActivePane_MouseDown
-                RemoveHandler .MouseEnter, AddressOf ActivePane_MouseEnter
-                RemoveHandler .MouseMove, AddressOf ActivePane_MouseMove
-                RemoveHandler .SelectionChanged, AddressOf ActivePane_SelectionChanged
-                RemoveHandler .ScrolledVertical, AddressOf ActivePane_ScrolledVertical
-                RemoveHandler .DragStart, AddressOf ActivePane_DragStart
-                RemoveHandler .DragOver, AddressOf ActivePane_DragOver
-                RemoveHandler .DragDrop, AddressOf ActivePane_DragDrop
-            End With
+            Dim oldPane As RicherTextBox = DirectCast(oldTab.Controls.Item("Pane"), RicherTextBox)
+            If oldPane IsNot Nothing Then
+                With oldPane
+                    RemoveHandler .TextChanged, AddressOf ActivePane_TextChanged
+                    RemoveHandler .KeyDown, AddressOf ActivePane_KeyDown
+                    RemoveHandler .MouseDown, AddressOf ActivePane_MouseDown
+                    RemoveHandler .MouseEnter, AddressOf ActivePane_MouseEnter
+                    RemoveHandler .MouseMove, AddressOf ActivePane_MouseMove
+                    RemoveHandler .SelectionChanged, AddressOf ActivePane_SelectionChanged
+                    RemoveHandler .ScrolledVertical, AddressOf ActivePane_ScrolledVertical
+                    RemoveHandler .DragStart, AddressOf ActivePane_DragStart
+                    RemoveHandler .DragOver, AddressOf ActivePane_DragOver
+                    RemoveHandler .DragDrop, AddressOf ActivePane_DragDrop
+                End With
+                invisibleScript.TabPage.Controls.Remove(oldPane)
+                oldPane.Dispose()
+            End If
             scriptNode.Image = e.Item.TabImage
-            invisibleScript.TabPage.Controls.Remove(oldPane)
             Script_Tabs.TabPages.Remove(oldTab)
-            oldPane.Dispose()
             oldTab.Dispose()
         End If
 
@@ -3026,8 +3191,10 @@ Public Class DataTool
     Private Sub Script_NameChanged(sender As Object, e As ScriptNameChangedEventArgs)
 
         Dim changedScript As Script = DirectCast(sender, Script)
-        FileTree.Nodes.ItemByTag(changedScript).Text = e.CurrentName
+        Dim changedNode As Node = FileTree.Nodes.ItemByTag(changedScript)
+        changedNode.Text = e.CurrentName
         changedScript.TabPage.ItemText = changedScript.Name
+        SaveAs.Text = changedScript.Name
         Script_Tabs.Refresh()
 
     End Sub
@@ -3075,13 +3242,7 @@ Public Class DataTool
     Private Sub ActivePane_TextChanged(sender As Object, e As EventArgs)
 
         ActiveScript.Text = ActivePane.Text
-        If ActiveScript.FileTextMatchesText Then
-            SaveAs.ForeColor = Color.LightGray
-            SaveAs.Text = String.Empty
-        Else
-            SaveAs.ForeColor = Color.Black
-            SaveAs.Text = ActiveScript.Name
-        End If
+        SaveAs.Image = If(ActiveScript.FileTextMatchesText, My.Resources.saved, My.Resources.savedNot)
 
     End Sub
     Private Sub ActivePane_KeyDown(sender As Object, e As KeyEventArgs)
@@ -3772,56 +3933,56 @@ Public Class DataTool
                 Case InstructionElement.LabelName.Constant
                 Case InstructionElement.LabelName.FloatingTable
                     If ChangedBackColor Then
-                        .TableFloating_Back = NewColor
+                        '.TableFloating_Back = NewColor
                     Else
-                        .TableFloating_Fore = NewColor
+                        '.TableFloating_Fore = NewColor
                     End If
                 Case InstructionElement.LabelName.RoutineTable
                     If ChangedBackColor Then
-                        .TableRoutine_Back = NewColor
+                        '.TableRoutine_Back = NewColor
                     Else
-                        .TableRoutine_Fore = NewColor
+                        '.TableRoutine_Fore = NewColor
                     End If
                 Case InstructionElement.LabelName.SystemTable
                     If ChangedBackColor Then
-                        .TableSystem_Back = NewColor
+                        '.TableSystem_Back = NewColor
                     Else
-                        .TableSystem_Fore = NewColor
+                        '.TableSystem_Fore = NewColor
                     End If
                 Case InstructionElement.LabelName.GroupBlock, InstructionElement.LabelName.GroupField
                     If ChangedBackColor Then
-                        .Group_Back = NewColor
+                        '.Group_Back = NewColor
                     Else
-                        .Group_Fore = NewColor
+                        '.Group_Fore = NewColor
                     End If
                 Case InstructionElement.LabelName.Limit
                     If ChangedBackColor Then
-                        .Limit_Back = NewColor
+                        '.Limit_Back = NewColor
                     Else
-                        .Limit_Fore = NewColor
+                        '.Limit_Fore = NewColor
                     End If
                 Case InstructionElement.LabelName.OrderBlock, InstructionElement.LabelName.OrderField
                     If ChangedBackColor Then
-                        .Order_Back = NewColor
+                        '.Order_Back = NewColor
                     Else
-                        .Order_Fore = NewColor
+                        '.Order_Fore = NewColor
                     End If
                 Case InstructionElement.LabelName.SelectBlock, InstructionElement.LabelName.SelectField
                     If ChangedBackColor Then
-                        .Select_Back = NewColor
+                        '.Select_Back = NewColor
                     Else
-                        .Select_Fore = NewColor
+                        '.Select_Fore = NewColor
                     End If
                 Case InstructionElement.LabelName.WithBlock
                     If ChangedBackColor Then
                     Else
-                        .WithBlock_Fore = NewColor
+                        '.WithBlock_Fore = NewColor
                     End If
                 Case InstructionElement.LabelName.Union
                     If ChangedBackColor Then
-                        .Union_Back = NewColor
+                        '.Union_Back = NewColor
                     Else
-                        .Union_Fore = NewColor
+                        '.Union_Fore = NewColor
                     End If
             End Select
         End With
@@ -5010,7 +5171,7 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
                 ActivePane.SelectionFont = .Font
             End If
 
-            My.Settings.Font_Pane = .Font
+            My.Settings.paneFont = .Font
             My.Settings.Save()
         End With
 
@@ -5024,7 +5185,7 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
         Dim NewLines As New List(Of String)
         Dim Items As New Dictionary(Of Integer, Integer)
         Dim MaxWidth As Integer = 0
-        Using RTB As New RichTextBox With {.Font = My.Settings.Font_Pane, .Width = 2000, .Text = InputString}
+        Using RTB As New RichTextBox With {.Font = My.Settings.paneFont, .Width = 2000, .Text = InputString}
             With RTB
                 Dim TabWidths As New List(Of Integer)
                 For i = 0 To 10
@@ -5150,6 +5311,7 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
                         Column_2_Width = AvailableWidth - Column_1_Width
 
                     ElseIf sender.GetType Is GetType(Tab) Then
+                        SaveAs.Text = DirectCast(sender, Tab).Name
                         If Actual_Column1_Width < Column_1_MinimumWidth Then
                             Column_1_Width = Column_1_MinimumWidth
                         Else
