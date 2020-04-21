@@ -1003,9 +1003,24 @@ Public Module Functions
 
     End Function
 #End Region
-    Public Function FontImages() As Dictionary(Of String, Image)
+    Public Function BackColorToForeColor(backColor As Color) As Color
 
-        Dim FontImageCollection As New Dictionary(Of String, Image)
+        With backColor
+            Dim rFactor As Double = Math.Pow(.R, 2) * 0.241
+            Dim gFactor As Double = Math.Pow(.G, 2) * 0.691
+            Dim bFactor As Double = Math.Pow(.B, 2) * 0.068
+            Dim colorThreshold = Math.Sqrt(rFactor + gFactor + bFactor)
+            If colorThreshold < 130 Then
+                Return Color.White
+            Else
+                Return Color.Black
+            End If
+        End With
+
+    End Function
+    Public Function FontImages() As Dictionary(Of Font, Image)
+
+        Dim FontImageCollection As New Dictionary(Of Font, Image)
         REM /// INITIALIZE THEM
         Using ifc As Text.InstalledFontCollection = New Text.InstalledFontCollection()
             For Each availableFont In ifc.Families
@@ -1025,10 +1040,10 @@ Public Module Functions
         .Alignment = StringAlignment.Center,
         .LineAlignment = StringAlignment.Center
     }
-                            G.DrawString(availableFont.Name, bmpFont, Brushes.Black, New Rectangle(New Point(0, 0), fontSize), Format)
+                            G.DrawString("A", bmpFont, Brushes.Black, New Rectangle(New Point(0, 0), fontSize), Format) 'availableFont.Name
                         End Using
                     End Using
-                    FontImageCollection.Add(availableFont.Name, _Image)
+                    FontImageCollection.Add(bmpFont, _Image)
                 End Using
             Next
         End Using
@@ -1413,6 +1428,17 @@ Public Module Functions
         html = Replace(html, "&ndash;", "-")
 
         Return html
+
+    End Function
+    Public Function NameToProperty(objectProperty As String) As System.Configuration.SettingsPropertyValue
+
+        Dim mySettings As New List(Of System.Configuration.SettingsPropertyValue)(From pv In My.Settings.PropertyValues Select DirectCast(pv, System.Configuration.SettingsPropertyValue))
+        Dim changedProperties As New List(Of System.Configuration.SettingsPropertyValue)(From ms In mySettings Where ms.Name.Contains(objectProperty))
+        If changedProperties.Any Then
+            Return changedProperties.First
+        Else
+            Return Nothing
+        End If
 
     End Function
 

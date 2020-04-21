@@ -93,14 +93,18 @@ Public Class TreeViewer
     Private WithEvents TSMI_Sort As New ToolStripMenuItem With {.Text = "Click to Sort Ascending"}
 
     Private WithEvents TSMI_NodeEditing As New ToolStripMenuItem With {.Text = "Node Editing Options"}
-    Private ReadOnly TLP_NodePermissions As New TableLayoutPanel With {.CellBorderStyle = TableLayoutPanelCellBorderStyle.None, .ColumnCount = 1, .RowCount = 3, .Size = New Size(200, 90), .Margin = New Padding(0)}
+    Private ReadOnly TLP_NodePermissions As New TableLayoutPanel With {.CellBorderStyle = TableLayoutPanelCellBorderStyle.None,
+        .ColumnCount = 1,
+        .RowCount = 3,
+        .Size = New Size(200, 90),
+        .Margin = New Padding(0)}
     Private WithEvents IC_NodeAdd As New ImageCombo With {.Dock = DockStyle.Fill,
         .Margin = New Padding(0),
         .HintText = "Add Child Node"}
     Private WithEvents IC_NodeRemove As New ImageCombo With {.Dock = DockStyle.Fill,
         .Text = "Remove Node",
         .Margin = New Padding(0),
-        .ButtonMode = True}
+        .Mode = ImageComboMode.ColorPicker}
     Private WithEvents IC_NodeEdit As New ImageCombo With {.Dock = DockStyle.Fill,
         .Margin = New Padding(0)}
 #End Region

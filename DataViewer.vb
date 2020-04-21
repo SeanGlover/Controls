@@ -5,6 +5,10 @@ Imports System.Drawing
 Imports System.ComponentModel
 Imports System.Drawing.Drawing2D
 #Region " STRUCTURES + ENUMERATIONS "
+Public Enum MouseRegion
+    Header
+    Grid
+End Enum
 Public Structure MouseInfo
     Implements IEquatable(Of MouseInfo)
     Public Property Column As Column
@@ -16,6 +20,7 @@ Public Structure MouseInfo
     Public Property SelectPointA As Point
     Public Property SelectPointB As Point
     Public Property CurrentAction As Action
+    Public Property CurrentRegion As MouseRegion
     Public Enum Action
         None
         MouseOverHead
@@ -78,29 +83,32 @@ Public Class DataViewer
     Public WithEvents HScroll As New HScrollBar With {.Minimum = 0}
     Private WithEvents HeaderOptions As New ToolStripDropDown With {.AutoClose = False}
     Public WithEvents GridOptions As New ContextMenuStrip With {.AutoClose = False}
-    Private WithEvents HeaderBackColor As New ImageCombo With {.ColorPicker = True,
+    Private WithEvents HeaderBackColor As New ImageCombo With {.Mode = ImageComboMode.ColorPicker,
         .Size = New Size(200, 24)}
-    Private WithEvents HeaderShadeColor As New ImageCombo With {.ColorPicker = True,
+    Private WithEvents HeaderShadeColor As New ImageCombo With {.Mode = ImageComboMode.ColorPicker,
         .Size = New Size(200, 24)}
-    Private WithEvents HeaderForeColor As New ImageCombo With {.ColorPicker = True,
+    Private WithEvents HeaderForeColor As New ImageCombo With {.Mode = ImageComboMode.ColorPicker,
         .Size = New Size(200, 24)}
     Private WithEvents HeaderGridAlignment As New ImageCombo With {.DataSource = EnumNames(GetType(ContentAlignment)),
         .Size = New Size(200, 24)}
     Private WithEvents HeaderDistinctTree As New TreeViewer With {.Margin = New Padding(0),
         .AutoSize = True}
-    Private WithEvents GridBackColor As New ImageCombo With {.ColorPicker = True,
+    Private WithEvents GridBackColor As New ImageCombo With {.Mode = ImageComboMode.ColorPicker,
         .Size = New Size(200, 24)}
-    Private WithEvents GridForeColor As New ImageCombo With {.ColorPicker = True,
+    Private WithEvents GridForeColor As New ImageCombo With {.Mode = ImageComboMode.ColorPicker,
         .Size = New Size(200, 24)}
-    Private WithEvents GridAlternatingBackColor As New ImageCombo With {.ColorPicker = True,
+    Private WithEvents GridAlternatingBackColor As New ImageCombo With {.Mode = ImageComboMode.ColorPicker,
         .Size = New Size(200, 24)}
-    Private WithEvents GridAlternatingForeColor As New ImageCombo With {.ColorPicker = True,
+    Private WithEvents GridAlternatingForeColor As New ImageCombo With {.Mode = ImageComboMode.ColorPicker,
         .Size = New Size(200, 24)}
-    Private WithEvents GridSelectionBackColor As New ImageCombo With {.ColorPicker = True,
+    Private WithEvents GridSelectionBackColor As New ImageCombo With {.Mode = ImageComboMode.ColorPicker,
         .Size = New Size(200, 24)}
-    Private WithEvents GridSelectionForeColor As New ImageCombo With {.ColorPicker = True,
+    Private WithEvents GridSelectionForeColor As New ImageCombo With {.Mode = ImageComboMode.ColorPicker,
         .Size = New Size(200, 24)}
-    Private ReadOnly ColumnHeadTip As ToolTip = New ToolTip With {.BackColor = Color.Black, .ForeColor = Color.White}
+    Private ReadOnly ColumnHeadTip As ToolTip = New ToolTip With {
+        .BackColor = Color.Black,
+        .ForeColor = Color.White
+    }
     Private ControlKeyDown As Boolean
 #End Region
 #Region " EVENTS "
@@ -158,27 +166,51 @@ Public Class DataViewer
         End With
         With GridOptions.Items
             Dim tlpFontsColors As New TableLayoutPanel With {
-                .ColumnCount = 2,
+                .ColumnCount = 1,
                 .RowCount = 6,
                 .Size = New Size(400 + 4, 4 + 6 * 26),
                 .Margin = New Padding(0),
                 .CellBorderStyle = TableLayoutPanelCellBorderStyle.Inset}
             With tlpFontsColors
                 .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 200})
-                .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 200})
-                For i = 1 To 6
-                    .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 26})
+                Dim controlIndex As Integer = 0
+                Dim maxTextWidth As Integer = 0
+                For Each gridRowStyle In {"Alternating", "", "Selection"}
+                    For Each backFore In {"Back", "Fore"}
+                        Dim propertyName As String = Join({"gridRow", gridRowStyle, backFore & "Color"}, String.Empty)
+                        Dim rowProperty As System.Configuration.SettingsPropertyValue = NameToProperty(propertyName)
+                        Dim rowColor As Color = DirectCast(If(rowProperty.PropertyValue, If(backFore = "Fore", Color.Black, If(gridRowStyle = "Alternating", Color.Gainsboro, Color.White))), Color)
+                        Dim colorControl As New ImageCombo With {
+                            .Font = colorFont,
+                            .Mode = ImageComboMode.ColorPicker,
+                            .Margin = New Padding(0),
+                            .Dock = DockStyle.Fill,
+                            .HintText = Join({gridRowStyle, "Row", backFore & "Color"})
+                            }
+                        colorControl.Text = rowColor.Name
+                        Dim textSize As Size = TextRenderer.MeasureText(colorControl.HintText, colorFont)
+                        If maxTextWidth < textSize.Width Then maxTextWidth = textSize.Width
+                        .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 26})
+                        .Controls.Add(colorControl, 0, controlIndex)
+                        controlIndex += 1
+                        For Each colorItem In colorControl.Items
+                            Dim itemTextSize As Size = TextRenderer.MeasureText(colorItem.Text, colorFont)
+                            If maxTextWidth < itemTextSize.Width Then maxTextWidth = itemTextSize.Width
+                        Next
+                        colorControl.SelectedIndex = colorControl.TextIndex
+                        colorControl.Tag = rowProperty
+                        AddHandler colorControl.SelectionChanged, AddressOf RowsProperty_SelectionChanged
+                    Next
                 Next
+                Dim imageDropClearEye As Integer = 24
+                .ColumnStyles(0).Width = 3 + maxTextWidth + imageDropClearEye * 4 + 3
+                TLP.SetSize(tlpFontsColors)
             End With
-            'Dim icFonts As New ImageCombo With {.Size = New Size(200, 26)}
-            'For Each item In FontImages()
-            '    Using itemFont As New Font(item.Key, 10, FontStyle.Regular)
-            '        Dim fontItem As ComboItem = icFonts.Items.Add(item.Key, item.Value)
-            '    End Using
-            'Next
-            Dim gridFontsColors As New ToolStripMenuItem("Grid row fonts and colors".ToString(InvariantCulture))
-            gridFontsColors.Font = Gothic
-            gridFontsColors.DropDownItems.Add(New ToolStripControlHost(tlpFontsColors))
+
+            Dim gridFontsColors As New ToolStripMenuItem("Grid row fonts and colors".ToString(InvariantCulture)) With {
+                .Font = Gothic
+            }
+            gridFontsColors.DropDownItems.Add(New ToolStripControlHost(tlpFontsColors) With {.AutoSize = True})
             .Add(gridFontsColors)
         End With
 
@@ -505,6 +537,8 @@ Public Class DataViewer
         End Set
     End Property
     Public ReadOnly Property MouseData As New MouseInfo
+    Public Property FullRowSelect As Boolean
+    Public ReadOnly Property LoadTime As TimeSpan
     Private WithEvents Table_ As DataTable
     Public ReadOnly Property Table As DataTable
         Get
@@ -518,8 +552,6 @@ Public Class DataViewer
         End Get
     End Property
     Public ReadOnly Property VisibleColumns As New Dictionary(Of Column, Rectangle)
-    Public Property FullRowSelect As Boolean
-    Public ReadOnly Property LoadTime As TimeSpan
     Private WithEvents Rows_ As New RowCollection(Me)
     Public ReadOnly Property Rows As RowCollection
         Get
@@ -778,6 +810,7 @@ Public Class DataViewer
                     Dim Redraw As Boolean = False
                     If Columns.HeadBounds.Contains(newPoint) Then
 #Region " HEADER REGION "
+                        .CurrentRegion = MouseRegion.Header
                         Dim VisibleEdges As New Dictionary(Of Column, Rectangle)
                         Dim ColumnEdge As Column = Nothing
                         For Each Item In VisibleColumns
@@ -795,6 +828,7 @@ Public Class DataViewer
 #End Region
                     Else
 #Region " GRID REGION "
+                        .CurrentRegion = MouseRegion.Grid
                         Dim MouseRows = VisibleRows.Where(Function(r) e.Y >= r.Value.Top And e.Y <= r.Value.Bottom)
                         Dim lastMouseCell As Cell = .Cell
                         If MouseRows.Any Then
@@ -870,22 +904,6 @@ Public Class DataViewer
                     Else
                         If .CurrentAction = MouseInfo.Action.MouseOverHead Then
                             HeaderOptions.Tag = .Column
-
-                            'Change backcolor, shadecolor
-                            Dim backIndex As New List(Of Integer)(From ci In HeaderBackColor.Items Where ci.Text = .Column.HeaderStyle.BackColor.Name Select ci.Index)
-                            If backIndex.Any Then HeaderBackColor.SelectedIndex = backIndex.First
-
-                            Dim shadeIndex As New List(Of Integer)(From ci In HeaderShadeColor.Items Where ci.Text = .Column.HeaderStyle.ShadeColor.Name Select ci.Index)
-                            If shadeIndex.Any Then HeaderShadeColor.SelectedIndex = shadeIndex.First
-
-                            Dim foreIndex As New List(Of Integer)(From ci In HeaderForeColor.Items Where ci.Text = .Column.HeaderStyle.ForeColor.Name Select ci.Index)
-                            If foreIndex.Any Then HeaderForeColor.SelectedIndex = foreIndex.First
-
-                            Dim alignString As String = StringFormatToContentAlignString(.Column.GridStyle.Alignment)
-                            Dim alignIndex As New List(Of Integer)(From ci In HeaderGridAlignment.Items Where ci.Text = StringFormatToContentAlignString(.Column.GridStyle.Alignment) Select ci.Index)
-                            If alignIndex.Any Then HeaderGridAlignment.SelectedIndex = alignIndex.First
-
-                            HeaderOptions.AutoClose = False
                             With HeaderDistinctTree.Nodes
                                 .Clear()
                                 For Each header In DistinctValues
@@ -903,7 +921,6 @@ Public Class DataViewer
                                     End If
                                 Next
                             End With
-                            HeaderOptions.Show(PointToScreen(New Point(.Column.HeadBounds.Right, .Column.HeadBounds.Bottom)))
                         End If
                     End If
 
@@ -925,12 +942,36 @@ Public Class DataViewer
                                      End Function)
                         .Cell.Selected = If(cellSelectedCounter = 0, Not .Cell.Selected, True)
                         RaiseEvent CellClicked(Me, New ViewerEventArgs(MouseData))
+                    End If
+                End If
+                If e.Button = MouseButtons.Right Then
+                    If .CurrentRegion = MouseRegion.Header Then
+                        'Change backcolor, shadecolor, alignment ( by Column )
+                        If .Column Is Nothing Then
+                            HeaderBackColor.Text = Columns.HeaderStyle.BackColor.Name
+                            HeaderShadeColor.Text = Columns.HeaderStyle.ShadeColor.Name
+                            HeaderForeColor.Text = Columns.HeaderStyle.ForeColor.Name
+                        Else
+                            HeaderBackColor.Text = .Column.HeaderStyle.BackColor.Name
+                            HeaderShadeColor.Text = .Column.HeaderStyle.ShadeColor.Name
+                            HeaderForeColor.Text = .Column.HeaderStyle.ForeColor.Name
+                        End If
 
-                    ElseIf e.Button = MouseButtons.Right Then
-                        GridOptions.AutoClose = True
-                        Dim relativePoint As Point = PointToScreen(New Point(.CellBounds.Right - HScroll.Value, .CellBounds.Top))
-                        GridOptions.Show(relativePoint)
+                        HeaderBackColor.SelectedIndex = HeaderBackColor.TextIndex
+                        HeaderShadeColor.SelectedIndex = HeaderShadeColor.TextIndex
+                        HeaderForeColor.SelectedIndex = HeaderForeColor.TextIndex
 
+                        Dim alignString As String = StringFormatToContentAlignString(.Column.GridStyle.Alignment)
+                        HeaderGridAlignment.Text = alignString
+                        HeaderGridAlignment.SelectedIndex = HeaderGridAlignment.TextIndex
+
+                        HeaderOptions.AutoClose = False
+                        Dim relativePoint As Point = If(.Column Is Nothing, e.Location, New Point(.Column.HeadBounds.Right, .Column.HeadBounds.Bottom))
+                        HeaderOptions.Show(PointToScreen(relativePoint))
+                    Else
+                        GridOptions.AutoClose = False
+                        Dim relativePoint As Point = If(.Cell Is Nothing, e.Location, New Point(.CellBounds.Right - HScroll.Value, .CellBounds.Top))
+                        GridOptions.Show(PointToScreen(relativePoint))
                     End If
                 End If
             End With
@@ -1122,16 +1163,54 @@ Public Class DataViewer
     Private Sub Scrolled(sender As Object, e As ScrollEventArgs) Handles VScroll.Scroll, HScroll.Scroll
         Invalidate()
     End Sub
-    Private Sub BackColor_Selected(sender As Object, e As ImageComboEventArgs) Handles HeaderBackColor.SelectionChanged, HeaderShadeColor.SelectionChanged, HeaderForeColor.SelectionChanged, HeaderGridAlignment.SelectionChanged
+    Private Sub HeaderProperty_SelectionChanged(sender As Object, e As ImageComboEventArgs) Handles HeaderBackColor.SelectionChanged, HeaderShadeColor.SelectionChanged, HeaderForeColor.SelectionChanged, HeaderGridAlignment.SelectionChanged
 
-        If sender Is HeaderBackColor Then Columns.HeaderStyle.BackColor = Color.FromName(HeaderBackColor.Text)
-        If sender Is HeaderShadeColor Then Columns.HeaderStyle.ShadeColor = Color.FromName(HeaderShadeColor.Text)
-        If sender Is HeaderForeColor Then Columns.HeaderStyle.ForeColor = Color.FromName(HeaderForeColor.Text)
-        Dim mouseColumn As Column = DirectCast(HeaderOptions.Tag, Column)
-        If sender Is HeaderGridAlignment Then
-            mouseColumn.GridStyle.Alignment = ContentAlignToStringFormat(HeaderGridAlignment.Text)
-            RaiseEvent Alert(mouseColumn.GridStyle, New AlertEventArgs(mouseColumn.GridStyle.Alignment.ToString))
+        If sender Is HeaderBackColor Then
+            Columns.HeaderStyle.BackColor = Color.FromName(HeaderBackColor.Text)
+
+        ElseIf sender Is HeaderShadeColor Then
+            Columns.HeaderStyle.ShadeColor = Color.FromName(HeaderShadeColor.Text)
+
+        ElseIf sender Is HeaderForeColor Then
+            Columns.HeaderStyle.ForeColor = Color.FromName(HeaderForeColor.Text)
+
         End If
+        If HeaderOptions.Tag Is Nothing Then
+            Columns.HeaderStyle.Alignment = ContentAlignToStringFormat(HeaderGridAlignment.Text)
+        Else
+            Dim mouseColumn As Column = DirectCast(HeaderOptions.Tag, Column)
+            If sender Is HeaderGridAlignment Then
+                mouseColumn.GridStyle.Alignment = ContentAlignToStringFormat(HeaderGridAlignment.Text)
+                RaiseEvent Alert(mouseColumn.GridStyle, New AlertEventArgs(mouseColumn.GridStyle.Alignment.ToString))
+            End If
+        End If
+
+    End Sub
+    Private Sub RowsProperty_SelectionChanged(sender As Object, e As ImageComboEventArgs)
+
+        Dim propertyCombo As ImageCombo = DirectCast(sender, ImageCombo)
+        Dim propertyColor As Color = DirectCast(propertyCombo.SelectedItem.Tag, Color)
+        Dim propertySetting As System.Configuration.SettingsPropertyValue = DirectCast(propertyCombo.Tag, System.Configuration.SettingsPropertyValue)
+        Select Case True
+            Case propertySetting.Name.Contains("AlternatingBackColor")
+                Rows.AlternatingRowStyle.BackColor = propertyColor
+
+            Case propertySetting.Name.Contains("AlternatingForeColor")
+                Rows.AlternatingRowStyle.ForeColor = propertyColor
+
+            Case propertySetting.Name.Contains("SelectionBackColor")
+                Rows.SelectionRowStyle.BackColor = propertyColor
+
+            Case propertySetting.Name.Contains("SelectionForeColor")
+                Rows.SelectionRowStyle.ForeColor = propertyColor
+
+            Case propertySetting.Name.Contains("RowBackColor")
+                Rows.RowStyle.BackColor = propertyColor
+
+            Case propertySetting.Name.Contains("RowForeColor")
+                Rows.RowStyle.ForeColor = propertyColor
+
+        End Select
 
     End Sub
     Private Sub Filter_Enter(sender As Object, e As EventArgs)
@@ -1868,7 +1947,13 @@ Public Class RowCollection
     Inherits List(Of Row)
     Implements IDisposable
     Public Sub New(Viewer As DataViewer)
+
         _Parent = Viewer
+        AddHandler RowStyle_.PropertyChanged, AddressOf RowStyle_PropertyChanged
+        AddHandler HeaderStyle_.PropertyChanged, AddressOf RowStyle_PropertyChanged
+        AddHandler AlternatingRowStyle_.PropertyChanged, AddressOf RowStyle_PropertyChanged
+        AddHandler SelectionRowStyle_.PropertyChanged, AddressOf RowStyle_PropertyChanged
+
     End Sub
     Friend _Parent As DataViewer
     Public ReadOnly Property Parent As DataViewer
@@ -1889,7 +1974,6 @@ Public Class RowCollection
         Set(value As CellStyle)
             If HeaderStyle_ IsNot value Then
                 HeaderStyle_ = value
-                RowStyle_PropertyChanged(Nothing, Nothing)
             End If
         End Set
     End Property
@@ -1899,9 +1983,8 @@ Public Class RowCollection
             Return RowStyle_
         End Get
         Set(value As CellStyle)
-            If RowStyle_ IsNot value Then
+            If RowStyle_ <> value Then
                 RowStyle_ = value
-                RowStyle_PropertyChanged(Nothing, Nothing)
             End If
         End Set
     End Property
@@ -1911,9 +1994,8 @@ Public Class RowCollection
             Return AlternatingRowStyle_
         End Get
         Set(value As CellStyle)
-            If AlternatingRowStyle_ IsNot value Then
+            If AlternatingRowStyle_ <> value Then
                 AlternatingRowStyle_ = value
-                RowStyle_PropertyChanged(Nothing, Nothing)
             End If
         End Set
     End Property
@@ -1923,7 +2005,7 @@ Public Class RowCollection
             Return SelectionRowStyle_
         End Get
         Set(value As CellStyle)
-            If SelectionRowStyle_ IsNot value Then
+            If SelectionRowStyle_ <> value Then
                 SelectionRowStyle_ = value
             End If
         End Set
@@ -1998,7 +2080,7 @@ Public Class RowCollection
         End If
 
     End Sub
-    Private Sub RowStyle_PropertyChanged(sender As Object, e As StyleEventArgs) Handles RowStyle_.PropertyChanged, AlternatingRowStyle_.PropertyChanged, HeaderStyle_.PropertyChanged
+    Private Sub RowStyle_PropertyChanged(sender As Object, e As StyleEventArgs) 'Handles RowStyle_.PropertyChanged, AlternatingRowStyle_.PropertyChanged, SelectionRowStyle_.PropertyChanged, HeaderStyle_.PropertyChanged
 
         If Not (sender Is Nothing Or e Is Nothing) Then
             If e.ChangedProperty = CellStyle.Properties.Height Then
@@ -2031,7 +2113,7 @@ Public Class RowCollection
                 End If
             End If
         End If
-        DrawTimer.Start()
+        Parent?.Invalidate()
 
     End Sub
 #Region "IDisposable Support"

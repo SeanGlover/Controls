@@ -333,7 +333,7 @@ End Class
     Public ReadOnly Property Type As ExecutionType
     Private ReadOnly Property FileExtension As String
         Get
-            Return "." & If(Type = ExecutionType.Null, "txt", Type.ToString.ToLowerInvariant)
+            Return "." & If(Type = ExecutionType.Null, "txt", If(Type = ExecutionType.DDL, "ddl", "sql"))
         End Get
     End Property
     Public ReadOnly Property DataSourceName As String
@@ -2567,9 +2567,6 @@ Public Class DataTool
 #Region " SETTINGS "
     Private Sub Viewer_CellStyleChanged(sender As Object, e As StyleEventArgs)
 
-        Dim settingStyle As CellStyle = DirectCast(sender, CellStyle)
-        Dim mySettings As New List(Of System.Configuration.SettingsPropertyValue)(From pv In My.Settings.PropertyValues Select DirectCast(pv, System.Configuration.SettingsPropertyValue))
-        Dim changedSetting As System.Configuration.SettingsPropertyValue = Nothing
         Dim changedName As String = Nothing
         With Script_Grid
             If sender Is .Columns.HeaderStyle Then
@@ -2586,21 +2583,22 @@ Public Class DataTool
 
             End If
         End With
-        Dim changedProperties As New List(Of System.Configuration.SettingsPropertyValue)(From ms In mySettings Where ms.Name.Contains(changedName & e.PropertyName))
-        If changedProperties.Any Then changedSetting = changedProperties.First
-        changedSetting.PropertyValue = e.PropertyValue
-        My.Settings.Save()
+        Dim changedProperty As System.Configuration.SettingsPropertyValue = NameToProperty(changedName & e.PropertyName)
+        If changedProperty IsNot Nothing Then
+            changedProperty.PropertyValue = e.PropertyValue
+            My.Settings.Save()
 
-        If SettingsTreeB.Nodes.Any Then
-            Dim settingNode As Node = SettingsTreeB.Nodes.ItemByTag(changedSetting)
-            If settingNode IsNot Nothing Then
-                Dim settingColor As Color = DirectCast(changedSetting.PropertyValue, Color)
-                With settingNode
-                    .Image = ColorImages(settingColor)
-                    Dim nodeText As String = .Text
-                    Dim textElements As String() = Regex.Split(nodeText, " \(", RegexOptions.None)
-                    .Text = textElements.First & " (" & settingColor.Name & ")"
-                End With
+            If SettingsTreeB.Nodes.Any Then
+                Dim settingNode As Node = SettingsTreeB.Nodes.ItemByTag(changedProperty)
+                If settingNode IsNot Nothing Then
+                    Dim settingColor As Color = DirectCast(changedProperty.PropertyValue, Color)
+                    With settingNode
+                        .Image = ColorImages(settingColor)
+                        Dim nodeText As String = .Text
+                        Dim textElements As String() = Regex.Split(nodeText, " \(", RegexOptions.None)
+                        .Text = textElements.First & " (" & settingColor.Name & ")"
+                    End With
+                End If
             End If
         End If
 
@@ -3307,11 +3305,11 @@ Public Class DataTool
                                 REM /// INITIALIZE THEM
                                 With IC_BackColor
                                     .DropDown.CheckBoxes = False
-                                    .ColorPicker = True
+                                    .Mode = ImageComboMode.ColorPicker
                                 End With
                                 With IC_ForeColor
                                     .DropDown.CheckBoxes = False
-                                    .ColorPicker = True
+                                    .Mode = ImageComboMode.ColorPicker
                                 End With
                                 TLP_Type.Controls.Add(IC_BackColor)
                                 TLP_Type.Controls.Add(IC_ForeColor)

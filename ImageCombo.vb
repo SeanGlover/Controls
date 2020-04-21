@@ -13,6 +13,12 @@ Public NotInheritable Class ImageComboEventArgs
     Public Sub New()
     End Sub
 End Class
+Public Enum ImageComboMode
+    Combobox
+    Button
+    ColorPicker
+    FontPicker
+End Enum
 Public NotInheritable Class ImageCombo
     Inherits Control
 
@@ -102,7 +108,7 @@ Public NotInheritable Class ImageCombo
                 e.Graphics.FillRectangle(backBrush, ClientRectangle)
             End Using
 
-            If ButtonMode Then
+            If Mode = ImageComboMode.Button Then
 #Region " BUTTON STYLE - ADD COLORS "
                 e.Graphics.DrawImage(If(InBounds, My.Resources.Button_Bright, My.Resources.Button_Light), ClientRectangle)
                 Dim penTangle As Rectangle = ClientRectangle
@@ -131,10 +137,33 @@ Public NotInheritable Class ImageCombo
                         End Using
 
                     Else
-                        Dim TextFlags As TextFormatFlags = TextFormatFlags.NoPadding Or TextFormatFlags.Left Or TextFormatFlags.VerticalCenter
-                        If WrapText Then TextFlags = TextFlags Or TextFormatFlags.WordBreak
-                        TextRenderer.DrawText(e.Graphics, Replace(Text, "&", "&&"), Font, TextBounds, ForeColor, TextFlags)
+                        If Mouse_Region = MouseRegion.Image And Mode = ImageComboMode.ColorPicker Then
+                            Dim borderColor As Color = DirectCast(Image, Bitmap).GetPixel(10, 10) ' ... Black doesn't work!
+                            'Dim foreColor As Color = BackColorToForeColor(backColor)
+                            Using backBrush As New SolidBrush(Color.WhiteSmoke)
+                                e.Graphics.FillRectangle(backBrush, Bounds)
+                            End Using
+                            Dim borderRectangle As Rectangle = Bounds
+                            borderRectangle.Inflate(-3, -3) : borderRectangle.Offset(-2, -2)
+                            Using borderBrush As New SolidBrush(borderColor)
+                                Using borderPen As New Pen(borderBrush, 3)
+                                    e.Graphics.DrawRectangle(borderPen, borderRectangle)
+                                End Using
+                            End Using
+                            TextRenderer.DrawText(e.Graphics, If(Text.Any, HintText, Text), Font, TextBounds, Color.Black, TextFormatFlags.VerticalCenter)
 
+                        ElseIf Mouse_Region = MouseRegion.Image And Mode = ImageComboMode.FontPicker Then
+
+                        Else
+                            Dim TextFlags As TextFormatFlags = TextFormatFlags.NoPadding Or TextFormatFlags.Left Or TextFormatFlags.VerticalCenter
+                            If WrapText Then TextFlags = TextFlags Or TextFormatFlags.WordBreak
+                            TextRenderer.DrawText(e.Graphics, Replace(Text, "&", "&&"), Font, TextBounds, ForeColor, TextFlags)
+                            If Enabled Then
+                                Using Brush As New SolidBrush(Color.FromArgb(60, SelectionColor))
+                                    e.Graphics.FillRectangle(Brush, SelectionBounds)
+                                End Using
+                            End If
+                        End If
                     End If
                 Else
                     TextRenderer.DrawText(e.Graphics, HintText, Font, TextBounds, Color.LightGray, TextFormatFlags.VerticalCenter)
@@ -156,9 +185,6 @@ Public NotInheritable Class ImageCombo
                             e.Graphics.DrawLine(Pen, CursorBounds.X, CursorBounds.Y, CursorBounds.X, CursorBounds.Bottom)
                         End Using
                     End If
-                    Using Brush As New SolidBrush(Color.FromArgb(60, SelectionColor))
-                        e.Graphics.FillRectangle(Brush, SelectionBounds)
-                    End Using
                 End If
 #End Region
             End If
@@ -273,7 +299,7 @@ Public NotInheritable Class ImageCombo
         End Get
     End Property
     Public Overrides Function ToString() As String
-        Return "ImageCombo.Text=""" & If(Text, String.Empty) & """"
+        Return "ImageCombo.Text=""" & Text & """"
     End Function
     Private KeyedValue As String, LastValue As String
     Private ReadOnly BindingSource As New BindingSource
@@ -293,36 +319,31 @@ Public NotInheritable Class ImageCombo
             Return GetDataType(Text)
         End Get
     End Property
-    Private _ButtonMode As Boolean
-    Public Property ButtonMode As Boolean
+    Private Mode_ As ImageComboMode = ImageComboMode.Combobox
+    Public Property Mode As ImageComboMode
         Get
-            Return _ButtonMode
+            Return Mode_
         End Get
-        Set(value As Boolean)
-            If Not _ButtonMode = value Then
-                HighlightOnFocus = True
-                _ButtonMode = value
-                Invalidate()
-            End If
-        End Set
-    End Property
-    Private _ColorPicker As Boolean
-    Public Property ColorPicker As Boolean
-        Get
-            Return _ColorPicker
-        End Get
-        Set(value As Boolean)
-            _ColorPicker = value
-            If value Then
-                With Me
-                    .Items.Clear()
-                    REM /// INITIALIZE THEM
-                    For Each ColorItem In ColorImages()
-                        .Items.Add(ColorItem.Key.Name, ColorItem.Value)
+        Set(value As ImageComboMode)
+            If Mode_ <> value Then
+                Items.Clear()
+                If value = ImageComboMode.ColorPicker Then
+                    DropDown.CheckBoxes = False
+                    For Each colorItem In ColorImages()
+                        Dim item As ComboItem = Items.Add(colorItem.Key.Name, colorItem.Value)
+                        item.Tag = colorItem.Key
                     Next
-                End With
-            Else
-
+                ElseIf value = ImageComboMode.FontPicker Then
+                    DropDown.CheckBoxes = False
+                    For Each fontItem In FontImages()
+                        Dim item As ComboItem = Items.Add(fontItem.Key.Name, fontItem.Value)
+                        item.Tag = fontItem.Key
+                    Next
+                ElseIf value = ImageComboMode.Button Then
+                    HighlightOnFocus = True
+                End If
+                Mode_ = value
+                Invalidate()
             End If
         End Set
     End Property
@@ -390,6 +411,21 @@ Public NotInheritable Class ImageCombo
         End Set
     End Property
     Public Property WrapText As Boolean = False
+    Public ReadOnly Property TextIndex(Optional matchText As String = Nothing) As Integer
+        Get
+            Dim strings As New List(Of String)(From i In Items Select i.Text)
+            Return strings.IndexOf(If(matchText, Text))
+        End Get
+    End Property
+    Private Text_ As String = String.Empty
+    Public Shadows Property Text As String
+        Get
+            Return Text_
+        End Get
+        Set(value As String)
+            Text_ = If(value, String.Empty)
+        End Set
+    End Property
     Public Property HintText As String
     '=======================================================
     Public ReadOnly Property SelectedItem As ComboItem
@@ -900,10 +936,10 @@ Public NotInheritable Class ImageCombo
 
         Dim spacing As Integer = 2
 
-        Dim hasText As Boolean = If(Text, String.Empty).Any
+        Dim hasText As Boolean = Text.Any
         Dim hasImage As Boolean = Image IsNot Nothing
-        Dim hasDrop As Boolean = Not ButtonMode And Items.Any
-        Dim hasClear As Boolean = Not ButtonMode And hasText
+        Dim hasDrop As Boolean = Not Mode = ImageComboMode.Button And Items.Any
+        Dim hasClear As Boolean = Not Mode = ImageComboMode.Button And hasText
         Dim hasEye As Boolean = PasswordProtected And hasClear
         '===========================
         If AutoSize Then
@@ -1004,16 +1040,18 @@ Public NotInheritable Class ImageCombo
         REM /// DICTIONARY IS FILLED WITH A INDEX-BASED X.POS
         LetterWidths.Clear()
         LetterWidths.Add(0, TextBounds.X)
-        For i As Integer = 1 To Text.Length
-            LetterWidths.Add(i, TextLength(Text.Substring(0, i)))
-        Next
+        If hasText Then
+            For i As Integer = 1 To Text.Length
+                LetterWidths.Add(i, TextLength(Text.Substring(0, i)))
+            Next
+        End If
 #End Region
 
         With CursorBounds
             .X = {spacing, GetxPos(CursorIndex)}.Max
             .Y = 2
             .Width = 1
-            .Height = (Height - 4)
+            .Height = Height - 4
         End With
 
         With SelectionBounds
@@ -1634,6 +1672,7 @@ REM ////////////////////////////////////////////////////////////////////////////
     End Property
     Public Property Format As String
     Public Property Value As Object
+    Public Property Tag As Object
     Public Property Name As String
     Public ReadOnly Property Text As String
         Get
