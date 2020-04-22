@@ -3,7 +3,7 @@
   <Profiles />
   <Settings>
     <Setting Name="applicationFont" Type="System.Drawing.Font" Scope="User">
-      <Value Profile="(Default)">Century Gothic, 10.2pt</Value>
+      <Value Profile="(Default)">Century Gothic, 9pt</Value>
     </Setting>
     <Setting Name="applicationBackColor" Type="System.Drawing.Color" Scope="User">
       <Value Profile="(Default)">White</Value>
@@ -20,6 +20,9 @@
     <Setting Name="paneForeColor" Type="System.Drawing.Color" Scope="User">
       <Value Profile="(Default)">Black</Value>
     </Setting>
+    <Setting Name="gridFont" Type="System.Drawing.Font" Scope="User">
+      <Value Profile="(Default)">Segoe UI, 9.75pt</Value>
+    </Setting>
     <Setting Name="gridHeaderForeColor" Type="System.Drawing.Color" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
@@ -32,17 +35,26 @@
     <Setting Name="gridRowBackColor" Type="System.Drawing.Color" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
+    <Setting Name="gridRowShadeColor" Type="System.Drawing.Color" Scope="User">
+      <Value Profile="(Default)">WhiteSmoke</Value>
+    </Setting>
     <Setting Name="gridRowForeColor" Type="System.Drawing.Color" Scope="User">
       <Value Profile="(Default)">Black</Value>
     </Setting>
     <Setting Name="gridRowAlternatingBackColor" Type="System.Drawing.Color" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
+    <Setting Name="gridRowAlternatingShadeColor" Type="System.Drawing.Color" Scope="User">
+      <Value Profile="(Default)">WhiteSmoke</Value>
+    </Setting>
     <Setting Name="gridRowAlternatingForeColor" Type="System.Drawing.Color" Scope="User">
       <Value Profile="(Default)">Black</Value>
     </Setting>
     <Setting Name="gridRowSelectionBackColor" Type="System.Drawing.Color" Scope="User">
       <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="gridRowSelectionShadeColor" Type="System.Drawing.Color" Scope="User">
+      <Value Profile="(Default)">WhiteSmoke</Value>
     </Setting>
     <Setting Name="gridRowSelectionForeColor" Type="System.Drawing.Color" Scope="User">
       <Value Profile="(Default)">Black</Value>
@@ -55,9 +67,6 @@
     </Setting>
     <Setting Name="DontShowObjectsMessage" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
-    </Setting>
-    <Setting Name="gridFont" Type="System.Drawing.Font" Scope="User">
-      <Value Profile="(Default)">Segoe UI, 9.75pt</Value>
     </Setting>
   </Settings>
 </SettingsFile>

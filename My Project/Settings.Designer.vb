@@ -56,7 +56,7 @@ Namespace My
         
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("Century Gothic, 10.2pt")>  _
+         Global.System.Configuration.DefaultSettingValueAttribute("Century Gothic, 9pt")>  _
         Public Property applicationFont() As Global.System.Drawing.Font
             Get
                 Return CType(Me("applicationFont"),Global.System.Drawing.Font)
@@ -126,6 +126,18 @@ Namespace My
         End Property
         
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("Segoe UI, 9.75pt")>  _
+        Public Property gridFont() As Global.System.Drawing.Font
+            Get
+                Return CType(Me("gridFont"),Global.System.Drawing.Font)
+            End Get
+            Set
+                Me("gridFont") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute()>  _
         Public Property gridHeaderForeColor() As Global.System.Drawing.Color
             Get
@@ -171,6 +183,18 @@ Namespace My
         
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("WhiteSmoke")>  _
+        Public Property gridRowShadeColor() As Global.System.Drawing.Color
+            Get
+                Return CType(Me("gridRowShadeColor"),Global.System.Drawing.Color)
+            End Get
+            Set
+                Me("gridRowShadeColor") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
          Global.System.Configuration.DefaultSettingValueAttribute("Black")>  _
         Public Property gridRowForeColor() As Global.System.Drawing.Color
             Get
@@ -194,6 +218,18 @@ Namespace My
         
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("WhiteSmoke")>  _
+        Public Property gridRowAlternatingShadeColor() As Global.System.Drawing.Color
+            Get
+                Return CType(Me("gridRowAlternatingShadeColor"),Global.System.Drawing.Color)
+            End Get
+            Set
+                Me("gridRowAlternatingShadeColor") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
          Global.System.Configuration.DefaultSettingValueAttribute("Black")>  _
         Public Property gridRowAlternatingForeColor() As Global.System.Drawing.Color
             Get
@@ -212,6 +248,18 @@ Namespace My
             End Get
             Set
                 Me("gridRowSelectionBackColor") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("WhiteSmoke")>  _
+        Public Property gridRowSelectionShadeColor() As Global.System.Drawing.Color
+            Get
+                Return CType(Me("gridRowSelectionShadeColor"),Global.System.Drawing.Color)
+            End Get
+            Set
+                Me("gridRowSelectionShadeColor") = value
             End Set
         End Property
         
@@ -260,18 +308,6 @@ Namespace My
             End Get
             Set
                 Me("DontShowObjectsMessage") = value
-            End Set
-        End Property
-        
-        <Global.System.Configuration.UserScopedSettingAttribute(),  _
-         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("Segoe UI, 9.75pt")>  _
-        Public Property gridFont() As Global.System.Drawing.Font
-            Get
-                Return CType(Me("gridFont"),Global.System.Drawing.Font)
-            End Get
-            Set
-                Me("gridFont") = value
             End Set
         End Property
     End Class

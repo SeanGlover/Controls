@@ -1292,6 +1292,9 @@ Public Module Functions
         SQL
         Unknown
     End Enum
+    Public Function Settings() As List(Of System.Configuration.SettingsPropertyValue)
+        Return (From spv In My.Settings.PropertyValues Select DirectCast(spv, System.Configuration.SettingsPropertyValue)).ToList
+    End Function
     Public Function MyTextFiles(Optional Manager As Resources.ResourceManager = Nothing) As Dictionary(Of String, String)
 
         Manager = If(Manager, My.Resources.ResourceManager)

@@ -1656,10 +1656,11 @@ Public Class DataTool
         .AutoSize = False,
         .MinimumSize = New Size(250, 400),
         .Dock = DockStyle.Fill,
-        .Font = GothicFont
+        .Font = GothicFont,
+        .FavoritesFirst = True
     }
     Private ReadOnly SettingsTrees_dictionary As New Dictionary(Of Node, NodeCollection)
-    Dim SettingsDictionary As New Dictionary(Of String, Dictionary(Of String, Dictionary(Of String, String))) From {
+    Private ReadOnly SettingsDictionary As New Dictionary(Of String, Dictionary(Of String, Dictionary(Of String, String))) From {
         {"Fonts and Colors", New Dictionary(Of String, Dictionary(Of String, String)) From {
                 {"Pane", New Dictionary(Of String, String) From {
                 {"Font", "paneFont"},
@@ -1674,10 +1675,13 @@ Public Class DataTool
                 {"ViewerGrid", New Dictionary(Of String, String) From {
                 {"Font", "gridFont"},
                 {"RowBackcolor", "gridRowBackColor"},
+                {"RowShadecolor", "gridRowShadeColor"},
                 {"RowForecolor", "gridRowForeColor"},
                 {"AlternatingRowBackcolor", "gridRowAlternatingBackColor"},
+                {"AlternatingRowShadecolor", "gridRowAlternatingShadeColor"},
                 {"AlternatingRowForecolor", "gridRowAlternatingForeColor"},
                 {"SelectionRowBackcolor", "gridRowSelectionBackColor"},
+                {"SelectionRowShadecolor", "gridRowSelectionShadeColor"},
                 {"SelectionRowForecolor", "gridRowSelectionForeColor"}
         }},
                 {"Application", New Dictionary(Of String, String) From {
@@ -1898,6 +1902,11 @@ Public Class DataTool
 
 #Region " ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ N E W ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ "
     Public Sub New(Optional TestMode As Boolean = False)
+
+        'With My.Settings
+        '    .applicationFont = New Font("Century Gothic", 9, FontStyle.Regular)
+        '    .Save()
+        'End With
 
         '*** Before changes=4394
         'Sync populates a Treeview with Checkmarks...those selected are imported. Submit how?
@@ -2207,8 +2216,8 @@ Public Class DataTool
         With Script_Grid
             With .Columns
                 With .HeaderStyle
-                    .ShadeColor = My.Settings.gridHeaderShadeColor
                     .BackColor = My.Settings.gridHeaderBackColor
+                    .ShadeColor = My.Settings.gridHeaderShadeColor
                     .ForeColor = My.Settings.gridHeaderForeColor
                     AddHandler .PropertyChanged, AddressOf Viewer_CellStyleChanged
                 End With
@@ -2216,21 +2225,25 @@ Public Class DataTool
             With .Rows
                 With .AlternatingRowStyle
                     .BackColor = My.Settings.gridRowAlternatingBackColor
+                    .ShadeColor = My.Settings.gridRowAlternatingShadeColor
                     .ForeColor = My.Settings.gridRowAlternatingForeColor
                     AddHandler .PropertyChanged, AddressOf Viewer_CellStyleChanged
                 End With
                 With .RowStyle
                     .BackColor = My.Settings.gridRowBackColor
+                    .ShadeColor = My.Settings.gridRowShadeColor
                     .ForeColor = My.Settings.gridRowForeColor
                     AddHandler .PropertyChanged, AddressOf Viewer_CellStyleChanged
                 End With
                 With .SelectionRowStyle
                     .BackColor = My.Settings.gridRowSelectionBackColor
+                    .ShadeColor = My.Settings.gridRowSelectionShadeColor
                     .ForeColor = My.Settings.gridRowSelectionForeColor
                     AddHandler .PropertyChanged, AddressOf Viewer_CellStyleChanged
                 End With
             End With
             .GridOptions.Items.AddRange({Grid_FileExport, Grid_DatabaseExport})
+            .AllowDrop = True
         End With
 
         Dim TSCH_TypeHost As New ToolStripControlHost(TLP_Type) With {.ImageScaling = ToolStripItemImageScaling.None}
@@ -2247,11 +2260,11 @@ Public Class DataTool
                 TSMI_DividerDouble.Image = _Image
             End If
         Next
+
 #End Region
         SystemObjects.SortCollection()
         LoadSystemObjects(Nothing, Nothing)
 #Region " EXPORT DATA "
-        Script_Grid.AllowDrop = True
         Grid_FileExport.ImageScaling = ToolStripItemImageScaling.None
         Grid_ExcelExport.ImageScaling = ToolStripItemImageScaling.None
         Grid_ExcelQueryExport.ImageScaling = ToolStripItemImageScaling.None
@@ -2587,7 +2600,6 @@ Public Class DataTool
         If changedProperty IsNot Nothing Then
             changedProperty.PropertyValue = e.PropertyValue
             My.Settings.Save()
-
             If SettingsTreeB.Nodes.Any Then
                 Dim settingNode As Node = SettingsTreeB.Nodes.ItemByTag(changedProperty)
                 If settingNode IsNot Nothing Then
@@ -2600,6 +2612,7 @@ Public Class DataTool
                     End With
                 End If
             End If
+            'If Now.Minute > 1 Then Stop
         End If
 
     End Sub
@@ -2614,6 +2627,9 @@ Public Class DataTool
                     With childNode
                         Dim settingItem As System.Configuration.SettingsPropertyValue = My.Settings.PropertyValues(.Name)
                         Select Case settingItem.Property.PropertyType
+                            Case GetType(Font)
+                                .Favorite = True
+
                             Case GetType(Boolean)
                                 .CheckBox = True
                                 .Checked = DirectCast(settingItem.PropertyValue, Boolean)
@@ -2628,6 +2644,7 @@ Public Class DataTool
                                     settingColor = DirectCast(settingItem.PropertyValue, Color)
                                 End If
                                 .Image = ColorImages(settingColor)
+                                .Separator = If({"gridRowBackColor", "gridRowSelectionBackColor"}.Contains(.Name), Node.SeparatorPosition.Above, Node.SeparatorPosition.None)
                                 Dim nodeText As String = .Text
                                 Dim textElements As String() = Regex.Split(nodeText, " \(", RegexOptions.None)
                                 .Text = textElements.First & " (" & settingColor.Name & ")"
@@ -4530,6 +4547,7 @@ Public Class DataTool
 
             End If
         End With
+        FilesButton.HideDropDown()
 
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬

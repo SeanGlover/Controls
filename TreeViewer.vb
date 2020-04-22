@@ -116,8 +116,6 @@ Public Class TreeViewer
     Private _Cursor As Cursor
     Private VisibleIndex As Integer, RollingHeight As Integer, RollingWidth As Integer
     Private ExpandImage As Image, CollapseImage As Image
-    Private FavoriteImage As Image = Base64ToImage(StarString)
-
     Public Event Alert(sender As Object, e As AlertEventArgs)
 
 #Region " STRUCTURES / ENUMS "
@@ -665,6 +663,7 @@ Public Class TreeViewer
     End Sub
 #End Region
 #Region " PROPERTIES "
+    Public Property FavoriteImage As Image = Base64ToImage(StarString)
     Public ReadOnly Property OptionsOpen As Boolean
     Public Property FavoritesFirst As Boolean = True
     Private _ExpanderStyle As ExpandStyle = ExpandStyle.PlusMinus
@@ -790,7 +789,7 @@ Public Class TreeViewer
 
         If e IsNot Nothing Then
             Dim HitRegion As HitRegion = HitTest(e.Location)
-            Dim HitNode As Node = HitRegion?.Node
+            Dim HitNode As Node = HitRegion.Node
             DragData = New DragInfo With {.DragNode = HitNode,
                 .IsDragging = False,
                 .MousePoints = New List(Of Point)}
@@ -854,7 +853,7 @@ Public Class TreeViewer
 
         If e IsNot Nothing Then
             If e.Button = MouseButtons.None Then
-                CurrentMouseNode = HitTest(e.Location)?.Node
+                CurrentMouseNode = HitTest(e.Location).Node
                 If CurrentMouseNode IsNot LastMouseNode Then
                     If MouseOverExpandsNode Then
                         If CurrentMouseNode Is Nothing Then
@@ -1356,34 +1355,23 @@ Public Class TreeViewer
 #Region " METHODS / FUNCTIONS "
     Public Function HitTest(Location As Point) As HitRegion
 
-        Dim nodeRows = (From N In Nodes.Draw).ToDictionary(Function(k) k, Function(v) New Rectangle(0, v.Bounds.Y, Width, NodeHeight))
-        Dim nodeBounds As New List(Of Node)(From N In nodeRows Where N.Value.Contains(Location) Select N.Key)
-        If nodeBounds.Any Then
-            Dim hitNode As Node = nodeBounds.First
-            With hitNode
-                If .ExpandCollapseBounds.Contains(Location) Then
-                    Return New HitRegion With {.Node = hitNode, .Region = NodeRegion.Expander}
+        Dim Region As New HitRegion
+        Dim ExpandBounds As New List(Of Node)(From N In Nodes.Draw Where N.ExpandCollapseBounds.Contains(Location))
+        Dim CheckBounds As New List(Of Node)(From N In Nodes.Draw Where N.CheckBounds.Contains(Location))
+        Dim ImageBounds As New List(Of Node)(From N In Nodes.Draw Where N.ImageBounds.Contains(Location))
+        Dim NodeBounds As New List(Of Node)(From N In Nodes.Draw Where N.Bounds.Contains(Location))
 
-                ElseIf .FavoriteBounds.Contains(Location) Then
-                    Return New HitRegion With {.Node = hitNode, .Region = NodeRegion.Favorite}
-
-                ElseIf .CheckBounds.Contains(Location) Then
-                    Return New HitRegion With {.Node = hitNode, .Region = NodeRegion.CheckBox}
-
-                ElseIf .ImageBounds.Contains(Location) Then
-                    Return New HitRegion With {.Node = hitNode, .Region = NodeRegion.Image}
-
-                ElseIf .Bounds.Contains(Location) Then
-                    Return New HitRegion With {.Node = hitNode, .Region = NodeRegion.Node}
-
-                Else
-                    Return New HitRegion With {.Node = hitNode, .Region = NodeRegion.Node}
-                End If
+        Dim HitBounds As New List(Of Node)(ExpandBounds.Union(CheckBounds).Union(NodeBounds))
+        If HitBounds.Any Then
+            With Region
+                .Node = HitBounds.First
+                If ExpandBounds.Any Then .Region = NodeRegion.Expander
+                If CheckBounds.Any Then .Region = NodeRegion.CheckBox
+                If ImageBounds.Any Then .Region = NodeRegion.Image
+                If NodeBounds.Any Then .Region = NodeRegion.Node
             End With
-
-        Else
-            Return Nothing
         End If
+        Return Region
 
     End Function
     Public Sub ExpandNodes()
