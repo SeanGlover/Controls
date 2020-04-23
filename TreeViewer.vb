@@ -1356,19 +1356,21 @@ Public Class TreeViewer
     Public Function HitTest(Location As Point) As HitRegion
 
         Dim Region As New HitRegion
-        Dim ExpandBounds As New List(Of Node)(From N In Nodes.Draw Where N.ExpandCollapseBounds.Contains(Location))
-        Dim CheckBounds As New List(Of Node)(From N In Nodes.Draw Where N.CheckBounds.Contains(Location))
-        Dim ImageBounds As New List(Of Node)(From N In Nodes.Draw Where N.ImageBounds.Contains(Location))
-        Dim NodeBounds As New List(Of Node)(From N In Nodes.Draw Where N.Bounds.Contains(Location))
+        Dim expandBounds As New List(Of Node)(From N In Nodes.Draw Where N.ExpandCollapseBounds.Contains(Location))
+        Dim favoriteBounds As New List(Of Node)(From N In Nodes.Draw Where N.CheckBounds.Contains(Location))
+        Dim checkBounds As New List(Of Node)(From N In Nodes.Draw Where N.CheckBounds.Contains(Location))
+        Dim imageBounds As New List(Of Node)(From N In Nodes.Draw Where N.ImageBounds.Contains(Location))
+        Dim nodeBounds As New List(Of Node)(From N In Nodes.Draw Where N.Bounds.Contains(Location))
 
-        Dim HitBounds As New List(Of Node)(ExpandBounds.Union(CheckBounds).Union(NodeBounds))
+        Dim HitBounds As New List(Of Node)(expandBounds.Union(favoriteBounds).Union(checkBounds).Union(nodeBounds))
         If HitBounds.Any Then
             With Region
                 .Node = HitBounds.First
-                If ExpandBounds.Any Then .Region = NodeRegion.Expander
-                If CheckBounds.Any Then .Region = NodeRegion.CheckBox
-                If ImageBounds.Any Then .Region = NodeRegion.Image
-                If NodeBounds.Any Then .Region = NodeRegion.Node
+                If expandBounds.Any Then .Region = NodeRegion.Expander
+                If favoriteBounds.Any Then .Region = NodeRegion.Favorite
+                If checkBounds.Any Then .Region = NodeRegion.CheckBox
+                If imageBounds.Any Then .Region = NodeRegion.Image
+                If nodeBounds.Any Then .Region = NodeRegion.Node
             End With
         End If
         Return Region

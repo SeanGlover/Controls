@@ -84,10 +84,15 @@ Public Class DataViewer
     Public WithEvents HScroll As New HScrollBar With {.Minimum = 0}
     Private WithEvents HeaderOptions As New ToolStripDropDown With {.AutoClose = False}
     Public WithEvents GridOptions As New ContextMenuStrip With {.AutoClose = False}
-    Private WithEvents HeaderGridAlignment As New ImageCombo With {.DataSource = EnumNames(GetType(ContentAlignment)),
-        .Size = New Size(200, 24)}
-    Private WithEvents HeaderDistinctTree As New TreeViewer With {.Margin = New Padding(0),
-        .AutoSize = True}
+    Private WithEvents HeaderGridAlignment As New ImageCombo With {
+        .Margin = New Padding(0),
+        .DataSource = EnumNames(GetType(ContentAlignment)),
+        .Dock = DockStyle.Fill
+    }
+    Private WithEvents HeaderDistinctItems As New ImageCombo With {
+        .Margin = New Padding(0),
+        .Dock = DockStyle.Fill
+    }
     Private WithEvents GridBackColor As New ImageCombo With {.Mode = ImageComboMode.ColorPicker,
         .Size = New Size(200, 24)}
     Private WithEvents GridForeColor As New ImageCombo With {.Mode = ImageComboMode.ColorPicker,
@@ -131,7 +136,7 @@ Public Class DataViewer
 
         Dim colorFont As New Font("Century Gothic", 9)
         HeaderGridAlignment.Font = colorFont
-        HeaderDistinctTree.Font = colorFont
+        HeaderDistinctItems.Font = colorFont
 
         For Each setting In Settings
             Dim settingMatches = RegexMatches(setting.Name, "^[a-z]{1,}(?=[A-Z])", System.Text.RegularExpressions.RegexOptions.None)
@@ -175,27 +180,28 @@ Public Class DataViewer
             {"ForeColor", 2}
         }
 
-        Dim tlpBase As New TableLayoutPanel With {
+        Dim tlpOutside As New TableLayoutPanel With {
                 .Font = New Font("Century Gothic", 9),
                 .Margin = New Padding(0),
                 .CellBorderStyle = TableLayoutPanelCellBorderStyle.Inset,
                 .ColumnCount = 2,
                 .RowCount = objectProperties.Count
                 }
-        With tlpBase
+        With tlpOutside
             .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 200})
             .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 200})
         End With
         Dim rowIndexOutside As Integer
         For Each objectProperty In objectProperties.OrderBy(Function(op) outDictionary(op.Key)) '... Header="", Row={"", Alternating, Selection}
             Dim groupName As String = If(viewerRegion = MouseRegion.Header, "Header", If(objectProperty.Key.Any, objectProperty.Key, "Row"))
-            Dim tlpColors As New TableLayoutPanel With {
+            Dim tlpInside As New TableLayoutPanel With {
                 .Font = New Font("Century Gothic", 9),
                 .Margin = New Padding(0),
-                .CellBorderStyle = TableLayoutPanelCellBorderStyle.Inset,
+                .CellBorderStyle = TableLayoutPanelCellBorderStyle.Single,
                 .ColumnCount = 1,
                 .RowCount = objectProperties.Count
                 }
+            tlpInside.ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 200})
             Dim rowIndexInside As Integer = 0
             For Each subProperty In objectProperty.Value.OrderBy(Function(sp) inDictionary(System.Text.RegularExpressions.Regex.Match(sp.Name, "(Back|Shade|Fore)Color", System.Text.RegularExpressions.RegexOptions.None).Value))
                 Dim rowColor As Color
@@ -223,33 +229,39 @@ Public Class DataViewer
                     .Tag = subProperty
                     }
                 AddHandler colorControl.SelectionChanged, AddressOf CellStyleProperty_SelectionChanged
-                With tlpColors
-                    .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 200})
+                With tlpInside
                     .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 26})
                     .Controls.Add(colorControl, 0, rowIndexInside)
                 End With
                 rowIndexInside += 1
             Next
-            TLP.SetSize(tlpColors)
+            If viewerRegion = MouseRegion.Header Then
+                With tlpInside
+                    .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 26})
+                    .Controls.Add(HeaderGridAlignment, 0, rowIndexInside)
+                    .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 26})
+                    .Controls.Add(HeaderDistinctItems, 0, rowIndexInside + 1)
+                End With
+            End If
+            TLP.SetSize(tlpInside)
             Dim subButton As New ImageCombo With {
                 .Dock = DockStyle.Fill,
                 .Mode = ImageComboMode.Button,
                 .Text = groupName
             }
-            With tlpBase
-                .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = tlpColors.Height})
+            With tlpOutside
+                .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = tlpInside.Height})
                 .Controls.Add(subButton, 0, rowIndexOutside)
-                .Controls.Add(tlpColors, 1, rowIndexOutside)
+                .Controls.Add(tlpInside, 1, rowIndexOutside)
             End With
-            TLP.SetSize(tlpBase)
+            TLP.SetSize(tlpOutside)
             rowIndexOutside += 1
         Next
-        'If viewerRegion = MouseRegion.Grid Then Stop
         Dim tsmiFontsColors As New ToolStripMenuItem(viewerRegion.ToString & " fonts and colors".ToString(InvariantCulture)) With {
             .Font = Gothic,
             .AutoSize = True
         }
-        tsmiFontsColors.DropDownItems.Add(New ToolStripControlHost(tlpBase) With {.AutoSize = True})
+        tsmiFontsColors.DropDownItems.Add(New ToolStripControlHost(tlpOutside) With {.AutoSize = True})
         Return tsmiFontsColors
 
     End Function
@@ -932,27 +944,6 @@ Public Class DataViewer
 
                         End If
                         Rows.SortBy(.Column)
-                    Else
-                        If .CurrentAction = MouseInfo.Action.MouseOverHead Then
-                            HeaderOptions.Tag = .Column
-                            With HeaderDistinctTree.Nodes
-                                .Clear()
-                                For Each header In DistinctValues
-                                    If header.Key = _MouseData.Column.Name Then
-                                        Dim headerValues = header.Value.OrderBy(Function(hv) hv.Key)
-                                        If MouseData.Column.DataType = GetType(Image) Then
-                                            For Each distinctValue In header.Value
-                                                .Add(String.Empty, distinctValue.Value.ValueImage)
-                                            Next
-                                        Else
-                                            For Each distinctValue In header.Value
-                                                .Add(distinctValue.Key)
-                                            Next
-                                        End If
-                                    End If
-                                Next
-                            End With
-                        End If
                     End If
 
                 ElseIf .CurrentAction = MouseInfo.Action.MouseOverHeadEdge Then
@@ -984,18 +975,41 @@ Public Class DataViewer
                         Dim subButton As ImageCombo = DirectCast(tlpProperties.GetControlFromPosition(0, 0), ImageCombo)
                         subButton.Text = If(.Column Is Nothing, "All columns".ToString(InvariantCulture), .Column.Name)
 
+                        HeaderGridAlignment.Text = StringFormatToContentAlignString(If(.Column Is Nothing, Columns.HeaderStyle.Alignment, .Column.GridStyle.Alignment))
                         HeaderGridAlignment.SelectedIndex = HeaderGridAlignment.TextIndex
 
-                        HeaderOptions.AutoClose = False
+                        With HeaderDistinctItems.items
+                            .Clear()
+                            For Each header In DistinctValues
+                                If header.Key = _MouseData.Column.Name Then
+                                    Dim headerValues = header.Value.OrderBy(Function(hv) hv.Key)
+                                    If MouseData.Column.DataType = GetType(Image) Then
+                                        For Each distinctValue In header.Value
+                                            .Add(String.Empty, distinctValue.Value.ValueImage)
+                                        Next
+                                    Else
+                                        For Each distinctValue In header.Value
+                                            .Add(distinctValue.Key)
+                                        Next
+                                    End If
+                                End If
+                            Next
+                        End With
+
                         Dim relativePoint As Point = If(.Column Is Nothing, e.Location, New Point(.Column.HeadBounds.Right, HeaderHeight))
-                        HeaderOptions.Location = PointToScreen(relativePoint)
-                        DirectCast(HeaderOptions.Items(0), ToolStripMenuItem).ShowDropDown()
+                        With HeaderOptions
+                            .AutoClose = False
+                            .Tag = _MouseData.Column
+                            .Location = PointToScreen(relativePoint)
+                        End With
+                        tsmiProperties.ShowDropDown()
+
                     Else
                         GridOptions.AutoClose = False
-                        Dim relativePoint As Point = If(.Cell Is Nothing, e.Location, New Point(.CellBounds.Right - HScroll.Value, 0))
+                        Dim relativePoint As Point = If(.Cell Is Nothing, e.Location, New Point(.CellBounds.Right - HScroll.Value, .CellBounds.Top - VScroll.Value))
                         GridOptions.Location = PointToScreen(relativePoint)
                         If GridOptions.Items.Count > 1 Then GridOptions.Show(PointToScreen(relativePoint))
-                        DirectCast(GridOptions.Items(0), ToolStripMenuItem).ShowDropDown()
+                        'DirectCast(GridOptions.Items(0), ToolStripMenuItem).ShowDropDown()
                     End If
                 End If
             End With
@@ -1187,7 +1201,7 @@ Public Class DataViewer
     Private Sub Scrolled(sender As Object, e As ScrollEventArgs) Handles VScroll.Scroll, HScroll.Scroll
         Invalidate()
     End Sub
-    Private Sub CellStyleProperty_SelectionChanged(sender As Object, e As ImageComboEventArgs) Handles HeaderGridAlignment.SelectionChanged
+    Private Sub CellStyleProperty_SelectionChanged(sender As Object, e As ImageComboEventArgs)
 
         Dim propertyCombo As ImageCombo = DirectCast(sender, ImageCombo)
         Dim propertyColor As Color = DirectCast(propertyCombo.SelectedItem.Tag, Color)
@@ -1231,6 +1245,10 @@ Public Class DataViewer
                 Rows.RowStyle.ForeColor = propertyColor
 
         End Select
+        Invalidate()
+
+    End Sub
+    Private Sub HeaderGridAlignment_SelectionChanged(sender As Object, e As ImageComboEventArgs) Handles HeaderGridAlignment.SelectionChanged
 
         If HeaderOptions.Tag Is Nothing Then
             Columns.HeaderStyle.Alignment = ContentAlignToStringFormat(HeaderGridAlignment.Text)
@@ -1242,12 +1260,9 @@ Public Class DataViewer
             End If
         End If
 
-        Invalidate()
-
     End Sub
     Private Sub Filter_Enter(sender As Object, e As EventArgs)
-        HeaderDistinctTree.Parent.Size = HeaderDistinctTree.UnRestrictedSize
-        DirectCast(sender, ToolStripMenuItem).ShowDropDown()
+        HeaderDistinctItems.DropDown.Show()
     End Sub
     Private Sub Filter_Click(sender As Object, e As EventArgs)
         With DirectCast(sender, ToolStripMenuItem)
@@ -1255,7 +1270,6 @@ Public Class DataViewer
             If DirectCast(.Tag, Boolean) Then
                 .HideDropDown()
             Else
-                HeaderDistinctTree.Parent.Size = HeaderDistinctTree.UnRestrictedSize
                 .ShowDropDown()
             End If
         End With
@@ -1321,30 +1335,10 @@ Public Class ColumnCollection
         End Get
     End Property
     Private WithEvents HeaderStyle_ As New CellStyle With {.BackColor = Color.Black, .ShadeColor = Color.LimeGreen, .ForeColor = Color.White, .Font = New Font("Century Gothic", 9, FontStyle.Bold), .Height = 24, .ImageScaling = Scaling.GrowParent, .Padding = New Padding(2)}
-    Public Property HeaderStyle As CellStyle
+    Public ReadOnly Property HeaderStyle As CellStyle
         Get
             Return HeaderStyle_
         End Get
-        Set(value As CellStyle)
-            If value <> HeaderStyle_ Then
-                HeaderStyle_ = value
-                For Each Column In Me
-                    With Column
-                        If value IsNot Nothing Then
-                            '.HeaderStyle = New CellStyle With {
-                            '.Alignment = value.Alignment,
-                            '.BackColor = value.BackColor,
-                            '.Font = value.Font,
-                            '.ForeColor = value.ForeColor,
-                            '.Height = value.Height,
-                            '.ImageScaling = value.ImageScaling,
-                            '.Padding = value.Padding,
-                            '.ShadeColor = value.ShadeColor}
-                        End If
-                    End With
-                Next
-            End If
-        End Set
     End Property
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Public Shadows Function Add(ByVal AddColumn As Column) As Column
@@ -1993,40 +1987,28 @@ Public Class RowCollection
         Parent.Invalidate()
     End Sub
     Private WithEvents HeaderStyle_ As New CellStyle With {.BackColor = Color.Silver, .ShadeColor = Color.Gainsboro, .ForeColor = Color.White, .Font = New Font("Century Gothic", 9)}
-    Public Property HeaderStyle As CellStyle
+    Public ReadOnly Property HeaderStyle As CellStyle
         Get
             Return HeaderStyle_
         End Get
-        Set(value As CellStyle)
-            If HeaderStyle_ IsNot value Then HeaderStyle_ = value
-        End Set
     End Property
     Private WithEvents RowStyle_ As New CellStyle With {.BackColor = Color.Transparent, .ShadeColor = Color.White, .ForeColor = Color.Black, .Font = New Font("Century Gothic", 8)}
-    Public Property RowStyle As CellStyle
+    Public ReadOnly Property RowStyle As CellStyle
         Get
             Return RowStyle_
         End Get
-        Set(value As CellStyle)
-            If RowStyle_ <> value Then RowStyle_ = value
-        End Set
     End Property
     Private WithEvents AlternatingRowStyle_ As New CellStyle With {.BackColor = Color.Silver, .ShadeColor = Color.Lavender, .ForeColor = Color.Black, .Font = New Font("Century Gothic", 8)}
-    Public Property AlternatingRowStyle As CellStyle
+    Public ReadOnly Property AlternatingRowStyle As CellStyle
         Get
             Return AlternatingRowStyle_
         End Get
-        Set(value As CellStyle)
-            If AlternatingRowStyle_ <> value Then AlternatingRowStyle_ = value
-        End Set
     End Property
     Private WithEvents SelectionRowStyle_ As New CellStyle With {.BackColor = Color.DarkSlateGray, .ShadeColor = Color.Gray, .ForeColor = Color.White, .Font = New Font("Century Gothic", 8)}
-    Public Property SelectionRowStyle As CellStyle
+    Public ReadOnly Property SelectionRowStyle As CellStyle
         Get
             Return SelectionRowStyle_
         End Get
-        Set(value As CellStyle)
-            If SelectionRowStyle_ <> value Then SelectionRowStyle_ = value
-        End Set
     End Property
     Public ReadOnly Property RowHeight As Integer
         Get

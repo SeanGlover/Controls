@@ -131,7 +131,7 @@ Public NotInheritable Class ImageCombo
 #Region " REGULAR PROPERTIES "
                 If Text.Any Then
                     If PasswordProtected And Not TextIsVisible Then
-                        Dim lettersRight As Integer = LetterWidths.Values.Last
+                        Dim lettersRight As Integer = LetterWidths.Values.Last.Value
                         Using Brush As New HatchBrush(HatchStyle.LightUpwardDiagonal, SystemColors.WindowText, BackColor)
                             e.Graphics.FillRectangle(Brush, New Rectangle(Image.Width, 0, lettersRight - Image.Width, Height))
                         End Using
@@ -159,8 +159,8 @@ Public NotInheritable Class ImageCombo
                             If WrapText Then TextFlags = TextFlags Or TextFormatFlags.WordBreak
                             TextRenderer.DrawText(e.Graphics, Replace(Text, "&", "&&"), Font, TextBounds, ForeColor, TextFlags)
                             If Enabled Then
-                                Using Brush As New SolidBrush(Color.FromArgb(60, SelectionColor))
-                                    e.Graphics.FillRectangle(Brush, SelectionBounds)
+                                Using selectedTextBrush As New SolidBrush(Color.FromArgb(60, SelectionColor))
+                                    e.Graphics.FillRectangle(selectedTextBrush, SelectionBounds)
                                 End Using
                             End If
                         End If
@@ -177,8 +177,8 @@ Public NotInheritable Class ImageCombo
                     If Mouse_Region = MouseRegion.Eye Then HighlightRectangle = EyeDrawBounds
                     If Mouse_Region = MouseRegion.ClearText Then HighlightRectangle = ClearTextDrawBounds
                     If Mouse_Region = MouseRegion.DropDown Then HighlightRectangle = DropDrawBounds
-                    Using Brush As New SolidBrush(Color.FromArgb(60, SelectionColor))
-                        e.Graphics.FillRectangle(Brush, HighlightRectangle)
+                    Using mouseOverBrush As New SolidBrush(Color.FromArgb(60, SelectionColor))
+                        e.Graphics.FillRectangle(mouseOverBrush, HighlightRectangle)
                     End Using
                     If _HasFocus And CursorShouldBeVisible Then
                         Using Pen As New Pen(SelectionColor)
@@ -455,7 +455,7 @@ Public NotInheritable Class ImageCombo
             End If
         End Set
     End Property
-    Public ReadOnly Property LetterWidths As New Dictionary(Of Integer, Integer)
+    Public ReadOnly Property LetterWidths As New Dictionary(Of Integer, KeyValuePair(Of String, Integer))
     Public Property SelectionStart As Integer
         Get
             Return {CursorIndex, SelectionIndex}.Min
@@ -1036,16 +1036,7 @@ Public NotInheritable Class ImageCombo
         TextBounds.Height = Height
 #End Region
 
-#Region " FILL THE LETTER WIDTH DICTIONARY "
-        REM /// DICTIONARY IS FILLED WITH A INDEX-BASED X.POS
-        LetterWidths.Clear()
-        LetterWidths.Add(0, TextBounds.X)
-        If hasText Then
-            For i As Integer = 1 To Text.Length
-                LetterWidths.Add(i, TextLength(Text.Substring(0, i)))
-            Next
-        End If
-#End Region
+        SetLetterWidths()
 
         With CursorBounds
             .X = {spacing, GetxPos(CursorIndex)}.Max
@@ -1066,10 +1057,10 @@ Public NotInheritable Class ImageCombo
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Private Function GetxPos(Index As Integer) As Integer
-        Return LetterWidths({0, {Text.Length, Index}.Min}.Max)
+        Return LetterWidths({0, {Text.Length, Index}.Min}.Max).Value
     End Function
     Private Function GetLetterIndex(X As Integer) As Integer
-        Return (From lw In LetterWidths.Keys Where LetterWidths(lw) <= {X, TextBounds.X}.Max Select lw).Max
+        Return (From lw In LetterWidths.Keys Where LetterWidths(lw).Value <= {X, TextBounds.X}.Max Select lw).Max
     End Function
     Private Function TextLength(ByVal T As String) As Integer
 
@@ -1100,8 +1091,28 @@ Public NotInheritable Class ImageCombo
     Public Sub SelectAll()
 
         CursorIndex = 0
-        SelectionIndex = LetterWidths.Keys.Last
+        SetLetterWidths()
+        _SelectionIndex = LetterWidths.Keys.Last
+        With SelectionBounds
+            .X = {GetxPos(SelectionIndex), CursorBounds.X}.Min
+            .Y = 2
+            .Width = Math.Abs(GetxPos(CursorIndex) - GetxPos(SelectionIndex))
+            .Height = CursorBounds.Height
+        End With
         Invalidate()
+
+    End Sub
+    Private Sub SetLetterWidths()
+
+        REM /// DICTIONARY IS FILLED WITH A INDEX-BASED X.POS
+        LetterWidths.Clear()
+        LetterWidths.Add(0, New KeyValuePair(Of String, Integer)("Spacing", TextBounds.X))
+        If Text.Any Then
+            For i As Integer = 1 To Text.Length
+                Dim letter As String = Text.Substring(0, i)
+                LetterWidths.Add(i, New KeyValuePair(Of String, Integer)(letter, TextLength(letter)))
+            Next
+        End If
 
     End Sub
 #End Region

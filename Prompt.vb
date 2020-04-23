@@ -521,11 +521,22 @@ Public Class Prompt
             Case StyleOption.Custom
 
         End Select
-
         With Table
-            .Columns.HeaderStyle = New CellStyle With {.BackColor = ShadeColor, .ShadeColor = ShadeColor, .ForeColor = TextColor}
-            .Rows.AlternatingRowStyle = New CellStyle With {.BackColor = AlternatingRowColor, .ForeColor = Color.Black}
-            .Rows.RowStyle = New CellStyle With {.BackColor = Color.GhostWhite, .ForeColor = Color.Black}
+            With .Columns.HeaderStyle
+                .BackColor = ShadeColor
+                .ShadeColor = ShadeColor
+                .ForeColor = TextColor
+            End With
+            With .Rows
+                With .RowStyle
+                    .BackColor = Color.GhostWhite
+                    .ForeColor = Color.Black
+                End With
+                With .AlternatingRowStyle
+                    .BackColor = AlternatingRowColor
+                    .ForeColor = Color.Black
+                End With
+            End With
         End With
         For Each InputButton As Button In {YES, NO, OK}
             InputButton.ForeColor = TextColor
