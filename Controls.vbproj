@@ -254,9 +254,6 @@
     <None Include="Resources\Eye.png" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\Folder.png" />
-  </ItemGroup>
-  <ItemGroup>
     <None Include="Resources\Zap.png" />
   </ItemGroup>
   <ItemGroup>
@@ -517,6 +514,15 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\savedNot.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\message.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Folder.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\message_unread.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

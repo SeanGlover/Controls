@@ -683,7 +683,7 @@ Public Class TreeViewer
     End Property
     Public Property MouseOverExpandsNode As Boolean = False
     Public Property CanAdd As Boolean = True
-    Private _MultiSelect As Boolean = False
+    Private _MultiSelect As Boolean
     Public Property MultiSelect As Boolean
         Get
             Return _MultiSelect

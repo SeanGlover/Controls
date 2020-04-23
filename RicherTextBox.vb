@@ -295,7 +295,10 @@ Public NotInheritable Class RicherTextBox
             For l = 0 To Text.Length - 1
                 Dim Y = GetPositionFromCharIndex(l).Y
                 If Not Ys.ContainsKey(Y) Then Ys.Add(Y, New List(Of String))
-                Ys(Y).Add(Text.Substring(l, 1))
+                Try
+                    Ys(Y).Add(Text.Substring(l, 1))
+                Catch ex As ArgumentOutOfRangeException
+                End Try
             Next
             Return Ys.ToDictionary(Function(k) k.Key, Function(v) Join(v.Value.ToArray, String.Empty))
         End Get
@@ -306,10 +309,8 @@ Public NotInheritable Class RicherTextBox
             Return _AutoSize
         End Get
         Set(value As Boolean)
-            If _AutoSize <> value Then
-                Width = IdealWidth
-            End If
-            _AutoSize = value
+            If _AutoSize <> value Then _AutoSize = value
+            If AutoSize Then Size = New Size(IdealWidth, IdealHeight)
         End Set
     End Property
     Private Sub VerticalScrolled() Handles Me.VScroll

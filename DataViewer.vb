@@ -967,33 +967,37 @@ Public Class DataViewer
                     End If
                 End If
                 If e.Button = MouseButtons.Right Then
+                    'Change backcolor, shadecolor, alignment
+                    Dim tsmiProperties As ToolStripMenuItem = DirectCast(HeaderOptions.Items(0), ToolStripMenuItem)
+                    Dim tschProperties As ToolStripControlHost = DirectCast(tsmiProperties.DropDownItems(0), ToolStripControlHost)
+                    Dim tlpProperties As TableLayoutPanel = DirectCast(tschProperties.Control, TableLayoutPanel)
                     If .CurrentRegion = MouseRegion.Header Then
-                        'Change backcolor, shadecolor, alignment ( by Column )
-                        Dim tsmiProperties As ToolStripMenuItem = DirectCast(HeaderOptions.Items(0), ToolStripMenuItem)
-                        Dim tschProperties As ToolStripControlHost = DirectCast(tsmiProperties.DropDownItems(0), ToolStripControlHost)
-                        Dim tlpProperties As TableLayoutPanel = DirectCast(tschProperties.Control, TableLayoutPanel)
+                        tlpProperties.ColumnStyles(0).Width = 0
                         Dim subButton As ImageCombo = DirectCast(tlpProperties.GetControlFromPosition(0, 0), ImageCombo)
                         subButton.Text = If(.Column Is Nothing, "All columns".ToString(InvariantCulture), .Column.Name)
 
                         HeaderGridAlignment.Text = StringFormatToContentAlignString(If(.Column Is Nothing, Columns.HeaderStyle.Alignment, .Column.GridStyle.Alignment))
                         HeaderGridAlignment.SelectedIndex = HeaderGridAlignment.TextIndex
 
-                        With HeaderDistinctItems.items
-                            .Clear()
-                            For Each header In DistinctValues
-                                If header.Key = _MouseData.Column.Name Then
-                                    Dim headerValues = header.Value.OrderBy(Function(hv) hv.Key)
-                                    If MouseData.Column.DataType = GetType(Image) Then
-                                        For Each distinctValue In header.Value
-                                            .Add(String.Empty, distinctValue.Value.ValueImage)
-                                        Next
-                                    Else
-                                        For Each distinctValue In header.Value
-                                            .Add(distinctValue.Key)
-                                        Next
+                        With HeaderDistinctItems
+                            With .Items
+                                .Clear()
+                                For Each header In DistinctValues
+                                    If header.Key = _MouseData.Column.Name Then
+                                        Dim headerValues = header.Value.OrderBy(Function(hv) hv.Key)
+                                        If MouseData.Column.DataType = GetType(Image) Then
+                                            For Each distinctValue In header.Value
+                                                .Add(String.Empty, distinctValue.Value.ValueImage)
+                                            Next
+                                        Else
+                                            For Each distinctValue In header.Value
+                                                .Add(distinctValue.Key)
+                                            Next
+                                        End If
                                     End If
-                                End If
-                            Next
+                                Next
+                            End With
+                            .HintText = "Distinct count = " & .Items.Count
                         End With
 
                         Dim relativePoint As Point = If(.Column Is Nothing, e.Location, New Point(.Column.HeadBounds.Right, HeaderHeight))
@@ -1005,12 +1009,14 @@ Public Class DataViewer
                         tsmiProperties.ShowDropDown()
 
                     Else
+                        tlpProperties.ColumnStyles(0).Width = 200
                         GridOptions.AutoClose = False
                         Dim relativePoint As Point = If(.Cell Is Nothing, e.Location, New Point(.CellBounds.Right - HScroll.Value, .CellBounds.Top - VScroll.Value))
                         GridOptions.Location = PointToScreen(relativePoint)
                         If GridOptions.Items.Count > 1 Then GridOptions.Show(PointToScreen(relativePoint))
                         'DirectCast(GridOptions.Items(0), ToolStripMenuItem).ShowDropDown()
                     End If
+                    TLP.SetSize(tlpProperties)
                 End If
             End With
             MyBase.OnMouseDown(e)

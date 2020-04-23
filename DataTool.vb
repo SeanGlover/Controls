@@ -1627,7 +1627,7 @@ Public Class DataTool
         .FavoritesFirst = True}
     Private WithEvents SaveAs As New ImageCombo With {.Margin = New Padding(0),
         .Image = My.Resources.Save,
-        .Size = New Size(.Image.Width + 2, .Image.Width + 2),
+        .Size = New Size(2 + .Image.Width + 2, 2 + .Image.Width + 2),
         .Font = GothicFont,
         .MinimumSize = .Size,
         .AutoSize = True}
@@ -1636,6 +1636,18 @@ Public Class DataTool
         .Image = My.Resources.Folder,
         .ImageScaling = ToolStripItemImageScaling.None,
         .Font = GothicFont
+    }
+    Private WithEvents MessageButton As New ToolStripDropDownButton With {
+        .Margin = New Padding(0),
+        .Image = My.Resources.message,
+        .ImageScaling = ToolStripItemImageScaling.None,
+        .Font = GothicFont
+    }
+    Private WithEvents MessageRicherBox As New RicherTextBox With {
+        .Margin = New Padding(0),
+        .Font = GothicFont,
+        .AutoSize = True,
+        .MinimumSize = New Size(600, 400)
     }
     Private WithEvents SettingsButton As New ToolStripDropDownButton With {
         .Margin = New Padding(0),
@@ -1700,12 +1712,21 @@ Public Class DataTool
         }
         }
     '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+    Private WithEvents AddTab As Tab
     Private WithEvents TLP_Objects As New TableLayoutPanel With {
         .Dock = DockStyle.Fill,
         .ColumnCount = 1,
         .RowCount = 3,
         .CellBorderStyle = TableLayoutPanelCellBorderStyle.Inset,
         .Margin = New Padding(0),
+        .Font = GothicFont
+    }
+    Private WithEvents Tree_Objects As New TreeViewer With {.Name = "Database Objects",
+        .Dock = DockStyle.Fill,
+        .Margin = New Padding(0),
+        .DropHighlightColor = Color.Gold,
+        .CheckBoxes = TreeViewer.CheckState.Mixed,
+        .MultiSelect = True,
         .Font = GothicFont
     }
     Friend WithEvents Script_Tabs As New Tabs With {
@@ -1760,13 +1781,18 @@ Public Class DataTool
     '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ Panel Sizing
     Private ObjectsWidth As Integer = 200
     Private SeparatorSizing As New Sizing
-    Private WithEvents TLP_PaneGrid As New TableLayoutPanel With {.Dock = DockStyle.Fill,
+    Private WithEvents TLP_PaneGrid As New TableLayoutPanel With {
+        .Dock = DockStyle.Fill,
         .ColumnCount = 3,
         .RowCount = 1,
         .CellBorderStyle = TableLayoutPanelCellBorderStyle.Inset,
         .AllowDrop = True,
         .Margin = New Padding(0),
-        .Font = GothicFont}
+        .Font = GothicFont
+    }
+    Private WithEvents TT_Tabs As New ToolTip With {.ToolTipIcon = ToolTipIcon.Info}
+    Private WithEvents TT_GridTip As New ToolTip With {.ToolTipIcon = ToolTipIcon.Info}
+    Private WithEvents TT_PaneTip As New ToolTip With {.ToolTipIcon = ToolTipIcon.Info}
 #End Region
 #Region " organise "
     Private ReadOnly Message As New Prompt With {.Font = GothicFont}
@@ -1790,15 +1816,6 @@ Public Class DataTool
         .ImageAlign = ContentAlignment.MiddleCenter,
         .Margin = New Padding(0),
         .Font = GothicFont}
-    Private WithEvents Tree_Objects As New TreeViewer With {.Name = "Database Objects",
-        .Dock = DockStyle.Fill,
-        .Margin = New Padding(0),
-        .DropHighlightColor = Color.Gold,
-        .CheckBoxes = TreeViewer.CheckState.Mixed,
-        .MultiSelect = True,
-        .Font = GothicFont}
-    Private WithEvents TT_Tabs As New ToolTip With {.ToolTipIcon = ToolTipIcon.Info}
-    Private WithEvents TT_GridTip As New ToolTip With {.ToolTipIcon = ToolTipIcon.Info}
     Private WithEvents CMS_ExcelSheets As New ContextMenuStrip With {.AutoClose = False,
         .AutoSize = True,
         .Margin = New Padding(0),
@@ -1817,8 +1834,6 @@ Public Class DataTool
     '-----------------------------------------
     Private WithEvents DragNode As Node
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Private WithEvents TT_PaneTip As New ToolTip With {.ToolTipIcon = ToolTipIcon.Info}
-    '-----------------------------------------
     Private WithEvents TSMI_Connections As New ToolStripMenuItem With {.Text = "Connections",
         .Image = My.Resources.Database.ToBitmap,
         .Font = GothicFont}
@@ -1919,6 +1934,8 @@ Public Class DataTool
         Scripts.Load()
         Dim timeStop As Date = Now
         Dim timeElapsed = timeStop.Subtract(timeStart)
+
+        AddTab = Script_Tabs.AddTab
 
 #Region " FILL COLLECTIONS - { Connections, Jobs, SystemObjects, Scripts } "
 #Region " CONNECTIONS "
@@ -2099,8 +2116,10 @@ Public Class DataTool
         With FunctionsStripBar
             .Items.Add(FilesButton)
             .Items.Add(New ToolStripControlHost(SaveAs) With {.AutoSize = True})
+            .Items.Add(MessageButton)
             .Items.Add(SettingsButton)
         End With
+        MessageButton.DropDownItems.Add(New ToolStripControlHost(MessageRicherBox) With {.AutoSize = True})
         '===============================================================================
         Dim tlpFileTree As New TableLayoutPanel With {.Size = New Size(200, 200),
         .ColumnCount = 1,
@@ -2191,6 +2210,7 @@ Public Class DataTool
             .Controls.Add(TLP_ObjectsHeader, 0, 0)
             .Controls.Add(Tree_Objects, 0, 1)
             Tree_Objects.AllowDrop = True
+            Tree_Objects.MultiSelect = False
         End With
         With TLP_PaneGrid
             .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 0})
@@ -2771,7 +2791,7 @@ Public Class DataTool
     End Sub
 #End Region
 #End Region
-#Region " PANEL SIZING - PANE→|←GRID "
+#Region " PANEL SIZING - OBJECTS→|←PANE→|←GRID "
     Private _ForceCapture As Boolean
     Protected Property ForceCapture() As Boolean
         Get
@@ -2782,46 +2802,56 @@ Public Class DataTool
             TLP_PaneGrid.Capture = value
         End Set
     End Property
-    Private Shadows Sub OnMouseCaptureChanged(sender As Object, e As EventArgs) Handles TLP_PaneGrid.MouseCaptureChanged
+    Private Sub Panel_MouseCaptureChanged(sender As Object, e As EventArgs) Handles TLP_PaneGrid.MouseCaptureChanged
         TLP_PaneGrid.Capture = _ForceCapture
+        AddTab.Capture = False
+        TLP_Objects.Capture = False
     End Sub
-    Private Sub ObjectsClose() Handles Button_ObjectsClose.Click
-        TLP_PaneGrid.ColumnStyles(0).Width = 0
+    Private Sub PanelObjects_MouseCaptureChanged(sender As Object, e As EventArgs) Handles TLP_Objects.MouseCaptureChanged
+        TLP_Objects.Capture = _ForceCapture
+        AddTab.Capture = False
+        TLP_PaneGrid.Capture = False
+    End Sub
+    Private Sub AddTab_MouseCaptureChanged(sender As Object, e As EventArgs) Handles AddTab.MouseCaptureChanged
+        AddTab.Capture = _ForceCapture
+        TLP_PaneGrid.Capture = False
+        TLP_Objects.Capture = False
     End Sub
     Private ReadOnly Property ObjectsPaneSeparator As Rectangle
         Get
-            Dim OPS As New Rectangle
-            If ActivePane() IsNot Nothing Then
-                Dim Pane_Location = ActivePane.PointToScreen(New Point(0, 0))
-                OPS = New Rectangle(Pane_Location.X - 10, Pane_Location.Y, 10, ActivePane.Height)
-            End If
-            Return OPS
+            Dim objectsTreePanelPoint As Point = TLP_Objects.PointToScreen(New Point(0, 0))
+            Dim gridPoint As Point = Script_Grid.PointToScreen(New Point(0, 0))
+            Dim cellBorderCenter As Integer = 5
+            Dim cellBorderWidth As Integer = cellBorderCenter * 2
+            Dim separatorRectangle As New Rectangle({objectsTreePanelPoint.X + TLP_Objects.Width - cellBorderCenter, 0}.Max, gridPoint.Y, cellBorderWidth, Script_Grid.Height)
+            Return separatorRectangle
         End Get
     End Property
     Private ReadOnly Property PaneGridSeparator As Rectangle
         Get
-            Dim PGS As New Rectangle
-            If ActivePane() IsNot Nothing Then
-                Dim Grid_Location = Script_Grid.PointToScreen(New Point(0, 0))
-                Dim Pane_Location = ActivePane.PointToScreen(New Point(0, 0))
-                Dim Pane_Right = Pane_Location.X + ActivePane.Width
-                Dim PGS_Width As Integer = Grid_Location.X - Pane_Right
-                PGS = New Rectangle(Pane_Right, Pane_Location.Y, PGS_Width, ActivePane.Height)
-            End If
-            Return PGS
+            Dim gridPoint As Point = Script_Grid.PointToScreen(New Point(0, 0))
+            Dim cellBorderCenter As Integer = 5
+            Dim cellBorderWidth As Integer = cellBorderCenter * 2
+            Dim separatorRectangle As New Rectangle(gridPoint.X - cellBorderCenter, gridPoint.Y, cellBorderWidth, Script_Grid.Height)
+            Return separatorRectangle
         End Get
     End Property
-    Private Sub OnPanelMouseOver(sender As Object, e As MouseEventArgs) Handles TLP_PaneGrid.MouseMove
+    Private Sub Panel_MouseMove(sender As Object, e As MouseEventArgs) Handles TLP_PaneGrid.MouseMove, AddTab.MouseMove, TLP_Objects.MouseMove
 
         If e.Button = MouseButtons.Left Or ForceCapture Then
             If SeparatorSizing = Sizing.MouseDownOPS Then
                 TLP_PaneGrid.ColumnStyles(0).SizeType = SizeType.Absolute
                 TLP_PaneGrid.ColumnStyles(0).Width = e.X
                 ObjectsWidth = e.X
+                RaiseEvent Alert(e.Location, New AlertEventArgs("Move: MouseDownOPS" & ObjectsPaneSeparator.ToString))
 
             ElseIf SeparatorSizing = Sizing.MouseDownPGS Then
                 TLP_PaneGrid.ColumnStyles(1).SizeType = SizeType.Absolute
                 TLP_PaneGrid.ColumnStyles(1).Width = e.X - TLP_PaneGrid.ColumnStyles(0).Width
+                RaiseEvent Alert(e.Location, New AlertEventArgs("Move: MouseDownPGS" & PaneGridSeparator.ToString))
+
+            Else
+                RaiseEvent Alert(e.Location, New AlertEventArgs("Move: Nothing"))
 
             End If
 
@@ -2844,48 +2874,53 @@ Public Class DataTool
             Cursor = Cursors.VSplit
         End If
 
-        If e.X < 10 And TLP_Objects.Width < 2 Then
-            If My.Settings.DontShowObjectsMessage Then
-                Cursor = Cursors.VSplit
-            Else
+        If 0 = 1 Then
+            If e.X < 10 And TLP_Objects.Width < 2 Then
+                If My.Settings.DontShowObjectsMessage Then
+                    Cursor = Cursors.VSplit
+                Else
 #Region " CUSTOM CURSOR WITH TEXT "
-                Dim BoxSize As New Size(200, 200)
-                Dim CursorBounds As New Rectangle(0, 0, Cursor.Size.Width, Cursor.Size.Width)
-                Dim CursorText As String = "Double-Click to view Objects. Don't show again (Right-Click)".ToString(InvariantCulture)
-                Dim TextSize As Size = TextRenderer.MeasureText(CursorText, GothicFont, BoxSize)
-                Dim TextBounds As New Rectangle(CursorBounds.Right, CursorBounds.Top, TextSize.Width, CursorBounds.Height)
-                Dim CursorTextBounds As New Rectangle(CursorBounds.X, CursorBounds.Y, CursorBounds.Width + TextSize.Width, {CursorBounds.Height, TextSize.Height}.Max)
-                Dim BorderBounds = CursorTextBounds
-                Dim bmp As New Bitmap(CursorTextBounds.Width, CursorTextBounds.Height)
-                Using Graphics As Graphics = Graphics.FromImage(bmp)
-                    With Graphics
-                        .SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
-                        .FillRectangle(Brushes.White, CursorTextBounds)
-                        Cursor.Draw(Graphics, CursorBounds)
-                        .DrawString(CursorText, GothicFont, Brushes.Black, TextBounds, StringFormat.GenericDefault)
-                        BorderBounds.Inflate(-1, -1)
-                        .DrawRectangle(Pens.CornflowerBlue, BorderBounds)
-                        bmp.MakeTransparent(Color.White)
-                    End With
-                End Using
-                Cursor = CursorHelper.CreateCursor(bmp, 0, Convert.ToInt32(bmp.Height / 2))
+                    Dim BoxSize As New Size(200, 200)
+                    Dim CursorBounds As New Rectangle(0, 0, Cursor.Size.Width, Cursor.Size.Width)
+                    Dim CursorText As String = "Double-Click to view Objects. Don't show again (Right-Click)".ToString(InvariantCulture)
+                    Dim TextSize As Size = TextRenderer.MeasureText(CursorText, GothicFont, BoxSize)
+                    Dim TextBounds As New Rectangle(CursorBounds.Right, CursorBounds.Top, TextSize.Width, CursorBounds.Height)
+                    Dim CursorTextBounds As New Rectangle(CursorBounds.X, CursorBounds.Y, CursorBounds.Width + TextSize.Width, {CursorBounds.Height, TextSize.Height}.Max)
+                    Dim BorderBounds = CursorTextBounds
+                    Dim bmp As New Bitmap(CursorTextBounds.Width, CursorTextBounds.Height)
+                    Using Graphics As Graphics = Graphics.FromImage(bmp)
+                        With Graphics
+                            .SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
+                            .FillRectangle(Brushes.White, CursorTextBounds)
+                            Cursor.Draw(Graphics, CursorBounds)
+                            .DrawString(CursorText, GothicFont, Brushes.Black, TextBounds, StringFormat.GenericDefault)
+                            BorderBounds.Inflate(-1, -1)
+                            .DrawRectangle(Pens.CornflowerBlue, BorderBounds)
+                            bmp.MakeTransparent(Color.White)
+                        End With
+                    End Using
+                    Cursor = CursorHelper.CreateCursor(bmp, 0, Convert.ToInt32(bmp.Height / 2))
 #End Region
+                End If
+            Else
             End If
-        Else
         End If
 
     End Sub
-    Private Sub OnPanelDown(sender As Object, e As MouseEventArgs) Handles TLP_PaneGrid.MouseDown
+    Private Sub Panel_MouseDown(sender As Object, e As MouseEventArgs) Handles TLP_PaneGrid.MouseDown, AddTab.MouseDown, TLP_Objects.MouseDown
 
         If e.Button = MouseButtons.Left Then
             If ObjectsPaneSeparator.Contains(Cursor.Position) Then
                 SeparatorSizing = Sizing.MouseDownOPS
+                RaiseEvent Alert(e.Location, New AlertEventArgs("Down: MouseDownOPS"))
 
             ElseIf PaneGridSeparator.Contains(Cursor.Position) Then
                 SeparatorSizing = Sizing.MouseDownPGS
+                RaiseEvent Alert(e.Location, New AlertEventArgs("Down: MouseDownPGS"))
 
             Else
                 SeparatorSizing = Sizing.None
+                RaiseEvent Alert(e.Location, New AlertEventArgs("Down: Sizing.None," & ObjectsPaneSeparator.ToString))
 
             End If
             ForceCapture = Not SeparatorSizing = Sizing.None
@@ -2896,7 +2931,7 @@ Public Class DataTool
         End If
 
     End Sub
-    Private Sub OnPanelDoubleClick(sender As Object, e As EventArgs) Handles TLP_PaneGrid.DoubleClick
+    Private Sub Panel_DoubleClick(sender As Object, e As EventArgs) Handles TLP_PaneGrid.DoubleClick, AddTab.DoubleClick, TLP_Objects.DoubleClick
 
         If ObjectsPaneSeparator.Contains(Cursor.Position) Then
             TLP_PaneGrid.ColumnStyles(0).Width = ObjectsWidth
@@ -2907,7 +2942,7 @@ Public Class DataTool
         End If
 
     End Sub
-    Private Sub OnPanelUp(sender As Object, e As MouseEventArgs) Handles TLP_PaneGrid.MouseUp
+    Private Sub Panel_MouseUp(sender As Object, e As MouseEventArgs) Handles TLP_PaneGrid.MouseUp, AddTab.MouseUp, TLP_Objects.MouseUp
 
         ForceCapture = False
         If ObjectsPaneSeparator.Contains(e.Location) Then
@@ -2919,13 +2954,16 @@ Public Class DataTool
         End If
 
     End Sub
-    Private Sub OnPanelLeave(sender As Object, e As EventArgs) Handles TLP_PaneGrid.Leave, Tree_Objects.Enter, Tree_Objects.MouseMove
+    Private Sub Panel_Leave(sender As Object, e As EventArgs) Handles TLP_PaneGrid.Leave, Tree_Objects.Enter, Tree_Objects.MouseMove, AddTab.MouseLeave, TLP_Objects.MouseLeave
 
         If ForceCapture Then
         Else
             Cursor = Cursors.Default
         End If
 
+    End Sub
+    Private Sub ObjectsClose() Handles Button_ObjectsClose.Click
+        TLP_PaneGrid.ColumnStyles(0).Width = 0
     End Sub
 #End Region
 #Region " Tabs Events "
@@ -3372,8 +3410,8 @@ Public Class DataTool
     End Sub
     Private Sub ActivePane_MouseMove(sender As Object, e As MouseEventArgs)
 
-        With ActivePane()
-
+        Dim pane As RicherTextBox = ActivePane()
+        With pane
             If Pane_MouseLocation <> e.Location Then
                 Pane_MouseLocation = e.Location
                 Dim CharacterIndex As Integer = .GetCharIndexFromPosition(e.Location)
@@ -3405,7 +3443,7 @@ Public Class DataTool
                                             Next
                                             TipText = Join({MouseWord, Bulletize(Items)}, "|")
                                             Dim Location As Point = CenterItem(CMS_PaneOptions.Size)
-                                            Location.Offset(ActivePane.PointToClient(New Point(0, 0)))
+                                            Location.Offset(pane.PointToClient(New Point(0, 0)))
                                             Pane_TipManager(TipText, Location)
                                         End If
 
@@ -3419,7 +3457,7 @@ Public Class DataTool
                     End With
                 Else
                     Pane_MouseObject = Nothing
-                    TT_PaneTip.Hide(ActivePane)
+                    TT_PaneTip.Hide(pane)
                 End If
             End If
         End With
@@ -4444,7 +4482,9 @@ Public Class DataTool
                                           .Image = TypeImage,
                                           .Checked = True,
                                           .Tag = Item,
-                                          .CanAdd = False})
+                                          .CanAdd = False,
+                                          .CanDragDrop = True,
+                                          .CanFavorite = True})
                         Next
                     Next
                 Next
@@ -4473,41 +4513,32 @@ Public Class DataTool
 #End Region
 
 #Region " Tree_Objects DRAG ONTO PANE Or GRID [ V I E W   S T R U C T U R E   Or   C O N T E N T ] "
-    Private Sub ObjectNode_StartDrag(sender As Object, e As NodeEventArgs) Handles Tree_Objects.NodeDragStart
+    Private Sub ObjectNode_NodeDragStart(sender As Object, e As NodeEventArgs) Handles Tree_Objects.NodeDragStart
 
-        'Root=DataSource, Level 1=Owner, Level 2=Name + Image {Trigger, Table, View, Routine}
-        If ActivePane() IsNot Nothing And e.Node.Level = 2 Then   'Dragging a Table, Routine, Trigger or View
-#Region " DRAG UP Or DOWN ON Tree_Objects "
+        Dim NodeObject = NodeProperties(e.Node)
+        Dim Pane As RicherTextBox = ActivePane()
+        If Pane IsNot Nothing Then Pane.AllowDrop = True
+        Script_Grid.AllowDrop = True
+        Select Case NodeObject.Type
+            Case SystemObject.ObjectType.Table, SystemObject.ObjectType.View
+                'Pane shows Table/View structure while Grid shows Content
+                'Initiate threads for each so when dropped it's done
+                SpinTimer.Start()
+                Dim SQL_Sample As String = Join({"SELECT *", "FROM " & NodeObject.FullName, "FETCH FIRST 50 ROWS ONLY"}, vbNewLine)
+                Dim SQL_Structure As String = ColumnSQL(NodeObject.FullName)
+                With Jobs
+                    .Clear()
+                    .Add(New Job(New SQL(NodeObject.Connection, SQL_Sample) With {.Name = e.Node.Text}) With {.Name = "50 Row Sample"})
+                    .Add(New Job(New SQL(NodeObject.Connection, SQL_Structure) With {.Name = e.Node.Text}) With {.Name = "Table Structure"})
+                    AddHandler .Completed, AddressOf ContentAndStructure_Completed
+                    .Execute()
+                End With
 
-#End Region
-#Region " DRAGGED NODE EXITS Tree_Objects "
+            Case SystemObject.ObjectType.Routine
 
-#End Region
-            Dim A_S = ActiveScript()
-            Dim NodeObject = NodeProperties(e.Node)
-            ActivePane.AllowDrop = True
-            Script_Grid.AllowDrop = True
-            Select Case NodeObject.Type
-                Case SystemObject.ObjectType.Table, SystemObject.ObjectType.View
-                    'Pane shows Table/View structure while Grid shows Content
-                    'Initiate threads for each so when dropped it's done
-                    SpinTimer.Start()
-                    Dim SQL_Sample As String = Join({"SELECT *", "FROM " & NodeObject.FullName, "FETCH FIRST 50 ROWS ONLY"}, vbNewLine)
-                    Dim SQL_Structure As String = ColumnSQL(NodeObject.FullName)
-                    With Jobs
-                        .Clear()
-                        .Add(New Job(New SQL(NodeObject.Connection, SQL_Sample) With {.Name = "50 Row Sample"}) With {.Name = "50 Row Sample"})
-                        .Add(New Job(New SQL(NodeObject.Connection, SQL_Structure) With {.Name = "Table Structure"}) With {.Name = "Table Structure"})
-                        AddHandler .Completed, AddressOf TableContentStructureRetrieved
-                        .Execute()
-                    End With
+            Case SystemObject.ObjectType.Trigger
 
-                Case SystemObject.ObjectType.Routine
-
-                Case SystemObject.ObjectType.Trigger
-
-            End Select
-        End If
+        End Select
 
     End Sub
     Private Sub Pane_NodeDropped(e As DragEventArgs)
@@ -4570,21 +4601,30 @@ Public Class DataTool
         End With
 
     End Function
-    Private Sub TableContentStructureRetrieved(sender As Object, e As ResponsesEventArgs)
+    Private Sub ContentAndStructure_Completed(sender As Object, e As ResponsesEventArgs)
 
+        Dim pane As RicherTextBox = ActivePane()
         With DirectCast(sender, JobCollection)
-            RemoveHandler .Completed, AddressOf TableContentStructureRetrieved
-            Script_Grid.DataSource = .Item("50 Row Sample").SQL.Table
-            Dim Columns = DataTableToListOfColumnsProperties(.Item("Table Structure").SQL.Table)
+            RemoveHandler .Completed, AddressOf ContentAndStructure_Completed
+            'table content
+            Dim contentJob As Job = .Item("50 Row Sample")
+            Script_Grid.DataSource = contentJob.SQL.Table
+
+            'table structure
+            Dim structureJob As Job = .Item("Table Structure")
+            Dim Columns = DataTableToListOfColumnsProperties(structureJob.SQL.Table)
             Dim TableColumns As String = ColumnPropertiesToTableViewProcedure(Columns)
-            ActivePane.Text = CreateTableText(TableColumns)
+            MessageRicherBox.Text = CreateTableText(TableColumns)
+            MessageButton.Image = My.Resources.message_unread
         End With
         SpinTimer.Stop()
         Tree_Objects.BackgroundImage = Nothing
 
     End Sub
 #End Region
-
+    Private Sub MessageButton_Opening(sender As Object, e As EventArgs) Handles MessageButton.DropDownOpening
+        MessageButton.Image = My.Resources.message
+    End Sub
 #Region " ActivePane.Text Or Script_Tabs.Tab Or Script_Grid DRAG ONTO Tree_Objects [ E T L ] "
     Private ReadOnly Data As New DataObject
     Private Sub Tab_StartDrag(sender As Object, e As TabsEventArgs) Handles Script_Tabs.TabDragDrop
