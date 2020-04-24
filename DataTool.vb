@@ -1645,7 +1645,6 @@ Public Class DataTool
     }
     Private WithEvents MessageRicherBox As New RicherTextBox With {
         .Margin = New Padding(0),
-        .Font = New Font("IBM Plex Mono Light", 10, FontStyle.Regular),
         .Dock = DockStyle.Fill,
         .AcceptsTab = True
     }
@@ -2123,7 +2122,8 @@ Public Class DataTool
             .ColumnCount = 1,
             .RowCount = 1,
             .Size = New Size(600, 400),
-            .Margin = New Padding(0)
+            .Margin = New Padding(0),
+            .Font = New Font("IBM Plex Mono Light", 10, FontStyle.Regular)
         }
         With tlpMessage
             .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 600})
@@ -4619,7 +4619,6 @@ Public Class DataTool
     Private Sub ContentAndStructure_Completed(sender As Object, e As ResponsesEventArgs)
 
         Dim timeString As String = StrDup(10, BlackOut) & StrDup(5, " ") & Now.ToString("f", InvariantCulture) & StrDup(5, " ") & StrDup(10, BlackOut) & vbNewLine
-        Dim pane As RicherTextBox = ActivePane()
         With DirectCast(sender, JobCollection)
             RemoveHandler .Completed, AddressOf ContentAndStructure_Completed
             Dim messages As New List(Of String)
@@ -4652,7 +4651,13 @@ Public Class DataTool
                 MessageButton.Image = My.Resources.message_unread
                 Dim priorText As String = MessageRicherBox.Text
                 Dim messageText As String = Join(messages.ToArray, vbNewLine & StrDup(20, "-") & vbNewLine)
-                MessageRicherBox.Text = Join({messageText, priorText}, vbNewLine)
+                With MessageRicherBox
+                    .Text = Join({messageText, priorText}, vbNewLine)
+                    .SelectAll()
+                    .SelectionFont = New Font("IBM Plex Mono Light", 9, FontStyle.Regular)
+                    .SelectionStart = 0
+                    .SelectionLength = 0
+                End With
             Else
                 MessageButton.Image = My.Resources.message
             End If

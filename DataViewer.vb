@@ -780,6 +780,7 @@ Public Class DataViewer
         With Rows
             .Clear()
         End With
+        _MouseData = Nothing
         DistinctValues.Clear()
         VisibleColumns.Clear()
         VisibleRows.Clear()

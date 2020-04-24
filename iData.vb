@@ -2090,6 +2090,7 @@ End Class
                             '    someCommand.Parameters.Add("@username", SqlDbType.NChar).Value = Name
                             'End Using
                             Using Adapter As New OdbcDataAdapter(Instruction, Connection)
+                                _Table = New DataTable
                                 Adapter.Fill(Table)
                                 Connection.Close()
                                 _Ended = Now
