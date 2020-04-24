@@ -397,6 +397,15 @@ Public Module Functions
         End If
 
     End Function
+    Public Function DateToAccessString(DateValue As Date) As String
+
+        '#4/1/2012#
+        Dim Elements As New List(Of String) From {"#" + DateValue.Month.ToString(InvariantCulture),
+            "/" + DateValue.Day.ToString(InvariantCulture),
+            "/" + Format(DateValue.Year, "0000") + "#"}
+        Return (Join(Elements.ToArray, String.Empty))
+
+    End Function
     Public Function TimespanToString(ElapsedValue As TimeSpan) As String
 
         Dim Elements As New List(Of String) From {"'" + Format(ElapsedValue.Hours, "00"),
@@ -487,15 +496,6 @@ Public Module Functions
             Next
             Return firstDate
         End If
-
-    End Function
-    Public Function DateToAccessString(DateValue As Date) As String
-
-        '#4/1/2012#
-        Dim Elements As New List(Of String) From {"#" + DateValue.Month.ToString(InvariantCulture),
-            "/" + DateValue.Day.ToString(InvariantCulture),
-            "/" + Format(DateValue.Year, "0000") + "#"}
-        Return (Join(Elements.ToArray, String.Empty))
 
     End Function
     Public Function LastDay(InDate As Date) As Date

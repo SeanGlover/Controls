@@ -946,8 +946,8 @@ Public Class TreeViewer
             If .DragNode.CanDragDrop Then
 #Region " CUSTOM CURSOR WITH NODE.TEXT "
                 Dim nodeFont As New Font(.DragNode.Font.FontFamily, .DragNode.Font.Size + 4, FontStyle.Bold)
-                Dim textSize As Size = MeasureText(.DragNode.Text, nodeFont)
-                Dim cursorBounds As New Rectangle(New Point(0, 0), textSize)
+                Dim textSize As Size = TextRenderer.MeasureText(.DragNode.Text, nodeFont)
+                Dim cursorBounds As New Rectangle(New Point(0, 0), New Size(3 + textSize.Width + 3, 2 + textSize.Height + 2))
                 Dim shadowDepth As Integer = 16
                 cursorBounds.Inflate(shadowDepth, shadowDepth)
                 Dim bmp As New Bitmap(cursorBounds.Width, cursorBounds.Height)
@@ -1357,7 +1357,7 @@ Public Class TreeViewer
 
         Dim Region As New HitRegion
         Dim expandBounds As New List(Of Node)(From N In Nodes.Draw Where N.ExpandCollapseBounds.Contains(Location))
-        Dim favoriteBounds As New List(Of Node)(From N In Nodes.Draw Where N.CheckBounds.Contains(Location))
+        Dim favoriteBounds As New List(Of Node)(From N In Nodes.Draw Where N.FavoriteBounds.Contains(Location))
         Dim checkBounds As New List(Of Node)(From N In Nodes.Draw Where N.CheckBounds.Contains(Location))
         Dim imageBounds As New List(Of Node)(From N In Nodes.Draw Where N.ImageBounds.Contains(Location))
         Dim nodeBounds As New List(Of Node)(From N In Nodes.Draw Where N.Bounds.Contains(Location))
@@ -2304,7 +2304,10 @@ Public Class Node
         RequiresRepaint()
     End Sub
     Public Sub RemoveMe()
-        Parent?.Nodes.Remove(Me)
+        Try
+            Parent?.Nodes.Remove(Me)
+        Catch ex As InvalidOperationException
+        End Try
     End Sub
     Private Sub ShowHide(Nodes As List(Of Node), Optional Flag As Boolean = True)
 

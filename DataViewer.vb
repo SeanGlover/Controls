@@ -564,8 +564,8 @@ Public Class DataViewer
 
     End Sub
 #Region " PROPERTIES - FUNCTIONS - METHODS "
-    Private Timer_ As ViewerHelper
-    Public ReadOnly Property Timer As ViewerHelper
+    Private Timer_ As WaitTimer
+    Public ReadOnly Property Timer As WaitTimer
         Get
             Return Timer_
         End Get
@@ -577,11 +577,7 @@ Public Class DataViewer
         End Get
         Set(value As Form)
             BaseForm_ = value
-            If value Is Nothing Then
-                Timer_ = Nothing
-            Else
-                Timer_ = New ViewerHelper(Me, value)
-            End If
+            Timer_ = New WaitTimer(Me, value)
         End Set
     End Property
     Public ReadOnly Property MouseData As New MouseInfo
@@ -2784,31 +2780,63 @@ Public Class InvisibleForm
     End Sub
 #End Region
 End Class
-Public Class ViewerHelper
+Public Class WaitTimer
     Private ReadOnly BaseForm As Form
-    Private ReadOnly Viewer As DataViewer
+    Private ReadOnly BaseControl As Control
     Private WithEvents TickTimer As New Timer With {.Interval = 100}
     Private TimerTicks As Integer
     Private ReadOnly TickForm As New InvisibleForm With {
         .Size = New Size(150, 150)
     }
-    Public Sub New(viewer As DataViewer, baseForm As Form)
+    Public Enum ImageType
+        Spin
+        Circle
+    End Enum
+    Public Sub New(baseControl As Control, baseForm As Form)
 
-        If viewer IsNot Nothing Then
+        If baseControl IsNot Nothing Then
             TickColor = Color.Red
-            Me.Viewer = viewer
+            Me.BaseControl = baseControl
             Me.BaseForm = baseForm
-            TickForm.Show(baseForm)
+            If baseForm IsNot Nothing Then TickForm.Show(baseForm)
             'TickForm.Visible = False
         End If
 
     End Sub
     Private Sub TickTimer_Tick(sender As Object, e As EventArgs) Handles TickTimer.Tick
 
-        TickForm.BackgroundImage = DrawProgress(TimerTicks, TickColor)
+        If Picture = ImageType.Circle Then
+            TickForm.BackgroundImage = DrawProgress(TimerTicks, TickColor)
+        Else
+            If TimerTicks = 0 Then TickForm.BackgroundImage = My.Resources.Spin1
+            If TimerTicks = 1 Then TickForm.BackgroundImage = My.Resources.Spin2
+            If TimerTicks = 2 Then TickForm.BackgroundImage = My.Resources.Spin3
+            If TimerTicks = 3 Then TickForm.BackgroundImage = My.Resources.Spin4
+            If TimerTicks = 4 Then TickForm.BackgroundImage = My.Resources.Spin5
+            If TimerTicks = 5 Then TickForm.BackgroundImage = My.Resources.Spin6
+            If TimerTicks = 6 Then TickForm.BackgroundImage = My.Resources.Spin7
+            If TimerTicks = 7 Then
+                TickForm.BackgroundImage = My.Resources.Spin8
+                TimerTicks = -1
+            End If
+        End If
         TimerTicks += 1
 
     End Sub
+    Private Picture_ As ImageType = ImageType.Circle
+    Public Property Picture As ImageType
+        Get
+            Return Picture_
+        End Get
+        Set(value As ImageType)
+            If value <> Picture_ Then
+                TickTimer.Interval = If(value = ImageType.Circle, 100, If(value = ImageType.Spin, 250, 300))
+                Picture_ = value
+                If value = ImageType.Circle Then TickForm.BackgroundImage = DrawProgress(0, TickColor)
+                If value = ImageType.Spin Then TickForm.BackgroundImage = My.Resources.Spin1
+            End If
+        End Set
+    End Property
     Public Property TickColor As Color
     Public Property Offset As New Point(0, 0)
     Private Text_ As String

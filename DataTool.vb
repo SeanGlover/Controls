@@ -1645,9 +1645,9 @@ Public Class DataTool
     }
     Private WithEvents MessageRicherBox As New RicherTextBox With {
         .Margin = New Padding(0),
-        .Font = GothicFont,
-        .AutoSize = True,
-        .MinimumSize = New Size(600, 400)
+        .Font = New Font("IBM Plex Mono Light", 10, FontStyle.Regular),
+        .Dock = DockStyle.Fill,
+        .AcceptsTab = True
     }
     Private WithEvents SettingsButton As New ToolStripDropDownButton With {
         .Margin = New Padding(0),
@@ -2119,7 +2119,19 @@ Public Class DataTool
             .Items.Add(MessageButton)
             .Items.Add(SettingsButton)
         End With
-        MessageButton.DropDownItems.Add(New ToolStripControlHost(MessageRicherBox) With {.AutoSize = True})
+        Dim tlpMessage As New TableLayoutPanel With {
+            .ColumnCount = 1,
+            .RowCount = 1,
+            .Size = New Size(600, 400),
+            .Margin = New Padding(0)
+        }
+        With tlpMessage
+            .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 600})
+            .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 400})
+            .Controls.Add(MessageRicherBox)
+            TLP.SetSize(tlpMessage)
+        End With
+        MessageButton.DropDownItems.Add(New ToolStripControlHost(tlpMessage) With {.AutoSize = True})
         '===============================================================================
         Dim tlpFileTree As New TableLayoutPanel With {.Size = New Size(200, 200),
         .ColumnCount = 1,
@@ -2264,6 +2276,7 @@ Public Class DataTool
             End With
             .GridOptions.Items.AddRange({Grid_FileExport, Grid_DatabaseExport})
             .AllowDrop = True
+            .BaseForm = Nothing
         End With
 
         Dim TSCH_TypeHost As New ToolStripControlHost(TLP_Type) With {.ImageScaling = ToolStripItemImageScaling.None}
@@ -2790,6 +2803,9 @@ Public Class DataTool
 
     End Sub
 #End Region
+    Private Sub ButtonMouseEnter(sender As Object, e As EventArgs) Handles MessageButton.MouseEnter
+        If sender Is MessageButton And MessageRicherBox.Text.Any Then MessageButton.ShowDropDown()
+    End Sub
 #End Region
 #Region " PANEL SIZING - OBJECTS→|←PANE→|←GRID "
     Private _ForceCapture As Boolean
@@ -4249,7 +4265,6 @@ Public Class DataTool
         End Get
     End Property
     Private RequestInitiated As Boolean
-    Private WithEvents SpinTimer As New Timer With {.Interval = 250, .Tag = 0}
     Private Sub ObjectSyncClicked(sender As Object, e As EventArgs) Handles Button_ObjectsSync.Click
 
         ' *** Correct any discrepancies between SystemObjects and Database ***
@@ -4257,7 +4272,8 @@ Public Class DataTool
         If Not RequestInitiated Then
             RequestInitiated = True
             If ObjectsSet.Tables.Count = 0 And Not ObjectsWorker.IsBusy Then
-                SpinTimer.Start()
+                Script_Grid.Timer.Picture = WaitTimer.ImageType.Spin
+                Script_Grid.Timer.StartTicking()
 #Region " SQL BARRAGE "
                 Using ObjectsTable As DataTable = SystemObjects.ToDataTable
                     Dim OwnersNames = From ot In ObjectsTable.AsEnumerable Group ot By _Server = ot("DataSource").ToString Into SourceGrp = Group
@@ -4305,8 +4321,8 @@ Public Class DataTool
         End With
 
         If Not SyncWorkers.Any Then
-            SpinTimer.Stop()
-            Tree_Objects.BackgroundImage = Nothing
+            Script_Grid.Timer.StopTicking()
+            Script_Grid.Timer.Picture = WaitTimer.ImageType.Circle
             Using ObjectsTable As DataTable = SystemObjects.ToDataTable
                 Dim GroupedTables = From ot In ObjectsTable.AsEnumerable Group ot By _Name = ot("DataSource").ToString Into SourceGrp = Group
                                     Select New With {.Name = _Name, .Table = SourceGrp.CopyToDataTable}
@@ -4351,20 +4367,6 @@ Public Class DataTool
         End If
 
     End Sub
-    Private Sub SpinTimer_Tick() Handles SpinTimer.Tick
-
-        Dim SpinImageIndex As Integer = DirectCast(SpinTimer.Tag, Integer) Mod 8
-        If SpinImageIndex = 0 Then Tree_Objects.BackgroundImage = My.Resources.Spin1
-        If SpinImageIndex = 1 Then Tree_Objects.BackgroundImage = My.Resources.Spin2
-        If SpinImageIndex = 2 Then Tree_Objects.BackgroundImage = My.Resources.Spin3
-        If SpinImageIndex = 3 Then Tree_Objects.BackgroundImage = My.Resources.Spin4
-        If SpinImageIndex = 4 Then Tree_Objects.BackgroundImage = My.Resources.Spin5
-        If SpinImageIndex = 5 Then Tree_Objects.BackgroundImage = My.Resources.Spin6
-        If SpinImageIndex = 6 Then Tree_Objects.BackgroundImage = My.Resources.Spin7
-        If SpinImageIndex = 7 Then Tree_Objects.BackgroundImage = My.Resources.Spin8
-        SpinTimer.Tag = SpinImageIndex + 1
-
-    End Sub
     Private Sub LoadSystemObjects(sender As Object, e As EventArgs) Handles ObjectsWorker.DoWork
 
         Dim LoadFromSettings As Boolean = sender Is Nothing
@@ -4407,7 +4409,7 @@ Public Class DataTool
             End If
         Next
 #End Region
-#Region "ODBC.txt - ALIAS CDNIW, TargetDatabase = TORDSNQ "
+#Region " ODBC.txt - ALIAS CDNIW, TargetDatabase = TORDSNQ "
         '        [DB>NDEEFA28TORDSNQ]
         '        Dir_entry_type = REMOTE
         '        Authentication = NOTSPEC
@@ -4484,7 +4486,8 @@ Public Class DataTool
                                           .Tag = Item,
                                           .CanAdd = False,
                                           .CanDragDrop = True,
-                                          .CanFavorite = True})
+                                          .CanFavorite = True,
+                                          .Favorite = Item.Favorite})
                         Next
                     Next
                 Next
@@ -4501,7 +4504,8 @@ Public Class DataTool
             .CheckBoxes = TreeViewer.CheckState.All
             .BackgroundImage = Nothing
         End With
-        SpinTimer.Stop()
+        Script_Grid.Timer.StopTicking()
+        Script_Grid.Timer.Picture = WaitTimer.ImageType.Circle
 #End Region
 
     End Sub
@@ -4510,6 +4514,9 @@ Public Class DataTool
         ExpandCollapseOnOff(HandlerAction.Add)
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+    Private Sub ObjectsTreeview_NodeFavorited(sender As Object, e As NodeEventArgs) Handles Tree_Objects.NodeFavorited
+        DirectCast(e.Node.Tag, SystemObject).Favorite = e.Node.Favorite
+    End Sub
 #End Region
 
 #Region " Tree_Objects DRAG ONTO PANE Or GRID [ V I E W   S T R U C T U R E   Or   C O N T E N T ] "
@@ -4523,13 +4530,21 @@ Public Class DataTool
             Case SystemObject.ObjectType.Table, SystemObject.ObjectType.View
                 'Pane shows Table/View structure while Grid shows Content
                 'Initiate threads for each so when dropped it's done
-                SpinTimer.Start()
+                Script_Grid.Timer.Picture = WaitTimer.ImageType.Spin
+                Script_Grid.Timer.StartTicking()
                 Dim SQL_Sample As String = Join({"SELECT *", "FROM " & NodeObject.FullName, "FETCH FIRST 50 ROWS ONLY"}, vbNewLine)
                 Dim SQL_Structure As String = ColumnSQL(NodeObject.FullName)
                 With Jobs
                     .Clear()
-                    .Add(New Job(New SQL(NodeObject.Connection, SQL_Sample) With {.Name = e.Node.Text}) With {.Name = "50 Row Sample"})
-                    .Add(New Job(New SQL(NodeObject.Connection, SQL_Structure) With {.Name = e.Node.Text}) With {.Name = "Table Structure"})
+                    .Add(New Job(New SQL(NodeObject.Connection, SQL_Sample) With {
+                                 .Name = e.Node.Text,
+                                 .Tag = e.Node
+                                 }) With {
+                                 .Name = "50 Row Sample"})
+                    .Add(New Job(New SQL(NodeObject.Connection, SQL_Structure) With {
+                                 .Name = e.Node.Text,
+                                 .Tag = e.Node
+                                 }) With {.Name = "Table Structure"})
                     AddHandler .Completed, AddressOf ContentAndStructure_Completed
                     .Execute()
                 End With
@@ -4603,22 +4618,47 @@ Public Class DataTool
     End Function
     Private Sub ContentAndStructure_Completed(sender As Object, e As ResponsesEventArgs)
 
+        Dim timeString As String = StrDup(10, BlackOut) & StrDup(5, " ") & Now.ToString("f", InvariantCulture) & StrDup(5, " ") & StrDup(10, BlackOut) & vbNewLine
         Dim pane As RicherTextBox = ActivePane()
         With DirectCast(sender, JobCollection)
             RemoveHandler .Completed, AddressOf ContentAndStructure_Completed
+            Dim messages As New List(Of String)
             'table content
             Dim contentJob As Job = .Item("50 Row Sample")
-            Script_Grid.DataSource = contentJob.SQL.Table
-
+            If contentJob.Succeeded Then
+                Script_Grid.DataSource = contentJob.SQL.Table
+            Else
+                'Select * From <TableName> throws an error in DB2 if the requested table does not exist
+                messages.Add(timeString & contentJob.SQL.Response.Message)
+                'Remove the item from the ObjectsTree + SystemObjects
+                Dim errorNode As Node = DirectCast(contentJob.SQL.Tag, Node)
+                Dim errorObject As SystemObject = DirectCast(errorNode.Tag, SystemObject)
+                errorNode.RemoveMe()
+                errorObject.RemoveMe()
+                SystemObjects.Save()
+            End If
             'table structure
             Dim structureJob As Job = .Item("Table Structure")
-            Dim Columns = DataTableToListOfColumnsProperties(structureJob.SQL.Table)
-            Dim TableColumns As String = ColumnPropertiesToTableViewProcedure(Columns)
-            MessageRicherBox.Text = CreateTableText(TableColumns)
-            MessageButton.Image = My.Resources.message_unread
+            If structureJob.Succeeded Then
+                Dim Columns = DataTableToListOfColumnsProperties(structureJob.SQL.Table)
+                Dim TableColumns As String = ColumnPropertiesToTableViewProcedure(Columns)
+                messages.Add(timeString & CreateTableText(TableColumns))
+            Else
+                'Select From SysTables Where Name=<'TableName'> will only throw an error on a timeout or connection issue 
+                messages.Add(timeString & contentJob.SQL.Response.Message)
+            End If
+
+            If messages.Any Then
+                MessageButton.Image = My.Resources.message_unread
+                Dim priorText As String = MessageRicherBox.Text
+                Dim messageText As String = Join(messages.ToArray, vbNewLine & StrDup(20, "-") & vbNewLine)
+                MessageRicherBox.Text = Join({messageText, priorText}, vbNewLine)
+            Else
+                MessageButton.Image = My.Resources.message
+            End If
         End With
-        SpinTimer.Stop()
-        Tree_Objects.BackgroundImage = Nothing
+        Script_Grid.Timer.StopTicking()
+        Script_Grid.Timer.Picture = WaitTimer.ImageType.Circle
 
     End Sub
 #End Region

@@ -1015,12 +1015,12 @@ Public NotInheritable Class SystemObjectCollection
         Directory.CreateDirectory(Folder_DataManager)
         If Not File.Exists(Path) Then
             Using SW As New StreamWriter(Path)
-                'SW.Write(My.Resources.BASE_OBJECTS)
             End Using
+        Else
+            For Each ObjectString In PathToList(Path)
+                Add(New SystemObject(ObjectString))
+            Next
         End If
-        For Each ObjectString In PathToList(Path)
-            Add(New SystemObject(ObjectString))
-        Next
 
     End Sub
     Public Sub New(Items As List(Of SystemObject))
@@ -1398,11 +1398,6 @@ Public NotInheritable Class SystemObjectCollection
     Public Function ToStringList() As List(Of String)
         Return ToStringArray.ToList
     End Function
-    Public Function ToStringCollection() As Specialized.StringCollection
-        Dim SSC As New Specialized.StringCollection()
-        SSC.AddRange(ToStringArray)
-        Return SSC
-    End Function
     Public Function ToDataTable() As DataTable
 
         Dim ObjectsTable As New DataTable
@@ -1447,7 +1442,8 @@ End Class
         DBName = DataElements(2)
         TSName = DataElements(3)
         Owner = DataElements(4)
-        Name = DataElements.Last
+        Name = Replace(DataElements.Last, "♥", String.Empty)
+        Favorite = DataElements.Last.Contains("♥")
 
     End Sub
     Public Sub New(Row As DataRow)
@@ -1491,6 +1487,18 @@ End Class
     Public Property TSName As String
     Public Property Owner As String
     Public Property Name As String
+    Private Favorite_ As Boolean = False
+    Public Property Favorite As Boolean
+        Get
+            Return Favorite_
+        End Get
+        Set(value As Boolean)
+            If value <> Favorite_ Then
+                Favorite_ = value
+                Parent?.Save()
+            End If
+        End Set
+    End Property
     Public ReadOnly Property FullName As String
         Get
             Return Join({Owner, Name}, ".")
@@ -1512,8 +1520,14 @@ End Class
             End If
         End Get
     End Property
+    Public Sub RemoveMe()
+        Try
+            Parent?.Remove(Me)
+        Catch ex As InvalidOperationException
+        End Try
+    End Sub
     Public Overrides Function ToString() As String
-        Return Join({DSN, Type.ToString, DBName, TSName, Owner, Name}, Delimiter)
+        Return Join({DSN, Type.ToString, DBName, TSName, Owner, If(Favorite, "♥", String.Empty) & Name}, Delimiter)
     End Function
 #End Region
 End Class
