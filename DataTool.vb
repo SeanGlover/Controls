@@ -789,12 +789,12 @@ Public Class BodyElements
                             Lines.Add("Select * FROM (")
                             Lines.Add(SelectSection)
                             Lines.Add(") WRAP")
-                            If IsNetezza() Then
-                                Lines.Add("LIMIT " & Limit)
-                            Else
-                                Lines.Add("FETCH FIRST " & Limit & " ROWS ONLY")
-                            End If
-
+                            Select Case Language
+                                Case QueryLanguage.Netezza
+                                    Lines.Add("LIMIT " & Limit)
+                                Case Else
+                                    Lines.Add("FETCH FIRST " & Limit & " ROWS ONLY")
+                            End Select
                         End If
                         Return Join(Lines.ToArray, vbNewLine)
 
@@ -874,21 +874,12 @@ Public Class BodyElements
     Public ReadOnly Property DataSource As SystemObject
     Public ReadOnly Property ElementObjects As New Dictionary(Of InstructionElement, List(Of SystemObject))
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Public ReadOnly Property IsNetezza As Boolean
+    Public ReadOnly Property Language As QueryLanguage
         Get
             If IsNothing(Connection) Then
-                Return False
+                Return QueryLanguage.None
             Else
-                Return Connection.IsNetezza
-            End If
-        End Get
-    End Property
-    Public ReadOnly Property IsDB2 As Boolean
-        Get
-            If IsNothing(Connection) Then
-                Return False
-            Else
-                Return Connection.IsDB2
+                Return Connection.Language
             End If
         End Get
     End Property
@@ -1579,7 +1570,7 @@ Public Class BodyElements
                     End With
                 Else
                     REM /// LIMIT
-                    If Element.Source = InstructionElement.LabelName.Limit And Connection.IsDB2 Then
+                    If Element.Source = InstructionElement.LabelName.Limit And Connection.Language = QueryLanguage.Db2 Then
                         Dim Limit As InstructionElement = Element
                         With Limit
                             Dim RowCount As Integer = Integer.Parse(Regex.Match(.Block.Value, "[0-9]{1,}", RegexOptions.None).Value, Globalization.CultureInfo.InvariantCulture)
@@ -1610,7 +1601,6 @@ Public Class DataTool
 #Region " DECLARATIONS "
 #Region " organised "
     Private ReadOnly DataDirectory As DirectoryInfo = Directory.CreateDirectory(MyDocuments & "\DataManager")
-    Private ReadOnly Path_Columns As String = DataDirectory.FullName & "\Columns.txt"
     Private ReadOnly GothicFont As Font = My.Settings.applicationFont
     '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
     Private WithEvents FunctionsStripBar As New ToolStrip With {
@@ -1789,9 +1779,6 @@ Public Class DataTool
         .Margin = New Padding(0),
         .Font = GothicFont
     }
-    Private WithEvents TT_Tabs As New ToolTip With {.ToolTipIcon = ToolTipIcon.Info}
-    Private WithEvents TT_GridTip As New ToolTip With {.ToolTipIcon = ToolTipIcon.Info}
-    Private WithEvents TT_PaneTip As New ToolTip With {.ToolTipIcon = ToolTipIcon.Info}
 #End Region
 #Region " organise "
     Private ReadOnly Message As New Prompt With {.Font = GothicFont}
@@ -1848,8 +1835,7 @@ Public Class DataTool
         .Image = My.Resources.txt,
         .Font = GothicFont}
     Private WithEvents TSMI_CopyColorText As New ToolStripMenuItem With {.Text = "With format",
-        .Image = My.Resources.Colors,
-        .Font = GothicFont}
+                .Font = GothicFont}
     '-----------------------------------------
     Private WithEvents TSMI_Divider As New ToolStripMenuItem With {.Text = "Insert divider",
         .Image = My.Resources.InsertBefore,
@@ -1898,9 +1884,7 @@ Public Class DataTool
     Private SyncSet As Dictionary(Of String, DataTable)
     Private WithEvents Stop_Watch As New Stopwatch
     Private ReadOnly Intervals As New Dictionary(Of String, TimeSpan)
-    Private ReadOnly Aliases As New Dictionary(Of String, String)
     Private ReadOnly ObjectsDictionary As New Dictionary(Of String, Dictionary(Of String, Dictionary(Of SystemObject.ObjectType, List(Of SystemObject))))
-    Private ReadOnly ConnectionsDictionary As New Dictionary(Of String, Boolean)
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Private Pane_MouseLocation As Point
     Private Pane_MouseObject As InstructionElement
@@ -2295,8 +2279,7 @@ Public Class DataTool
         Next
 
 #End Region
-        SystemObjects.SortCollection()
-        LoadSystemObjects(Nothing, Nothing)
+        LoadSystemObjects(Nothing, Nothing) ' LOADS FROM Objects.txt
 #Region " EXPORT DATA "
         Grid_FileExport.ImageScaling = ToolStripItemImageScaling.None
         Grid_ExcelExport.ImageScaling = ToolStripItemImageScaling.None
@@ -2524,7 +2507,7 @@ Public Class DataTool
                 .FlatStyle = FlatStyle.System
 
             Else
-                .BackgroundImage = My.Resources.Button_Bright
+                .BackgroundImage = My.Resources.glossyYellow
                 .BackgroundImageLayout = ImageLayout.Stretch
                 .FlatStyle = FlatStyle.Flat
                 TT_Submit.Show(newConnectionString, submitButton, New Point(-3, -(5 + submitButton.Height + 5)))
@@ -3060,7 +3043,6 @@ Public Class DataTool
     Private Sub Tabs_ZoneChange(sender As Object, e As TabsEventArgs) Handles Script_Tabs.ZoneMouseChange
 
         If Not e.InZone = Tabs.Zone.None Then
-            TT_Tabs.Hide(Script_Tabs)
             Dim TipLocation = Script_Tabs.PointToScreen(If(e.InTab, e.OutTab).Bounds.Location)
             TipLocation.Offset(ActiveTab.Bounds.Width, 3)
 
@@ -3077,35 +3059,21 @@ Public Class DataTool
                                             Join({"Last successful run", .Ran.ToShortDateString, "@", .Ran.ToShortTimeString}),
                                             "Location=" & If(.Path, "None - not saved")})
                     End With
-                    Tabs_TipManager(TipValues, TipLocation)
 
                 Case Tabs.Zone.Text
-                    Tabs_TipManager("Reorder tab|Drag tab and drop in new position", TipLocation)
+                    'Tabs_TipManager("Reorder tab|Drag tab and drop in new position", TipLocation)
 
                 Case Tabs.Zone.Close
                     If Not ActiveScript.Body.HasText Then
-                        Tabs_TipManager("Close Tab|Click to close empty tab", TipLocation)
+                        'Tabs_TipManager("Close Tab|Click to close empty tab", TipLocation)
 
                     ElseIf ActiveScript.FileTextMatchesText Then
-                        Tabs_TipManager("Close Tab|Click to close saved script", TipLocation)
+                        'Tabs_TipManager("Close Tab|Click to close saved script", TipLocation)
 
                     Else
 
                     End If
             End Select
-        End If
-
-    End Sub
-    Private Sub Tabs_TipManager(ToolTipText As String, Location As Point)
-
-        If IsNothing(ToolTipText) Then
-            TT_Tabs.Hide(Script_Tabs)
-
-        Else
-            Dim TextValues As String() = Split(ToolTipText, "|")
-            TT_Tabs.ToolTipTitle = TextValues.First
-            TT_Tabs.Show(TextValues.Last, Script_Tabs, Location, 3000)
-
         End If
 
     End Sub
@@ -3473,7 +3441,6 @@ Public Class DataTool
                     End With
                 Else
                     Pane_MouseObject = Nothing
-                    TT_PaneTip.Hide(pane)
                 End If
             End If
         End With
@@ -3546,12 +3513,6 @@ Public Class DataTool
     Private Sub RunScript(Optional _Script As Script = Nothing)
 
         Script_Grid.Columns.CancelWorkers()
-        With TT_GridTip
-            .ToolTipTitle = Nothing
-            .Show(Nothing, Me, 1)
-            .Hide(Me)
-        End With
-
         _Script = If(_Script, ActiveScript())
 
         With _Script
@@ -3586,14 +3547,14 @@ Public Class DataTool
                             Dim TablesNeed As String() = .Body.TablesNeedObject.ToArray
                             If TablesNeed.Any Then
                                 RaiseEvent Alert(.Body, New AlertEventArgs("Adding to profile: " & Join(TablesNeed, ",") & "-(RunQuery)"))
-                                Dim TableColumnSQL As String = ColumnSQL(TablesNeed)
+                                Dim TableColumnSQL As String = ColumnSQL(TablesNeed, .Connection.Language)
                                 With New SQL(.Connection, TableColumnSQL)
                                     AddHandler .Completed, AddressOf ColumnsSQL_Completed
                                     .Execute()
                                 End With
                             End If
                             Dim BodyText As String = .Body.SystemText
-                            With New SQL(.Connection, BodyText)
+                            With New SQL(.Connection, .Text)
                                 AddHandler .Completed, AddressOf Execute_Completed
                                 .Name = _Script.CreatedString
                                 .Execute()
@@ -3629,6 +3590,7 @@ Public Class DataTool
 
         Cursor.Current = Cursors.Default
         Script_Grid?.Timer?.StopTicking()
+        Dim pane As RicherTextBox = ActivePane()
 
         Dim IsQuery As Boolean = sender.GetType Is GetType(SQL)
         Dim ItemName As String
@@ -3646,57 +3608,60 @@ Public Class DataTool
             End With
         End If
 
-        With TT_GridTip
-            Dim BulletMessage As String = e.Message
-            Dim FlatMessage As String
-            Dim CreatedDate As Date = StringToDateTime(ItemName)
-            Dim _Script As Script = Scripts.Item(CreatedDate)
+        Dim BulletMessage As String = e.Message
+        Dim FlatMessage As String
+        Dim CreatedDate As Date = StringToDateTime(ItemName)
+        Dim _Script As Script = Scripts.Item(CreatedDate)
 
-            .ToolTipTitle = Join({If(IsQuery, "Query", "Procedure"), _Script.Name, If(e.Succeeded, "succeeded", "failed")})
+        Dim ToolTipTitle = Join({If(IsQuery, "Query", "Procedure"), _Script.Name, If(e.Succeeded, "succeeded", "failed")})
 
-            If e.Succeeded Then
-                _Script.Save(Script.SaveAction.UpdateExecutionTime)
-                Dim ElapsedMessage As String = Nothing
-                With e.ElapsedTime
-                    If .Seconds < 1 Then
-                        ElapsedMessage = Join({ .Milliseconds, "milliseconds"})
+        If e.Succeeded Then
+            _Script.Save(Script.SaveAction.UpdateExecutionTime)
+            Dim ElapsedMessage As String = Nothing
+            With e.ElapsedTime
+                If .Seconds < 1 Then
+                    ElapsedMessage = Join({ .Milliseconds, "milliseconds"})
 
-                    ElseIf .Minutes < 1 Then
-                        ElapsedMessage = Math.Round(.TotalSeconds, 3) & " seconds"
+                ElseIf .Minutes < 1 Then
+                    ElapsedMessage = Math.Round(.TotalSeconds, 3) & " seconds"
 
-                    Else
-                        ElapsedMessage = Join({ .Minutes, "minutes", .Seconds, "seconds"})
-
-                    End If
-                End With
-                If IsQuery Then
-                    'Show message immediately as it can take time to set datasource, etc
-                    BulletMessage = Bulletize({e.Columns.ToString(InvariantCulture) & " columns", e.Rows.ToString(InvariantCulture) & " rows", ElapsedMessage})
-                    TLP_PaneGrid.ColumnStyles(0).Width = 0
-                    Script_Grid?.Timer?.StartTicking(Color.LawnGreen)
-                    With New Worker
-                        .Tag = e.Table
-                        AddHandler .DoWork, AddressOf Async_StartDatasourceWidth
-                        AddHandler .RunWorkerCompleted, AddressOf Async_EndDatasourceWidth
-                        .RunWorkerAsync()
-                    End With
                 Else
-                    BulletMessage = Bulletize({ElapsedMessage})
+                    ElapsedMessage = Join({ .Minutes, "minutes", .Seconds, "seconds"})
 
                 End If
-
+            End With
+            If IsQuery Then
+                'Show message immediately as it can take time to set datasource, etc
+                BulletMessage = Bulletize({e.Columns.ToString(InvariantCulture) & " columns", e.Rows.ToString(InvariantCulture) & " rows", ElapsedMessage})
+                TLP_PaneGrid.ColumnStyles(0).Width = 0
+                Script_Grid?.Timer?.StartTicking(Color.LawnGreen)
+                With New Worker
+                    .Tag = e.Table
+                    AddHandler .DoWork, AddressOf Async_StartDatasourceWidth
+                    AddHandler .RunWorkerCompleted, AddressOf Async_EndDatasourceWidth
+                    .RunWorkerAsync()
+                End With
             Else
-                BulletMessage = Bulletize({e.Message})
+                BulletMessage = Bulletize({ElapsedMessage})
 
             End If
-            If ActivePane() IsNot Nothing Then 'If dragging a closed script ( and no pane currently open ) - this will throw an error
-                .Show(String.Empty, ActivePane, 1)
-                .Hide(Script_Grid)
-                .Show(BulletMessage, ActivePane, 10 * 1000)
+
+        Else
+            Dim errorMatch As Match = Regex.Match(e.Message, "\(at char [0-9]{1,}\)", RegexOptions.None)
+            If errorMatch.Success Then
+                Dim errorPosition As Integer = CInt(Regex.Match(errorMatch.Value, "[0-9]{1,}", RegexOptions.None).Value) - 1 'at char xx is 1-based
+                If pane IsNot Nothing Then
+                    With pane
+                        .SelectionStart = errorPosition
+                        .SelectionLength = 1
+                        .SelectionBackColor = Color.Red
+                    End With
+                End If
             End If
-            FlatMessage = Join(Split(BulletMessage, "● ").Skip(1).ToArray, " ● ")
-            RaiseEvent Alert(e, New AlertEventArgs(Join({ .ToolTipTitle, ":", FlatMessage})))
-        End With
+            BulletMessage = Bulletize({e.Message})
+        End If
+        FlatMessage = Join(Split(BulletMessage, "● ").Skip(1).ToArray, " ● ")
+        RaiseEvent Alert(e, New AlertEventArgs(Join({ToolTipTitle, ":", FlatMessage})))
 
     End Sub
     Private Sub Async_StartDatasourceWidth(sender As Object, e As DoWorkEventArgs)
@@ -3710,66 +3675,71 @@ Public Class DataTool
     End Sub
     Private Sub ColumnsSQL_Completed(sender As Object, e As ResponseEventArgs)
 
+        'Column SQL completed, Update Objects.txt + update ObjectsTree.Nodes???
         With DirectCast(sender, SQL)
             RemoveHandler .Completed, AddressOf ColumnsSQL_Completed
-            .Table.Namespace = "<Retrieved>"
-            Dim ColumnData = DataTableToListOfColumnProperties(.Table)
-            If ColumnData.Any Then
-                Dim Objects_Retrieved As New List(Of String)
-                Dim Columns_Retrieved As New List(Of String)
-                Dim Nodes = From CD In ColumnData Group CD By Source = CD.SystemInfo.DSN Into SourceGrp = Group Select New With {
-                    .DateSource = Source, .Owners = From SG In SourceGrp Group SG By ObjectOwner = SG.SystemInfo.Owner Into OwnerGrp = Group Select New With {
-                    .Owner = ObjectOwner, .Names = From OG In OwnerGrp Group OG By ObjectInfo = OG.SystemInfo Into NameGrp = Group Select New With {
-                    .Info = ObjectInfo, .Columns = NameGrp}}}
+            Dim queryObjects As New List(Of SystemObject)(ColumnTypesToSystemObject(.Table))
+            If queryObjects.Any Then
+#Region " ADD TO C:\Users\SeanGlover\Documents\DataManager\Objects.txt "
+                Dim commonObjects As New List(Of SystemObject)(SystemObjects.Intersect(queryObjects))
+                For Each commonObject In commonObjects
+                    SystemObjects.Remove(commonObject) 'Kepp info current by using latest pull
+                Next
+                SystemObjects.AddRange(queryObjects)
+                SystemObjects.Save()
+#End Region
+#Region " ADD TO ObjectsTree - Show new connection + Owner + Table "
+                If 0 = 1 Then 'Another day ... only reflects any new adds on ObjectTree
+                    '                                           dsn                  owner                  name
+                    Dim objectDictionaryX As New Dictionary(Of String, Dictionary(Of String, Dictionary(Of String, List(Of ColumnProperties))))
+                    For Each queryObject As SystemObject In queryObjects
+                        Dim dsn As String = queryObject.DSN
+                        Dim owner As String = queryObject.Owner
+                        Dim objectName As String = queryObject.Name
+                        For Each cp As ColumnProperties In queryObject.Columns.Values
+                            If Not objectDictionaryX.ContainsKey(dsn) Then objectDictionaryX.Add(dsn, New Dictionary(Of String, Dictionary(Of String, List(Of ColumnProperties))))
+                            If Not objectDictionaryX(dsn).ContainsKey(owner) Then objectDictionaryX(dsn).Add(owner, New Dictionary(Of String, List(Of ColumnProperties)))
+                            If Not objectDictionaryX(dsn)(owner).ContainsKey(objectName) Then objectDictionaryX(dsn)(owner).Add(objectName, New List(Of ColumnProperties))
+                            objectDictionaryX(dsn)(owner)(objectName).Add(cp)
+                        Next
+                    Next
+                    For Each dsn In objectDictionaryX
+                        Dim sourceNode As Node = Tree_Objects.Nodes.Item(dsn.Key) 'Assumes exists
+                        Dim _Connection As Connection = DirectCast(sourceNode.Tag, Connection)
 
-                For Each _SourceNode In Nodes
-                    Dim SourceNode As Node = Tree_Objects.Nodes.Item(Aliases(_SourceNode.DateSource))
-                    For Each _OwnerNode In _SourceNode.Owners
-                        Dim OwnerNode As Node = SourceNode.Nodes.Item(_OwnerNode.Owner)
-                        If OwnerNode Is Nothing Then
-                            OwnerNode = SourceNode.Nodes.Add(_OwnerNode.Owner, _OwnerNode.Owner)
-                        End If
-                        For Each _NameNode In _OwnerNode.Names
-                            Dim NameNode As Node = OwnerNode.Nodes.Item(_NameNode.Info.Name)
-                            If NameNode Is Nothing Then
-                                NameNode = OwnerNode.Nodes.Add(_NameNode.Info.Name, _NameNode.Info.Name, Type_Image(_NameNode.Info.Type))
-                            End If
-                            NameNode.Tag = _NameNode.Info
-                            Objects_Retrieved.Add(_NameNode.Info.ToString)
-                            For Each _ColumnNode In _NameNode.Columns
-                                Dim ColumnNode As Node = NameNode.Nodes.Item(_ColumnNode.Name)
-                                If ColumnNode Is Nothing Then
-                                    ColumnNode = NameNode.Nodes.Add(New Node With {.Text = _ColumnNode.Name,
-                                                                    .Name = _ColumnNode.Name,
-                                                                    .CanAdd = False,
-                                                                    .CanDragDrop = False,
-                                                                    .CheckBox = False})
-                                End If
-                                Columns_Retrieved.Add(_ColumnNode.ToString)
+                        For Each owner In dsn.Value
+                            Dim ownerNode As Node = sourceNode.Nodes.Item(owner.Key)
+                            If ownerNode Is Nothing Then ownerNode = sourceNode.Nodes.Add(New Node With {
+                                        .Text = owner.Key,
+                                        .Name = owner.Key,
+                                        .BackColor = If(owner.Key = _Connection.UserID, Color.Gainsboro, Color.Transparent),
+                                        .CanAdd = False,
+                                        .CanDragDrop = False,
+                                        .CanEdit = False,
+                                        .CanRemove = False
+                                        })
+
+                            For Each objectName In owner.Value
+                                Dim nameNode As Node = ownerNode.Nodes.Item(objectName.Key)
+                                If nameNode Is Nothing Then nameNode = ownerNode.Nodes.Add(objectName.Key, objectName.Key)
+
+
+
+                                For Each column As ColumnProperties In objectName.Value
+                                    Dim columnNode As Node = nameNode.Nodes.Item(column.Name)
+                                    If columnNode Is Nothing Then columnNode = nameNode.Nodes.Add(New Node With {
+                                        .Text = column.Name,
+                                        .Name = column.Name,
+                                        .CanAdd = False,
+                                        .CanDragDrop = False,
+                                        .CheckBox = False
+                                })
+                                Next
                             Next
                         Next
                     Next
-                Next
-                Dim Objects_Saved = PathToList(SystemObjects.Path)
-                Dim Objects_New = Objects_Retrieved.Except(Objects_Saved)
-
-                If Objects_New.Any Then
-                    For Each ObjectString In Objects_New
-                        SystemObjects.Add(New SystemObject(ObjectString))
-                    Next
-                    SystemObjects.SortCollection()
-                    SystemObjects.Save()
                 End If
-
-                Dim Columns_Saved = PathToList(Path_Columns)
-                Dim Columns_New = Columns_Retrieved.Except(Columns_Saved)
-                If Columns_New.Any Then
-                    Columns_Saved.AddRange(Columns_New)
-                    Columns_Saved.Sort()
-                    Using SW As New StreamWriter(Path_Columns)
-                        SW.Write(Join(Columns_Saved.ToArray, vbNewLine))
-                    End Using
-                End If
+#End Region
             End If
         End With
 
@@ -4079,14 +4049,9 @@ Public Class DataTool
 
         Dim TextValues As String() = Split(ToolTipText, "|")
         If IsNothing(ToolTipText) Then
-            TT_PaneTip.Hide(ActivePane)
             CMS_PaneOptions.AutoClose = False
             CMS_PaneOptions.Show(Location)
         Else
-            If LightSwitchedOn() Then
-                TT_PaneTip.ToolTipTitle = TextValues.First
-                TT_PaneTip.Show(TextValues.Last, ActivePane, Location)
-            End If
             CMS_PaneOptions.AutoClose = True
             CMS_PaneOptions.Hide()
         End If
@@ -4285,7 +4250,7 @@ Public Class DataTool
                     SyncSet = New Dictionary(Of String, DataTable)
                     For Each DataSource In OwnersNames
                         Dim SyncWorker = New BackgroundWorker With {.WorkerReportsProgress = True, .WorkerSupportsCancellation = False}
-                        Dim DB_Alias As String = Aliases(DataSource.Server)
+                        Dim DB_Alias As String = DataSource.Server
                         Dim SyncNode As Node = Tree_Objects.Nodes.Item(DB_Alias)
                         Dim Connection As Connection = DirectCast(SyncNode.Tag, Connection)
                         SyncWorkers.Add(DB_Alias, SyncWorker)
@@ -4357,7 +4322,7 @@ Public Class DataTool
                         Next
                     End If
                 Next
-                SystemObjects.RemoveDuplicates()
+                SystemObjects.Save()
                 For Each Level1Node In Tree_Objects.Nodes
                     Level1Node.Nodes.Clear()
                 Next
@@ -4369,30 +4334,29 @@ Public Class DataTool
     End Sub
     Private Sub LoadSystemObjects(sender As Object, e As EventArgs) Handles ObjectsWorker.DoWork
 
-        Dim LoadFromSettings As Boolean = sender Is Nothing
         Dim ClockLoadTime As Boolean = False
+
+        Dim LoadFromSettings As Boolean = sender Is Nothing
+        Dim ConnectionsDictionary As New Dictionary(Of String, Boolean)
+
         If ClockLoadTime Then Stop_Watch.Start()
         ExpandCollapseOnOff(HandlerAction.Remove)
 #Region " FILL TABLE WITH DATABASE OBJECTS "
-        Dim ActiveConnections = Connections.Where(Function(c) c.CanConnect And c.IsDB2).Take(1000)
+        Dim ActiveConnections = Connections.Where(Function(c) c.CanConnect).Take(1000)
         If SelectedConnections IsNot Nothing AndAlso SelectedConnections.Any Then ActiveConnections = ActiveConnections.Where(Function(c) SelectedConnections.Contains(c))
         Dim SuccessCount As Integer = 0
         For Each Connection In ActiveConnections
-            Dim _Alias As String = Connection.DataSource
-            If Connection.DataSource = "CDNIW" Then _Alias = "TORDSNQ"
-            If Not Aliases.ContainsKey(_Alias) Then
-                Aliases.Add(_Alias, Connection.DataSource)
-                ConnectionsDictionary.Add(Connection.DataSource, LoadFromSettings)
-                Dim ConnectionTable As New DataTable
-                If Not LoadFromSettings Then
-                    ConnectionTable = RetrieveData(Connection.ToString, My.Resources.SQL_DATAOBJECTS)
-                    ConnectionsDictionary(Connection.DataSource) = ConnectionTable IsNot Nothing AndAlso ConnectionTable.Columns.Count > 0
-                End If
-                If ConnectionsDictionary(Connection.DataSource) Then
-                    If Not LoadFromSettings Then ObjectsSet.Tables.Add(ConnectionTable)
-                    SuccessCount += 1
-                    Dim DatabaseColor As Color = If(Connection Is Nothing, Color.Blue, Connection.BackColor)
-                    Tree_Objects.Nodes.Add(New Node With {.Text = Connection.DataSource,
+            ConnectionsDictionary.Add(Connection.DataSource, LoadFromSettings)
+            Dim ConnectionTable As New DataTable
+            If Not LoadFromSettings Then
+                ConnectionTable = RetrieveData(Connection.ToString, My.Resources.SQL_DATAOBJECTS)
+                ConnectionsDictionary(Connection.DataSource) = ConnectionTable IsNot Nothing AndAlso ConnectionTable.Columns.Count > 0
+            End If
+            If ConnectionsDictionary(Connection.DataSource) Then
+                If Not LoadFromSettings Then ObjectsSet.Tables.Add(ConnectionTable)
+                SuccessCount += 1
+                Dim DatabaseColor As Color = If(Connection Is Nothing, Color.Blue, Connection.BackColor)
+                Tree_Objects.Nodes.Add(New Node With {.Text = Connection.DataSource,
                                                     .Name = .Text,
                                                     .Image = ChangeImageColor(My.Resources.Sync, Color.FromArgb(255, 64, 64, 64), DatabaseColor),
                                                     .Separator = Node.SeparatorPosition.Above,
@@ -4401,11 +4365,10 @@ Public Class DataTool
                                                     .CanDragDrop = False,
                                                     .CanEdit = False,
                                                     .CanRemove = False})
-                End If
-                If ClockLoadTime Then
-                    Intervals.Add(Connection.DataSource, Stop_Watch.Elapsed)
-                    Stop_Watch.Restart()
-                End If
+            End If
+            If ClockLoadTime Then
+                Intervals.Add(Connection.DataSource, Stop_Watch.Elapsed)
+                Stop_Watch.Restart()
             End If
         Next
 #End Region
@@ -4460,18 +4423,20 @@ Public Class DataTool
 #Region " LOAD OBJECT TREEVIEW - FROM SYSTEM OBJECTS ( NOT DATASOURCE ) "
         With Tree_Objects
             For Each DataSource In ObjectsDictionary.Keys
-                Dim SourceNode = .Nodes.Item(Aliases(DataSource))
-                SourceNode.Name = Aliases(DataSource)
+                Dim SourceNode = .Nodes.Item(DataSource)
+                SourceNode.Name = DataSource
                 Dim _Connection As Connection = DirectCast(SourceNode.Tag, Connection)
                 Dim Owners = ObjectsDictionary(DataSource)
                 For Each Owner In Owners
-                    Dim OwnerNode = SourceNode.Nodes.Add(New Node With {.Text = Owner.Key,
-                                            .Name = Owner.Key,
-                                            .BackColor = If(Owner.Key = _Connection.UserID, Color.Gainsboro, Color.Transparent),
-                                            .CanAdd = False,
-                                            .CanDragDrop = False,
-                                            .CanEdit = False,
-                                            .CanRemove = False})
+                    Dim OwnerNode = SourceNode.Nodes.Add(New Node With {
+                                        .Text = Owner.Key,
+                                        .Name = Owner.Key,
+                                        .BackColor = If(Owner.Key = _Connection.UserID, Color.Gainsboro, Color.Transparent),
+                                        .CanAdd = False,
+                                        .CanDragDrop = False,
+                                        .CanEdit = False,
+                                        .CanRemove = False
+                                        })
                     For Each ObjectType In Owner.Value
                         Dim TypeImage As Image = Nothing
                         If ObjectType.Key = SystemObject.ObjectType.Routine Then TypeImage = My.Resources.Gear
@@ -4479,15 +4444,17 @@ Public Class DataTool
                         If ObjectType.Key = SystemObject.ObjectType.Trigger Then TypeImage = My.Resources.Zap
                         If ObjectType.Key = SystemObject.ObjectType.View Then TypeImage = My.Resources.Eye
                         For Each Item In ObjectType.Value
-                            Dim NameNode As Node = OwnerNode.Nodes.Add(New Node With {.Name = Item.Name,
-                                          .Text = Item.Name,
-                                          .Image = TypeImage,
-                                          .Checked = True,
-                                          .Tag = Item,
-                                          .CanAdd = False,
-                                          .CanDragDrop = True,
-                                          .CanFavorite = True,
-                                          .Favorite = Item.Favorite})
+                            Dim NameNode As Node = OwnerNode.Nodes.Add(New Node With {
+                                        .Name = Item.Name,
+                                        .Text = Item.Name,
+                                        .Image = TypeImage,
+                                        .Checked = True,
+                                        .Tag = Item,
+                                        .CanAdd = False,
+                                        .CanDragDrop = True,
+                                        .CanFavorite = True,
+                                        .Favorite = Item.Favorite
+                                        })
                         Next
                     Next
                 Next
@@ -4639,9 +4606,11 @@ Public Class DataTool
             'table structure
             Dim structureJob As Job = .Item("Table Structure")
             If structureJob.Succeeded Then
-                Dim Columns = DataTableToListOfColumnsProperties(structureJob.SQL.Table)
-                Dim TableColumns As String = ColumnPropertiesToTableViewProcedure(Columns)
-                messages.Add(timeString & CreateTableText(TableColumns))
+
+                'Dim Columns = DataTableToListOfColumnsProperties(structureJob.SQL.Table)
+                'Dim TableColumns As String = ColumnPropertiesToTableViewProcedure(Columns)
+                'messages.Add(timeString & CreateTableText(TableColumns))
+
             Else
                 'Select From SysTables Where Name=<'TableName'> will only throw an error on a timeout or connection issue 
                 messages.Add(timeString & contentJob.SQL.Response.Message)
@@ -4794,7 +4763,7 @@ Public Class DataTool
         Dim CheckedStrings As String() = (From CO In CheckedObjects Select CO.ToString & String.Empty).ToArray
         Dim CheckedString As String = Join(CheckedStrings, vbNewLine)
 
-        Dim MySettingsObjects = SystemObjects.ToStringList
+        Dim MySettingsObjects = SystemObjects.ToStringArray
 
         Dim Items_Removed As New List(Of String)(MySettingsObjects.Except(CheckedStrings))
         Dim Items_Added As New List(Of String)(CheckedStrings.Except(MySettingsObjects))

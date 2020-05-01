@@ -91,7 +91,8 @@ UNION
 SELECT *
 FROM TABLES_VIEWS TV)
 ------------------------------
-, FINAL_OBJECTS (DataSource, Type, DBName, TSName, Owner, Name, Value) AS (SELECT TRIM(CURRENT SERVER)
+, FINAL_OBJECTS (DataSource, Type, DBName, TSName, Owner, Name, Value) AS (
+SELECT CASE WHEN CURRENT SERVER='TORDSNQ' THEN 'CDNIW' ELSE TRIM(CURRENT SERVER) END
 , Type
 , DBName
 , TSName

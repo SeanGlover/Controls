@@ -524,6 +524,48 @@
   <ItemGroup>
     <None Include="Resources\message_unread.png" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\glossy.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\glossyYellow.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\glossyBlack.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\glossyBlue.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\glossyBrown.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\glossyGreen.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\glossyOrange.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\glossyPink.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\glossyPurple.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\glossyRed.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\glossyTurquoise.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\glossyGrey.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\RegEx.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\SQL_TABLESPACES.txt" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>

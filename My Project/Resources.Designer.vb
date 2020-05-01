@@ -121,26 +121,6 @@ Namespace My.Resources
         '''<summary>
         '''  Looks up a localized resource of type System.Drawing.Bitmap.
         '''</summary>
-        Friend ReadOnly Property Button_Bright() As System.Drawing.Bitmap
-            Get
-                Dim obj As Object = ResourceManager.GetObject("Button_Bright", resourceCulture)
-                Return CType(obj,System.Drawing.Bitmap)
-            End Get
-        End Property
-        
-        '''<summary>
-        '''  Looks up a localized resource of type System.Drawing.Bitmap.
-        '''</summary>
-        Friend ReadOnly Property Button_Light() As System.Drawing.Bitmap
-            Get
-                Dim obj As Object = ResourceManager.GetObject("Button_Light", resourceCulture)
-                Return CType(obj,System.Drawing.Bitmap)
-            End Get
-        End Property
-        
-        '''<summary>
-        '''  Looks up a localized resource of type System.Drawing.Bitmap.
-        '''</summary>
         Friend ReadOnly Property ButtonNo() As System.Drawing.Bitmap
             Get
                 Dim obj As Object = ResourceManager.GetObject("ButtonNo", resourceCulture)
@@ -231,16 +211,6 @@ Namespace My.Resources
         '''<summary>
         '''  Looks up a localized resource of type System.Drawing.Bitmap.
         '''</summary>
-        Friend ReadOnly Property Colors() As System.Drawing.Bitmap
-            Get
-                Dim obj As Object = ResourceManager.GetObject("Colors", resourceCulture)
-                Return CType(obj,System.Drawing.Bitmap)
-            End Get
-        End Property
-        
-        '''<summary>
-        '''  Looks up a localized resource of type System.Drawing.Bitmap.
-        '''</summary>
         Friend ReadOnly Property Comment() As System.Drawing.Bitmap
             Get
                 Dim obj As Object = ResourceManager.GetObject("Comment", resourceCulture)
@@ -254,16 +224,6 @@ Namespace My.Resources
         Friend ReadOnly Property Copied() As System.Drawing.Bitmap
             Get
                 Dim obj As Object = ResourceManager.GetObject("Copied", resourceCulture)
-                Return CType(obj,System.Drawing.Bitmap)
-            End Get
-        End Property
-        
-        '''<summary>
-        '''  Looks up a localized resource of type System.Drawing.Bitmap.
-        '''</summary>
-        Friend ReadOnly Property count() As System.Drawing.Bitmap
-            Get
-                Dim obj As Object = ResourceManager.GetObject("count", resourceCulture)
                 Return CType(obj,System.Drawing.Bitmap)
             End Get
         End Property
@@ -341,16 +301,6 @@ Namespace My.Resources
         '''<summary>
         '''  Looks up a localized resource of type System.Drawing.Bitmap.
         '''</summary>
-        Friend ReadOnly Property Filtered() As System.Drawing.Bitmap
-            Get
-                Dim obj As Object = ResourceManager.GetObject("Filtered", resourceCulture)
-                Return CType(obj,System.Drawing.Bitmap)
-            End Get
-        End Property
-        
-        '''<summary>
-        '''  Looks up a localized resource of type System.Drawing.Bitmap.
-        '''</summary>
         Friend ReadOnly Property Finger() As System.Drawing.Bitmap
             Get
                 Dim obj As Object = ResourceManager.GetObject("Finger", resourceCulture)
@@ -394,6 +344,116 @@ Namespace My.Resources
         Friend ReadOnly Property Gear() As System.Drawing.Bitmap
             Get
                 Dim obj As Object = ResourceManager.GetObject("Gear", resourceCulture)
+                Return CType(obj,System.Drawing.Bitmap)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized resource of type System.Drawing.Bitmap.
+        '''</summary>
+        Friend ReadOnly Property glossyBlack() As System.Drawing.Bitmap
+            Get
+                Dim obj As Object = ResourceManager.GetObject("glossyBlack", resourceCulture)
+                Return CType(obj,System.Drawing.Bitmap)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized resource of type System.Drawing.Bitmap.
+        '''</summary>
+        Friend ReadOnly Property glossyBlue() As System.Drawing.Bitmap
+            Get
+                Dim obj As Object = ResourceManager.GetObject("glossyBlue", resourceCulture)
+                Return CType(obj,System.Drawing.Bitmap)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized resource of type System.Drawing.Bitmap.
+        '''</summary>
+        Friend ReadOnly Property glossyBrown() As System.Drawing.Bitmap
+            Get
+                Dim obj As Object = ResourceManager.GetObject("glossyBrown", resourceCulture)
+                Return CType(obj,System.Drawing.Bitmap)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized resource of type System.Drawing.Bitmap.
+        '''</summary>
+        Friend ReadOnly Property glossyGreen() As System.Drawing.Bitmap
+            Get
+                Dim obj As Object = ResourceManager.GetObject("glossyGreen", resourceCulture)
+                Return CType(obj,System.Drawing.Bitmap)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized resource of type System.Drawing.Bitmap.
+        '''</summary>
+        Friend ReadOnly Property glossyGrey() As System.Drawing.Bitmap
+            Get
+                Dim obj As Object = ResourceManager.GetObject("glossyGrey", resourceCulture)
+                Return CType(obj,System.Drawing.Bitmap)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized resource of type System.Drawing.Bitmap.
+        '''</summary>
+        Friend ReadOnly Property glossyOrange() As System.Drawing.Bitmap
+            Get
+                Dim obj As Object = ResourceManager.GetObject("glossyOrange", resourceCulture)
+                Return CType(obj,System.Drawing.Bitmap)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized resource of type System.Drawing.Bitmap.
+        '''</summary>
+        Friend ReadOnly Property glossyPink() As System.Drawing.Bitmap
+            Get
+                Dim obj As Object = ResourceManager.GetObject("glossyPink", resourceCulture)
+                Return CType(obj,System.Drawing.Bitmap)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized resource of type System.Drawing.Bitmap.
+        '''</summary>
+        Friend ReadOnly Property glossyPurple() As System.Drawing.Bitmap
+            Get
+                Dim obj As Object = ResourceManager.GetObject("glossyPurple", resourceCulture)
+                Return CType(obj,System.Drawing.Bitmap)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized resource of type System.Drawing.Bitmap.
+        '''</summary>
+        Friend ReadOnly Property glossyRed() As System.Drawing.Bitmap
+            Get
+                Dim obj As Object = ResourceManager.GetObject("glossyRed", resourceCulture)
+                Return CType(obj,System.Drawing.Bitmap)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized resource of type System.Drawing.Bitmap.
+        '''</summary>
+        Friend ReadOnly Property glossyTurquoise() As System.Drawing.Bitmap
+            Get
+                Dim obj As Object = ResourceManager.GetObject("glossyTurquoise", resourceCulture)
+                Return CType(obj,System.Drawing.Bitmap)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized resource of type System.Drawing.Bitmap.
+        '''</summary>
+        Friend ReadOnly Property glossyYellow() As System.Drawing.Bitmap
+            Get
+                Dim obj As Object = ResourceManager.GetObject("glossyYellow", resourceCulture)
                 Return CType(obj,System.Drawing.Bitmap)
             End Get
         End Property
@@ -699,6 +759,16 @@ Namespace My.Resources
         End Property
         
         '''<summary>
+        '''  Looks up a localized resource of type System.Drawing.Bitmap.
+        '''</summary>
+        Friend ReadOnly Property RegEx() As System.Drawing.Bitmap
+            Get
+                Dim obj As Object = ResourceManager.GetObject("RegEx", resourceCulture)
+                Return CType(obj,System.Drawing.Bitmap)
+            End Get
+        End Property
+        
+        '''<summary>
         '''  Looks up a localized string similar to ADD
         '''AFTER
         '''ALL
@@ -925,7 +995,7 @@ Namespace My.Resources
         End Property
         
         '''<summary>
-        '''  Looks up a localized string similar to WITH COLUMNS (DSN, TABLE_NAME, OBJECT_TYPE, TYPE, COL#, COLUMN_NAME, COLUMN_DATA, COLTYPE, LENGTH, SCALE, NULLS, CREATOR, DBNAME, TSNAME, OWNER, SQL, COMMENT) AS (SELECT TRIM(CURRENT SERVER)
+        '''  Looks up a localized string similar to WITH COLUMNS (DSN, TABLE_NAME, OBJECT_TYPE, TYPE, COLUMN_NBR, COLUMN_NAME, FORMAT, COLUMN_TYPE, LENGTH, SCALE, NULLABLE, CREATOR, DB_NAME, TS_NAME, OWNER, SQL, COMMENT) AS (SELECT TRIM(CURRENT SERVER)
         ''', TRIM(CAST(C.TBNAME AS VARCHAR(35)))
         ''', CAST((CASE T.TYPE
         '''	WHEN &apos;A&apos; THEN &apos;ALIAS&apos;
@@ -937,7 +1007,7 @@ Namespace My.Resources
         ''', T.TYPE
         ''', CAST(C.COLNO AS SMALLINT)
         ''', CAST(TRIM(C.NAME) AS VARCHAR(35))
-        ''', TRIM(CASE WHEN COLTYPE=&apos;TIMESTMP&apos; T [rest of string was truncated]&quot;;.
+        ''', TRIM(CASE WHEN COLTYPE=&apos;T [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property SQL_ColumnTypes() As String
             Get
@@ -946,19 +1016,26 @@ Namespace My.Resources
         End Property
         
         '''<summary>
-        '''  Looks up a localized string similar to SELECT T.TABLENAME TABLE_NAME
-        ''', C.ATTNUM COLUMN_NBR
-        ''', C.ATTNAME COLUMN_NAME
-        ''', C.FORMAT_TYPE
-        ''', C.ATTLEN LENGTH
-        ''', C.ATTNOTNULL NULLABLE
-        ''', T.SCHEMA
+        '''  Looks up a localized string similar to WITH columnTypes (DSN, DATABASE, OWNER, SCHEMA, TABLE_NAME, OBJECT_TYPE, COLUMN_NBR, COLUMN_NAME, FORMAT, LENGTH, NULLABLE) As (SELECT
+        '''CAST(&apos;NZSQL&apos; AS CHAR(5))
+        ''', T.DATABASE
         ''', T.OWNER
+        ''', T.SCHEMA
+        ''', T.TABLENAME
+        ''', T.OBJTYPE
+        ''', C.ATTNUM
+        ''', C.ATTNAME
+        ''', C.FORMAT_TYPE
+        ''', C.ATTLEN
+        ''', C.ATTNOTNULL
         '''
         '''FROM _v_table T
         '''LEFT JOIN _v_relation_column C
         '''ON (T.OBJID=C.OBJID)
-        '''WHERE POSITION(&apos;LEGAL&apos; IN COLUMN_NAME)&gt;0.
+        '''WHERE POSITION(TABLENAME In &apos;///TABLES///&apos;)&gt;0)
+        '''--====================
+        '''SELECT *
+        '''FROM columnTypes.
         '''</summary>
         Friend ReadOnly Property SQL_ColumnTypes_NZ() As String
             Get
@@ -1028,6 +1105,25 @@ Namespace My.Resources
         Friend ReadOnly Property SQL_DEPENDANTS() As String
             Get
                 Return ResourceManager.GetString("SQL_DEPENDANTS", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to WITH SPACES (SPACE) As (SELECT
+        '''                DISTINCT TRIM(DBNAME)||&apos;.&apos;||TRIM(TSNAME) SPACE
+        '''                FROM SYSIBM.SYSTABLES T
+        '''                WHERE T.CREATOR=&apos;///UID///&apos;
+        '''                AND TYPE=&apos;T&apos;)
+        '''                , TABLES (SPACE, COUNT) AS (SELECT SPACE
+        '''                , (SELECT COUNT(*)
+        '''                FROM SYSIBM.SYSTABLES TT
+        '''                WHERE TT.CREATOR=&apos;///UID///&apos; AND TT.NAME=&apos;///TABLENAME///&apos; AND S.SPACE=TRIM(DBNAME)||&apos;.&apos;||TRIM(TSNAME)) COUNT
+        '''                FROM SPACES S)
+        '''     [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property SQL_TABLESPACES() As String
+            Get
+                Return ResourceManager.GetString("SQL_TABLESPACES", resourceCulture)
             End Get
         End Property
         

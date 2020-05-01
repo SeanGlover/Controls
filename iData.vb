@@ -13,6 +13,13 @@ Imports System.Globalization
 Imports System.Data.SqlClient
 Imports Controls
 
+Public Enum QueryLanguage
+    None
+    Db2
+    Netezza
+    iSeries
+    Server
+End Enum
 #Region " RESPONSE EVENTS "
 Public Structure Errors
     Implements IEquatable(Of Errors)
@@ -577,6 +584,86 @@ Public Structure InstructionElement
         End If
     End Function
 End Structure
+Public Structure ColumnParity
+    Implements IEquatable(Of ColumnParity)
+    Public Property Index As Integer
+    Public Property SourceName As String
+    Public Property SourceType As Type
+    Public Property DestinationName As String
+    Public Property DestinationType As String
+    Public Shadows Function ToArray() As String()
+        Return {Index.ToString(InvariantCulture), SourceName, Convert.ToString(SourceType, InvariantCulture), DestinationName, DestinationType}
+    End Function
+    Public Overrides Function GetHashCode() As Integer
+        Return SourceName.GetHashCode Xor DestinationName.GetHashCode Xor DestinationType.GetHashCode Xor Index.GetHashCode
+    End Function
+    Public Overloads Function Equals(ByVal other As ColumnParity) As Boolean Implements IEquatable(Of ColumnParity).Equals
+        Return Index = other.Index AndAlso SourceName = other.SourceName
+    End Function
+    Public Shared Operator =(ByVal value1 As ColumnParity, ByVal value2 As ColumnParity) As Boolean
+        Return value1.Equals(value2)
+    End Operator
+    Public Shared Operator <>(ByVal value1 As ColumnParity, ByVal value2 As ColumnParity) As Boolean
+        Return Not value1 = value2
+    End Operator
+    Public Overrides Function Equals(ByVal obj As Object) As Boolean
+        If TypeOf obj Is ColumnParity Then
+            Return CType(obj, ColumnParity) = Me
+        Else
+            Return False
+        End If
+    End Function
+End Structure
+Public Structure ColumnProperties
+    Implements IEquatable(Of ColumnProperties)
+    Public Property Parent As SystemObject
+    Public Property Name As String
+    Public Property Index As Integer
+    Public Property DataType As String
+    Public Property Length As Short
+    Public Property Scale As Byte
+    Public ReadOnly Property Format As String
+        Get
+            If DataType Is Nothing Then
+                Return If(DataType, String.Empty)
+            Else
+                If {"CHAR", "VARCHAR"}.Contains(DataType.ToUpperInvariant) Then
+                    Return DataType & "(" & Length & ")"
+                Else
+                    If DataType.ToUpperInvariant = "DECIMAL" Then
+                        '1234567.11 IS DECIMAL(9, 2) ... Length=7 Whole + Scale=2 Decimal
+                        Return "DECIMAL(" & Length + Scale & ", " & Scale & ")"
+                    Else
+                        Return DataType
+                    End If
+                End If
+            End If
+        End Get
+    End Property
+    Public Property Nullable As Boolean
+    Public Overrides Function ToString() As String
+        Return Join({Name, Format, If(Nullable, "Y", "N")}, "°")
+    End Function
+    Public Overrides Function GetHashCode() As Integer
+        Return Parent.GetHashCode Xor Name.GetHashCode Xor Index.GetHashCode Xor DataType.GetHashCode Xor Length.GetHashCode Xor Scale.GetHashCode Xor Nullable.GetHashCode
+    End Function
+    Public Overloads Function Equals(ByVal other As ColumnProperties) As Boolean Implements IEquatable(Of ColumnProperties).Equals
+        Return Index = other.Index AndAlso Name = other.Name
+    End Function
+    Public Shared Operator =(ByVal value1 As ColumnProperties, ByVal value2 As ColumnProperties) As Boolean
+        Return value1.Equals(value2)
+    End Operator
+    Public Shared Operator <>(ByVal value1 As ColumnProperties, ByVal value2 As ColumnProperties) As Boolean
+        Return Not value1 = value2
+    End Operator
+    Public Overrides Function Equals(ByVal obj As Object) As Boolean
+        If TypeOf obj Is ColumnProperties Then
+            Return CType(obj, ColumnProperties) = Me
+        Else
+            Return False
+        End If
+    End Function
+End Structure
 '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 Public NotInheritable Class ConnectionCollection
     Inherits List(Of Connection)
@@ -807,14 +894,13 @@ End Class
             _Properties.Add(ConnectionString, ConnectionString)
         Else
             PropertyIndices = New Dictionary(Of String, Integer)
-            IsNetezza = Regex.Match(ConnectionString, "DRIVER=\{(Netezza|NZ)SQL\}", RegexOptions.IgnoreCase).Success
-            If IsNetezza Then
+            Language = If(Regex.Match(ConnectionString, "DRIVER=\{(Netezza|NZ)SQL\}", RegexOptions.IgnoreCase).Success, QueryLanguage.Netezza, QueryLanguage.Db2)
+            If Language = QueryLanguage.Netezza Then
                 '********** CANNOT BE FIRST PROPERTY!!! ===> DRIVER={NZSQL}
                 ConnectionElements.AddRange(Split(NetezzaString.ToUpperInvariant, ";"))
             Else
                 ConnectionElements.AddRange(Split(DB2String.ToUpperInvariant, ";"))
             End If
-            IsDB2 = Not IsNetezza
             REM *** SOME CONNECTIONSTRINGS MAY COME THROUGH WITH ONLY A DSN+UID...GET THE PASSWORD FROM PARENT
             'DRIVER={IBM DB2 ODBC DRIVER};DSN=MWNCDSNB;UID=glover;PWD=PEANUT12;MODE=SHARE;ASYNCENABLE=0;USESCHEMAQUERIES=1;
             For Each Element In ConnectionElements
@@ -880,8 +966,7 @@ End Class
         End Get
     End Property
     Public ReadOnly Property IsFile As Boolean
-    Public ReadOnly Property IsNetezza As Boolean
-    Public ReadOnly Property IsDB2 As Boolean
+    Public ReadOnly Property Language As QueryLanguage
     Public ReadOnly Property Key As String
         Get
             Return Join({"DSN=" & DataSource, "UID=" & UserID}, ";")
@@ -1017,18 +1102,9 @@ Public NotInheritable Class SystemObjectCollection
             Using SW As New StreamWriter(Path)
             End Using
         Else
-            For Each ObjectString In PathToList(Path)
+            Dim objects As New List(Of String)(PathToList(Path))
+            For Each ObjectString In objects
                 Add(New SystemObject(ObjectString))
-            Next
-        End If
-
-    End Sub
-    Public Sub New(Items As List(Of SystemObject))
-
-        Directory.CreateDirectory(Folder_DataManager)
-        If Items IsNot Nothing Then
-            For Each ObjectItem In Items
-                Add(ObjectItem)
             Next
         End If
 
@@ -1166,19 +1242,6 @@ Public NotInheritable Class SystemObjectCollection
         Else
             Return Nothing
         End If
-
-    End Function
-    Public Shadows Function Contains(ObjectItem As SystemObject) As Boolean
-        Return Not IsNothing(Item(ObjectItem))
-    End Function
-    Public Shadows Function Distinct() As List(Of SystemObject)
-
-        Dim Items As New List(Of SystemObject)
-        Dim Groups = (From M In Me Group By _Key = M.ToString Into StringGroup = Group Select New With {.Key = _Key, .Value = StringGroup.First})
-        For Each ObjectItem In Groups
-            Items.Add(ObjectItem.Value)
-        Next
-        Return Items
 
     End Function
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
@@ -1329,23 +1392,6 @@ Public NotInheritable Class SystemObjectCollection
         ChangeTimer.Stop()
         SortCollection()
     End Sub
-    Public Sub RemoveDuplicates()
-
-        Dim Duplicates As New Dictionary(Of String, List(Of SystemObject))
-        For Each ItemObject In Me
-            Dim ItemKey As String = ItemObject.Key
-            If Not Duplicates.ContainsKey(ItemKey) Then Duplicates.Add(ItemKey, New List(Of SystemObject))
-            Duplicates(ItemKey).Add(ItemObject)
-        Next
-        For Each ItemObjects In Duplicates.Where(Function(io) io.Value.Count > 1)
-            For Each DuplicateItem In ItemObjects.Value.Skip(1)
-                Remove(DuplicateItem.Key)
-            Next
-        Next
-        SortCollection()
-        Save()
-
-    End Sub
     Public Sub SortCollection()
 
         Sort(Function(f1, f2)
@@ -1385,18 +1431,13 @@ Public NotInheritable Class SystemObjectCollection
         End Using
     End Sub
     Public Sub Save()
+        SortCollection()
         Using SW As New StreamWriter(Path)
             SW.Write(ToString)
         End Using
     End Sub
     Public Function ToStringArray() As String()
-        Return (From m In Me Select m.ToString & String.Empty).ToArray
-    End Function
-    Public Overrides Function ToString() As String
-        Return Strings.Join(ToStringArray, vbNewLine)
-    End Function
-    Public Function ToStringList() As List(Of String)
-        Return ToStringArray.ToList
+        Return (From m In Distinct Select m.ToString & String.Empty).ToArray
     End Function
     Public Function ToDataTable() As DataTable
 
@@ -1416,10 +1457,13 @@ Public NotInheritable Class SystemObjectCollection
         Return ObjectsTable
 
     End Function
+    Public Overrides Function ToString() As String
+        Return Strings.Join(ToStringArray, vbNewLine)
+    End Function
 #End Region
 End Class
 <Serializable> Public NotInheritable Class SystemObject
-#Region " CLASSES - ENUMS - STRUCTURES "
+    Implements IEquatable(Of SystemObject)
     Public Enum ObjectType
         None
         Table
@@ -1427,49 +1471,103 @@ End Class
         Routine
         Trigger
     End Enum
-#End Region
 #Region " NEW "
     Public Sub New()
     End Sub
-    Public Sub New(DataString As String)
+    Public Sub New(objectString As String)
 
-        Dim DataElements As String() = Split(DataString, Delimiter)
-        REM /// MY.SETTINGS.SystemObjects:  DSN      §   Type    §   DBNAME  §   TSNAME  §   OWNER   §   NAME
+        '<=================== S Y S T E M    O B J E C T ===================>■<================== C O L U M N    P R O P E R T I E S ==================>
+        '<=================== S Y S T E M    O B J E C T ===================>■<==== C O L U M N 1 ===>║<==== C O L U M N 2 ===>║<==== C O L U M N 3 ===>
+        'DSN      §   Type    §   DBNAME  §   TSNAME  §   OWNER   §   NAME   ■ Name, Format, Nullable ║ Name, Format, Nullable ║ Name, Format, Nullable ║ ...
         '------------------------------ ----------- ----------- ----------- ----------- ----------- -----------
-        REM /// MY.SETTINGS.SystemObjects:  CDNIW    §   Table   §   QBIMKTS §   MKTGTSS §   A085365 §   ACCESS
-        DSN = DataElements.First
-        Type = DirectCast([Enum].Parse(GetType(ObjectType), StrConv(DataElements(1), VbStrConv.ProperCase)), ObjectType)
-        DBName = DataElements(2)
-        TSName = DataElements(3)
-        Owner = DataElements(4)
-        Name = Replace(DataElements.Last, "♥", String.Empty)
-        Favorite = DataElements.Last.Contains("♥")
+        'DB2A1§Table§W75DFLTD§W75CCITS§C085365§ACTIONS■CUST#°INTEGER°Y║INV#°CHAR(7)°Y║TIME#°DECIMAL(15, 2)°Y║STEP°VARCHAR(50)°Y║SEQ#°SMALLINT°Y║STEPTIME°TIMESTAMP°Y║OA°VARCHAR(2003)°Y║LOG#°CHAR(19)°Y
+
+        Dim objectSplit As String() = Split(objectString, "■")
+        Dim objectElements As String() = Split(objectSplit.First, Delimiter)
+        With objectElements
+            DSN = .First
+            Type = DirectCast([Enum].Parse(GetType(ObjectType), StrConv(.ElementAt(1), VbStrConv.ProperCase)), ObjectType)
+            DBName = .ElementAt(2)
+            TSName = .ElementAt(3)
+            Owner = .ElementAt(4)
+            Name = Replace(.Last, "♥", String.Empty)
+            Favorite = .Last.Contains("♥")
+        End With
+        If objectSplit.Length = 2 Then
+            Dim columnIndex As Integer = 0
+            Dim hasDuplicates As Boolean = False 'Database does not permit 2 like column names ...
+            For Each column In Split(objectSplit.Last, "║")
+                columnIndex += 1
+                Dim columnElements As String() = Split(column, "°")
+                Dim columnName As String = columnElements.First
+                Dim columnFormat As String = columnElements(1).ToUpperInvariant
+                Dim lengthScale = RegexMatches(columnFormat, "[0-9]{1,}", RegexOptions.None)
+                Dim length As Short = 0
+                Dim scale As Byte = 0
+                If lengthScale.Any Then
+                    '1234567.11 IS DECIMAL(9, 2) ... Length=7 Integer places + Scale=2 Decimal places
+                    'Return "DECIMAL(" & length + scale & ", " & scale & ")"
+                    If lengthScale.Count = 2 Then scale = CByte(lengthScale.Last.Value)
+                    length = CShort(lengthScale.First.Value) - scale
+                ElseIf columnFormat.Contains("TIMESTAMP") Then
+                    length = 10
+                    scale = 6
+                ElseIf columnFormat.Contains("DATE") Then
+                    length = 4
+                ElseIf columnFormat.Contains("SMALLINT") Then
+                    length = 2
+                ElseIf columnFormat.Contains("INTEGER") Then
+                    length = 4
+                ElseIf columnFormat.Contains("BIGINT") Then
+                    length = 8
+                End If
+                If Columns.ContainsKey(columnName) Then
+                    hasDuplicates = True
+                    Exit For
+                Else
+                    Columns.Add(columnName, New ColumnProperties With {
+                        .Name = columnName,
+                        .Index = columnIndex,
+                        .DataType = Trim(Split(columnFormat, "(").First),
+                        .Length = length,
+                        .Scale = scale,
+                        .Nullable = columnElements.Last = "Y",
+                        .Parent = Me
+                    })
+                End If
+            Next
+            If hasDuplicates Then Columns.Clear()
+        End If
 
     End Sub
     Public Sub New(Row As DataRow)
 
         If Row IsNot Nothing Then
-            Using Table As DataTable = Row.Table
-                Dim Columns As DataColumnCollection = Table.Columns
-                If Columns.Contains("DataSource") Then
-                    DSN = Convert.ToString(Row("DataSource"), InvariantCulture)
+            Dim systemObjectString As String
+            Dim objectFields As New List(Of String)
+            For objectField As Integer = 0 To 5 '{"DataSource", "Type", "DBName", "TSName", "Owner", "Name"} ... Assumes DB2
+                Try
+                    objectFields.Add(Row(objectField).ToString)
+                Catch ex As ArgumentException
+                End Try
+            Next
+            If objectFields.Count = 6 Then
+                systemObjectString = Join(objectFields.ToArray, Delimiter)
+                If Row.Table.Columns.Contains("Columns") Then
+                    Dim columnString As String = Row("Columns").ToString
+                    systemObjectString = Join({systemObjectString, columnString}, BlackOut)
                 End If
-                If Columns.Contains("Type") Then
-                    Type = DirectCast([Enum].Parse(GetType(ObjectType), StrConv(Convert.ToString(Row("Type"), InvariantCulture), VbStrConv.ProperCase)), ObjectType)
-                End If
-                If Columns.Contains("DBName") Then
-                    DBName = Convert.ToString(Row("DBName"), InvariantCulture)
-                End If
-                If Columns.Contains("TSName") Then
-                    TSName = Convert.ToString(Row("TSName"), InvariantCulture)
-                End If
-                If Columns.Contains("Owner") Then
-                    Owner = Convert.ToString(Row("Owner"), InvariantCulture)
-                End If
-                If Columns.Contains("Name") Then
-                    Name = Convert.ToString(Row("Name"), InvariantCulture)
-                End If
-            End Using
+                Dim newObject As New SystemObject(systemObjectString)
+                With newObject
+                    DSN = .DSN
+                    Type = .Type
+                    DBName = .DBName
+                    TSName = .TSName
+                    Owner = .Owner
+                    Name = .Name
+                    Columns = .Columns
+                End With
+            End If
         End If
 
     End Sub
@@ -1487,6 +1585,7 @@ End Class
     Public Property TSName As String
     Public Property Owner As String
     Public Property Name As String
+    Public ReadOnly Property Columns As New Dictionary(Of String, ColumnProperties)
     Private Favorite_ As Boolean = False
     Public Property Favorite As Boolean
         Get
@@ -1526,8 +1625,47 @@ End Class
         Catch ex As InvalidOperationException
         End Try
     End Sub
+
+    Public Overrides Function GetHashCode() As Integer
+        Return DSN.GetHashCode Xor Type.GetHashCode Xor DBName.GetHashCode Xor TSName.GetHashCode Xor Owner.GetHashCode Xor Name.GetHashCode
+    End Function
+    Public Overloads Function Equals(ByVal other As SystemObject) As Boolean Implements IEquatable(Of SystemObject).Equals
+        If other Is Nothing Then
+            Return Me Is Nothing
+        Else
+            Return DSN = other.DSN AndAlso Owner = other.Owner AndAlso Name = other.Name
+        End If
+    End Function
+    Public Shared Operator =(ByVal value1 As SystemObject, ByVal value2 As SystemObject) As Boolean
+        If value1 Is Nothing Then
+            Return value2 Is Nothing
+        ElseIf value2 Is Nothing Then
+            Return value1 Is Nothing
+        Else
+            Return value1.Equals(value2)
+        End If
+    End Operator
+    Public Shared Operator <>(ByVal value1 As SystemObject, ByVal value2 As SystemObject) As Boolean
+        Return Not value1 = value2
+    End Operator
+    Public Overrides Function Equals(ByVal obj As Object) As Boolean
+        If TypeOf obj Is SystemObject Then
+            Return CType(obj, SystemObject) = Me
+        Else
+            Return False
+        End If
+    End Function
+
     Public Overrides Function ToString() As String
-        Return Join({DSN, Type.ToString, DBName, TSName, Owner, If(Favorite, "♥", String.Empty) & Name}, Delimiter)
+
+        Dim objectString As String = Join({DSN, Type.ToString, DBName, TSName, Owner, If(Favorite, "♥", String.Empty) & Name}, Delimiter)
+        If Columns.Any Then
+            Dim orderedColumns As New List(Of String)(From c In Columns.OrderBy(Function(c) c.Value.Index) Select c.ToString & String.Empty)
+            Return Join({objectString, Join(orderedColumns.ToArray, "║")}, BlackOut)
+        Else
+            Return objectString
+        End If
+
     End Function
 #End Region
 End Class
@@ -2866,7 +3004,7 @@ Public Class ETL
                 }
                 For Each Column In _Columns
                     Dim Comma As String = If(Column.Value.Index = 0, String.Empty, ", ")
-                    DDL.Add(Comma + DB2ColumnNamingConvention(Column.Key.ToUpperInvariant) & StrDup(6, vbTab) & Column.Value.DataFormat)
+                    DDL.Add(Comma + DB2ColumnNamingConvention(Column.Key.ToUpperInvariant) & StrDup(6, vbTab) & Column.Value.Format)
                 Next Column
                 DDL.Add(")")
                 If If(TableSpace, String.Empty).Length > 0 Then DDL.Add(" IN " & TableSpace)
@@ -2917,7 +3055,7 @@ Public Class ETL
 
             Using newTable As DataTable = Table.Copy
                 newTable.TableName = "newTable"
-                _Columns = DataTableToListOfColumnProperties(newTable).ToDictionary(Function(x) x.Name, Function(y) y)
+                _Columns = DataTableToSystemObject(newTable).Columns
             End Using
             With New DDL(ConnectionString, TableDDL)
                 AddHandler .Completed, AddressOf Table_CreateResponded
@@ -2975,7 +3113,8 @@ Public Class ETL
             With DirectCast(sender, SQL)
                 RemoveHandler .Completed, AddressOf Table_StructureResponded
                 If e.Succeeded Then
-                    _Columns = DataTableToListOfColumnsProperties(.Table).ToDictionary(Function(x) x.Name, Function(y) y)
+                    Dim systemObjects = ColumnTypesToSystemObject(.Table)
+                    If systemObjects.Any Then _Columns = systemObjects.First.Columns 'Above function allows for multiple Tables but here only 1 will ever be sent
                     If Columns.Any Then
                         DataTable_DB2()
                     Else
@@ -3040,7 +3179,7 @@ Public Class ETL
                 End If
                 If DestinationColumnIndices.ContainsKey(DestinationIndex) Then
                     CP.DestinationName = DestinationColumnIndices(DestinationIndex).Name
-                    CP.DestinationType = DestinationColumnIndices(DestinationIndex).DataFormat
+                    CP.DestinationType = DestinationColumnIndices(DestinationIndex).Format
                 Else
                     CP.DestinationName = "X" & ColumnIndex
                     CP.DestinationName = GetType(Object).ToString & ColumnIndex
@@ -3099,8 +3238,8 @@ Public Class ETL
                             If Columns.ContainsKey(Column.DestinationName) Then
                                 Dim CP As ColumnProperties = Columns(Column.DestinationName)
                                 With CP
-                                    If EmptyValue AndAlso .Nulls = True Then
-                                        Values.Add("CAST(NULL AS " & .DataFormat & ")")
+                                    If EmptyValue AndAlso .Nullable = True Then
+                                        Values.Add("CAST(NULL AS " & .Format & ")")
                                     Else
                                         Select Case .DataType
                                             Case "CHAR", "VARCHAR", "LONG VARCHAR"
@@ -3111,7 +3250,7 @@ Public Class ETL
                                                     REM /// ToString is to account for Boolean which becomes "True" or "False"
                                                     Dim StringValue As String = Replace(Value.ToString, "'", "`")
                                                     If .DataType.Contains("VAR") Then StringValue = Trim(StringValue)
-                                                    Values.Add("CAST('" & StringValue & "' As " & .DataFormat & ")")
+                                                    Values.Add("CAST('" & StringValue & "' As " & .Format & ")")
 
                                                 End If
 
@@ -3241,188 +3380,6 @@ Public Class ETL
     End Sub
 #End Region
 End Class
-Public Structure ColumnParity
-    Implements IEquatable(Of ColumnParity)
-    Public Property Index As Integer
-    Public Property SourceName As String
-    Public Property SourceType As Type
-    Public Property DestinationName As String
-    Public Property DestinationType As String
-    Public Shadows Function ToArray() As String()
-        Return {Index.ToString(InvariantCulture), SourceName, Convert.ToString(SourceType, InvariantCulture), DestinationName, DestinationType}
-    End Function
-    Public Overrides Function GetHashCode() As Integer
-        Return SourceName.GetHashCode Xor DestinationName.GetHashCode Xor DestinationType.GetHashCode Xor Index.GetHashCode
-    End Function
-    Public Overloads Function Equals(ByVal other As ColumnParity) As Boolean Implements IEquatable(Of ColumnParity).Equals
-        Return Index = other.Index AndAlso SourceName = other.SourceName
-    End Function
-    Public Shared Operator =(ByVal value1 As ColumnParity, ByVal value2 As ColumnParity) As Boolean
-        Return value1.Equals(value2)
-    End Operator
-    Public Shared Operator <>(ByVal value1 As ColumnParity, ByVal value2 As ColumnParity) As Boolean
-        Return Not value1 = value2
-    End Operator
-    Public Overrides Function Equals(ByVal obj As Object) As Boolean
-        If TypeOf obj Is ColumnParity Then
-            Return CType(obj, ColumnParity) = Me
-        Else
-            Return False
-        End If
-    End Function
-End Structure
-Public Structure ColumnProperties
-    Implements IEquatable(Of ColumnProperties)
-    Public Sub New(systemType As Type, Optional values As List(Of Object) = Nothing)
-
-        Nulls = True
-        If systemType = GetType(Date) Then
-            'Might also be TIMESTAMP ... DataTable.DataType can't hold Systsem.DateAndTime, so if systemType comes from a DataTable then determine if it should be DATE vs TIMESTAMP
-            Dim nonNullValues As New List(Of Object)(values?.Where(Function(v) Not (IsDBNull(v) Or v Is Nothing)))
-            If nonNullValues.Any Then
-                Dim valuesType As Type = GetDataType(nonNullValues)
-                If valuesType = GetType(DateAndTime) Then
-                    DataType = "TIMESTAMP"
-                    Length = 10
-                    Scale = 6
-                Else
-                    DataType = "DATE"
-                    Length = 4
-                End If
-            Else
-                DataType = "DATE"
-                Length = 4
-            End If
-        Else
-            If systemType = GetType(DateAndTime) Then
-                DataType = "TIMESTAMP"
-                Length = 10
-                Scale = 6
-            Else
-                If {GetType(Byte), GetType(Short)}.Contains(systemType) Then
-                    DataType = "SMALLINT"
-                    Length = 2
-                Else
-                    If systemType = GetType(Integer) Then
-                        DataType = "INTEGER"
-                        Length = 4
-                    Else
-                        If systemType = GetType(Long) Then
-                            DataType = "BIGINT"
-                            Length = 8
-                        Else
-                            If {GetType(Decimal), GetType(Double)}.Contains(systemType) Then
-                                '1234567.11 IS DECIMAL(9, 2)
-                                Dim nonNullValues As New List(Of Object)(values?.Where(Function(v) Not (IsDBNull(v) Or v Is Nothing)))
-                                If nonNullValues.Any Then
-                                    Dim maxLength As Integer
-                                    Dim maxScale As Integer
-                                    For Each value In nonNullValues
-                                        Dim number As Double
-                                        If Double.TryParse(value.ToString, number) Then
-                                            Dim kvp = DoubleSplit(number)
-                                            Dim wholeLength As Integer = kvp.Key.ToString(InvariantCulture).Length
-                                            Dim decimalLength As Integer = kvp.Value.ToString(InvariantCulture).Length - 2
-                                            If maxLength < wholeLength Then maxLength = wholeLength
-                                            If maxScale < decimalLength Then maxScale = decimalLength
-                                        End If
-                                    Next
-                                    DataType = "DECIMAL"
-                                    Length = CShort(maxLength)
-                                    Scale = CShort(maxScale)
-
-                                Else
-                                    'No values in column? Set DECIMAL(10, 2) as default
-                                    DataType = "DECIMAL"
-                                    Length = 10
-                                    Scale = 2
-
-                                End If
-                            Else
-                                If systemType = GetType(Boolean) Then
-                                    'IBM® DB2® 9.x does Not implement a Boolean SQL type.
-                                    'Solution: The DB2 database interface converts BOOLEAN type to CHAR(1) columns And stores '1' or '0' values in the column.
-                                    DataType = "CHAR"
-                                    Length = 1
-                                    Scale = 0
-                                Else
-                                    If systemType = GetType(String) Then
-#Region " CHAR + VARCHAR "
-                                        Dim lengths As New List(Of Integer)(values?.Where(Function(v) Not (IsDBNull(v) Or v Is Nothing)).Select(Function(v) v.ToString.Length))
-                                        If lengths.Any Then
-                                            Dim minLength As Integer = {lengths.Min, 2003}.Min
-                                            Dim maxLength As Integer = {lengths.Max, 2003}.Min
-                                            DataType = If(minLength = maxLength, "CHAR", "VARCHAR") 'Same length for each value=CHAR, Variant lengths for values=VARCHAR
-                                            Length = CShort(maxLength)
-                                        Else
-                                            'No values in column? Set VARCHAR(50) as default
-                                            DataType = "VARCHAR"
-                                            Length = 50
-                                        End If
-#End Region
-                                    Else
-                                        'DUMMY VALUE!
-                                        Stop
-                                        DataType = "VARCHAR"
-                                        Length = 50
-                                    End If
-                                End If
-                            End If
-                        End If
-                    End If
-                End If
-            End If
-        End If
-
-    End Sub
-    Public Property SystemInfo As SystemObject
-    Public Property Name As String
-    Public Property Index As Integer
-    Public Property DataType As String
-    Public ReadOnly Property DataFormat As String
-        Get
-            If DataType Is Nothing Then
-                Return If(DataType, String.Empty)
-            Else
-                If {"CHAR", "VARCHAR"}.Contains(DataType) Then
-                    Return DataType & "(" & Length & ")"
-                Else
-                    If DataType = "DECIMAL" Then
-                        '1234567.11 IS DECIMAL(9, 2) ... 7 Whole + 2 Decimal
-                        Return "DECIMAL(" & Length + Scale & ", " & Scale & ")"
-                    Else
-                        Return DataType
-                    End If
-                End If
-            End If
-        End Get
-    End Property
-    Public Property Length As Short
-    Public Property Scale As Short
-    Public Property Nulls As Boolean
-    Public Overrides Function ToString() As String
-        Return Join({DataFormat, Nulls.ToString(InvariantCulture)}, BlackOut)
-    End Function
-    Public Overrides Function GetHashCode() As Integer
-        Return SystemInfo.GetHashCode Xor Name.GetHashCode Xor Index.GetHashCode Xor DataType.GetHashCode Xor DataFormat.GetHashCode Xor Length.GetHashCode Xor Scale.GetHashCode Xor Nulls.GetHashCode
-    End Function
-    Public Overloads Function Equals(ByVal other As ColumnProperties) As Boolean Implements IEquatable(Of ColumnProperties).Equals
-        Return Index = other.Index AndAlso Name = other.Name
-    End Function
-    Public Shared Operator =(ByVal value1 As ColumnProperties, ByVal value2 As ColumnProperties) As Boolean
-        Return value1.Equals(value2)
-    End Operator
-    Public Shared Operator <>(ByVal value1 As ColumnProperties, ByVal value2 As ColumnProperties) As Boolean
-        Return Not value1 = value2
-    End Operator
-    Public Overrides Function Equals(ByVal obj As Object) As Boolean
-        If TypeOf obj Is ColumnProperties Then
-            Return CType(obj, ColumnProperties) = Me
-        Else
-            Return False
-        End If
-    End Function
-End Structure
 Public Module iData
     Public Event Alerts(sender As Object, e As AlertEventArgs)
     Public Enum InstructionType
@@ -3452,15 +3409,31 @@ Public Module iData
         End With
 
     End Function
-    Friend Function ColumnSQL(TableName As String) As String
-        Return Replace(My.Resources.SQL_ColumnTypes, "'///OWNER_TABLE///'", ValueToField(TableName))
-    End Function
-    Friend Function ColumnSQL(TableNames As String()) As String
+    Friend Function ColumnSQL(tableName As String, Optional language As QueryLanguage = QueryLanguage.Db2) As String
 
-        If TableNames.Any Then
-            Return Replace(My.Resources.SQL_ColumnTypes, "'///OWNER_TABLE///'", Join(TableNames.Select(Function(x) ValueToField(x)).ToArray, ","))
+        Select Case language
+            Case QueryLanguage.Netezza
+                Return Replace(My.Resources.SQL_ColumnTypes_NZ, "///TABLES///", ValueToField(tableName))
+
+            Case Else
+                Return Replace(My.Resources.SQL_ColumnTypes, "'///OWNER_TABLE///'", ValueToField(tableName))
+
+        End Select
+
+    End Function
+    Friend Function ColumnSQL(tableNames As String(), Optional language As QueryLanguage = QueryLanguage.Db2) As String
+
+        If tableNames.Any Then
+            Select Case language
+                Case QueryLanguage.Netezza
+                    Return Replace(My.Resources.SQL_ColumnTypes_NZ, "///TABLES///", ValuesToFields(tableNames)) 'Delimiter § is illegal in NZ
+
+                Case Else
+                    Return Replace(My.Resources.SQL_ColumnTypes, "'///OWNER_TABLE///'", Join(tableNames.Select(Function(x) ValueToField(x)).ToArray, ","))
+
+            End Select
         Else
-            Return My.Resources.SQL_ColumnTypes
+            Return Nothing
         End If
 
     End Function
@@ -3519,7 +3492,7 @@ Public Module iData
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Public Function TextFileToDataTable(FilePath As String) As DataTable
 
-        If FileExists(FilePath) Then
+        If File.Exists(FilePath) Then
             Dim txt_Data As String = String.Empty
             Using SR As New StreamReader(FilePath)
                 txt_Data = SR.ReadToEnd
@@ -3532,7 +3505,7 @@ Public Module iData
     End Function
     Public Function TextFileToDataTable(FilePath As String, Delimiter As String) As DataTable
 
-        If FileExists(FilePath) Then
+        If File.Exists(FilePath) Then
             Dim txt_Data As String = String.Empty
             Using SR As New StreamReader(FilePath)
                 txt_Data = SR.ReadToEnd
@@ -4079,123 +4052,222 @@ Public Module iData
     End Sub
 #End Region
 #Region " DATABASE COLUMN TYPES "
-    Public Function RetrieveColumnTypes(ConnectionString As String, OwnerAndTableName As String) As DataTable
-        Return RetrieveColumnTypes(ConnectionString, {OwnerAndTableName}.ToList)
-    End Function
-    Public Function RetrieveColumnTypes(ConnectionString As String, OwnersAndTableNames As List(Of String)) As DataTable
+    Public Function DataTableToSystemObject(columnTable As DataTable) As SystemObject
 
-        If OwnersAndTableNames Is Nothing Then
-            Return Nothing
+        '1 Reference is from ETL.Destination.Private Sub Create_Table() ... Create a Db2 table from a .Net Datatable
+
+        If columnTable IsNot Nothing Then
+            'CASTING FROM A QUERY...RESULTS IN THEN BELOW DATACOLUMN.DATATYPES
+            'GOOD TRANSLATION BUT System.Decimal, DateTime, and String LOSE THEIR ORIGINAL CASTING
+
+            'CAST(0 AS SMALLINT)	                →	System.Int16
+            'CAST(0 AS INT)		                    →	System.Int32
+            'CAST(0 AS BIGINT)	                    →	System.Int64
+            'CAST(0 AS DECIMAL(15, 2))	            →	System.Decimal
+            'CAST(0 AS FLOAT)	                    →	System.Decimal
+            'CAST(CURRENT_TIMESTAMP AS TIMESTAMP)	→	System.DateTime
+            'CAST(CURRENT_DATE AS DATE)		        →	System.DateTime
+            'CAST('X' AS CHAR(10))		            →	String
+            'CAST('X' AS VARCHAR(20))	            →	String
+
+            Dim isDatabaseTable As Boolean = columnTable.Namespace = "<DB2>"
+            'Datatable is either filled from a Database query - Or - an Excel / .txt file, etc
+            'Class SQL.Execute stamps the DataAdapter Table.Namespace as "<DB2>" so it is clear the table came from a query and not a user-created Datatable
+            'If the Datatable is user-created, then get the Column.Datatype from: GetDataType(DataColumnToList(Column))
+
+            Dim columnObject As New SystemObject
+            For Each Column As DataColumn In columnTable.Columns
+                Dim columnValues As New List(Of Object)(DataColumnToList(Column))
+                Dim columnType As Type = If(isDatabaseTable, Column.DataType, GetDataType(columnValues))
+
+                Dim dataType As String
+                Dim length As Short
+                Dim scale As Byte
+#Region " C O N V E R S I O N   F R O M  .N e t  →  D b 2  {Type, Length, Scale} "
+                Dim nonNullValues As New List(Of Object)(columnValues.Where(Function(v) Not (IsDBNull(v) Or v Is Nothing)))
+                If columnType = GetType(Date) Then
+                    'Might also be TIMESTAMP ... DataTable.DataType can't hold Systsem.DateAndTime, so if columnType comes from a DataTable then determine if it should be DATE vs TIMESTAMP
+                    If nonNullValues.Any Then
+                        Dim valuesType As Type = GetDataType(nonNullValues)
+                        If valuesType = GetType(DateAndTime) Then
+                            dataType = "TIMESTAMP"
+                            length = 10
+                            scale = 6
+                        Else
+                            dataType = "DATE"
+                            length = 4
+                        End If
+                    Else
+                        dataType = "DATE"
+                        length = 4
+                    End If
+                Else
+                    If columnType = GetType(DateAndTime) Then
+                        DataType = "TIMESTAMP"
+                        Length = 10
+                        Scale = 6
+                    Else
+                        If {GetType(Byte), GetType(Short)}.Contains(columnType) Then
+                            DataType = "SMALLINT"
+                            Length = 2
+                        Else
+                            If columnType = GetType(Integer) Then
+                                DataType = "INTEGER"
+                                Length = 4
+                            Else
+                                If columnType = GetType(Long) Then
+                                    DataType = "BIGINT"
+                                    Length = 8
+                                Else
+                                    If {GetType(Decimal), GetType(Double)}.Contains(columnType) Then
+                                        '1234567.11 IS DECIMAL(9, 2)
+                                        If nonNullValues.Any Then
+                                            Dim maxLength As Integer
+                                            Dim maxScale As Integer
+                                            For Each value In nonNullValues
+                                                Dim number As Double
+                                                If Double.TryParse(value.ToString, number) Then
+                                                    Dim kvp = DoubleSplit(number)
+                                                    Dim wholeLength As Integer = kvp.Key.ToString(InvariantCulture).Length
+                                                    Dim decimalLength As Integer = kvp.Value.ToString(InvariantCulture).Length - 2
+                                                    If maxLength < wholeLength Then maxLength = wholeLength
+                                                    If maxScale < decimalLength Then maxScale = decimalLength
+                                                End If
+                                            Next
+                                            dataType = "DECIMAL"
+                                            length = CShort(maxLength)
+                                            scale = CByte(maxScale)
+
+                                        Else
+                                            'No values in column? Set DECIMAL(10, 2) as default
+                                            dataType = "DECIMAL"
+                                            Length = 10
+                                            Scale = 2
+
+                                        End If
+                                    Else
+                                        If columnType = GetType(Boolean) Then
+                                            'IBM® DB2® 9.x does Not implement a Boolean SQL type.
+                                            'Solution: The DB2 database interface converts BOOLEAN type to CHAR(1) columns And stores '1' or '0' values in the column.
+                                            DataType = "CHAR"
+                                            Length = 1
+                                            Scale = 0
+                                        Else
+                                            If columnType = GetType(String) Then
+#Region " CHAR + VARCHAR "
+                                                Dim lengths As New List(Of Integer)(columnValues.Where(Function(v) Not (IsDBNull(v) Or v Is Nothing)).Select(Function(v) v.ToString.Length))
+                                                If lengths.Any Then
+                                                    Dim minLength As Integer = {lengths.Min, 2003}.Min
+                                                    Dim maxLength As Integer = {lengths.Max, 2003}.Min
+                                                    DataType = If(minLength = maxLength, "CHAR", "VARCHAR") 'Same length for each value=CHAR, Variant lengths for values=VARCHAR
+                                                    Length = CShort(maxLength)
+                                                Else
+                                                    'No values in column? Set VARCHAR(50) as default
+                                                    DataType = "VARCHAR"
+                                                    Length = 50
+                                                End If
+#End Region
+                                            Else
+                                                'DUMMY VALUE!
+                                                Stop
+                                                DataType = "VARCHAR"
+                                                Length = 50
+                                            End If
+                                        End If
+                                    End If
+                                End If
+                            End If
+                        End If
+                    End If
+                End If
+#End Region
+                Dim cp As New ColumnProperties With {
+                            .Name = DatabaseColumnName(Column.ColumnName),
+                            .Index = Column.Ordinal,
+                            .Length = length,
+                            .Scale = scale,
+                            .Parent = columnObject
+                    }
+                columnObject.Columns.Add(Column.ColumnName, cp)
+            Next
+            Return columnObject
         Else
-            Dim TableNames As New List(Of String)(OwnersAndTableNames.Select(Function(x) ValueToField(x)))
-            Dim SQL As String = ColumnSQL(TableNames.ToArray)
-            Dim ColumnsTable As DataTable = RetrieveData(ConnectionString, SQL)
-            ColumnsTable.Namespace = "<Retrieved>"
-            Return ColumnsTable
+            Return New SystemObject
         End If
 
     End Function
-    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Public Function DataTableToListOfColumnProperties(columnTable As DataTable) As List(Of ColumnProperties)
+    Friend Function ColumnTypesToSystemObject(Table As DataTable) As List(Of SystemObject)
 
-        Dim Columns As New List(Of ColumnProperties)
-        If columnTable IsNot Nothing Then
-            If columnTable.Namespace = "<Retrieved>" Then
-#Region " FULL DATABASE DETAIL "
-                REM /// CERTAIN THAT THE BELOW COLUMNNAMES ARE IN THE TABLE SINCE...
-                REM /// THIS REQUEST COMES FROM CONNECTION TO A DATABASE USING THE MY.SETTINGS.ColumnTypes SQL
-                REM /// EACH ROW IN THE TABLE IS FOR COLUMN PROPERTIES...EACH COLUMN IN THE ROW IS A PROPERTY
-                Columns = DataTableToListOfColumnsProperties(columnTable)
-#End Region
+        'Datatable is the SQL response from: My.Resources.SQL_ColumnTypes Or My.Resources.SQL_ColumnTypes_NZ ... which may be showing data for multiple Tables ∴ List(Of SystemObject)
+        'Have the Database Format, Length, and Scale
+        'Db2 = (DSN, TABLE_NAME, OBJECT_TYPE, TYPE, COLUMN_NBR, COLUMN_NAME, FORMAT, COLUMN_TYPE, LENGTH, SCALE, NULLABLE, CREATOR, DB_NAME, TS_NAME, OWNER, SQL, COMMENT)
+        'NZ  = (DSN, DATABASE, OWNER, SCHEMA, TABLE_NAME, OBJECT_TYPE, COLUMN_NBR, COLUMN_NAME, FORMAT, LENGTH, NULLABLE)
+        Dim newObjects As New List(Of SystemObject)
+        If Table Is Nothing Then
+            Return newObjects
+        Else
+            'DSNA1§Table§W75DFLTD§W75CCITS§C085365§ACTIONS■CUST#°INTEGER°Y║INV#°CHAR(7)°Y║TIME#°DECIMAL(15, 2)°Y║STEP°VARCHAR(50)°Y║SEQ#°SMALLINT°Y║STEPTIME°TIMESTAMP°Y║...
+            If Table.Columns.Count = 0 Or Table.Rows.Count = 0 Then
+                Return newObjects
             Else
-                REM /// THIS IS CASTING FROM USER QUERY
-#Region " SELECT CAST(... ==> .NET "
-                '------------ FILLING A DATATABLE FROM A DATABASE SOURCE
-                Dim SQL As New List(Of String) From {"SELECT CAST(0 AS SMALLINT) SMALLINT_",
-", CAST(0 AS INT) INT_",
-", CAST(0 AS BIGINT) BIGINT_",
-", CAST(0 AS DECIMAL(15, 2)) DECIMAL_",
-", CAST(0 AS FLOAT) DOUBLE_",
-", CAST(CURRENT_TIMESTAMP AS TIMESTAMP) TIMESTAMP_",
-", CAST(CURRENT_DATE AS DATE) DATE_",
-", CAST('X' AS CHAR(10)) CHAR_",
-", CAST('X' AS VARCHAR(20)) VARCHAR_",
-"FROM DSNA1.SYSIBM.SYSDUMMY1"}
-                '------------ ...RESULTS IN THEN BELOW DATACOLUMN.DATATYPES
-                '------------ ...GOOD TRANSLATION BUT System.Decimal, DateTime, and String LOSE THEIR ORIGINAL CASTING
-                'SMALLINT_	→	System.Int16
-                'INT_		→	System.Int32
-                'BIGINT_	→	System.Int64
-                'DECIMAL_	→	System.Decimal
-                'DOUBLE_	→	System.Decimal
-                'TIMESTAMP_	→	System.DateTime
-                'DATE_		→	System.DateTime
-                'CHAR_		→	String
-                'VARCHAR_	→	String
-#End Region
-
-                For Each Column As DataColumn In columnTable.Columns
-                    Dim columnType As Type = If(columnTable.Namespace = "<DB2>", Column.DataType, GetDataType(DataColumnToList(Column)))
-                    Dim values As New List(Of Object)(DataColumnToList(Column))
-                    Columns.Add(New ColumnProperties(Column.DataType, values) With {
-                            .Name = DatabaseColumnName(Column.ColumnName),
-                            .Index = Column.Ordinal})
+                Dim objectDictionary As New Dictionary(Of String, List(Of ColumnProperties))
+                Dim language As QueryLanguage = If(Table.Columns.Contains("SCHEMA"), QueryLanguage.Netezza, QueryLanguage.Db2)
+                For Each DataRow As DataRow In Table.Rows
+                    'DB2A1§Table§W75DFLTD§W75CCITS§C085365§♥ACTIONS
+                    Dim columnName As String = DataRow.Item("COLUMN_NAME").ToString
+                    Dim objectString As String
+                    Dim cp As ColumnProperties
+                    If language = QueryLanguage.Netezza Then
+                        Dim nzFields As New List(Of String) From {
+                            DataRow("DSN").ToString,
+                            DataRow("OBJECT_TYPE").ToString,
+                            DataRow("DATABASE").ToString,
+                            DataRow("OWNER").ToString,
+                            DataRow("SCHEMA").ToString,
+                            DataRow("TABLE_NAME").ToString
+                        }
+                        objectString = Join(nzFields.ToArray, Delimiter)
+                        cp = New ColumnProperties With {
+                            .Name = columnName,
+                            .Index = CInt(DataRow.Item("COLUMN_NBR")),
+                            .DataType = DataRow.Item("FORMAT").ToString,
+                            .Length = CShort(DataRow.Item("LENGTH")),
+                            .Scale = 0,'None in Netezza
+                            .Nullable = DataRow.Item("NULLABLE").ToString.Contains("True")
+                        }
+                    Else
+                        Dim Db2Fields As New List(Of String) From {
+                            DataRow("DSN").ToString,
+                            DataRow("OBJECT_TYPE").ToString,
+                            DataRow("DB_NAME").ToString,
+                            DataRow("TS_NAME").ToString,
+                            DataRow("CREATOR").ToString,
+                            DataRow("TABLE_NAME").ToString
+                        }
+                        objectString = Join(Db2Fields.ToArray, Delimiter)
+                        cp = New ColumnProperties With {
+                            .Name = columnName,
+                            .Index = CInt(DataRow.Item("COLUMN_NBR")),
+                            .DataType = DataRow.Item("COLUMN_TYPE").ToString,
+                            .Length = CShort(DataRow.Item("LENGTH")),
+                            .Scale = CByte(DataRow.Item("SCALE")),
+                            .Nullable = DataRow.Item("NULLABLE").ToString.Contains("Y")
+                        }
+                    End If
+                    If Not objectDictionary.ContainsKey(objectString) Then objectDictionary.Add(objectString, New List(Of ColumnProperties))
+                    objectDictionary(objectString).Add(cp)
                 Next
+                For Each objectString In objectDictionary
+                    Dim newObject As SystemObject = New SystemObject(objectString.Key)
+                    For Each cp In objectString.Value
+                        newObject.Columns.Add(cp.Name, cp)
+                        cp.Parent = newObject
+                    Next
+                    newObjects.Add(newObject)
+                Next
+                Return newObjects
             End If
         End If
-        Return Columns
-
-    End Function
-    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Public Function RetrieveColumnPropertiesTypes(ObjectItem As SystemObject) As List(Of ColumnProperties)
-
-        If ObjectItem Is Nothing Then
-            Return Nothing
-        Else
-            Return RetrieveColumnPropertiesTypes(ObjectItem.Connection.ToString, {ObjectItem.FullName}.ToList)
-        End If
-
-    End Function
-    Public Function RetrieveColumnPropertiesTypes(ConnectionString As String, OwnerAndTableName As String) As List(Of ColumnProperties)
-        Return RetrieveColumnPropertiesTypes(ConnectionString, {OwnerAndTableName}.ToList)
-    End Function
-    Public Function RetrieveColumnPropertiesTypes(ConnectionString As String, OwnerTableNames As List(Of String)) As List(Of ColumnProperties)
-
-        Dim ColumnTable As DataTable = RetrieveColumnTypes(ConnectionString, OwnerTableNames)
-        If IsNothing(ColumnTable) Then
-            Return Nothing
-        Else
-            Return DataTableToListOfColumnsProperties(ColumnTable)
-        End If
-
-    End Function
-    Public Function DataTableToListOfColumnsProperties(Table As DataTable) As List(Of ColumnProperties)
-
-        REM /// DATATABLE IS RESULT OF COLUMN_TYPES QUERY
-        Dim Columns As New List(Of ColumnProperties)
-        If Table IsNot Nothing Then
-            For Each DataRow As DataRow In Table.Rows
-                Dim DB2_Column As New ColumnProperties
-                With DB2_Column
-                    .SystemInfo = New SystemObject With {
-                                .DBName = DataRow.Item("DBNAME").ToString,
-                                .Name = DataRow.Item("TABLE_NAME").ToString,
-                                .Owner = DataRow.Item("CREATOR").ToString,
-                                .TSName = DataRow.Item("TSNAME").ToString,
-                                .Type = DirectCast([Enum].Parse(GetType(SystemObject.ObjectType), StrConv(DataRow.Item("OBJECT_TYPE").ToString, VbStrConv.ProperCase)), SystemObject.ObjectType),
-                                .DSN = DataRow.Item("DSN").ToString
-                    }
-                    .Name = DataRow.Item("COLUMN_NAME").ToString
-                    .Index = CInt(DataRow.Item("COL#"))
-                    .DataType = DataRow.Item("COLTYPE").ToString
-                    .Length = CShort(DataRow.Item("LENGTH"))
-                    .Scale = CShort(DataRow.Item("SCALE"))
-                    .Nulls = DataRow.Item("NULLS").ToString.Contains("Y")
-                End With
-                Columns.Add(DB2_Column)
-            Next
-        End If
-        Return Columns
 
     End Function
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
@@ -4203,7 +4275,7 @@ Public Module iData
 
         'DROP TABLE UNTIED
         '; CREATE TABLE UNTIED (
-        'CUST#       INTEGER
+        '  CUST#       INTEGER
         ', INV#		 CHAR(7)
         ', TIME#	 DECIMAL(15, 0)
         ') IN W75DFLTD.W75CCITS
@@ -4211,7 +4283,7 @@ Public Module iData
             Return Nothing
         Else
             If Columns.Any Then
-                Dim Elements = Columns.First.SystemInfo
+                Dim Elements = Columns.First.Parent
                 '.SystemInfo = {
                 '0                    DataRow.Item("DBNAME").ToString,
                 '1                    DataRow.Item("TABLE_NAME").ToString,
@@ -4220,14 +4292,14 @@ Public Module iData
                 '4                    StrConv(DataRow.Item("OBJECT_TYPE").ToString, VbStrConv.ProperCase),
                 '5                    DataRow.Item("DSN").ToString
                 '        }
-                Dim SystemObject As SystemObject = Columns.First.SystemInfo
+                Dim SystemObject As SystemObject = Columns.First.Parent
                 Dim CreateObject As New List(Of String) From {
                     Join({"DROP", SystemObject.Type.ToString.ToUpperInvariant, SystemObject.FullName}),
                     Join({"; CREATE", SystemObject.Type.ToString.ToUpperInvariant, SystemObject.FullName, "("})
                 }
 
                 For Each ColumnProperties In Columns
-                    Dim Line As String = Join({ColumnProperties.Name, ColumnProperties.DataFormat}, StrDup(4, vbTab))
+                    Dim Line As String = Join({ColumnProperties.Name, ColumnProperties.Format}, StrDup(4, vbTab))
                     If ColumnProperties.Index = 1 Then
                         CreateObject.Add(Line)
                     Else
@@ -4243,18 +4315,6 @@ Public Module iData
 
     End Function
 #End Region
-    Public Function FileExists(FilePath As String) As Boolean
-
-        Try
-            Using SR As New StreamReader(FilePath)
-            End Using
-            Return True
-
-        Catch ex As FileNotFoundException
-            Return False
-        End Try
-
-    End Function
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Public Function ValueToField(Value As Object) As String
 

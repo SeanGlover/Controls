@@ -147,8 +147,10 @@ Public Class DataViewer
             End If
         Next
 
-        HeaderOptions.Items.Add(FontsColorsToTSMI(MouseRegion.Header))
-        GridOptions.Items.Add(FontsColorsToTSMI(MouseRegion.Grid))
+        If GroupedProperties.Any Then
+            HeaderOptions.Items.Add(FontsColorsToTSMI(MouseRegion.Header))
+            GridOptions.Items.Add(FontsColorsToTSMI(MouseRegion.Grid))
+        End If
 
     End Sub
     Private Function FontsColorsToTSMI(viewerRegion As MouseRegion) As ToolStripMenuItem
@@ -259,9 +261,10 @@ Public Class DataViewer
         Next
         Dim tsmiFontsColors As New ToolStripMenuItem(viewerRegion.ToString & " fonts and colors".ToString(InvariantCulture)) With {
             .Font = Gothic,
-            .AutoSize = True
+            .AutoSize = True,
+            .Name = "properties"
         }
-        tsmiFontsColors.DropDownItems.Add(New ToolStripControlHost(tlpOutside) With {.AutoSize = True})
+        tsmiFontsColors.DropDownItems.Add(New ToolStripControlHost(tlpOutside) With {.AutoSize = True, .Name = "properties"})
         Return tsmiFontsColors
 
     End Function
@@ -278,9 +281,13 @@ Public Class DataViewer
 #Region " DRAW HEADERS "
             With Columns
                 Dim HeadFullBounds As New Rectangle(-HScroll.Value, 0, {1, .HeadBounds.Width}.Max, .HeadBounds.Height)
-                Using LinearBrush As New LinearGradientBrush(HeadFullBounds, .HeaderStyle.BackColor, .HeaderStyle.ShadeColor, LinearGradientMode.Vertical)
-                    e.Graphics.FillRectangle(LinearBrush, HeadFullBounds)
-                End Using
+                If .HeaderStyle.Theme = Theme.None Then
+                    Using LinearBrush As New LinearGradientBrush(HeadFullBounds, .HeaderStyle.BackColor, .HeaderStyle.ShadeColor, LinearGradientMode.Vertical)
+                        e.Graphics.FillRectangle(LinearBrush, HeadFullBounds)
+                    End Using
+                Else
+                    e.Graphics.DrawImage(GlossyImages(.HeaderStyle.Theme), HeadFullBounds)
+                End If
                 If .Any Then
                     ControlPaint.DrawBorder3D(e.Graphics, HeadFullBounds, Border3DStyle.Sunken)
                     Dim ColumnStart As Integer = ColumnIndex(HScroll.Value)
@@ -293,9 +300,13 @@ Public Class DataViewer
                                 HeadBounds.Offset(-HScroll.Value, 0)
                                 If HeadBounds.Left >= Width Then Exit For
                                 VisibleColumns.Add(Column, HeadBounds)
-                                Using LinearBrush As New LinearGradientBrush(HeadBounds, .HeaderStyle.BackColor, .HeaderStyle.ShadeColor, LinearGradientMode.Vertical)
-                                    e.Graphics.FillRectangle(LinearBrush, HeadBounds)
-                                End Using
+                                If .HeaderStyle.Theme = Theme.None Then
+                                    Using LinearBrush As New LinearGradientBrush(HeadBounds, .HeaderStyle.BackColor, .HeaderStyle.ShadeColor, LinearGradientMode.Vertical)
+                                        e.Graphics.FillRectangle(LinearBrush, HeadBounds)
+                                    End Using
+                                Else
+                                    e.Graphics.DrawImage(GlossyImages(.HeaderStyle.Theme), HeadBounds)
+                                End If
                                 e.Graphics.DrawRectangle(Pens.Silver, HeadBounds)
 #Region " [0] DRAW HEADER IMAGE "
                                 Dim imageSize As Size = .SizeImage
@@ -316,7 +327,7 @@ Public Class DataViewer
                                 Dim filterSize As Size = .SizeFilter
                                 Dim filterTop As Integer = CInt((HeadBounds.Height - filterSize.Height) / 2)
                                 Dim filterBounds As New Rectangle(sortBounds.Left - filterSize.Width, filterTop, filterSize.Width, filterSize.Height)
-                                If .Filtered Then e.Graphics.DrawImage(My.Resources.Filtered, filterBounds)
+                                If .Filtered Then e.Graphics.DrawImage(My.Resources.FilterCancel, filterBounds)
 #End Region
 #Region " [1] DRAW HEADER TEXT "
                                 Dim textLeft As Integer = ImageBounds.Right + If(ImageBounds.Width = 0, 0, 2)
@@ -362,11 +373,14 @@ Public Class DataViewer
                                 RowBounds.Offset(-HScroll.Value, 0)
                                 VisibleRows.Add(Row, RowBounds)
                                 If RowBounds.Top >= Bottom Then Exit For
-                                Dim rowStyle As CellStyle = If(RowIndex Mod 2 = 0, Rows.RowStyle, Rows.AlternatingRowStyle)
-                                'Background fill of the entire Row ... before Cells are painted
-                                Using LinearBrush As New LinearGradientBrush(RowBounds, rowStyle.BackColor, rowStyle.ShadeColor, LinearGradientMode.Vertical)
-                                    e.Graphics.FillRectangle(LinearBrush, RowBounds)
-                                End Using
+                                Dim rowStyle As CellStyle = If(.Selected, Rows.SelectionRowStyle, If(RowIndex Mod 2 = 0, Rows.RowStyle, Rows.AlternatingRowStyle))
+                                If rowStyle.Theme = Theme.None Then
+                                    Using LinearBrush As New LinearGradientBrush(RowBounds, rowStyle.BackColor, rowStyle.ShadeColor, LinearGradientMode.Vertical)
+                                        e.Graphics.FillRectangle(LinearBrush, RowBounds)
+                                    End Using
+                                Else
+                                    e.Graphics.DrawImage(GlossyImages(rowStyle.Theme), RowBounds)
+                                End If
 #Region " DRAW CELLS "
                                 For Each Column In VisibleColumns.Keys
                                     With Column
@@ -375,24 +389,34 @@ Public Class DataViewer
                                         Dim rowCell As Cell = Row.Cells(Column.Name)
                                         Dim MouseOverCell As Boolean = _MouseData.Cell Is rowCell And _MouseData.CurrentAction = MouseInfo.Action.MouseOverGrid
                                         With rowCell
-                                            rowStyle = If(.Selected, Rows.SelectionRowStyle, If(RowIndex Mod 2 = 0, Rows.RowStyle, Rows.AlternatingRowStyle))
+                                            Dim cellValue As Object = .Value
+                                            Dim drawCellAsSelected As Boolean = If(FullRowSelect, Row.Selected, .Selected)
+                                            rowStyle = If(drawCellAsSelected, Rows.SelectionRowStyle, If(RowIndex Mod 2 = 0, Rows.RowStyle, Rows.AlternatingRowStyle))
                                             If MouseData.CurrentAction = MouseInfo.Action.GridSelecting Then .Selected = drawBounds.IntersectsWith(CellBounds)
-                                            If .Selected Then   'Already drew the entire row before "DRAW CELLS" Region 
-                                                Using LinearBrush As New LinearGradientBrush(CellBounds, Rows.SelectionRowStyle.BackColor, Rows.SelectionRowStyle.ShadeColor, LinearGradientMode.Vertical)
-                                                    e.Graphics.FillRectangle(LinearBrush, CellBounds)
-                                                End Using
+#Region " C E L L   B A C K G R O U N D "
+                                            If drawCellAsSelected Then   'Already drew the entire row before "DRAW CELLS" Region
+                                                If rowStyle.Theme = Theme.None Then
+                                                    Using LinearBrush As New LinearGradientBrush(CellBounds, rowStyle.BackColor, rowStyle.ShadeColor, LinearGradientMode.Vertical)
+                                                        e.Graphics.FillRectangle(LinearBrush, CellBounds)
+                                                    End Using
+                                                Else
+                                                    e.Graphics.DrawImage(GlossyImages(Rows.SelectionRowStyle.Theme), CellBounds)
+                                                End If
                                             End If
-                                            If .Value Is Nothing Or .Text = Date.MinValue.ToShortDateString Then
+#End Region
+                                            If cellValue Is Nothing Or .Text = Date.MinValue.ToShortDateString Then
+#Region " C E L L   N U L L "
                                                 Using NullBrush As New SolidBrush(Color.FromArgb(128, Color.Gainsboro))
                                                     e.Graphics.FillRectangle(NullBrush, CellBounds)
                                                 End Using
-                                                Using textBrush As New SolidBrush(RowStyle.ForeColor)
+                                                Using textBrush As New SolidBrush(rowStyle.ForeColor)
                                                     e.Graphics.DrawString("(null)",
-                                                                          If(MouseOverRow, New Font(RowStyle.Font, FontStyle.Underline), RowStyle.Font),
+                                                                          If(MouseOverRow, New Font(rowStyle.Font, FontStyle.Underline), rowStyle.Font),
                                                                           textBrush,
                                                                           CellBounds,
                                                                           Column.GridStyle.Alignment)
                                                 End Using
+#End Region
                                             Else
                                                 '///////////  KNOWN ISSUES
                                                 '///////////  CHANGING A NON-IMAGE VALUE TO AN IMAGE WILL SWITCH THE COLUMN FORMAT TO IMAGES WHICH THROWS AN ERROR @ Dim ImageWidth As Integer
@@ -408,16 +432,22 @@ Public Class DataViewer
                                                     Dim xOffset As Integer = CInt((CellBounds.Width - ImageWidth) / 2)
                                                     Dim yOffset As Integer = CInt((CellBounds.Height - ImageHeight) / 2)
                                                     Dim imageBounds As New Rectangle(CellBounds.X + xOffset, CellBounds.Y + yOffset, ImageWidth, ImageHeight)
-                                                    e.Graphics.DrawImage(.ValueImage, imageBounds)
+                                                    If .Column.Format.Key = Column.TypeGroup.Booleans Then
+                                                        Dim useWhite As Boolean = BackColorToForeColor(rowStyle.BackColor) = Color.White
+                                                        Dim imageName As String = If(.ValueBoolean, String.Empty, "un") & "checked" & If(useWhite, "White", "Black")
+                                                        e.Graphics.DrawImage(Base64ToImage(CheckImages(imageName)), imageBounds)
+                                                    Else
+                                                        e.Graphics.DrawImage(.ValueImage, imageBounds)
+                                                    End If
                                                     If MouseOverRow Then
                                                         Using yellowBrush As New SolidBrush(Color.FromArgb(128, Color.Yellow))
                                                             e.Graphics.FillRectangle(yellowBrush, imageBounds)
                                                         End Using
                                                     End If
                                                 Else
-                                                    Using textBrush As New SolidBrush(RowStyle.ForeColor)
+                                                    Using textBrush As New SolidBrush(rowStyle.ForeColor)
                                                         e.Graphics.DrawString(.Text,
-                                                                              If(MouseOverRow, New Font(RowStyle.Font, FontStyle.Underline), RowStyle.Font),
+                                                                              If(MouseOverRow, New Font(rowStyle.Font, FontStyle.Underline), rowStyle.Font),
                                                                               textBrush,
                                                                               CellBounds,
                                                                               Column.GridStyle.Alignment)
@@ -965,55 +995,57 @@ Public Class DataViewer
                 End If
                 If e.Button = MouseButtons.Right Then
                     'Change backcolor, shadecolor, alignment
-                    Dim tsmiProperties As ToolStripMenuItem = DirectCast(HeaderOptions.Items(0), ToolStripMenuItem)
-                    Dim tschProperties As ToolStripControlHost = DirectCast(tsmiProperties.DropDownItems(0), ToolStripControlHost)
-                    Dim tlpProperties As TableLayoutPanel = DirectCast(tschProperties.Control, TableLayoutPanel)
-                    If .CurrentRegion = MouseRegion.Header Then
-                        tlpProperties.ColumnStyles(0).Width = 0
-                        Dim subButton As ImageCombo = DirectCast(tlpProperties.GetControlFromPosition(0, 0), ImageCombo)
-                        subButton.Text = If(.Column Is Nothing, "All columns".ToString(InvariantCulture), .Column.Name)
+                    Dim tsmiProperties As ToolStripMenuItem = DirectCast(HeaderOptions.Items("properties"), ToolStripMenuItem)
+                    If tsmiProperties IsNot Nothing Then
+                        Dim tschProperties As ToolStripControlHost = DirectCast(tsmiProperties.DropDownItems(0), ToolStripControlHost)
+                        Dim tlpProperties As TableLayoutPanel = DirectCast(tschProperties.Control, TableLayoutPanel)
+                        If .CurrentRegion = MouseRegion.Header Then
+                            tlpProperties.ColumnStyles(0).Width = 0
+                            Dim subButton As ImageCombo = DirectCast(tlpProperties.GetControlFromPosition(0, 0), ImageCombo)
+                            subButton.Text = If(.Column Is Nothing, "All columns".ToString(InvariantCulture), .Column.Name)
 
-                        HeaderGridAlignment.Text = StringFormatToContentAlignString(If(.Column Is Nothing, Columns.HeaderStyle.Alignment, .Column.GridStyle.Alignment))
-                        HeaderGridAlignment.SelectedIndex = HeaderGridAlignment.TextIndex
+                            HeaderGridAlignment.Text = StringFormatToContentAlignString(If(.Column Is Nothing, Columns.HeaderStyle.Alignment, .Column.GridStyle.Alignment))
+                            HeaderGridAlignment.SelectedIndex = HeaderGridAlignment.TextIndex
 
-                        With HeaderDistinctItems
-                            With .Items
-                                .Clear()
-                                For Each header In DistinctValues
-                                    If header.Key = _MouseData.Column.Name Then
-                                        Dim headerValues = header.Value.OrderBy(Function(hv) hv.Key)
-                                        If MouseData.Column.DataType = GetType(Image) Then
-                                            For Each distinctValue In header.Value
-                                                .Add(String.Empty, distinctValue.Value.ValueImage)
-                                            Next
-                                        Else
-                                            For Each distinctValue In header.Value
-                                                .Add(distinctValue.Key)
-                                            Next
+                            With HeaderDistinctItems
+                                With .Items
+                                    .Clear()
+                                    For Each header In DistinctValues
+                                        If header.Key = _MouseData.Column.Name Then
+                                            Dim headerValues = header.Value.OrderBy(Function(hv) hv.Key)
+                                            If MouseData.Column.DataType = GetType(Image) Then
+                                                For Each distinctValue In header.Value
+                                                    .Add(String.Empty, distinctValue.Value.ValueImage)
+                                                Next
+                                            Else
+                                                For Each distinctValue In header.Value
+                                                    .Add(distinctValue.Key)
+                                                Next
+                                            End If
                                         End If
-                                    End If
-                                Next
+                                    Next
+                                End With
+                                .HintText = "Distinct count = " & .Items.Count
                             End With
-                            .HintText = "Distinct count = " & .Items.Count
-                        End With
 
-                        Dim relativePoint As Point = If(.Column Is Nothing, e.Location, New Point(.Column.HeadBounds.Right, HeaderHeight))
-                        With HeaderOptions
-                            .AutoClose = False
-                            .Tag = _MouseData.Column
-                            .Location = PointToScreen(relativePoint)
-                        End With
-                        tsmiProperties.ShowDropDown()
+                            Dim relativePoint As Point = If(.Column Is Nothing, e.Location, New Point(.Column.HeadBounds.Right, HeaderHeight))
+                            With HeaderOptions
+                                .AutoClose = False
+                                .Tag = _MouseData.Column
+                                .Location = PointToScreen(relativePoint)
+                            End With
+                            tsmiProperties.ShowDropDown()
 
-                    Else
-                        tlpProperties.ColumnStyles(0).Width = 200
-                        GridOptions.AutoClose = False
-                        Dim relativePoint As Point = If(.Cell Is Nothing, e.Location, New Point(.CellBounds.Right - HScroll.Value, .CellBounds.Top - VScroll.Value))
-                        GridOptions.Location = PointToScreen(relativePoint)
-                        If GridOptions.Items.Count > 1 Then GridOptions.Show(PointToScreen(relativePoint))
-                        'DirectCast(GridOptions.Items(0), ToolStripMenuItem).ShowDropDown()
+                        Else
+                            tlpProperties.ColumnStyles(0).Width = 200
+                            GridOptions.AutoClose = False
+                            Dim relativePoint As Point = If(.Cell Is Nothing, e.Location, New Point(.CellBounds.Right - HScroll.Value, .CellBounds.Top - VScroll.Value))
+                            GridOptions.Location = PointToScreen(relativePoint)
+                            If GridOptions.Items.Count > 1 Then GridOptions.Show(PointToScreen(relativePoint))
+                            'DirectCast(GridOptions.Items(0), ToolStripMenuItem).ShowDropDown()
+                        End If
+                        TLP.SetSize(tlpProperties)
                     End If
-                    TLP.SetSize(tlpProperties)
                 End If
             End With
             MyBase.OnMouseDown(e)
@@ -1331,9 +1363,9 @@ Public Class ColumnCollection
             Dim border3D As Integer = 3
             If Count = 0 Then
                 Dim HeadSize As New Size(Parent.Width, 3 + TextRenderer.MeasureText("XXXXXXXXXXX".ToString(InvariantCulture), HeaderStyle.Font).Height + 3 + border3D)
-                Return New Rectangle(0, 0, HeadSize.Width, HeadSize.Height)
+                Return New Rectangle(0, 0, HeadSize.Width, {HeadSize.Height, HeaderStyle.Height}.Max)
             Else
-                Return New Rectangle(0, 0, Max(Function(c) c.HeadBounds.Right), Max(Function(c) c.HeadBounds.Height) + border3D)
+                Return New Rectangle(0, 0, Max(Function(c) c.HeadBounds.Right), Max(Function(c) {c.HeadBounds.Height, HeaderStyle.Height}.Max) + border3D)
             End If
         End Get
     End Property
@@ -1578,6 +1610,7 @@ Public Class ColumnCollection
                     If e.ChangedProperty = CellStyle.Properties.ImageScaling Then .HeaderStyle.ImageScaling = HeaderStyle.ImageScaling
                     If e.ChangedProperty = CellStyle.Properties.Padding Then .HeaderStyle.Padding = HeaderStyle.Padding
                     If e.ChangedProperty = CellStyle.Properties.ShadeColor Then .HeaderStyle.ShadeColor = HeaderStyle.ShadeColor
+                    If e.ChangedProperty = CellStyle.Properties.Theme Then .HeaderStyle.Theme = HeaderStyle.Theme
                 End If
             End With
         Next
@@ -1727,7 +1760,7 @@ End Class
     End Property
     Friend ReadOnly Property SizeFilter As Size
         Get
-            Return If(Filtered, My.Resources.Filtered.Size, New Size(0, 0))
+            Return If(Filtered, My.Resources.FilterCancel.Size, New Size(0, 0))
         End Get
     End Property
     Friend ReadOnly Property SizeSort As Size
@@ -2184,7 +2217,7 @@ End Class
             Return _Selected
         End Get
         Set(value As Boolean)
-            With Parent.Parent
+            With Parent?.Parent
                 If .FullRowSelect And _Selected <> value Then
                     _Selected = value
                     If value Then
@@ -2268,7 +2301,15 @@ End Class
 
                     Case GetType(Boolean)
                         _ValueBoolean = CType(newValue, Boolean)
-                        _ValueImage = Base64ToImage(If(ValueBoolean, CheckString, UnCheckString))
+                        Dim checkImages As New Dictionary(Of String, String) From {
+                         {"checkedBlack", "iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsEAAA7BAbiRa+0AAABwSURBVDhPlZABDoAgCEWh+x+0WxifxIHDgrcxBXxiMRENiTYqCljLMPO45r5NWcQUxExrogn+k37FTAJL3J8CThJYojXt8JcEwlOdfG+5hgeZ9OOtmOZrJklNV/TTn2NSNslANdxe4Tixgk58tx2IHtIlOgxG8FAIAAAAAElFTkSuQmCC"},
+                         {"uncheckedBlack", "iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsEAAA7BAbiRa+0AAAAtSURBVDhPY2RgYPgPxCQDsEYgANFEA0ZGxv9MUDbJYFQjHjCqEQ8gM5EzMAAAoBMHFwfr1LQAAAAASUVORK5CYII="},
+                         {"checkedWhite", "iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsEAAA7BAbiRa+0AAABnSURBVDhPxZJRDoAgDEM3739nXNEmbCko/vi+XOhLYdFbYB+g6Nf4mnbcH9ukRvdcXF7BAaHciCDDC6kjr/okgVFEIBmBlMAo8pDhqQTqVavcZyytLk69kQnZRORygmkT+e/P2cTsBCdlLwZDKAEtAAAAAElFTkSuQmCC"},
+                         {"uncheckedWhite", "iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsEAAA7BAbiRa+0AAAAnSURBVDhPY/wPBAxkAJhGRgiXaPCfCcogGYxqxANGNeIBZCZyBgYAk5cNDhG2VLEAAAAASUVORK5CYII="}
+                         }
+                        Dim useWhite As Boolean = False 'If(Style Is Nothing, False, BackColorToForeColor(Style.BackColor) = Color.White)
+                        Dim imageName As String = If(ValueBoolean, String.Empty, "un") & "checked" & If(useWhite, "White", "Black")
+                        _ValueImage = Base64ToImage(checkImages(imageName))
 
                     Case GetType(Date), GetType(DateAndTime)
                         _ValueDate = CType(newValue, Date)
@@ -2288,10 +2329,8 @@ End Class
                 Value_ = newValue
                 Dim existingFormat = FormatData.Key
                 _FormatData = Column.Get_kvpFormat(_DataType)
-                If Not IsNew And existingFormat <> _FormatData.Key Then
-                    Column.DataType = DataType
-                    'If Column?.Name.ToUpperInvariant = "PDF" And _DataType = GetType(Image) Then Stop
-                End If
+                If Not IsNew And existingFormat <> _FormatData.Key Then Column.DataType = DataType
+                Parent?.Parent?.Parent.Invalidate()
             End If
             IsNew = False
         End Set
@@ -2394,7 +2433,11 @@ End Class
     End Property
     Public ReadOnly Property Style As CellStyle
         Get
-            Return If(Selected, Parent.Parent.SelectionRowStyle, If(Index Mod 2 = 0, Parent.Parent.RowStyle, Parent.Parent.AlternatingRowStyle))
+            If Parent.Parent Is Nothing Then
+                Return Nothing
+            Else
+                Return If(Selected, Parent.Parent.SelectionRowStyle, If(Index Mod 2 = 0, Parent.Parent.RowStyle, Parent.Parent.AlternatingRowStyle))
+            End If
         End Get
     End Property
 #Region "IDisposable Support"
@@ -2447,6 +2490,7 @@ End Class
         BackColor
         ForeColor
         ShadeColor
+        Theme
         Alignment
         ImageScaling
         Height
@@ -2500,7 +2544,11 @@ End Class
     <RefreshProperties(RefreshProperties.All)>
     Public Property ForeColor As Color
         Get
-            Return _ForeColor
+            If Theme = Theme.None Then
+                Return _ForeColor
+            Else
+                Return GlossyForecolor(Theme)
+            End If
         End Get
         Set(ByVal value As Color)
             If value <> _ForeColor Then
@@ -2524,6 +2572,23 @@ End Class
             If value <> _ShadeColor Then
                 _ShadeColor = value
                 RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.ShadeColor, value))
+            End If
+        End Set
+    End Property
+    Private _Theme As Theme = Theme.None
+    <Browsable(True)>
+    <DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)>
+    <Category("Color")>
+    <Description("Specifies the object Shading color")>
+    <RefreshProperties(RefreshProperties.All)>
+    Public Property Theme As Theme
+        Get
+            Return _Theme
+        End Get
+        Set(ByVal value As Theme)
+            If value <> _Theme Then
+                _Theme = value
+                RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.Theme, value))
             End If
         End Set
     End Property
@@ -2613,7 +2678,7 @@ End Class
         If other Is Nothing Then
             Return False
         Else
-            Return BackColor = other.BackColor And Font.FontFamily.Name = other.Font.FontFamily.Name And Font.Size = other.Font.Size And Font.Style = other.Font.Style And ForeColor = other.ForeColor And ShadeColor = other.ShadeColor And Alignment.Alignment = other.Alignment.Alignment And Alignment.LineAlignment = other.Alignment.LineAlignment And ImageScaling = other.ImageScaling And Padding = other.Padding
+            Return BackColor = other.BackColor And Font.FontFamily.Name = other.Font.FontFamily.Name And Font.Size = other.Font.Size And Font.Style = other.Font.Style And ForeColor = other.ForeColor And ShadeColor = other.ShadeColor And Theme = other.Theme And Alignment.Alignment = other.Alignment.Alignment And Alignment.LineAlignment = other.Alignment.LineAlignment And ImageScaling = other.ImageScaling And Padding = other.Padding
         End If
     End Function
     Public Shared Operator =(ByVal Object1 As CellStyle, ByVal Object2 As CellStyle) As Boolean
@@ -2789,6 +2854,7 @@ Public Class WaitTimer
     Private ReadOnly TickForm As New InvisibleForm With {
         .Size = New Size(150, 150)
     }
+    Private ReadOnly Property DelegateImage As Image
     Public Enum ImageType
         Spin
         Circle
@@ -2833,8 +2899,8 @@ Public Class WaitTimer
             If value <> Picture_ Then
                 TickTimer.Interval = If(value = ImageType.Circle, 100, If(value = ImageType.Spin, 250, 300))
                 Picture_ = value
-                If value = ImageType.Circle Then TickForm.BackgroundImage = DrawProgress(0, TickColor)
-                If value = ImageType.Spin Then TickForm.BackgroundImage = My.Resources.Spin1
+                If value = ImageType.Circle Then SetSafeControlPropertyValue(TickForm, "BackgroundImage", DrawProgress(0, TickColor))
+                If value = ImageType.Spin Then SetSafeControlPropertyValue(TickForm, "BackgroundImage", My.Resources.Spin1)
             End If
         End Set
     End Property
@@ -2848,7 +2914,7 @@ Public Class WaitTimer
         Set(value As String)
             If Text_ <> value Then
                 Text_ = value
-                TickForm.Text = value
+                SetSafeControlPropertyValue(TickForm, "Text", value)
             End If
         End Set
     End Property
@@ -2861,6 +2927,7 @@ Public Class WaitTimer
             If Not SameImage(value, TitleImage_) Then
                 TitleImage_ = value
                 TickForm.TitleImage = value
+                SetSafeControlPropertyValue(TickForm, "TitleImage", value)
             End If
         End Set
     End Property
@@ -2869,24 +2936,20 @@ Public Class WaitTimer
         If Not tickColor.IsEmpty Then Me.TickColor = tickColor
         TimerTicks = 0
         TickTimer.Start()
-        With TickForm
-            Dim centerLocation As Point = CenterItem(.Size)
-            centerLocation.Offset(Offset)
-            .Location = centerLocation
-            .Visible = True
-            .BackgroundImage = DrawProgress(TimerTicks, tickColor)
-        End With
+        Dim centerLocation As Point = CenterItem(TickForm.Size)
+        centerLocation.Offset(Offset)
+        SetSafeControlPropertyValue(TickForm, "Location", centerLocation)
+        SetSafeControlPropertyValue(TickForm, "Visible", True)
+        _DelegateImage = DrawProgress(TimerTicks, tickColor)
+        SetSafeControlPropertyValue(TickForm, "BackgroundImage", DelegateImage)
 
     End Sub
     Public Sub StopTicking()
 
         TimerTicks = 0
         TickTimer.Stop()
-        With TickForm
-            .Location = New Point(-500, -500)
-            '.Hide()
-            .BackgroundImage = Nothing
-        End With
+        SetSafeControlPropertyValue(TickForm, "Location", New Point(-500, -500))
+        SetSafeControlPropertyValue(TickForm, "BackgroundImage", Nothing)
 
     End Sub
 End Class

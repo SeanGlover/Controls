@@ -56,7 +56,11 @@ Public Class DatePicker
                 e.Graphics.DrawLines(Pen, Points)
             End Using
 
-            If Not ValueIsNull Then
+            If ValueIsNull Then
+                If HintText IsNot Nothing Then
+                    TextRenderer.DrawText(e.Graphics, HintText, Font, ClientRectangle, Color.LightGray, TextFormatFlags.VerticalCenter)
+                End If
+            Else
                 If Not SelectionPixelStart = SelectionPixelEnd Then
                     Dim SelectRectangle As Rectangle = New Rectangle(SelectionPixelStart, 2, SelectionPixelEnd - SelectionPixelStart, Height - 4)
                     Using selectionBrush As New SolidBrush(Color.FromArgb(60, Color.Gainsboro))
@@ -137,6 +141,7 @@ Public Class DatePicker
                 _Value = dateValue
                 If ValueIsNull Then
                     Text = Nothing
+                    If HintText IsNot Nothing Then Invalidate()
                 Else
                     ResizeMe()
                     Date_Changed(New DateRangeEventArgs(dateValue, dateValue))
@@ -144,6 +149,7 @@ Public Class DatePicker
             End If
         End Set
     End Property
+    Public Property HintText As String
     Private ReadOnly Property ValueString As String
         Get
             Return Microsoft.VisualBasic.Format(Value, Format)
@@ -201,6 +207,7 @@ Public Class DatePicker
 #End Region
 #Region " Events "
     Public Event DateChanged(ByVal sender As Object, e As DateRangeEventArgs)
+    Public Event DateSubmitted(ByVal sender As Object, e As DateRangeEventArgs)
     Friend Sub Date_Changed(e As DateRangeEventArgs)
         DropDown.SelectionStart = e.Start
         RaiseEvent DateChanged(Me, e)
@@ -255,9 +262,14 @@ Public Class DatePicker
             If e.KeyCode = Keys.Left Then
                 Field = If(Field = 0, UBound(FormatSections.ToArray), Field - 1)
                 ResizeMe()
+
             ElseIf e.KeyCode = Keys.Right Then
                 Field = If(Field = UBound(FormatSections.ToArray), 0, Field + 1)
                 ResizeMe()
+
+            ElseIf e.KeyCode = Keys.Enter Then
+                RaiseEvent DateSubmitted(Me, New DateRangeEventArgs(Value, Value))
+
             ElseIf FormatSections(Field).Length > 0 And (e.KeyCode = Keys.Up Or e.KeyCode = Keys.Down) Then
                 Select Case FormatSections(Field).Substring(0, 1).ToUpperInvariant
                     Case "D"
@@ -267,6 +279,7 @@ Public Class DatePicker
                     Case "Y"
                         Value = Value.AddYears(If(e.KeyCode = Keys.Up, If(Value = DateTime.MaxValue, 0, 1), If(Value = DateTime.MinValue, 0, -1)))
                 End Select
+
             ElseIf e.KeyCode = Keys.Back Or e.KeyCode = Keys.Delete Then
                 If Selection.Length = 0 Then
                     If e.KeyCode = Keys.Back Then
@@ -285,9 +298,11 @@ Public Class DatePicker
                     _SelectionPixelStart = TextLength(Text.Substring(0, S))
                 End If
                 _SelectionPixelEnd = _SelectionPixelStart
+
             ElseIf e.KeyCode = Keys.C AndAlso Control.ModifierKeys = Keys.Control Then
                 Clipboard.Clear()
                 Clipboard.SetText(Selection)
+
             End If
             Invalidate()
             MyBase.OnKeyDown(e)
@@ -343,7 +358,7 @@ Public Class DatePicker
                     If Not DropDown.Visible Then
                         Dim Coordinates As Point
                         Coordinates = PointToScreen(New Point(0, 0))
-                        Toolstrip.Show(Coordinates.X, If(Coordinates.Y + DropDown.Height > My.Computer.Screen.WorkingArea.Height, Coordinates.Y - DropDown.Height, Coordinates.Y + Height))
+                        Toolstrip.Show(Coordinates.X + Width - DropDown.Width, If(Coordinates.Y + DropDown.Height > My.Computer.Screen.WorkingArea.Height, Coordinates.Y - DropDown.Height, Coordinates.Y + Height))
                     End If
                     DropDown.Visible = Not DropDown.Visible
                 End If

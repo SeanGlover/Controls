@@ -40,7 +40,8 @@ UNION
 SELECT *
 FROM TABLES_VIEWS TV)
 ------------------------------
-, FINAL (DataSource, Type, DBName, TSName, Owner, Name) AS (SELECT TRIM(CURRENT SERVER)
+, FINAL (DataSource, Type, DBName, TSName, Owner, Name) AS (
+SELECT CASE WHEN CURRENT SERVER='TORDSNQ' THEN 'CDNIW' ELSE TRIM(CURRENT SERVER) END
 , Type
 , DBName
 , TSName

@@ -1,0 +1,12 @@
+WITH SPACES (SPACE) As (SELECT
+                DISTINCT TRIM(DBNAME)||'.'||TRIM(TSNAME) SPACE
+                FROM SYSIBM.SYSTABLES T
+                WHERE T.CREATOR='///UID///'
+                AND TYPE='T')
+                , TABLES (SPACE, COUNT) AS (SELECT SPACE
+                , (SELECT COUNT(*)
+                FROM SYSIBM.SYSTABLES TT
+                WHERE TT.CREATOR='///UID///' AND TT.NAME='///TABLENAME///' AND S.SPACE=TRIM(DBNAME)||'.'||TRIM(TSNAME)) COUNT
+                FROM SPACES S)
+                SELECT *
+                FROM TABLES

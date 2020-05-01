@@ -56,6 +56,13 @@ Public Module Functions
     Friend Const CheckString As String = "iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABh0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMS40E0BoxAAAAN9JREFUOE+N0rsOAUEYhuF1SBwShUaicRN60aqIkkgU7kChUqJW0LkCpxAKd+BQaEm0DheglXg/WYK1MX/yZHcm+83OTH6LqmOBuYsZxvZzYs/1YI0wRRkFF0WU7Ocae1hDNBHUwKAG2OlFwQbcgiF0kYcHRsEAarhCAY2NgimcsEJCE9TPoB8xqDTe4oykJuxyBHWWDjZIow9tsQIt+CxHMIwcDrjgBi0UwXv93KoPWRyxRBTf5Xo5uvIM4o+Rsz6CLWirXgOvoFpOLaS2U0/+o2M8Wq4K/VUrmeBbq30HmqxP1SI+lSYAAAAASUVORK5CYII="
     Friend Const UnCheckString As String = "iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjEuNBNAaMQAAABvSURBVDhPYwCCWiDeCcRbceAtQLweSm+Eis0FYoZ1UIEEII7CgaOBOBZKnwLim0DMsBaIW4CYA8QhAqwB4hsgxqhGTDBUNbYBMRcQMxGB4RpBSQ6UhDYBMShNEsJPgRic5IqBGGQryCRiMFAtw0QAbhE+zDCrvcQAAAAASUVORK5CYII="
 
+    Friend ReadOnly CheckImages As New Dictionary(Of String, String) From {
+                         {"checkedBlack", "iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsEAAA7BAbiRa+0AAABwSURBVDhPlZABDoAgCEWh+x+0WxifxIHDgrcxBXxiMRENiTYqCljLMPO45r5NWcQUxExrogn+k37FTAJL3J8CThJYojXt8JcEwlOdfG+5hgeZ9OOtmOZrJklNV/TTn2NSNslANdxe4Tixgk58tx2IHtIlOgxG8FAIAAAAAElFTkSuQmCC"},
+                         {"uncheckedBlack", "iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsEAAA7BAbiRa+0AAAAtSURBVDhPY2RgYPgPxCQDsEYgANFEA0ZGxv9MUDbJYFQjHjCqEQ8gM5EzMAAAoBMHFwfr1LQAAAAASUVORK5CYII="},
+                         {"checkedWhite", "iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsEAAA7BAbiRa+0AAABnSURBVDhPxZJRDoAgDEM3739nXNEmbCko/vi+XOhLYdFbYB+g6Nf4mnbcH9ukRvdcXF7BAaHciCDDC6kjr/okgVFEIBmBlMAo8pDhqQTqVavcZyytLk69kQnZRORygmkT+e/P2cTsBCdlLwZDKAEtAAAAAElFTkSuQmCC"},
+                         {"uncheckedWhite", "iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsEAAA7BAbiRa+0AAAAnSURBVDhPY/wPBAxkAJhGRgiXaPCfCcogGYxqxANGNeIBZCZyBgYAk5cNDhG2VLEAAAAASUVORK5CYII="}
+                         }
+
     Friend Const DataTableString As String = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAgY0hSTQAAeiYAAICEAAD6AAAAgOgAAHUwAADqYAAAOpgAABdwnLpRPAAAAAlwSFlzAAAOwwAADsMBx2+oZAAAAmJJREFUOE99Ul1PGkEU3T60Puiv8iPR+OqrH0++m0ir0TQxJjWR4EdrCBgBG4wQSyEiQmhgXUAqKwtbwGRZ2Fl2MaAoghWILCxMh5AaNU3v070z98w55955AyHE/gbP85Ikoardbv9+qLx914NupXq9r7ev1YLtNuzt7cHQ0VOwLPuUcwCgHPUxLF+twrs7mM9Dkoy9ACSTyVcAVLIpvlbrAK6uYChEY7IMRbFB01W/v3R8nLNaBbM5ZTQm9HrSbA4TRIJNgVpNLpXkQkEOhaLY5aWcycjRaP30tOL1llyugt2es9nEvT1ma+tselqr1pgZBsTjgKYBQQSxTKbJcS3E4PPdOByi1crr9b+USu/8vGVy8vPg4AfDrv3hAd7ewlwOBoMUxvMNBAiHKy5X3mRKoYfVanJl5cfc3LeJic2Bgfe7Xx3lMry+htksDAQoTBAaglCnqNLRkWAwxLVaSqUilpYcCoV5aurL6OhH1ZoxFgORCDg/BzgewACQugxeb8FmQ47T29uR1dWOpC6DZvswn2+KYhOAps93jjw8ptPSPyWNj28MDy+oNYeiCDkOMgzEcRLjuEdBaFFU0e3OmkyMTkevr/uXl51dSUNDcxub39EO0YYuLqDHQyJJtf+YRlNaVeoIgsTxkMdzRlE0YqgJgkSSRYulox6ZVirxxUXbzMweYhgZWTw5oZ9/HzTWKsvKkUjF7y/a7Zf7+yyCra35FhasyHR/vyIaTb8AyHKbpks4fuN05p7vYXbWNDb2aWfH+by787W79f19PZG4JgjO4biwWKiDg59uN1UuV151o/IPPuNL2ItzNKQAAAAASUVORK5CYII="
     Friend Const StarString As String = "iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAIAAADZF8uwAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAgY0hSTQAAeiYAAICEAAD6AAAAgOgAAHUwAADqYAAAOpgAABdwnLpRPAAAAAlwSFlzAAAOwwAADsMBx2+oZAAAAXtJREFUKFNtkU1LAlEUhkcQbFt/xT/gylX+AJcRXDDCRS7CCCwCFzXgJsiLiYQwOWUZVx2/onGERO9cJ7OoRWbgJ+aIEgWGKF01AqGXszjvy3M4cI6m3W6rqqrVajUaDTOv8Xis0y0sLS0yGONyuVyv15vzarVatVoNYzmfx0wul6tWq43/RCdlWc5ms0wmk8HKg/z4Oqt3tacUe382mpQkKcOkUhIMlZyowuF+5K7T//x+fmleK90g6frkijd8k06nGf9FwmjjDDYuFH+jxGg0GgyGjUbnHD25OLLBomhUZLxngh5APfCbtkmCNIbDYfPjy+q7N1gIDfXAwSH0Cxnt4tZJ4Vaph3FVrrWOkmXgJEYg6gHLocQEMgK4yoqb3oLrtLR2rOwGlH1/EUBi3qMQ5NB0nWkHAihaIHFCAqdFG2oBKy7PoMBlxGxjgSO4DsOsG3k8AoTowI2oBfbgivUwkpImF+f5K54XeEEICUIsFhemDbU0RChOH/EDcKchcY4euAgAAAAASUVORK5CYII="
 
@@ -77,6 +84,42 @@ Public Module Functions
     Friend Const PdfString As String = "iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjEuNWRHWFIAAAH7SURBVDhPrZNBUhNBGIXnCIgX0BtwA72AVR7AQ7h2pQaIxAABN5ZEMkkqsbKOGzcWJRAVFdBsoyKo4BAksDGZzPh8r2s6zsSKWpZ/1VeT7pr+8vrvHgfAfyExqFarqFQqKJfLKJVKcN0iCoUC7i8vI5/P497SEorFEl9NSkRiIEkYhgMCEfxEf9RqtVBwXb7+G5GSSOD3+/D9Pnq+j17PR1d0e0bkeZ6RKWV8bUKk7UhUr9d/QbJms4lGo4FarYaFxTtcMkKknphENo2eNhH5xlSiHwTILSxyyZBo1TmDN+Q12SZbEZvkFXkZ8YJskOcRz8gjZ8wIjUiSjnMWx+QrOSJtcuiMwyNfyAHZJ5/JJ/KR7JEG1w5ESiKJLX9lHe2x89EI+N45wenVa0Ziq7uyht1hkbajJKrOxAWEO7s4uXzFjJWkzTnz+9yEeSqJJB/Ielykfmg7qq77wDy9KJHdTshUhxcvmTmlOc3dxQ7n1+I9kkg9UR3zZUmURCXJEdMFTKkkKiWR5D3XrcZFOh01VhVvrEoCf7uJNmXajspK3g2LdMR/Oh3bk7jkLXkSFz3mYNQ9eUp0MkKNVU+UQkjykAxEFl178539BTdSk0ZgSYh07edzOczOzSM7O4dMNouZzG2kZzKYTt/C5HQaqakpI7l+M8UlI0T/DpwfUyqMa1e21YsAAAAASUVORK5CYII="
     Friend Const BlockString As String = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAALEQAACxEBf2RfkQAAAB10RVh0Q29tbWVudABDcmVhdGVkIHdpdGggVGhlIEdJTVDvZCVuAAAAGHRFWHRTb3VyY2UASW50cmlndWUgSWNvbiBTZXSuJ6E/AAAAGHRFWHRTb2Z0d2FyZQBwYWludC5uZXQgNC4xLjb9TgnoAAAA10lEQVQ4T6WSsRHCMBAEPyQgcEgZFOCEiOJcCkU4IHQBFEBEwJgZChB3/L+wLInBJtiR/qSTTy9LCOEviuISclGkAR0YwGgj6ybbC1JBpAXXt5xzA22yX1eimV92cw94GLUDeADqPCRJEieYMialfqJtwdn0p41dXGc12cy7UtKYqfkCjjYfoodVLLRhlBh7bt6BjdVj7QBPwDunZl3fm1ZN4D242/gx6/rJ9GoPGJ1dpsyG8c6MzS+7ma9UeQWiT+eHzKH5y3/gaJKVf+IKiuISiuLvBHkBB+NzX3/RhhoAAAAASUVORK5CYII="
 #End Region
+    Public Enum Theme
+        None
+        Blue
+        Pink
+        Grey
+        Black
+        Red
+        Yellow
+        Green
+        Orange
+        Brown
+        Turquoise
+        Purple
+    End Enum
+    Friend Function ThemeToImage(colorTheme As Theme) As Image
+        Return MyImages()("glossy" & colorTheme.ToString)
+    End Function
+    Friend ReadOnly GlossyImages As New Dictionary(Of Theme, Image) From {
+        {Theme.Black, My.Resources.glossyBlack},
+        {Theme.Blue, My.Resources.glossyBlue},
+        {Theme.Brown, My.Resources.glossyBrown},
+        {Theme.Green, My.Resources.glossyGreen},
+        {Theme.Grey, My.Resources.glossyGrey},
+        {Theme.Orange, My.Resources.glossyOrange},
+        {Theme.Pink, My.Resources.glossyPink},
+        {Theme.Purple, My.Resources.glossyPurple},
+        {Theme.Red, My.Resources.glossyRed},
+        {Theme.Turquoise, My.Resources.glossyTurquoise},
+        {Theme.Yellow, My.Resources.glossyYellow}
+    }
+    Friend Function GlossyForecolor(glossyTheme As Theme) As Color
+
+        Dim glossyColor As Color = Color.FromName(glossyTheme.ToString)
+        Return BackColorToForeColor(glossyColor)
+
+    End Function
     Public Function ResizeImage(ByVal image As Image, imageSize As Size) As Bitmap
         Return ResizeImage(image, imageSize.Width, imageSize.Height)
     End Function
@@ -2760,6 +2803,7 @@ Public Class VerticalScrollBar
 End Class
 Public NotInheritable Class CustomRenderer
     Inherits ToolStripProfessionalRenderer
+    'https://docs.microsoft.com/en-us/dotnet/api/system.windows.forms.toolstripprofessionalrenderer?view=netcore-3.1#events
     Public Enum ColorTheme
         Brown
         Green
@@ -2769,6 +2813,12 @@ Public NotInheritable Class CustomRenderer
         Yellow
     End Enum
     Public Property Theme As ColorTheme
+    Protected Overrides Sub OnRenderToolStripBackground(e As ToolStripRenderEventArgs)
+        'Entire Toolstrip
+        If e IsNot Nothing Then
+            'e.Graphics.FillRectangle(Brushes.LimeGreen, e.AffectedBounds)
+        End If
+    End Sub
     Protected Overrides Sub OnRenderImageMargin(ByVal e As ToolStripRenderEventArgs)
 
         MyBase.OnRenderImageMargin(e)
@@ -2790,6 +2840,51 @@ Public NotInheritable Class CustomRenderer
                                                                                      End If
                                                                                      Return Nothing
                                                                                  End Function)
+        End If
+
+    End Sub
+    Protected Overrides Sub OnRenderButtonBackground(e As ToolStripItemRenderEventArgs)
+
+        If e IsNot Nothing Then
+            If e.Item.Selected Then
+                If e.Item.Image Is Nothing Then
+                    Using backBrush As New SolidBrush(Color.FromArgb(64, Color.WhiteSmoke))
+                        e.Graphics.FillRectangle(backBrush, e.Item.ContentRectangle)
+                    End Using
+                Else
+                    'Dim imageArea As Integer = e.Item.Image.Width * e.Item.Image.Height
+                    'Dim wh As Integer = CInt(Math.Sqrt(imageArea))
+                    'Dim deltaHeight As Integer = CInt({e.Item.ContentRectangle.Height - wh, 0}.Max / 2)
+                    'Dim deltaWidth As Integer = CInt({e.Item.ContentRectangle.Width - wh, 0}.Max / 2)
+                    'Dim imageBounds As New Rectangle(deltaWidth, deltaHeight, wh, wh)
+                    Dim underlineBounds As New Rectangle(e.Item.ContentRectangle.X, e.Item.ContentRectangle.Height - 6, e.Item.ContentRectangle.Width, 6)
+                    Using backBrush As New SolidBrush(Color.FromArgb(64, Color.WhiteSmoke))
+                        e.Graphics.FillRectangle(backBrush, underlineBounds)
+                    End Using
+                End If
+            Else
+
+            End If
+        End If
+
+    End Sub
+    Protected Overrides Sub OnRenderDropDownButtonBackground(e As ToolStripItemRenderEventArgs)
+
+        If e IsNot Nothing Then
+            If e.Item.Selected Then
+                If e.Item.Image Is Nothing Then
+                    Using backBrush As New SolidBrush(Color.FromArgb(64, Color.WhiteSmoke))
+                        e.Graphics.FillRectangle(backBrush, e.Item.ContentRectangle)
+                    End Using
+                Else
+                    Dim underlineBounds As New Rectangle(e.Item.ContentRectangle.X, e.Item.ContentRectangle.Height - 6, e.Item.ContentRectangle.Width, 6)
+                    Using backBrush As New SolidBrush(Color.FromArgb(64, Color.WhiteSmoke))
+                        e.Graphics.FillRectangle(backBrush, underlineBounds)
+                    End Using
+                End If
+            Else
+
+            End If
         End If
 
     End Sub

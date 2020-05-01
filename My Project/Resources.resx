@@ -133,12 +133,6 @@
   <data name="ButtonYes" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\ButtonYes.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="Button_Bright" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\Button_Bright.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="Button_Light" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\Button_Light.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
   <data name="Check" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\Check.ico;System.Drawing.Icon, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
@@ -160,17 +154,11 @@
   <data name="Collapsed" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\Collapsed.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="Colors" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\Colors.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
   <data name="Comment" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\Comment.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="Copied" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\Copied.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="count" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\count.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="csv" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\csv.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -193,9 +181,6 @@
   <data name="FilterCancel" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\FilterCancel.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="Filtered" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\Filtered.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
   <data name="Finger" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\Finger.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
@@ -210,6 +195,39 @@
   </data>
   <data name="Gear" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\Gear.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="glossyBlack" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\glossyBlack.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="glossyBlue" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\glossyBlue.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="glossyBrown" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\glossyBrown.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="glossyGreen" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\glossyGreen.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="glossyGrey" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\glossyGrey.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="glossyOrange" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\glossyOrange.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="glossyPink" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\glossyPink.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="glossyPurple" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\glossyPurple.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="glossyRed" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\glossyRed.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="glossyTurquoise" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\glossyTurquoise.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="glossyYellow" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\glossyYellow.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="Hand" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\STOP.ico;System.Drawing.Icon, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -301,6 +319,9 @@
   <data name="r8" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\r8.ico;System.Drawing.Icon, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="RegEx" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\RegEx.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="reservedWords" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\reservedWords.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
   </data>
@@ -366,6 +387,9 @@
   </data>
   <data name="SQL_DEPENDANTS" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\SQL_DEPENDANTS.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="SQL_TABLESPACES" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\SQL_TABLESPACES.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
   </data>
   <data name="star" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\star.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
