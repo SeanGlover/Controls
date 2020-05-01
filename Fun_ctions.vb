@@ -544,7 +544,7 @@ Public Module Functions
     Public Function LastDay(InDate As Date) As Date
         Return New Date(InDate.Year, InDate.Month, Date.DaysInMonth(InDate.Year, InDate.Month))
     End Function
-    Public Function DB2ColumnNamingConvention(ColumnName As String) As String
+    Public Function Db2ColumnNamingConvention(ColumnName As String) As String
 
         'https://social.msdn.microsoft.com/Forums/sqlserver/en-US/154c19c4-95ba-4b6f-b6ca-479288feabfb/characters-that-are-not-allowed-in-table-name-amp-column-name-in-sql-server-
         'Data Rule output column names are limited to 30 characters
@@ -1833,26 +1833,59 @@ Public Module Functions
         End If
 
     End Function
+    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+    Public Function ValueToField(Value As Object) As String
+
+        If Value Is Nothing Then
+            Return Nothing
+        Else
+            Return ValueToField(Value, Value.GetType)
+        End If
+
+    End Function
+    Public Function ValuesToFields(Values As Object()) As String
+
+        If Values Is Nothing Then
+            Return Nothing
+        Else
+            Dim Items As New List(Of String)
+            For Each Value In Values
+                Items.Add(ValueToField(Value, GetDataType(Value)))
+            Next
+            Return "(" & Join(Items.ToArray, ",") & ")"
+        End If
+
+    End Function
+    Public Function ValueToField(Value As Object, ValueType As Type) As String
+
+        If Value Is Nothing Then
+            Return Nothing
+        Else
+            Select Case ValueType
+                Case GetType(String)
+                    Return Join({"'", Value.ToString, "'"}, String.Empty)
+
+                Case GetType(Date)
+                    Dim DateValue As Date = DirectCast(Value, Date)
+                    If DateValue.TimeOfDay = New TimeSpan(0) Then
+                        Return DateToDB2Date(DateValue)
+                    Else
+                        Return DateToDB2Timestamp(DateValue)
+                    End If
+
+                Case Else
+                    Return Value.ToString
+
+            End Select
+        End If
+
+    End Function
+    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 #End Region
     Public Enum HandlerAction
         Add
         Remove
     End Enum
-    Public Function Desktoptxtpath(Name As String) As String
-        Return Join({Desktop, "/", Name, ".txt"}, String.Empty)
-    End Function
-    Public Function MyDocumentstxtpath(Name As String) As String
-        Return Join({MyDocuments, "/", Name, ".txt"}, String.Empty)
-    End Function
-    Public Sub Wait(Miliseconds As Long)
-
-        Dim SW As New Stopwatch
-        SW.Start()
-        Do Until SW.ElapsedMilliseconds >= Miliseconds
-        Loop
-        SW.Stop()
-
-    End Sub
 End Module
 
 Namespace TLP

@@ -1911,6 +1911,7 @@ Public Class DataTool
         'Interface to add, change, or remove a connection
         'Export / ETL
         'Casting using Select Min(Length(Trim(Field))), Max(Length(Trim(Field)))...Where Length(Trim(Field))>0
+
         Dim timeStart As Date = Now
         Dock = DockStyle.Fill
         Me.TestMode = TestMode
@@ -3553,8 +3554,8 @@ Public Class DataTool
                                     .Execute()
                                 End With
                             End If
-                            Dim BodyText As String = .Body.SystemText
-                            With New SQL(.Connection, .Text)
+                            Dim whichText As String = If(0 = 0, .Text, .Body.SystemText)
+                            With New SQL(.Connection, whichText)
                                 AddHandler .Completed, AddressOf Execute_Completed
                                 .Name = _Script.CreatedString
                                 .Execute()
@@ -4606,11 +4607,28 @@ Public Class DataTool
             'table structure
             Dim structureJob As Job = .Item("Table Structure")
             If structureJob.Succeeded Then
-
-                'Dim Columns = DataTableToListOfColumnsProperties(structureJob.SQL.Table)
-                'Dim TableColumns As String = ColumnPropertiesToTableViewProcedure(Columns)
-                'messages.Add(timeString & CreateTableText(TableColumns))
-
+                'structureJob results from dragging < a > Table over to the Dataviewer ie) One Table only 
+                Dim structureObjects As New List(Of SystemObject)(ColumnTypesToSystemObject(structureJob.SQL.Table))
+                If structureObjects.Any Then
+                    Dim structureObject = structureObjects.First
+                    Dim structureColumns As New List(Of ColumnProperties)(structureObject.Columns.Values)
+                    If structureColumns.Any Then
+                        Dim dropCreate As New List(Of String) From {
+                            Join({"DROP", structureObject.Type.ToString.ToUpperInvariant, structureObject.FullName}),
+                            Join({"; CREATE", structureObject.Type.ToString.ToUpperInvariant, structureObject.FullName, "("})
+                        }
+                        For Each cp In structureColumns
+                            Dim Line As String = Join({cp.Name, cp.Format}, StrDup(4, vbTab))
+                            If cp.Index = 1 Then
+                                dropCreate.Add(Line)
+                            Else
+                                dropCreate.Add(", " & Line)
+                            End If
+                        Next
+                        dropCreate.Add(") IN " & structureObject.TSName)
+                        messages.Add(timeString & CreateTableText(Join(dropCreate.ToArray, vbNewLine)))
+                    End If
+                End If
             Else
                 'Select From SysTables Where Name=<'TableName'> will only throw an error on a timeout or connection issue 
                 messages.Add(timeString & contentJob.SQL.Response.Message)

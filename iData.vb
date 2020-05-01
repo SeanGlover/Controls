@@ -616,7 +616,6 @@ Public Structure ColumnParity
 End Structure
 Public Structure ColumnProperties
     Implements IEquatable(Of ColumnProperties)
-    Public Property Parent As SystemObject
     Public Property Name As String
     Public Property Index As Integer
     Public Property DataType As String
@@ -645,7 +644,7 @@ Public Structure ColumnProperties
         Return Join({Name, Format, If(Nullable, "Y", "N")}, "°")
     End Function
     Public Overrides Function GetHashCode() As Integer
-        Return Parent.GetHashCode Xor Name.GetHashCode Xor Index.GetHashCode Xor DataType.GetHashCode Xor Length.GetHashCode Xor Scale.GetHashCode Xor Nullable.GetHashCode
+        Return Name.GetHashCode Xor Index.GetHashCode Xor DataType.GetHashCode Xor Length.GetHashCode Xor Scale.GetHashCode Xor Nullable.GetHashCode
     End Function
     Public Overloads Function Equals(ByVal other As ColumnProperties) As Boolean Implements IEquatable(Of ColumnProperties).Equals
         Return Index = other.Index AndAlso Name = other.Name
@@ -1531,8 +1530,7 @@ End Class
                         .DataType = Trim(Split(columnFormat, "(").First),
                         .Length = length,
                         .Scale = scale,
-                        .Nullable = columnElements.Last = "Y",
-                        .Parent = Me
+                        .Nullable = columnElements.Last = "Y"
                     })
                 End If
             Next
@@ -1660,7 +1658,7 @@ End Class
 
         Dim objectString As String = Join({DSN, Type.ToString, DBName, TSName, Owner, If(Favorite, "♥", String.Empty) & Name}, Delimiter)
         If Columns.Any Then
-            Dim orderedColumns As New List(Of String)(From c In Columns.OrderBy(Function(c) c.Value.Index) Select c.ToString & String.Empty)
+            Dim orderedColumns As New List(Of String)(From c In Columns.Values.OrderBy(Function(c) c.Index) Select c.ToString & String.Empty)
             Return Join({objectString, Join(orderedColumns.ToArray, "║")}, BlackOut)
         Else
             Return objectString
@@ -4182,11 +4180,10 @@ Public Module iData
                 End If
 #End Region
                 Dim cp As New ColumnProperties With {
-                            .Name = DatabaseColumnName(Column.ColumnName),
+                            .Name = Db2ColumnNamingConvention(Column.ColumnName),
                             .Index = Column.Ordinal,
                             .Length = length,
-                            .Scale = scale,
-                            .Parent = columnObject
+                            .Scale = scale
                     }
                 columnObject.Columns.Add(Column.ColumnName, cp)
             Next
@@ -4261,7 +4258,6 @@ Public Module iData
                     Dim newObject As SystemObject = New SystemObject(objectString.Key)
                     For Each cp In objectString.Value
                         newObject.Columns.Add(cp.Name, cp)
-                        cp.Parent = newObject
                     Next
                     newObjects.Add(newObject)
                 Next
@@ -4270,135 +4266,7 @@ Public Module iData
         End If
 
     End Function
-    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Public Function ColumnPropertiesToTableViewProcedure(Columns As List(Of ColumnProperties)) As String
-
-        'DROP TABLE UNTIED
-        '; CREATE TABLE UNTIED (
-        '  CUST#       INTEGER
-        ', INV#		 CHAR(7)
-        ', TIME#	 DECIMAL(15, 0)
-        ') IN W75DFLTD.W75CCITS
-        If Columns Is Nothing Then
-            Return Nothing
-        Else
-            If Columns.Any Then
-                Dim Elements = Columns.First.Parent
-                '.SystemInfo = {
-                '0                    DataRow.Item("DBNAME").ToString,
-                '1                    DataRow.Item("TABLE_NAME").ToString,
-                '2                    DataRow.Item("CREATOR").ToString,
-                '3                    DataRow.Item("TSNAME").ToString,
-                '4                    StrConv(DataRow.Item("OBJECT_TYPE").ToString, VbStrConv.ProperCase),
-                '5                    DataRow.Item("DSN").ToString
-                '        }
-                Dim SystemObject As SystemObject = Columns.First.Parent
-                Dim CreateObject As New List(Of String) From {
-                    Join({"DROP", SystemObject.Type.ToString.ToUpperInvariant, SystemObject.FullName}),
-                    Join({"; CREATE", SystemObject.Type.ToString.ToUpperInvariant, SystemObject.FullName, "("})
-                }
-
-                For Each ColumnProperties In Columns
-                    Dim Line As String = Join({ColumnProperties.Name, ColumnProperties.Format}, StrDup(4, vbTab))
-                    If ColumnProperties.Index = 1 Then
-                        CreateObject.Add(Line)
-                    Else
-                        CreateObject.Add(", " & Line)
-                    End If
-                Next
-                CreateObject.Add(") IN " & SystemObject.TSName)
-                Return Join(CreateObject.ToArray, vbNewLine)
-            Else
-                Return String.Empty
-            End If
-        End If
-
-    End Function
 #End Region
-    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Public Function ValueToField(Value As Object) As String
-
-        If Value Is Nothing Then
-            Return Nothing
-        Else
-            Return ValueToField(Value, Value.GetType)
-        End If
-
-    End Function
-    Public Function ValuesToFields(Values As Object()) As String
-
-        If Values Is Nothing Then
-            Return Nothing
-        Else
-            Dim Items As New List(Of String)
-            For Each Value In Values
-                Items.Add(ValueToField(Value, GetDataType(Value)))
-            Next
-            Return "(" & Join(Items.ToArray, ",") & ")"
-        End If
-
-    End Function
-    Public Function ValueToField(Value As Object, ValueType As Type) As String
-
-        If Value Is Nothing Then
-            Return Nothing
-        Else
-            Select Case ValueType
-                Case GetType(String)
-                    Return Join({"'", Value.ToString, "'"}, String.Empty)
-
-                Case GetType(Date)
-                    Dim DateValue As Date = DirectCast(Value, Date)
-                    If DateValue.TimeOfDay = New TimeSpan(0) Then
-                        Return DateToDB2Date(DateValue)
-                    Else
-                        Return DateToDB2Timestamp(DateValue)
-                    End If
-
-                Case Else
-                    Return Value.ToString
-
-            End Select
-        End If
-
-    End Function
-    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Public Function DatabaseColumnName(DataColumnName As String) As String
-
-        If DataColumnName Is Nothing Then
-            Return Nothing
-        Else
-            DataColumnName = DataColumnName.ToUpperInvariant
-            REM A DB2 COLUMN NAME MUST START WITH EITHER A [A-Z] Or @ Or # Or $
-            DataColumnName = Regex.Replace(DataColumnName, "^[^A-Z@#$]", "#", RegexOptions.IgnoreCase)
-            REM A DB2 COLUMN NAME MUST NOT HAVE ILLEGAL CHARACTERS IN POSITION 2...n
-            DataColumnName = Regex.Replace(DataColumnName, "(?<=^[^■])[^A-Z0-9_@#$\n\r]{1,}", "#", RegexOptions.IgnoreCase)
-            Return Trim(DataColumnName)
-        End If
-
-    End Function
-
-    Public Function ConnectionStringToCredentials(Source As String) As KeyValuePair(Of String, String)
-
-        'https://www.ibm.com/support/knowledgecenter/en/SSEPGG_9.7.0/com.ibm.swg.im.dbclient.adonet.ref.doc/doc/DB2ConnectionClassConnectionStringProperty.html
-        'User ID | UID
-        'Password | PWD
-        Dim UID As String = String.Empty
-        Dim PWD As String = String.Empty
-
-        Dim Credentials As String() = Split(Source, ";")
-        Dim UID_Field = Credentials.Where(Function(u) Regex.Match(u, "User ID|UID", RegexOptions.IgnoreCase).Success)
-        If UID_Field.Any Then
-            UID = UID_Field.First
-        End If
-
-        Dim PWD_Field = Credentials.Where(Function(u) Regex.Match(u, "Password|PWD", RegexOptions.IgnoreCase).Success)
-        If PWD_Field.Any Then
-            PWD = PWD_Field.First
-        End If
-        Return New KeyValuePair(Of String, String)(UID, PWD)
-
-    End Function
     Friend Function CursorDirection(Point1 As Point, Point2 As Point) As Cursor
 
         If Point1.X = Point2.X And Point1.Y = Point2.Y Then
@@ -4435,29 +4303,4 @@ Public Module iData
 
     End Function
 #End Region
-    Friend Function SaferQuery(connection As String, Instruction As String) As DataTable
-
-        Using someConnection As New SqlConnection(connection)
-            Using someCommand As New SqlCommand()
-                someCommand.Connection = someConnection
-                someCommand.Parameters.Add(
-                "@Instruction",
-                SqlDbType.NChar).Value = Instruction
-                someCommand.CommandText = "@Instruction"
-
-                someConnection.Open()
-
-                Using da As New SqlDataAdapter(someCommand)
-                    Using dt As New DataTable
-                        da.Fill(dt)
-                        Return dt
-                    End Using
-                End Using
-
-                someConnection.Close()
-
-            End Using
-        End Using
-
-    End Function
 End Module
