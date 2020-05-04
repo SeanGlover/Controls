@@ -45,6 +45,7 @@ Public NotInheritable Class ImageCombo
     Private SelectionBounds As New Rectangle
     Private WithEvents CursorBlinkTimer As New Timer With {.Interval = 600}
     Private CursorShouldBeVisible As Boolean = True
+    Private WithEvents TextTimer As New Timer With {.Interval = 250}
     Private InBounds As Boolean
     Private TextIsVisible As Boolean = True
     Private Const Spacing As Byte = 2
@@ -95,10 +96,16 @@ Public NotInheritable Class ImageCombo
 
     End Sub
 #End Region
-    Private Sub CursorBlinkTick() Handles CursorBlinkTimer.Tick
+    Private Sub CursorBlinkTimer_Tick() Handles CursorBlinkTimer.Tick
 
-        CursorShouldBeVisible = Not (CursorShouldBeVisible)
+        CursorShouldBeVisible = Not CursorShouldBeVisible
         Invalidate()
+
+    End Sub
+    Private Sub TextTimer_Tick() Handles TextTimer.Tick
+
+        TextTimer.Stop()
+        RaiseEvent TextPaused(Me, New ImageComboEventArgs)
 
     End Sub
 #Region " DRAWING "
@@ -747,6 +754,7 @@ Public NotInheritable Class ImageCombo
     Public Event ImageClicked(ByVal sender As Object, ByVal e As ImageComboEventArgs)
     Public Event ClearTextClicked(ByVal sender As Object, ByVal e As ImageComboEventArgs)
     Public Event ValueSubmitted(ByVal sender As Object, ByVal e As ImageComboEventArgs)
+    Public Event TextPaused(ByVal sender As Object, ByVal e As ImageComboEventArgs)
     Public Event ValueChanged(ByVal sender As Object, ByVal e As ImageComboEventArgs)
     Public Event SelectionChanged(ByVal sender As Object, ByVal e As ImageComboEventArgs)
     Public Event ItemSelected(ByVal sender As Object, ByVal e As ImageComboEventArgs)
@@ -814,6 +822,8 @@ Public NotInheritable Class ImageCombo
         Mouse_Region = MouseRegion.Text
         CursorShouldBeVisible = True
         CursorBlinkTimer.Start()
+        TextTimer.Start()
+
         If e IsNot Nothing Then
             Try
                 Dim S As Integer = CursorIndex
@@ -908,6 +918,8 @@ Public NotInheritable Class ImageCombo
         If IsReadOnly Then Exit Sub
         CursorShouldBeVisible = True
         CursorBlinkTimer.Start()
+        TextTimer.Start()
+
         If e IsNot Nothing Then
             Try
                 If Asc(e.KeyChar) > 31 AndAlso Asc(e.KeyChar) < 127 Then

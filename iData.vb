@@ -1625,7 +1625,7 @@ End Class
     End Sub
 
     Public Overrides Function GetHashCode() As Integer
-        Return DSN.GetHashCode Xor Type.GetHashCode Xor DBName.GetHashCode Xor TSName.GetHashCode Xor Owner.GetHashCode Xor Name.GetHashCode
+        Return If(DSN, String.Empty).GetHashCode Xor Type.GetHashCode Xor If(DBName, String.Empty).GetHashCode Xor If(TSName, String.Empty).GetHashCode Xor If(Owner, String.Empty).GetHashCode Xor If(Name, String.Empty).GetHashCode
     End Function
     Public Overloads Function Equals(ByVal other As SystemObject) As Boolean Implements IEquatable(Of SystemObject).Equals
         If other Is Nothing Then

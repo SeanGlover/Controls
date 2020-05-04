@@ -1736,23 +1736,9 @@ Public Class DataTool
         .Margin = New Padding(0)
     }
 #Region " EXPORT DATA "
-    Private ReadOnly Grid_FileExport As New ToolStripMenuItem With {.Text = "File",
-        .Image = My.Resources.Folder,
-        .Font = GothicFont}
-    Private ReadOnly Grid_csvExport As New ToolStripMenuItem With {.Text = ".csv",
-        .Image = My.Resources.csv,
-        .Font = GothicFont}
-    Private ReadOnly Grid_txtExport As New ToolStripMenuItem With {.Text = ".txt",
-        .Image = My.Resources.txt,
-        .Font = GothicFont}
-    Private ReadOnly Grid_ExcelExport As New ToolStripMenuItem With {.Text = "Excel",
-        .Image = My.Resources.Excel,
-        .Font = GothicFont}
-    Private ReadOnly Grid_ExcelQueryExport As New ToolStripMenuItem With {.Text = "+ Query",
-        .Image = My.Resources.ExcelQuery,
-        .Font = GothicFont}
     Private WithEvents Grid_DatabaseExport As New ToolStripMenuItem With {.Text = "Database",
         .Image = My.Resources.Database.ToBitmap,
+        .ImageScaling = ToolStripItemImageScaling.None,
         .Font = GothicFont}
 #End Region
     Private WithEvents CMS_PaneOptions As New ContextMenuStrip With {.AutoClose = False,
@@ -2259,7 +2245,7 @@ Public Class DataTool
                     AddHandler .PropertyChanged, AddressOf Viewer_CellStyleChanged
                 End With
             End With
-            .GridOptions.Items.AddRange({Grid_FileExport, Grid_DatabaseExport})
+            .GridOptions.Items.Add(Grid_DatabaseExport)
             .AllowDrop = True
             .BaseForm = Nothing
         End With
@@ -2281,22 +2267,7 @@ Public Class DataTool
 
 #End Region
         LoadSystemObjects(Nothing, Nothing) ' LOADS FROM Objects.txt
-#Region " EXPORT DATA "
-        Grid_FileExport.ImageScaling = ToolStripItemImageScaling.None
-        Grid_ExcelExport.ImageScaling = ToolStripItemImageScaling.None
-        Grid_ExcelQueryExport.ImageScaling = ToolStripItemImageScaling.None
-        Grid_csvExport.ImageScaling = ToolStripItemImageScaling.None
-        Grid_txtExport.ImageScaling = ToolStripItemImageScaling.None
-        Grid_DatabaseExport.ImageScaling = ToolStripItemImageScaling.None
-#End Region
         ExpandCollapseOnOff(HandlerAction.Add)
-
-        For Each tsmiExport As ToolStripMenuItem In {Grid_ExcelExport, Grid_csvExport, Grid_txtExport}
-            Grid_FileExport.DropDownItems.Add(tsmiExport)
-            AddHandler tsmiExport.Click, AddressOf ExportToFile
-        Next
-        Grid_ExcelExport.DropDownItems.Add(Grid_ExcelQueryExport)
-        AddHandler Grid_ExcelQueryExport.Click, AddressOf ExportToFile
 
     End Sub
     Protected Overrides Sub InitLayout()
@@ -4766,8 +4737,39 @@ Public Class DataTool
         UpdateNodeText(e.Node)
 
     End Sub
+    Private Sub ObjectsSearch_TextCleared(sender As Object, e As EventArgs) Handles IC_ObjectsSearch.ClearTextClicked
+        ObjectsTree_TransparentBackColor()
+    End Sub
     Private Sub ObjectTreeView_Search(sender As Object, e As ImageComboEventArgs) Handles IC_ObjectsSearch.ValueSubmitted
-        MsgBox(IC_ObjectsSearch.Text)
+
+        With New Worker
+            AddHandler .DoWork, AddressOf ObjectSearch_Start
+            AddHandler .RunWorkerCompleted, AddressOf ObjectSearch_End
+            .RunWorkerAsync()
+        End With
+
+    End Sub
+    Private Sub ObjectSearch_Start(sender As Object, e As DoWorkEventArgs)
+
+        RemoveHandler DirectCast(sender, Worker).DoWork, AddressOf ObjectSearch_Start
+        ObjectsTree_TransparentBackColor()
+        For Each node In Tree_Objects.Nodes.All
+            If node.Level = 2 And node.Text.ToUpperInvariant.Contains(IC_ObjectsSearch.Text.ToUpperInvariant) Then
+                node.BackColor = Color.Yellow
+                node.Parent.BackColor = Color.Yellow
+                node.Root.BackColor = Color.Yellow
+            End If
+        Next
+
+    End Sub
+    Private Sub ObjectsTree_TransparentBackColor()
+        For Each node In Tree_Objects.Nodes.All
+            node.Root.BackColor = Color.Transparent
+        Next
+    End Sub
+    Private Sub ObjectSearch_End(sender As Object, e As RunWorkerCompletedEventArgs)
+        RemoveHandler DirectCast(sender, Worker).RunWorkerCompleted, AddressOf ObjectSearch_End
+        Tree_Objects.Refresh()
     End Sub
 #End Region
 
@@ -5147,86 +5149,6 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
             Next
         End With
 
-    End Sub
-
-    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ T O   F I L E
-    Private Sub ExportToFile(sender As Object, e As EventArgs)
-
-        REM /// EVENTUALLY, MOVE DATA BYPASSING SQL_VIEW (QUERY TO DB)
-        Dim SourceTable As DataTable = DirectCast(Script_Grid.DataSource, DataTable)
-        If SourceTable Is Nothing Then
-
-        Else
-            Dim FileName As String = Split(SourceTable.TableName, ".").Last
-            Dim ExportObject As ToolStripDropDownItem = DirectCast(sender, ToolStripDropDownItem)
-            Select Case ExportObject.Text
-                Case "Excel", "+ Query"
-                    SaveFile.FileName = Join({Desktop, "\", FileName, ".xlsx"}, String.Empty)
-                    SaveFile.Filter = "Excel Files|*.xls,*.xlsx".ToString(InvariantCulture)
-                    SaveFile.Title = ExportObject.Text
-                    SaveFile.ShowDialog()
-
-                Case ".csv"
-                    SaveFile.FileName = Join({Desktop, "\", FileName, ".csv"}, String.Empty)
-                    SaveFile.Filter = "CSV|*.csv".ToString(InvariantCulture)
-                    SaveFile.ShowDialog()
-
-                Case ".txt"
-                    SaveFile.FileName = Join({Desktop, "\", FileName, ".txt"}, String.Empty)
-                    SaveFile.Filter = "TXT Files (*.txt*)|*.txt".ToString(InvariantCulture)
-                    SaveFile.ShowDialog()
-
-                Case Else
-                    REM /// DATABASE. NEED NAME, TABLESPACE, NEW(CHECK), CLEAR OR ADD
-                    REM /// ALL EXPORTS TO DSN REQUIRE A NAME
-                    REM /// NEW PARAMETER=(OWNER+TABLE.NAME) EXISTS
-                    REM /// IF NEW, THEN TABLESPACE MUST BE OBTAINED (COULD BE MULTIPLE)
-                    REM /// IF NOT NEW, PARAMETER FOR CLEAR Or INSERT AS RADIO BUTTON
-                    Dim QueryTable As DataTable = TryCast(Script_Grid.DataSource, DataTable)
-                    If Not IsNothing(QueryTable) AndAlso QueryTable.AsEnumerable.Any Then
-
-                    End If
-
-            End Select
-        End If
-
-    End Sub
-    Private Sub SaveFileClosed(sender As Object, e As EventArgs) Handles SaveFile.FileOk
-
-        If IsNothing(SaveFile.Tag) Then
-            REM /// Saving structured table
-            Dim QueryTable As DataTable = TryCast(Script_Grid.DataSource, DataTable)
-            If Not IsNothing(QueryTable) AndAlso QueryTable.AsEnumerable.Any Then
-
-                Select Case GetFileNameExtension(SaveFile.FileName).Value
-                    Case ExtensionNames.Excel
-                        ' DOES NOT WORK !!! USER MUST RUN EXCEL AS ADMINISTRATOR IN Windows10 + ConnectionString/SQL=String.Empty
-                        'Dim ConnectionString As String = String.Empty
-                        'Dim SQL As String = String.Empty
-                        'Dim WithQuery As Boolean = SaveFile.Title = "+ Query"
-                        AddHandler Alerts, AddressOf FileSaved
-                        DataTableToExcel(QueryTable, SaveFile.FileName, True, False, False, True, True)
-
-                    Case ExtensionNames.Text
-                        DataTableToTextFile(QueryTable, SaveFile.FileName)
-
-                    Case ExtensionNames.CommaSeparated
-                    Case ExtensionNames.SQL
-
-                End Select
-            Else
-                MessageBox.Show("Nothing to Export".ToString(InvariantCulture))
-            End If
-
-        Else
-            REM /// Saving SQL or DDL
-
-        End If
-        SaveFile.Tag = Nothing
-
-    End Sub
-    Private Sub FileSaved(sender As Object, e As AlertEventArgs)
-        RaiseEvent Alert(sender, e)
     End Sub
 #End Region
 

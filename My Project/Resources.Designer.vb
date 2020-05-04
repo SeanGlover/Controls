@@ -161,6 +161,16 @@ Namespace My.Resources
         '''<summary>
         '''  Looks up a localized resource of type System.Drawing.Bitmap.
         '''</summary>
+        Friend ReadOnly Property circles() As System.Drawing.Bitmap
+            Get
+                Dim obj As Object = ResourceManager.GetObject("circles", resourceCulture)
+                Return CType(obj,System.Drawing.Bitmap)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized resource of type System.Drawing.Bitmap.
+        '''</summary>
         Friend ReadOnly Property Clipboard() As System.Drawing.Bitmap
             Get
                 Dim obj As Object = ResourceManager.GetObject("Clipboard", resourceCulture)
@@ -995,7 +1005,8 @@ Namespace My.Resources
         End Property
         
         '''<summary>
-        '''  Looks up a localized string similar to WITH COLUMNS (DSN, TABLE_NAME, OBJECT_TYPE, TYPE, COLUMN_NBR, COLUMN_NAME, FORMAT, COLUMN_TYPE, LENGTH, SCALE, NULLABLE, CREATOR, DB_NAME, TS_NAME, OWNER, SQL, COMMENT) AS (SELECT TRIM(CURRENT SERVER)
+        '''  Looks up a localized string similar to WITH COLUMNS (DSN, TABLE_NAME, OBJECT_TYPE, TYPE, COLUMN_NBR, COLUMN_NAME, FORMAT, COLUMN_TYPE, LENGTH, SCALE, NULLABLE, CREATOR, DB_NAME, TS_NAME, OWNER, SQL, COMMENT) AS (
+        '''SELECT CASE WHEN CURRENT SERVER=&apos;TORDSNQ&apos; THEN &apos;CDNIW&apos; ELSE TRIM(CURRENT SERVER) END
         ''', TRIM(CAST(C.TBNAME AS VARCHAR(35)))
         ''', CAST((CASE T.TYPE
         '''	WHEN &apos;A&apos; THEN &apos;ALIAS&apos;
@@ -1006,8 +1017,7 @@ Namespace My.Resources
         '''	END) AS VARCHAR(10))
         ''', T.TYPE
         ''', CAST(C.COLNO AS SMALLINT)
-        ''', CAST(TRIM(C.NAME) AS VARCHAR(35))
-        ''', TRIM(CASE WHEN COLTYPE=&apos;T [rest of string was truncated]&quot;;.
+        ''', CAS [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property SQL_ColumnTypes() As String
             Get
@@ -1016,8 +1026,8 @@ Namespace My.Resources
         End Property
         
         '''<summary>
-        '''  Looks up a localized string similar to WITH columnTypes (DSN, DATABASE, OWNER, SCHEMA, TABLE_NAME, OBJECT_TYPE, COLUMN_NBR, COLUMN_NAME, FORMAT, LENGTH, NULLABLE) As (SELECT
-        '''CAST(&apos;NZSQL&apos; AS CHAR(5))
+        '''  Looks up a localized string similar to WITH columnTypes (DSN, DATABASE, OWNER, SCHEMA, TABLE_NAME, OBJECT_TYPE, COLUMN_NBR, COLUMN_NAME, FORMAT, LENGTH, NULLABLE) As (
+        '''SELECT CAST(&apos;NZSQL&apos; AS CHAR(5))
         ''', T.DATABASE
         ''', T.OWNER
         ''', T.SCHEMA
@@ -1032,7 +1042,8 @@ Namespace My.Resources
         '''FROM _v_table T
         '''LEFT JOIN _v_relation_column C
         '''ON (T.OBJID=C.OBJID)
-        '''WHERE POSITION(TABLENAME In &apos;///TABLES///&apos;)&gt;0)
+        '''WHERE T.TABLENAME In (///TABLES///)
+        ''')
         '''--====================
         '''SELECT *
         '''FROM columnTypes.
@@ -1143,6 +1154,16 @@ Namespace My.Resources
         Friend ReadOnly Property starEmpty() As System.Drawing.Bitmap
             Get
                 Dim obj As Object = ResourceManager.GetObject("starEmpty", resourceCulture)
+                Return CType(obj,System.Drawing.Bitmap)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized resource of type System.Drawing.Bitmap.
+        '''</summary>
+        Friend ReadOnly Property swats() As System.Drawing.Bitmap
+            Get
+                Dim obj As Object = ResourceManager.GetObject("swats", resourceCulture)
                 Return CType(obj,System.Drawing.Bitmap)
             End Get
         End Property

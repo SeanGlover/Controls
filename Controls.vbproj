@@ -566,6 +566,12 @@
   <ItemGroup>
     <None Include="Resources\SQL_TABLESPACES.txt" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\swats.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\circles.png" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
