@@ -2748,11 +2748,13 @@ Public Class DataTool
     End Sub
     Private Sub SaveAs_ImageClicked() Handles SaveAs.ImageClicked, SaveAs.ValueSubmitted
 
-        If ActiveScript() IsNot Nothing Then
+        Dim saveScript As Script = ActiveScript()
+        If saveScript IsNot Nothing Then
             Using cb As New CursorBusy
                 'USING Now.ToLongTimeString ENSURE NAME<>value AND ACTION IS TAKEN
                 Dim ActiveScriptName As String = Join({DateTimeToString(Now), SaveAs.Text}, Delimiter)
-                ActiveScript.Name = ActiveScriptName
+                saveScript.Name = ActiveScriptName
+                If saveScript.Save(Script.SaveAction.ChangeContent) Then SaveAs.Image = My.Resources.saved
             End Using
         End If
 

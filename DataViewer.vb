@@ -394,7 +394,7 @@ Public Class DataViewer
                                 RowBounds.Offset(-HScroll.Value, 0)
                                 VisibleRows.Add(Row, RowBounds)
                                 If RowBounds.Top >= Bottom Then Exit For
-                                Dim rowStyle As CellStyle = If(.Selected, Rows.SelectionRowStyle, If(RowIndex Mod 2 = 0, Rows.RowStyle, Rows.AlternatingRowStyle))
+                                Dim rowStyle As CellStyle = If(.StyleChanged, .Style, If(.Selected, Rows.SelectionRowStyle, If(RowIndex Mod 2 = 0, Rows.RowStyle, Rows.AlternatingRowStyle)))
                                 If rowStyle.Theme = Theme.None Then
                                     Using LinearBrush As New LinearGradientBrush(RowBounds, rowStyle.BackColor, rowStyle.ShadeColor, LinearGradientMode.Vertical)
                                         e.Graphics.FillRectangle(LinearBrush, RowBounds)
@@ -412,7 +412,7 @@ Public Class DataViewer
                                         With rowCell
                                             Dim cellValue As Object = .Value
                                             Dim drawCellAsSelected As Boolean = If(FullRowSelect, Row.Selected, .Selected)
-                                            rowStyle = If(drawCellAsSelected, Rows.SelectionRowStyle, If(RowIndex Mod 2 = 0, Rows.RowStyle, Rows.AlternatingRowStyle))
+                                            rowStyle = If(drawCellAsSelected, Rows.SelectionRowStyle, rowStyle)
                                             If MouseData.CurrentAction = MouseInfo.Action.GridSelecting Then .Selected = drawBounds.IntersectsWith(CellBounds)
 #Region " C E L L   B A C K G R O U N D "
                                             If drawCellAsSelected Then   'Already drew the entire row before "DRAW CELLS" Region
@@ -981,27 +981,29 @@ Public Class DataViewer
             End With
             With _MouseData
                 Dim clickPoint As Point = e.Location
+                Dim mouseColumns = VisibleColumns.Where(Function(vc) vc.Value.Contains(New Point(clickPoint.X, 0))).Select(Function(c) c.Key) 'Use for all EXCEPT Edge ( left button )
                 .CurrentRegion = If(Columns.HeadBounds.Contains(clickPoint), MouseRegion.Header, MouseRegion.Grid)
                 If .CurrentRegion = MouseRegion.Header Then
 #Region " HEADER "
-                    Dim VisibleEdges As New Dictionary(Of Column, Rectangle)
-                    For Each Item In VisibleColumns
-                        VisibleEdges.Add(Item.Key, New Rectangle(Item.Key.EdgeBounds.X - HScroll.Value, 0, 10, Item.Key.EdgeBounds.Height))
-                    Next
-                    Dim Edges = VisibleEdges.Where(Function(x) x.Value.Contains(clickPoint)).Select(Function(c) c.Key)
-                    If Edges.Any Then
+                    If e.Button = MouseButtons.Left Then
+#Region " L E F T - Sizing ( Edge ) / Sort "
+                        'Check if Edge 1st since .Column calc is different ... 5 pixels into the column to the right counts as the left column
+                        Dim VisibleEdges As New Dictionary(Of Column, Rectangle)
+                        For Each Item In VisibleColumns
+                            VisibleEdges.Add(Item.Key, New Rectangle(Item.Key.EdgeBounds.X - HScroll.Value, 0, 10, Item.Key.EdgeBounds.Height))
+                        Next
+                        Dim Edges = VisibleEdges.Where(Function(x) x.Value.Contains(clickPoint)).Select(Function(c) c.Key)
+                        If Edges.Any Then
 #Region " HEADER - EDGE "
-                        .CurrentAction = MouseInfo.Action.HeaderEdgeClicked
-                        .Column = Edges.First
-                        Cursor = Cursors.VSplit
+                            .CurrentAction = MouseInfo.Action.HeaderEdgeClicked
+                            .Column = Edges.First
+                            Cursor = Cursors.VSplit
 #End Region
-                    Else
+                        Else
 #Region " HEADER - NOT EDGE ( SORT ) "
-                        .CurrentAction = MouseInfo.Action.HeaderClicked
-                        Dim mouseColumns = VisibleColumns.Where(Function(vc) vc.Value.Contains(New Point(clickPoint.X, 0))).Select(Function(c) c.Key)
-                        If mouseColumns.Any Then .Column = mouseColumns.First
-                        Cursor = Cursors.Default
-                        If e.Button = MouseButtons.Left Then
+                            .CurrentAction = MouseInfo.Action.HeaderClicked
+                            .Column = If(mouseColumns.Any, mouseColumns.First, Nothing) 'Ensure .Column has current value
+                            Cursor = Cursors.Default
                             'Change the sort order
                             If .Column.SortOrder = SortOrder.Ascending Then
                                 .Column.SortOrder = SortOrder.Descending
@@ -1013,20 +1015,69 @@ Public Class DataViewer
 
                             End If
                             Rows.SortBy(.Column)
+#End Region
+                        End If
+#End Region
+                    ElseIf e.Button = MouseButtons.Right Then
+#Region " R I G H T - View / Change HeaderStyle {backcolor, shadecolor, alignment} + View items+counts / Filter items "
+                        .Column = If(mouseColumns.Any, mouseColumns.First, Nothing) 'Ensure .Column has current value
+                        Dim headerProperties As ToolStripMenuItem = DirectCast(HeaderOptions.Items("properties"), ToolStripMenuItem)
+                        If headerProperties IsNot Nothing Then
+                            Dim tschProperties As ToolStripControlHost = DirectCast(headerProperties.DropDownItems(0), ToolStripControlHost)
+                            Dim tlpProperties As TableLayoutPanel = DirectCast(tschProperties.Control, TableLayoutPanel)
+                            tlpProperties.ColumnStyles(0).Width = 0 'Don't need a big button
+                            TLP.SetSize(tlpProperties)
+                            Dim subButton As ImageCombo = DirectCast(tlpProperties.GetControlFromPosition(0, 0), ImageCombo)
+                            subButton.Text = If(.Column Is Nothing, "All columns".ToString(InvariantCulture), .Column.Name)
+
+                            HeaderGridAlignment.Text = StringFormatToContentAlignString(If(.Column Is Nothing, Columns.HeaderStyle.Alignment, .Column.GridStyle.Alignment))
+                            HeaderGridAlignment.SelectedIndex = HeaderGridAlignment.TextIndex
+
+#Region " Adhoc pull on Distinct values - too problematic using Columns.ColumnWidth @#$%^ "
+                            If .Column IsNot Nothing Then
+                                Dim columnValues As Dictionary(Of String, List(Of Cell)) = DistinctValues(.Column.Name)
+                                If Not columnValues.Any Then 'Get them, otherwise don't
+                                    For Each row In Rows
+                                        Dim rowCell As Cell = row.Cells(.Column.Name)
+                                        Dim rowCellText As String = If(rowCell.Text, "(null)")
+                                        If Not columnValues.ContainsKey(rowCellText) Then columnValues.Add(rowCellText, New List(Of Cell))
+                                        columnValues(rowCellText).Add(rowCell)
+                                    Next
+                                End If
+                                With HeaderDistinctItems
+                                    With .Items
+                                        .Clear()
+                                        Dim values = columnValues.OrderByDescending(Function(c) c.Value.Count).ThenBy(Function(t) t.Key)
+                                        For Each distinctValue In values
+                                            .Add(Join({"value=" & distinctValue.Key, "count=" & distinctValue.Value.Count}, ","))
+                                        Next
+                                    End With
+                                    .HintText = "Distinct count = " & .Items.Count
+                                End With
+                            End If
+#End Region
+                            Dim relativePoint As Point = If(.Column Is Nothing, e.Location, New Point(.Column.HeadBounds.Right - HeaderOptions.Width, HeaderHeight))
+                            With HeaderOptions
+                                .AutoClose = False
+                                .Tag = _MouseData.Column
+                                .Location = PointToScreen(relativePoint)
+                            End With
+                            headerProperties.ShowDropDown()
                         End If
 #End Region
                     End If
 #End Region
                 Else
 #Region " GRID "
+                    Dim mouseRows = VisibleRows.Where(Function(r) e.Y >= r.Value.Top And e.Y <= r.Value.Bottom)
+                    .Row = If(mouseRows.Any, mouseRows.First.Key, Nothing)
+                    .Column = If(mouseColumns.Any, mouseColumns.First, Nothing) 'Ensure .Column has current value
+                    .Cell = If(.Row Is Nothing Or .Column Is Nothing, Nothing, .Row.Cells(.Column.Name))
                     If e.Button = MouseButtons.Left Then
-                        Dim mouseColumns = VisibleColumns.Where(Function(vc) vc.Value.Contains(New Point(clickPoint.X, 0))).Select(Function(c) c.Key)
-                        If mouseColumns.Any Then .Column = mouseColumns.First
-
-                        Dim mouseRows = VisibleRows.Where(Function(r) e.Y >= r.Value.Top And e.Y <= r.Value.Bottom)
-                        If mouseRows.Any Then
-                            .Row = mouseRows.First.Key
-                            .Cell = .Row.Cells(.Column.Name)
+#Region " L E F T - Cell / Row selection "
+                        If .Cell Is Nothing Then
+                            .CurrentAction = MouseInfo.Action.None
+                        Else
                             .CurrentAction = MouseInfo.Action.CellClicked
                             .Row.Selected = Not .Row.Selected  'Row.Selected may not take the value if Me.FullRowSelect=False
                             Dim cellSelectedCounter As Integer
@@ -1040,54 +1091,16 @@ Public Class DataViewer
                             .Cell.Selected = If(cellSelectedCounter = 0, Not .Cell.Selected, True)
                             RaiseEvent CellClicked(Me, New ViewerEventArgs(MouseData))
                         End If
-                    End If
 #End Region
-                End If
-                If e.Button = MouseButtons.Right Then
-                    'Change backcolor, shadecolor, alignment
-
-                    If .CurrentRegion = MouseRegion.Header Then
-                        Dim headerProperties As ToolStripMenuItem = DirectCast(HeaderOptions.Items("properties"), ToolStripMenuItem)
-                        If headerProperties IsNot Nothing Then
-                            Dim tschProperties As ToolStripControlHost = DirectCast(headerProperties.DropDownItems(0), ToolStripControlHost)
-                            Dim tlpProperties As TableLayoutPanel = DirectCast(tschProperties.Control, TableLayoutPanel)
-                            'tlpProperties.ColumnStyles(0).Width = 0
-                            TLP.SetSize(tlpProperties)
-                            Dim subButton As ImageCombo = DirectCast(tlpProperties.GetControlFromPosition(0, 0), ImageCombo)
-                            subButton.Text = If(.Column Is Nothing, "All columns".ToString(InvariantCulture), .Column.Name)
-
-                            HeaderGridAlignment.Text = StringFormatToContentAlignString(If(.Column Is Nothing, Columns.HeaderStyle.Alignment, .Column.GridStyle.Alignment))
-                            HeaderGridAlignment.SelectedIndex = HeaderGridAlignment.TextIndex
-
-                            With HeaderDistinctItems
-                                With .Items
-                                    .Clear()
-                                    For Each header In DistinctValues
-                                        If header.Key = _MouseData.Column.Name Then
-                                            Dim values = header.Value.OrderByDescending(Function(c) c.Value.Count).ThenBy(Function(t) t.Key)
-                                            For Each distinctValue In values
-                                                .Add(Join({"value=", distinctValue.Key, "count=", distinctValue.Value.Count}, ","))
-                                            Next
-                                        End If
-                                    Next
-                                End With
-                                .HintText = "Distinct count = " & .Items.Count
-                            End With
-
-                            Dim relativePoint As Point = If(.Column Is Nothing, e.Location, New Point(.Column.HeadBounds.Right, HeaderHeight))
-                            With HeaderOptions
-                                .AutoClose = False
-                                .Tag = _MouseData.Column
-                                .Location = PointToScreen(relativePoint)
-                            End With
-                            headerProperties.ShowDropDown()
-                        End If
-                    Else
+                    ElseIf e.Button = MouseButtons.Right Then
+#Region " R I G H T - Show Cell properties "
                         GridOptions.AutoClose = False
                         Dim relativePoint As Point = If(.Cell Is Nothing, e.Location, New Point(.CellBounds.Right - HScroll.Value, .CellBounds.Top - VScroll.Value))
                         GridOptions.Location = PointToScreen(relativePoint)
                         GridOptions.Show(PointToScreen(relativePoint))
+#End Region
                     End If
+#End Region
                 End If
             End With
             MyBase.OnMouseDown(e)
@@ -1635,15 +1648,12 @@ Public Class ColumnCollection
             Dim cellTypes As New List(Of Type)
             Dim cellValues As New List(Of Object)
             .ContentWidth = .MinimumWidth
-            Parent.DistinctValues(.Name).Clear()
             For Each row In Parent.Rows
                 Dim rowCell As Cell = row.Cells(.Name)
                 cellValues.Add(rowCell.Value)
                 If rowCell IsNot Nothing Then
                     cellTypes.Add(rowCell.DataType)
                     Dim cellText As String = If(rowCell.Text, String.Empty)
-                    If Not Parent.DistinctValues(.Name).ContainsKey(cellText) Then Parent.DistinctValues(.Name).Add(cellText, New List(Of Cell))
-                    Parent.DistinctValues(.Name)(cellText).Add(rowCell)
                     If rowCell.ValueImage Is Nothing Then
                         Dim rowStyle As CellStyle = row.Style
                         .ContentWidth = { .ContentWidth, TextRenderer.MeasureText(cellText, rowStyle.Font).Width}.Max
@@ -2294,11 +2304,13 @@ End Class
             Return If(Parent Is Nothing, -1, Parent.IndexOf(Me))
         End Get
     End Property
+    Private WithEvents Style_ As New CellStyle With {.BackColor = Color.Transparent, .ShadeColor = Color.White, .ForeColor = Color.Black, .Font = New Font("Century Gothic", 8)}
     Public ReadOnly Property Style As CellStyle
         Get
-            Return If(Selected, Parent.SelectionRowStyle, If(Index Mod 2 = 0, Parent.RowStyle, Parent.AlternatingRowStyle))
+            Return Style_ 'If(DefaultStyle = Style_, If(Selected, Parent.SelectionRowStyle, If(Index Mod 2 = 0, Parent.RowStyle, Parent.AlternatingRowStyle)), Style_)
         End Get
     End Property
+    Friend ReadOnly Property StyleChanged As Boolean
     Private _Selected As Boolean
     Public Property Selected As Boolean
         Get
@@ -2322,6 +2334,12 @@ End Class
 
         End Set
     End Property
+    Private Sub RowStyle_PropertyChanged(sender As Object, e As StyleEventArgs) Handles Style_.PropertyChanged
+        Using defaultStyle As New CellStyle With {.BackColor = Color.Transparent, .ShadeColor = Color.White, .ForeColor = Color.Black, .Font = New Font("Century Gothic", 8)}
+            _StyleChanged = Style_ <> defaultStyle
+        End Using
+        Parent?.Parent?.Invalidate()
+    End Sub
 #Region "IDisposable Support"
     Private DisposedValue As Boolean ' To detect redundant calls IDisposable
     Protected Overridable Sub Dispose(disposing As Boolean)
@@ -2756,10 +2774,6 @@ End Class
         End Set
     End Property
 
-    Public Shadows Function ToString() As String
-        Return Join({Height.ToString(InvariantCulture), ForeColor.ToString, Font.ToString}, Delimiter)
-    End Function
-
     Public Overrides Function GetHashCode() As Integer
         Return Font.GetHashCode Xor BackColor.GetHashCode Xor ForeColor.GetHashCode Xor ShadeColor.GetHashCode Xor Alignment.GetHashCode Xor ImageScaling.GetHashCode Xor Height.GetHashCode Xor Padding.GetHashCode
     End Function
@@ -2783,7 +2797,7 @@ End Class
         Return Not Object1 = Object2
     End Operator
     Public Overrides Function Equals(ByVal obj As Object) As Boolean
-        If TypeOf obj Is MouseInfo Then
+        If TypeOf obj Is CellStyle Then
             Return CType(obj, CellStyle) = Me
         Else
             Return False
