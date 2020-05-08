@@ -3412,3 +3412,24 @@ Public Class FooDictionary(Of TKey, TValue)
         Throw New NotImplementedException()
     End Sub
 End Class
+
+Public NotInheritable Class Token
+    Public Sub New()
+    End Sub
+    Public Sub New(tokenString As String)
+
+        Dim tokenElements() As String = Split(tokenString, Delimiter)
+        If tokenElements.Length = 3 Then
+            Name = tokenElements.First
+            Value = tokenElements(1)
+            Expiry = StringToDateTime(tokenElements.Last)
+        End If
+
+    End Sub
+    Public Property Name As String
+    Public Property Value As String
+    Public Property Expiry As Date
+    Public Overrides Function ToString() As String
+        Return Join({Name, Value, DateTimeToString(Expiry)}, Delimiter)
+    End Function
+End Class

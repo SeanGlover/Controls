@@ -2762,9 +2762,12 @@ Public Class ETL
                 RemoveHandler .Retrieved, AddressOf Source_Completed
             End With
             Responses.Add(e)
-            If Where(Function(s) s.SQL Is Nothing OrElse s.SQL.Response IsNot Nothing).Count = Count Then
+            If Responses.Count = Count Then
                 RaiseEvent Completed(Me, New ResponsesEventArgs(Responses))
             End If
+            'If Where(Function(s) s.SQL Is Nothing OrElse s.SQL.Response IsNot Nothing).Count = Count Then
+            '    RaiseEvent Completed(Me, New ResponsesEventArgs(Responses))
+            'End If
 
         End Sub
     End Class

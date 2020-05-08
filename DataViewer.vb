@@ -1387,24 +1387,27 @@ Public Class DataViewer
     Private Sub ExportToFile(sender As Object, e As EventArgs)
 
         If Rows.Any Then
-            Dim ExportObject As ToolStripDropDownItem = DirectCast(sender, ToolStripDropDownItem)
-            Select Case ExportObject.Text
-                Case "Excel"
-                    SaveFile.FileName = Join({Desktop, "\FileName.xlsx"}, String.Empty)
-                    SaveFile.Filter = "Excel Files|*.xls,*.xlsx".ToString(InvariantCulture)
+            With SaveFile
+                .InitialDirectory = Desktop
+                Dim ExportObject As ToolStripDropDownItem = DirectCast(sender, ToolStripDropDownItem)
+                Select Case ExportObject.Text
+                    Case "Excel"
+                        .FileName = "FileName.xlsx"
+                        .Filter = "Excel Files|*.xls,*.xlsx".ToString(InvariantCulture)
 
-                Case ".csv"
-                    SaveFile.FileName = Join({Desktop, "\FileName.csv"}, String.Empty)
-                    SaveFile.Filter = "CSV|*.csv".ToString(InvariantCulture)
+                    Case ".csv"
+                        .FileName = "FileName.csv"
+                        .Filter = "CSV|*.csv".ToString(InvariantCulture)
 
-                Case ".txt"
-                    SaveFile.FileName = Join({Desktop, "\FileName.txt"}, String.Empty)
-                    SaveFile.Filter = "TXT Files (*.txt*)|*.txt".ToString(InvariantCulture)
+                    Case ".txt"
+                        .FileName = "FileName.txt"
+                        .Filter = "TXT Files (*.txt*)|*.txt".ToString(InvariantCulture)
 
-                Case Else
+                    Case Else
 
-            End Select
-            SaveFile.ShowDialog()
+                End Select
+                .ShowDialog()
+            End With
         Else
 
         End If

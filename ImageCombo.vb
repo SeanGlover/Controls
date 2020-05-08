@@ -1069,10 +1069,12 @@ Public NotInheritable Class ImageCombo
     End Sub
     Protected Overrides Sub OnTextChanged(e As EventArgs)
         If Text Is Nothing Then Text = String.Empty
-        If ValueError Then
-            ErrorTip.Show(ErrorText.ToString(InvariantCulture), Me, New Point(Width, 0))
-        Else
-            ErrorTip.Hide(Me)
+        If ErrorTip IsNot Nothing Then
+            If ValueError Then
+                ErrorTip.Show(ErrorText.ToString(InvariantCulture), Me, New Point(Width, 0))
+            Else
+                ErrorTip.Hide(Me)
+            End If
         End If
         MyBase.OnTextChanged(e)
     End Sub

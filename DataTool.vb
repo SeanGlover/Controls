@@ -1600,7 +1600,6 @@ Public Class DataTool
     Inherits Control
 #Region " DECLARATIONS "
 #Region " organised "
-    Private ReadOnly DataDirectory As DirectoryInfo = Directory.CreateDirectory(MyDocuments & "\DataManager")
     Private ReadOnly GothicFont As Font = My.Settings.applicationFont
     '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
     Private WithEvents FunctionsStripBar As New ToolStrip With {
@@ -1887,10 +1886,7 @@ Public Class DataTool
 #Region " ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ N E W ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ "
     Public Sub New(Optional TestMode As Boolean = False)
 
-        'With My.Settings
-        '    .applicationFont = New Font("Century Gothic", 9, FontStyle.Regular)
-        '    .Save()
-        'End With
+        Directory.CreateDirectory(MyDocuments & "\DataManager")
 
         '*** Before changes=4394
         'Sync populates a Treeview with Checkmarks...those selected are imported. Submit how?
