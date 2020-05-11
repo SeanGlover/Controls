@@ -412,12 +412,12 @@ Public Class DataViewer
                                         With rowCell
                                             Dim cellValue As Object = .Value
                                             Dim drawCellAsSelected As Boolean = If(FullRowSelect, Row.Selected, .Selected)
-                                            rowStyle = If(drawCellAsSelected, Rows.SelectionRowStyle, rowStyle)
+                                            Dim cellStyle = If(drawCellAsSelected, Rows.SelectionRowStyle, rowStyle)
                                             If MouseData.CurrentAction = MouseInfo.Action.GridSelecting Then .Selected = drawBounds.IntersectsWith(CellBounds)
 #Region " C E L L   B A C K G R O U N D "
                                             If drawCellAsSelected Then   'Already drew the entire row before "DRAW CELLS" Region
-                                                If rowStyle.Theme = Theme.None Then
-                                                    Using LinearBrush As New LinearGradientBrush(CellBounds, rowStyle.BackColor, rowStyle.ShadeColor, LinearGradientMode.Vertical)
+                                                If cellStyle.Theme = Theme.None Then
+                                                    Using LinearBrush As New LinearGradientBrush(CellBounds, cellStyle.BackColor, cellStyle.ShadeColor, LinearGradientMode.Vertical)
                                                         e.Graphics.FillRectangle(LinearBrush, CellBounds)
                                                     End Using
                                                 Else
@@ -430,9 +430,9 @@ Public Class DataViewer
                                                 Using NullBrush As New SolidBrush(Color.FromArgb(128, Color.Gainsboro))
                                                     e.Graphics.FillRectangle(NullBrush, CellBounds)
                                                 End Using
-                                                Using textBrush As New SolidBrush(rowStyle.ForeColor)
+                                                Using textBrush As New SolidBrush(cellStyle.ForeColor)
                                                     e.Graphics.DrawString("(null)",
-                                                                          If(MouseOverRow, New Font(rowStyle.Font, FontStyle.Underline), rowStyle.Font),
+                                                                          If(MouseOverRow, New Font(cellStyle.Font, FontStyle.Underline), cellStyle.Font),
                                                                           textBrush,
                                                                           CellBounds,
                                                                           Column.GridStyle.Alignment)
@@ -454,7 +454,7 @@ Public Class DataViewer
                                                     Dim yOffset As Integer = CInt((CellBounds.Height - ImageHeight) / 2)
                                                     Dim imageBounds As New Rectangle(CellBounds.X + xOffset, CellBounds.Y + yOffset, ImageWidth, ImageHeight)
                                                     If .Column.Format.Key = Column.TypeGroup.Booleans Then
-                                                        Dim useWhite As Boolean = BackColorToForeColor(rowStyle.BackColor) = Color.White
+                                                        Dim useWhite As Boolean = BackColorToForeColor(cellStyle.BackColor) = Color.White
                                                         Dim imageName As String = If(.ValueBoolean, String.Empty, "un") & "checked" & If(useWhite, "White", "Black")
                                                         e.Graphics.DrawImage(Base64ToImage(CheckImages(imageName)), imageBounds)
                                                     Else
@@ -466,9 +466,9 @@ Public Class DataViewer
                                                         End Using
                                                     End If
                                                 Else
-                                                    Using textBrush As New SolidBrush(rowStyle.ForeColor)
+                                                    Using textBrush As New SolidBrush(cellStyle.ForeColor)
                                                         e.Graphics.DrawString(.Text,
-                                                                              If(MouseOverRow, New Font(rowStyle.Font, FontStyle.Underline), rowStyle.Font),
+                                                                              If(MouseOverRow, New Font(cellStyle.Font, FontStyle.Underline), cellStyle.Font),
                                                                               textBrush,
                                                                               CellBounds,
                                                                               Column.GridStyle.Alignment)
@@ -2955,10 +2955,12 @@ End Class
 Public Class WaitTimer
     Private ReadOnly BaseForm As Form
     Private ReadOnly BaseControl As Control
+    Private ReadOnly HideLocation As New Point(-500, -500)
     Private WithEvents TickTimer As New Timer With {.Interval = 100}
     Private TimerTicks As Integer
     Private ReadOnly TickForm As New InvisibleForm With {
-        .Size = New Size(150, 150)
+        .Size = New Size(150, 150),
+        .Location = HideLocation
     }
     Private ReadOnly Property DelegateImage As Image
     Public Enum ImageType
@@ -2972,7 +2974,6 @@ Public Class WaitTimer
             Me.BaseControl = baseControl
             Me.BaseForm = baseForm
             If baseForm IsNot Nothing Then TickForm.Show(baseForm)
-            'TickForm.Visible = False
         End If
 
     End Sub
@@ -3054,7 +3055,7 @@ Public Class WaitTimer
 
         TimerTicks = 0
         TickTimer.Stop()
-        SetSafeControlPropertyValue(TickForm, "Location", New Point(-500, -500))
+        SetSafeControlPropertyValue(TickForm, "Location", HideLocation)
         SetSafeControlPropertyValue(TickForm, "BackgroundImage", Nothing)
 
     End Sub
