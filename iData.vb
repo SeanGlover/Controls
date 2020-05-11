@@ -3414,7 +3414,7 @@ Public Module iData
 
         Select Case language
             Case QueryLanguage.Netezza
-                Return Replace(My.Resources.SQL_ColumnTypes_NZ, "///TABLES///", ValueToField(tableName))
+                Return Replace(My.Resources.SQL_ColumnTypes_NZ, " In ///TABLES///", "=" & ValueToField(tableName))
 
             Case Else
                 Return Replace(My.Resources.SQL_ColumnTypes, "'///OWNER_TABLE///'", ValueToField(tableName))

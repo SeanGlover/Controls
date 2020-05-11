@@ -656,9 +656,10 @@ Public Class BodyElements
     Protected Overridable Sub Dispose(disposing As Boolean)
         If disposed Then Return
         If disposing Then
-            Handle.Dispose()
             ' Free any other managed objects here.
+            Handle.Dispose()
             ElementsWorker.Dispose()
+            ChangedTimer.Dispose()
         End If
         disposed = True
     End Sub
@@ -667,7 +668,7 @@ Public Class BodyElements
     Public Event TypeChanged(sender As Object, e As ScriptTypeChangedEventArgs)
     Public Event Completed(sender As Object, e As EventArgs)
 
-    Private WithEvents ElementsWorker As New BackgroundWorker With {.WorkerReportsProgress = False}
+    Private WithEvents ElementsWorker As New BackgroundWorker With {.WorkerReportsProgress = True}
     Private WithEvents ChangedTimer As New Timer With {.Interval = 400}         'When Connection or Instruction ( Text ) changes
 
     Private Const NonCharacter As String = "©"
@@ -716,9 +717,9 @@ Public Class BodyElements
             End If
         End Set
     End Property
-    Private LastType_ As ExecutionType
+    Private LastType As ExecutionType
     Public ReadOnly Property InstructionType As ExecutionType = ExecutionType.Null
-    Private LastConnection_ As Connection
+    Private LastConnection As Connection
     Private Connection_ As Connection
     Public Property Connection As Connection
         Get
@@ -851,24 +852,7 @@ Public Class BodyElements
             End If
         End Get
     End Property
-    Public ReadOnly Property TablesNeedObject As List(Of String)
-        Get
-            If TablesElement.Any Then
-                'TablesElement is the Body.Text- what the user writes vs TablesObject which is saved SystemObjects (Table)
-                'If an item in the Body is not in the saved SystemObjects, then add so an SystemObject can be retrieved from the Database
-                Dim BodyTables As New List(Of String)(TablesElement.Select(Function(te) te.Name))
-                Dim HaveObjects As New List(Of String)
-                Dim eo = ElementObjects
-                For Each Item In TablesObject
-                    If BodyTables.Contains(Item.Name) Or BodyTables.Contains(Item.FullName) Then HaveObjects.Add(Item.Name)
-                Next
-                Return BodyTables.Except(HaveObjects).ToList
-            Else
-                Return New List(Of String)
-            End If
-        End Get
-    End Property
-    Private ReadOnly Property TablesObject As New List(Of SystemObject)
+    Public ReadOnly Property TablesObject As New List(Of SystemObject)
     Public ReadOnly Property Withs As New List(Of InstructionElement)
     Public ReadOnly Property DataSources As New Dictionary(Of String, List(Of SystemObject))
     Public ReadOnly Property DataSource As SystemObject
@@ -895,40 +879,50 @@ Public Class BodyElements
             TablesObject.Clear()
             DataSources.Clear()
 #End Region
+
             REM /// BELOW FUNCTIONS ARE ORDERED BY DEPENDANCY
-            '#1----------------------------COMMENTED TEXT...Commented text MUST be ignored
+
+            'COMMENTED TEXT...Commented text MUST be ignored
             _UncommentedText = StripComments(Text)
 
-            '#2----------------------------Determineif DDL Or SQL
-            LastType_ = InstructionType
+#Region " D D L   O r   S Q L "
+            LastType = InstructionType
             _InstructionType = GetInstructionType()
+            If LastType <> InstructionType Then
+                ElementsWorker.ReportProgress(0)
+                LastType = InstructionType
+            End If
+#End Region
+
             '----------------------------CLASSIFY TEXT
             AssignLabels()
 
             '----------------------------CROSS-REFERENCE TEXT AS AN OBJECT THAT RESIDES IN A DATABASE
             AddSystemObjects()
+
             '----------------------------DETEREMINE DATASOURCE
             GetDataSources()
+
             '----------------------------SET THE CONNECTION
-            LastConnection_ = Connection
-            Connection_ = GetConnection()
+            LastConnection = Connection
+            Connection = GetConnection()
         End If
         '----------------------------SET THE DATABASE TEXT
         _SystemText = If(GetSystemText(), Text)
 
 
     End Sub
+    Private Sub MidObjectsWork(sender As Object, e As ProgressChangedEventArgs) Handles ElementsWorker.ProgressChanged
+        RaiseEvent TypeChanged(Me, New ScriptTypeChangedEventArgs(LastType, InstructionType))
+    End Sub
     Private Sub EndObjectsWork(sender As Object, e As RunWorkerCompletedEventArgs) Handles ElementsWorker.RunWorkerCompleted
 
         _Initializing = False
         _IsBusy = False
-        If LastType_ <> InstructionType Then
-            RaiseEvent TypeChanged(Me, New ScriptTypeChangedEventArgs(LastType_, InstructionType))
-            LastType_ = InstructionType
-        End If
-        If LastConnection_ <> Connection Then
-            RaiseEvent ConnectionChanged(Me, New ConnectionChangedEventArgs(LastConnection_, Connection))
-            LastConnection_ = Connection
+
+        If LastConnection <> Connection Then
+            RaiseEvent ConnectionChanged(Me, New ConnectionChangedEventArgs(LastConnection, Connection))
+            LastConnection = Connection
         End If
         ConnectionChange = False
         RaiseEvent Completed(Me, Nothing)
@@ -988,8 +982,10 @@ Public Class BodyElements
             _IsDDL = Match_Comment.Success Or Match_Drop.Success Or Match_Insert.Success Or Match_Delete.Success Or Match_Update.Success Or Match_CreateAlterDrop.Success Or Match_GrantRevoke.Success
             If IsDDL Then
                 _CurrentType = ExecutionType.DDL
+
             ElseIf Regex.Match(UncommentedText, SelectPattern, RegexOptions.IgnoreCase).Success Then
                 _CurrentType = ExecutionType.SQL
+
             End If
         End If
         Return _CurrentType
@@ -3514,11 +3510,14 @@ Public Class DataTool
                                 'SQL_Statement = Replace(SQL_Statement, SheetName.Name, "[" & SheetName.Name & "]")
                             Next
                         Else
-                            Dim TablesNeed As String() = .Body.TablesNeedObject.ToArray
-                            If TablesNeed.Any Then
-                                RaiseEvent Alert(.Body, New AlertEventArgs("Adding to profile: " & Join(TablesNeed, ",") & "-(RunQuery)"))
-                                Dim TableColumnSQL As String = ColumnSQL(TablesNeed, .Connection.Language)
-                                With New SQL(.Connection, TableColumnSQL)
+                            Dim body As BodyElements = .Body
+                            Dim bodyNames As New List(Of String)(From te In body.TablesElement Select te.Name.ToUpperInvariant)
+                            Dim systemNames As New List(Of String)(From so In SystemObjects Select so.Name.ToUpperInvariant)
+                            Dim objectsNeed As New List(Of String)(bodyNames.Except(systemNames))
+                            If objectsNeed.Any Then
+                                RaiseEvent Alert(.Body, New AlertEventArgs("Adding to profile: " & Join(objectsNeed.ToArray, ",") & "-(RunQuery)"))
+                                Dim tableColumnSQL As String = ColumnSQL(objectsNeed.ToArray, .Connection.Language)
+                                With New SQL(.Connection, tableColumnSQL)
                                     AddHandler .Completed, AddressOf ColumnsSQL_Completed
                                     .Execute()
                                 End With
@@ -3710,6 +3709,7 @@ Public Class DataTool
                     Next
                 End If
 #End Region
+            Else
             End If
         End With
 
