@@ -558,10 +558,16 @@ Public NotInheritable Class ImageCombo
     '=======================================================
     Public ReadOnly Property SelectedItem As ComboItem
         Get
-            If SelectedIndex = -1 Then
+            If SelectedIndex < 0 Then
                 Return Nothing
             Else
-                Return Items(SelectedIndex)
+                If Items.Any Then
+                    If SelectedIndex < Items.Count Then
+                        Return Items(SelectedIndex)
+                    Else
+                        Return Nothing
+                    End If
+                End If
             End If
         End Get
     End Property

@@ -1797,7 +1797,6 @@ Public Class DataTool
         .CanDragDrop = False,
         .Font = GothicFont}
     Private WithEvents OpenFile As New OpenFileDialog
-    Private WithEvents SaveFile As New SaveFileDialog
     '-----------------------------------------
     Private WithEvents DragNode As Node
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
@@ -2290,9 +2289,6 @@ Public Class DataTool
 
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ ALERTS
     Public Event Alert(sender As Object, e As AlertEventArgs)
-    Private Sub ScriptAlerts(sender As Object, e As AlertEventArgs)
-        RaiseEvent Alert(sender, e)
-    End Sub
     Private Sub ViewerAlerts(sender As Object, e As AlertEventArgs) Handles Script_Grid.Alert
         RaiseEvent Alert(sender, e)
     End Sub
@@ -2310,11 +2306,6 @@ Public Class DataTool
     Public ReadOnly Property Pane As RicherTextBox
         Get
             Return ActivePane()
-        End Get
-    End Property
-    Public ReadOnly Property Grid As DataViewer
-        Get
-            Return Script_Grid
         End Get
     End Property
     Private Function ActiveTab() As Tab
@@ -3511,12 +3502,31 @@ Public Class DataTool
                             Next
                         Else
                             Dim body As BodyElements = .Body
-                            Dim bodyNames As New List(Of String)(From te In body.TablesElement Select te.Name.ToUpperInvariant)
-                            Dim systemNames As New List(Of String)(From so In SystemObjects Select so.Name.ToUpperInvariant)
-                            Dim objectsNeed As New List(Of String)(bodyNames.Except(systemNames))
-                            If objectsNeed.Any Then
-                                RaiseEvent Alert(.Body, New AlertEventArgs("Adding to profile: " & Join(objectsNeed.ToArray, ",") & "-(RunQuery)"))
-                                Dim tableColumnSQL As String = ColumnSQL(objectsNeed.ToArray, .Connection.Language)
+                            'If Owner is provided, it should be used as the ColumnTypes query runs faster and is more accurate.
+                            Dim savedObjects As New List(Of SystemObject)(SystemObjects.Where(Function(so) so.Connection = .Connection))
+                            Dim needObjects As New List(Of SystemObject)
+                            For Each bodyObject In body.TablesElement
+                                Dim foundObject As Boolean = False
+                                For Each savedObject In savedObjects
+                                    If savedObject.Name?.ToUpperInvariant = bodyObject.Name?.ToUpperInvariant Then
+                                        If bodyObject.Owner?.Any Then
+                                            If savedObject?.Owner.ToUpperInvariant = bodyObject.Owner.ToUpperInvariant Then foundObject = True
+                                        Else
+                                            foundObject = True
+                                        End If
+                                    End If
+                                Next
+                                If Not foundObject Then
+                                    needObjects.Add(New SystemObject With {
+                                    .Name = If(bodyObject.Name, bodyObject.Name.ToUpperInvariant),
+                                    .Owner = If(bodyObject.Owner, bodyObject.Owner.ToUpperInvariant)
+                            })
+                                End If
+                            Next
+                            If needObjects.Any Then
+                                Dim needNames As New List(Of String)(From no In needObjects Select no.FullName)
+                                RaiseEvent Alert(.Body, New AlertEventArgs("Adding to profile: " & Join(needNames.ToArray, ",") & "-(RunQuery)"))
+                                Dim tableColumnSQL As String = ColumnSQL(needObjects, .Connection.Language)
                                 With New SQL(.Connection, tableColumnSQL)
                                     AddHandler .Completed, AddressOf ColumnsSQL_Completed
                                     .Execute()
@@ -3603,13 +3613,30 @@ Public Class DataTool
                 'Show message immediately as it can take time to set datasource, etc
                 BulletMessage = Bulletize({e.Columns.ToString(InvariantCulture) & " columns", e.Rows.ToString(InvariantCulture) & " rows", ElapsedMessage})
                 TLP_PaneGrid.ColumnStyles(0).Width = 0
-                Script_Grid?.Timer?.StartTicking(Color.LawnGreen)
-                With New Worker
-                    .Tag = e.Table
-                    AddHandler .DoWork, AddressOf Async_StartDatasourceWidth
-                    AddHandler .RunWorkerCompleted, AddressOf Async_EndDatasourceWidth
-                    .RunWorkerAsync()
-                End With
+                Script_Grid.Timer?.StartTicking(Color.LawnGreen)
+                Script_Grid.DataSource = e.Table
+
+                Dim body As BodyElements = _Script.Body
+                Dim bodyObjects As New List(Of SystemObject)
+                For Each table In body.TablesElement
+                    bodyObjects.AddRange(From so In SystemObjects Where so.Connection = _Script.Connection And table.Name = so.Name)
+                Next
+                For Each queryColumn As DataColumn In e.Table.Columns
+                    For Each bodyObject In bodyObjects
+                        If bodyObject.Columns.ContainsKey(queryColumn.ColumnName) Then queryColumn.Namespace = bodyObject.Columns(queryColumn.ColumnName).Format
+                    Next
+                Next
+
+                AutoWidth(Script_Grid)
+
+                'Stop
+
+                'With New Worker
+                '    .Tag = e.Table
+                '    AddHandler .DoWork, AddressOf Async_StartDatasourceWidth
+                '    AddHandler .RunWorkerCompleted, AddressOf Async_EndDatasourceWidth
+                '    .RunWorkerAsync()
+                'End With
             Else
                 BulletMessage = Bulletize({ElapsedMessage})
 
@@ -4470,7 +4497,7 @@ Public Class DataTool
                 Script_Grid.Timer.Picture = WaitTimer.ImageType.Spin
                 Script_Grid.Timer.StartTicking()
                 Dim SQL_Sample As String = Join({"SELECT *", "FROM " & NodeObject.FullName, "FETCH FIRST 50 ROWS ONLY"}, vbNewLine)
-                Dim SQL_Structure As String = ColumnSQL(NodeObject.FullName)
+                Dim SQL_Structure As String = ColumnSQL(NodeObject)
                 With Jobs
                     .Clear()
                     .Add(New Job(New SQL(NodeObject.Connection, SQL_Sample) With {
@@ -5130,7 +5157,12 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
 
         With DirectCast(sender, ETL)
             RemoveHandler .Completed, AddressOf ViewerTableExportedToDatabase
-            RaiseEvent Alert(sender, New AlertEventArgs(If(.Succeeded, "Succeeded ", "Failed ") & Replace(.Name, "Exporting", "exporting")))
+            If .Succeeded Then
+                RaiseEvent Alert(sender, New AlertEventArgs("Succeeded exporting " & .Name))
+            Else
+                Dim messages As New List(Of String)(From r In .Responses Where r.Message IsNot Nothing Select r.Message)
+                RaiseEvent Alert(sender, New AlertEventArgs("Failed exporting " & .Name & " : " & Join(messages.ToArray, ", ")))
+            End If
         End With
 
     End Sub

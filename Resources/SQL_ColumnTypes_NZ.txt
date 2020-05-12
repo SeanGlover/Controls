@@ -14,7 +14,8 @@ SELECT CAST('NZSQL' AS CHAR(5))
 FROM _v_table T
 LEFT JOIN _v_relation_column C
 ON (T.OBJID=C.OBJID)
-WHERE UPPER(T.TABLENAME) In ///TABLES///
+
+///tableCONDITIONS///
 
 UNION ALL
 
@@ -33,7 +34,9 @@ SELECT CAST('NZSQL' AS CHAR(5))
 FROM _v_view V
 LEFT JOIN _v_relation_column C
 ON (V.OBJID=C.OBJID)
-WHERE UPPER(V.VIEWNAME) In ///TABLES///
+
+///viewCONDITIONS///
+
 )
 --====================
 SELECT *

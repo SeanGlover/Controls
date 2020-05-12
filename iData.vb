@@ -2992,9 +2992,12 @@ Public Class ETL
             Get
                 Dim ConsolidatedData As New DataTable
                 Dim Sources = Parent.Parent.Sources.Data
+                Dim nameSpaces As New List(Of String)
                 For Each Table In Sources.Tables
                     ConsolidatedData.Merge(Table)
+                    nameSpaces.Add(Table.Namespace)
                 Next
+                ConsolidatedData.Namespace = If(nameSpaces.Any, nameSpaces.First, String.Empty)
                 Return ConsolidatedData
             End Get
         End Property
@@ -3057,6 +3060,7 @@ Public Class ETL
             Using newTable As DataTable = Table.Copy
                 newTable.TableName = "newTable"
                 _Columns = DataTableToSystemObject(newTable).Columns
+                Stop
             End Using
             With New DDL(ConnectionString, TableDDL)
                 AddHandler .Completed, AddressOf Table_CreateResponded
@@ -3102,7 +3106,16 @@ Public Class ETL
 #Region " GET TABLE STRUCTURE FROM DB2 "
         Private Sub Table_Structure()
 
-            Dim Instruction As String = ColumnSQL(TableName)
+            Dim tableElements As String() = Split(TableName, ".")
+            Dim table_Owner As String = If(TableName.Contains("."), If(tableElements.First.Any, tableElements.First, Nothing), Nothing)
+            If TableName.Contains(".") Then table_Owner = If(tableElements.First.Any, tableElements.First, Nothing)
+            Dim table_Name As String = tableElements.Last
+
+            Dim tableObject As New SystemObject With {
+                .Name = table_Name,
+                .Owner = table_Owner
+            }
+            Dim Instruction As String = ColumnSQL(tableObject)
             With New SQL(ConnectionString, Instruction)
                 AddHandler .Completed, AddressOf Table_StructureResponded
                 .Execute()
@@ -3410,31 +3423,65 @@ Public Module iData
         End With
 
     End Function
-    Friend Function ColumnSQL(tableName As String, Optional language As QueryLanguage = QueryLanguage.Db2) As String
-
-        Select Case language
-            Case QueryLanguage.Netezza
-                Return Replace(My.Resources.SQL_ColumnTypes_NZ, " In ///TABLES///", "=" & ValueToField(tableName))
-
-            Case Else
-                Return Replace(My.Resources.SQL_ColumnTypes, "'///OWNER_TABLE///'", ValueToField(tableName))
-
-        End Select
-
+    Public Function ColumnSQL(tableName As SystemObject, Optional language As QueryLanguage = QueryLanguage.Db2) As String
+        Return ColumnSQL({tableName}.ToList, language)
     End Function
-    Friend Function ColumnSQL(tableNames As String(), Optional language As QueryLanguage = QueryLanguage.Db2) As String
+    Public Function ColumnSQL(tables As List(Of SystemObject), Optional language As QueryLanguage = QueryLanguage.Db2) As String
 
-        If tableNames.Any Then
-            Select Case language
-                Case QueryLanguage.Netezza
-                    Return Replace(My.Resources.SQL_ColumnTypes_NZ, "///TABLES///", ValuesToFields(tableNames)) 'Delimiter § is illegal in NZ
-
-                Case Else
-                    Return Replace(My.Resources.SQL_ColumnTypes, "'///OWNER_TABLE///'", Join(tableNames.Select(Function(x) ValueToField(x)).ToArray, ","))
-
-            End Select
-        Else
+        If tables Is Nothing Then
             Return Nothing
+        Else
+            If tables.Any Then
+                Dim ownerNames As New List(Of String)
+                Dim justNames As New List(Of String)
+                Dim tableNames As New List(Of String)
+                For Each table In tables
+                    If If(table.Owner, String.Empty).Any Then
+                        If Not ownerNames.Contains(table.FullName) Then ownerNames.Add(table.FullName.ToUpperInvariant)
+                        tableNames.Add(table.Name.ToUpperInvariant)
+                    End If
+                Next
+                For Each table In tables
+                    If Not If(table.Owner, String.Empty).Any And Not tableNames.Contains(table.Name.ToUpperInvariant) Then justNames.Add(table.Name.ToUpperInvariant)
+                Next
+
+                Dim ownersIn As String = ValuesToFields(ownerNames.ToArray)
+                Dim NamesIn As String = ValuesToFields(justNames.ToArray)
+
+                Select Case language
+                    Case QueryLanguage.Netezza
+                        Dim tableConditions As New List(Of String)
+                        Dim viewConditions As New List(Of String)
+                        If ownerNames.Any Then
+                            tableConditions.Add("WHERE Trim(UPPER(T.SCHEMA))||'.'||TRIM(UPPER(T.TABLENAME)) IN " & ownersIn)
+                            viewConditions.Add("WHERE Trim(UPPER(V.SCHEMA))||'.'||TRIM(UPPER(V.VIEWNAME)) IN " & ownersIn)
+                            If justNames.Any Then
+                                tableConditions.Add("Or Trim(UPPER(T.TABLENAME)) IN " & NamesIn)
+                                viewConditions.Add("Or Trim(UPPER(V.VIEWNAME)) IN " & NamesIn)
+                            End If
+                        Else
+                            tableConditions.Add("WHERE Trim(UPPER(T.TABLENAME)) IN " & NamesIn)
+                            viewConditions.Add("WHERE Trim(UPPER(V.VIEWNAME)) IN " & NamesIn)
+                        End If
+                        Dim columnTypes As String = Replace(My.Resources.SQL_ColumnTypes_NZ, "///tableCONDITIONS///", Join(tableConditions.ToArray, vbNewLine))
+                        columnTypes = Replace(columnTypes, "///viewCONDITIONS///", Join(viewConditions.ToArray, vbNewLine))
+                        Return columnTypes
+
+                    Case Else
+                        Dim conditions As New List(Of String)
+                        If ownerNames.Any Then
+                            conditions.Add("WHERE Trim(UPPER(T.CREATOR))||'.'||TRIM(UPPER(T.NAME)) IN " & ownersIn)
+                            If justNames.Any Then conditions.Add("Or Trim(UPPER(T.NAME)) IN " & NamesIn)
+                        Else
+                            conditions.Add("WHERE Trim(UPPER(T.NAME)) IN " & NamesIn)
+                        End If
+                        Dim columnTypes As String = Replace(My.Resources.SQL_ColumnTypes, "///CONDITIONS///", Join(conditions.ToArray, vbNewLine))
+                        Return columnTypes
+
+                End Select
+            Else
+                Return Nothing
+            End If
         End If
 
     End Function
@@ -3745,7 +3792,7 @@ Public Module iData
                 Top.Add("<head>")
                 Top.Add("<style>")
                 Top.Add("body {font-family: " & TableFont.FontFamily.Name & "}")
-                Top.Add("table {border-collapse:collapse; border: 1px solid #778db3; width: 100%;}")
+                Top.Add("table {border-collapse:collapse; border: 1px solid #778db3;}") ' width: 100%;
                 Top.Add("th {background-color:" & HBS & "; color:" & HFS & "; text-align:center; font-weight:bold; font-size:0." & TableFont.Size & "em; border: 1px solid #778db3; white-space: nowrap;}")
                 Top.Add("td {text-align:left; font-size:0." & (TableFont.Size - 1) & "em; border: 1px #696969; white-space: nowrap;}")
                 'Top.Add("tr:nth-child(even) {background-color: #F5F5DC;}")     DOESN'T WORK!
@@ -4081,6 +4128,12 @@ Public Module iData
                 Dim columnValues As New List(Of Object)(DataColumnToList(Column))
                 Dim columnType As Type = If(isDatabaseTable, Column.DataType, GetDataType(columnValues))
 
+                'If Column.ColumnName.ToUpperInvariant = "TIMESTAMP" Then Stop
+                ' **** FUTURE DEVELOPMENT <DB2> queries do lose casting from a DB2 type to a .Net DataColumn.DataType
+                'Example Column Timestamp is Decimal(15, 0) but the DataViewer.Table has an Int64 value, and not a Decimal
+                'In order to get around this the DataViewer's Columns should have their Namespace value filled which is tricky
+                'SystemObjects has Column casting but following a query, it would mean getting the Table names and the correlating SystemObject
+
                 Dim dataType As String
                 Dim length As Short
                 Dim scale As Byte
@@ -4185,6 +4238,7 @@ Public Module iData
                 Dim cp As New ColumnProperties With {
                             .Name = Db2ColumnNamingConvention(Column.ColumnName),
                             .Index = Column.Ordinal,
+                            .DataType = dataType,
                             .Length = length,
                             .Scale = scale
                     }
