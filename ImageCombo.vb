@@ -328,6 +328,9 @@ Public NotInheritable Class ImageCombo
     End Sub
 #End Region
 #Region " PROPERTIES "
+    Public Property CheckBoxes As Boolean = True
+    Public Property CheckOnSelect As Boolean = False
+    Public Property MultiSelect As Boolean
     Private ButtonTheme_ As Theme = Theme.Yellow
     Public Property ButtonTheme As Theme
         Get
@@ -465,13 +468,13 @@ Public NotInheritable Class ImageCombo
             If Mode_ <> value Then
                 Items.Clear()
                 If value = ImageComboMode.ColorPicker Then
-                    DropDown.CheckBoxes = False
+                    CheckBoxes = False
                     For Each colorItem In ColorImages()
                         Dim item As ComboItem = Items.Add(colorItem.Key.Name, colorItem.Value)
                         item.Tag = colorItem.Key
                     Next
                 ElseIf value = ImageComboMode.FontPicker Then
-                    DropDown.CheckBoxes = False
+                    CheckBoxes = False
                     For Each fontItem In FontImages()
                         Dim item As ComboItem = Items.Add(fontItem.Key.Name, fontItem.Value)
                         item.Tag = fontItem.Key
@@ -567,6 +570,8 @@ Public NotInheritable Class ImageCombo
                     Else
                         Return Nothing
                     End If
+                Else
+                    Return Nothing
                 End If
             End If
         End Get
@@ -579,7 +584,7 @@ Public NotInheritable Class ImageCombo
         Set(value As Integer)
             If Not (value < 0 Or value >= Items.Count) Then
                 OnItemSelected(Items(value), False)
-                If Not DropDown.MultiSelect Then
+                If Not MultiSelect Then
                     Dim LastSelected As New List(Of ComboItem)(From CI In Items Where CI.Selected)
                     If LastSelected.Any Then LastSelected.First._Selected = False
                 End If
@@ -1188,7 +1193,7 @@ Public Class ImageComboDropDown
                     Dim Bounds As Rectangle = .Bounds
                     Bounds.Offset(0, -VScroll.Value)
                     e.Graphics.FillRectangle(New SolidBrush(Color.FromArgb(64, BackColor)), .Bounds)
-                    If CheckBoxes Then
+                    If ImageCombo.CheckBoxes Then
                         Dim CheckBounds As Rectangle = .CheckBounds
                         CheckBounds.Offset(0, -VScroll.Value)
                         ControlPaint.DrawCheckBox(e.Graphics, CheckBounds, If(.Checked, ButtonState.Checked, ButtonState.Normal))
@@ -1334,9 +1339,6 @@ Public Class ImageComboDropDown
         End Get
     End Property
     Public Property ShadeColor As Color = Color.WhiteSmoke
-    Public Property CheckBoxes As Boolean = True
-    Public Property CheckOnSelect As Boolean = False
-    Public Property MultiSelect As Boolean
     Public Property SelectionColor As Color = Color.Transparent
     Public Property DropShadowColor As Color = Color.CornflowerBlue
     Private _ForceCapture As Boolean
@@ -1411,12 +1413,12 @@ Public Class ImageComboDropDown
                     Else
                         Dim Selected As New List(Of ComboItem)(From CI In VisibleComboItems Where CI.Bounds.Contains(VScrollOffset))
                         If Selected.Any Then
-                            If Not MultiSelect Then
+                            If Not ImageCombo.MultiSelect Then
                                 'Dim LastSelected As New List(Of ComboItem)(From CI In Items Where CI.Selected)
                                 'If LastSelected.Any Then LastSelected.First._Selected = False
                             End If
                             Selected.First._Selected = Not (Selected.First.Selected)
-                            If CheckOnSelect Then Selected.First._Checked = Not (Selected.First.Checked)
+                            If ImageCombo.CheckOnSelect Then Selected.First._Checked = Not (Selected.First.Checked)
                             .OnItemSelected(Selected.First, Control.ModifierKeys = Keys.Shift)
                         End If
                     End If
@@ -1521,7 +1523,7 @@ Public Class ImageComboDropDown
                         ._Bounds.Y = (ItemHeight * .Index)
                         ._Bounds.Width = Width - ShadowDepth
                         ._Bounds.Height = ItemHeight
-                        If CheckBoxes Then
+                        If ImageCombo.CheckBoxes Then
                             ._CheckBounds.X = 2
                             ._CheckBounds.Y = ._Bounds.Y + Convert.ToInt32((ItemHeight - 14) / 2)
                             ._CheckBounds.Width = 14
@@ -1610,7 +1612,7 @@ Public NotInheritable Class ItemCollection
                 ._Bounds.Y = (ItemHeight * .Index)
                 ._Bounds.Width = ImageCombo.DropDown.Width - 3
                 ._Bounds.Height = ItemHeight
-                If ImageCombo.DropDown.CheckBoxes Then
+                If ImageCombo.CheckBoxes Then
                     ._CheckBounds.X = 2
                     ._CheckBounds.Y = ._Bounds.Y + Convert.ToInt32((ItemHeight - 14) / 2)
                     ._CheckBounds.Width = 14

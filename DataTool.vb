@@ -2011,7 +2011,7 @@ Public Class DataTool
                     .Margin = New Padding(0),
                     .HintText = "Name",
                     .Font = GothicFont}
-                addkeyControl.DropDown.CheckBoxes = False
+                addkeyControl.CheckBoxes = False
                 Dim addvalueControl As New ImageCombo With {.Dock = DockStyle.Fill,
                     .Text = String.Empty,
                     .Margin = New Padding(0),
@@ -3300,11 +3300,11 @@ Public Class DataTool
                             If Not TLP_Type.Controls.Count = 0 Then
                                 REM /// INITIALIZE THEM
                                 With IC_BackColor
-                                    .DropDown.CheckBoxes = False
+                                    .CheckBoxes = False
                                     .Mode = ImageComboMode.ColorPicker
                                 End With
                                 With IC_ForeColor
-                                    .DropDown.CheckBoxes = False
+                                    .CheckBoxes = False
                                     .Mode = ImageComboMode.ColorPicker
                                 End With
                                 TLP_Type.Controls.Add(IC_BackColor)
@@ -3475,6 +3475,7 @@ Public Class DataTool
         With _Script
             If .Body.HasText And _Script.Connection IsNot Nothing Then
                 If .Connection.CanConnect Then
+                    RaiseEvent Alert("*Start", New AlertEventArgs("*Start"))
                     If .Type = ExecutionType.DDL Then
 #Region " D D L "
                         Cursor.Current = Cursors.WaitCursor
@@ -3568,6 +3569,7 @@ Public Class DataTool
     Private Sub Execute_Completed(sender As Object, e As ResponseEventArgs)
 
         Cursor.Current = Cursors.Default
+        RaiseEvent Alert("*End", New AlertEventArgs("*End"))
         Script_Grid?.Timer?.StopTicking()
         Dim pane As RicherTextBox = ActivePane()
 
@@ -3614,29 +3616,12 @@ Public Class DataTool
                 BulletMessage = Bulletize({e.Columns.ToString(InvariantCulture) & " columns", e.Rows.ToString(InvariantCulture) & " rows", ElapsedMessage})
                 TLP_PaneGrid.ColumnStyles(0).Width = 0
                 Script_Grid.Timer?.StartTicking(Color.LawnGreen)
-                Script_Grid.DataSource = e.Table
-
-                Dim body As BodyElements = _Script.Body
-                Dim bodyObjects As New List(Of SystemObject)
-                For Each table In body.TablesElement
-                    bodyObjects.AddRange(From so In SystemObjects Where so.Connection = _Script.Connection And table.Name = so.Name)
-                Next
-                For Each queryColumn As DataColumn In e.Table.Columns
-                    For Each bodyObject In bodyObjects
-                        If bodyObject.Columns.ContainsKey(queryColumn.ColumnName) Then queryColumn.Namespace = bodyObject.Columns(queryColumn.ColumnName).Format
-                    Next
-                Next
-
-                AutoWidth(Script_Grid)
-
-                'Stop
-
-                'With New Worker
-                '    .Tag = e.Table
-                '    AddHandler .DoWork, AddressOf Async_StartDatasourceWidth
-                '    AddHandler .RunWorkerCompleted, AddressOf Async_EndDatasourceWidth
-                '    .RunWorkerAsync()
-                'End With
+                With New Worker
+                    .Tag = {sender, _Script}
+                    AddHandler .DoWork, AddressOf Async_StartDatasourceWidth
+                    AddHandler .RunWorkerCompleted, AddressOf Async_EndDatasourceWidth
+                    .RunWorkerAsync()
+                End With
             Else
                 BulletMessage = Bulletize({ElapsedMessage})
 
@@ -3661,10 +3646,25 @@ Public Class DataTool
 
     End Sub
     Private Sub Async_StartDatasourceWidth(sender As Object, e As DoWorkEventArgs)
+
         With DirectCast(sender, Worker)
             RemoveHandler .DoWork, AddressOf Async_StartDatasourceWidth
-            SetSafeControlPropertyValue(Script_Grid, "DataSource", DirectCast(.Tag, DataTable))
+            Dim senderTableScript As Object() = DirectCast(.Tag, Object())
+            Dim senderTable As DataTable = DirectCast(senderTableScript.First, SQL).Table
+            Dim senderScript As Script = DirectCast(senderTableScript.Last, Script)
+            SetSafeControlPropertyValue(Script_Grid, "DataSource", senderTable)
+            Dim body As BodyElements = senderScript.Body
+            Dim bodyObjects As New List(Of SystemObject)
+            For Each table In body.TablesElement
+                bodyObjects.AddRange(From so In SystemObjects Where so.Connection = senderScript.Connection And table.Name = so.Name)
+            Next
+            For Each queryColumn As DataColumn In senderTable.Columns
+                For Each bodyObject In bodyObjects
+                    If bodyObject.Columns.ContainsKey(queryColumn.ColumnName) Then queryColumn.Namespace = bodyObject.Columns(queryColumn.ColumnName).Format
+                Next
+            Next
         End With
+
     End Sub
     Private Sub Async_EndDatasourceWidth(sender As Object, e As RunWorkerCompletedEventArgs)
         AutoWidth(Script_Grid)

@@ -3060,7 +3060,6 @@ Public Class ETL
             Using newTable As DataTable = Table.Copy
                 newTable.TableName = "newTable"
                 _Columns = DataTableToSystemObject(newTable).Columns
-                Stop
             End Using
             With New DDL(ConnectionString, TableDDL)
                 AddHandler .Completed, AddressOf Table_CreateResponded

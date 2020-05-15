@@ -316,12 +316,12 @@ Public Module Functions
         End If
 
     End Function
-    Public Function QuotientRound(Dividend As Integer, Divisor As Integer) As Integer
+    Public Function QuotientRound(Dividend As Long, Divisor As Long) As Long
 
         'Dividend -The dividend Is the number you are dividing up
         'Divisor -The divisor Is the number you are dividing by
         'Quotient -The quotient Is the answer
-        Return Integer.Parse(Split(CDec(Dividend / Divisor).ToString(InvariantCulture), ".")(0), InvariantCulture)
+        Return Long.Parse(Split(CDec(Dividend / Divisor).ToString(InvariantCulture), ".")(0), InvariantCulture)
 
     End Function
     Public Function DoubleSplit(Number As Double) As KeyValuePair(Of Long, Double)
@@ -338,6 +338,11 @@ Public Module Functions
             Return New KeyValuePair(Of Long, Double)(wholeNumber, partNumber)
         End If
 
+    End Function
+    Public Function QuotientRemainder(Dividend As Long, Divisor As Long) As KeyValuePair(Of Long, Long)
+        Dim qr = QuotientRound(Dividend, Divisor)
+        '48 / 17 = 2, 14
+        Return New KeyValuePair(Of Long, Long)(qr, Dividend - (qr * Divisor))
     End Function
 #End Region
     Public Enum RelativeCursor
@@ -748,7 +753,7 @@ Public Module Functions
                 Dim sf As New StringFormat With {.Trimming = StringTrimming.None}
                 gTextSize = g.MeasureString(Text, TextFont, RectangleF.Empty.Size, sf)
             End Using
-            Return New Size(CInt(gTextSize.Width), CInt(gTextSize.Height))
+            Return New Size(Convert.ToInt32(gTextSize.Width), Convert.ToInt32(gTextSize.Height))
 
         End If
 
@@ -1458,10 +1463,8 @@ Public Module Functions
 
     Public Function EntitiesToString(html As String) As String
 
-        Dim oldHTML As String = html
         html = Regex.Replace(html, "&rsquo;", "'", RegexOptions.None)
         html = Regex.Replace(html, "&rdquo;|&amp;quot;", """", RegexOptions.None)
-        'If oldHTML.Contains("Balls in Bubble Tube") Then Stop
         html = Regex.Replace(html, "&reg;", "®", RegexOptions.None)
         html = Regex.Replace(html, "&amp;trade;", "™", RegexOptions.None)
         html = Regex.Replace(html, "&amp; ", "& ", RegexOptions.None)
@@ -3429,6 +3432,11 @@ Public NotInheritable Class Token
     Public Property Name As String
     Public Property Value As String
     Public Property Expiry As Date
+    Public ReadOnly Property Expired As Boolean
+        Get
+            Return Expiry <= Now
+        End Get
+    End Property
     Public Overrides Function ToString() As String
         Return Join({Name, Value, DateTimeToString(Expiry)}, Delimiter)
     End Function

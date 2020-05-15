@@ -16,13 +16,11 @@ Public Class Prompt
     Private WithEvents PromptTimer As New Timer With {.Interval = 5000}
     Private ReadOnly ParentControl As Control
     Public Enum IconOption
-
         Critical
         OK
         TimedMessage
         Warning
         YesNo
-
     End Enum
     Public Enum StyleOption
         Plain
@@ -79,9 +77,9 @@ Public Class Prompt
     Private ReadOnly Property ShadeColor As Color
     Private ReadOnly Property AccentColor As Color
     Public Property TitleMessage As String
+    Public Property BodyMessage As String
     Public Property TitleBarImageLeftSide As Boolean = True
     Public Property TitleBarImage As Image = My.Resources.Info_White
-    Public Property BodyMessage As String
     Public Property BorderColor As Color = Color.Black
     Public Property BorderForeColor As Color = Color.White
     Private Icon_ As Icon = Nothing
@@ -151,23 +149,12 @@ Public Class Prompt
         End Set
     End Property
     Private Const IconPadding As Integer = 3
-    Private ReadOnly Property IconBounds As New Rectangle(IconPadding, IconPadding, Icon.Width, Icon.Height)
-    Private ReadOnly Property TextBounds As New Dictionary(Of Rectangle, String)
-    Private ReadOnly Property GridBounds As Rectangle
+    Private ReadOnly Property IconBounds As Rectangle
         Get
-            Dim GridTop As Integer = {If(TextBounds.Keys.Any, TextBounds.Keys.Last.Bottom, 10), IconBounds.Bottom + 16}.Max
-            If IsNothing(Table.DataSource) Then
-                Table.Visible = False
-                Table.Size = New Size(1, 1)
-                Return New Rectangle(0, GridTop, 0, 0)
-            Else
-                Table.Width = Table.Columns.Sum(Function(x) x.Width + 1)
-                Table.Visible = True
-                Table.Height = {3 + Table.Columns.HeadBounds.Height + (Table.Rows.RowHeight * {1, Table.Rows.Count}.Max), 360}.Min
-                Return New Rectangle(0, 4 + GridTop, Table.Width, Table.Height)
-            End If
+            Return New Rectangle(IconPadding, IconPadding, Icon.Width, Icon.Height)
         End Get
     End Property
+    Private ReadOnly Property TextBounds As New Dictionary(Of Rectangle, String)
     Private ReadOnly Property ButtonBarBounds As Rectangle
     Private ReadOnly Property MainWindow As Process
     Private ReadOnly AddressBounds As New Dictionary(Of Rectangle, String)
@@ -273,37 +260,14 @@ Public Class Prompt
 
             REM /// DRAW TEXT IN EACH RECTANGLE
             AddressBounds.Clear()
-            For Each TextBound In TextBounds.Keys
-                Dim Line = TextBounds(TextBound)
-                If Regex.Match(Line, "https{0,1}:[^ ]{1,}", RegexOptions.None).Success Then     'Line hass URL
-                    Dim Words = RegexMatches(Line, "[^\s]{1,}", RegexOptions.None)
-                    Dim WordRectangles As New List(Of Rectangle)
-                    Dim LastRight As Integer = TextBound.Left
-                    For Each Word In Words
-                        Dim WordWidth As Integer = MeasureText(Word.Value, PreferredFont).Width
-                        Dim WordRectangle As New Rectangle(LastRight, TextBound.Top, WordWidth, TextBound.Height)
-                        WordRectangles.Add(WordRectangle)
-                        LastRight = WordRectangle.Right
-                        Dim WordIsAddress As Boolean = Regex.Match(Word.Value, "https{0,1}:[^ ]{1,}", RegexOptions.None).Success
-                        'e.Graphics.DrawRectangle(Pens.Red, WordRectangle)
-                        If WordIsAddress Then
-                            AddressBounds.Add(WordRectangle, Word.Value)
-                            If WordRectangle = LastBounds Then
-                                Using Underline As New Font(PreferredFont.FontFamily, PreferredFont.Size, FontStyle.Underline)
-                                    TextRenderer.DrawText(e.Graphics, Word.Value, Underline, WordRectangle, Color.Blue, TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
-                                End Using
-                            Else
-                                TextRenderer.DrawText(e.Graphics, Word.Value, PreferredFont, WordRectangle, Color.Blue, TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
-                            End If
-                        Else
-                            TextRenderer.DrawText(e.Graphics, Word.Value, PreferredFont, WordRectangle, TextColor, TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
-                        End If
-                    Next
-
-                Else
-                    TextRenderer.DrawText(e.Graphics, Line, PreferredFont, TextBound, Color.Black, TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
-
-                End If
+            For Each TextBound In TextBounds
+                Dim isURL As Boolean = Regex.Match(TextBound.Value, "https{0,1}:[^ ]{1,}", RegexOptions.None).Success
+                Dim textColor As Color = If(isURL, Color.Blue, ForeColor)
+                Using urlFont As New Font(Font.FontFamily, Font.Size, FontStyle.Underline)
+                    TextRenderer.DrawText(e.Graphics, TextBound.Value, If(isURL, urlFont, Font), TextBound.Key.Location, textColor)
+                End Using
+                If isURL Then AddressBounds.Add(TextBound.Key, TextBound.Value)
+                e.Graphics.DrawRectangle(Pens.Red, TextBound.Key)
             Next
             If Not Type = IconOption.TimedMessage Then
                 Using ButtonBarBrush As New SolidBrush(Color.FromArgb(32, BackgroundColor))
@@ -431,23 +395,16 @@ Public Class Prompt
     Public Overloads Function Show(TitleMessage As String, BodyMessage As String(), Optional Type As IconOption = IconOption.OK, Optional ColorTheme As StyleOption = StyleOption.Plain, Optional AutoCloseSeconds As Integer = 3) As DialogResult
         Return Show(TitleMessage, Join(BodyMessage, vbNewLine), Type, ColorTheme, AutoCloseSeconds)
     End Function
-    Public Overloads Function Show(TitleMessage As String, BodyMessage As String, Optional Type As IconOption = IconOption.OK, Optional ColorTheme As StyleOption = StyleOption.Plain, Optional AutoCloseSeconds As Integer = 3) As DialogResult
+    Public Overloads Function Show(titleBarMessage As String, bodyMessage As String, Optional Type As IconOption = IconOption.OK, Optional ColorTheme As StyleOption = StyleOption.Plain, Optional AutoCloseSeconds As Integer = 3) As DialogResult
 
         ControlBox = False
-        Me.TitleMessage = TitleMessage
+        TitleMessage = titleBarMessage
         Text = TitleMessage
         PromptTimer.Interval = 1000 * AutoCloseSeconds
 
-        'Dim ProcessList As New List(Of Process)(Process.GetProcesses)
-        'ProcessList.Sort(Function(p1, p2)
-        '                     Dim level1 = String.Compare(p1.MainWindowTitle, p2.MainWindowTitle, StringComparison.InvariantCulture)
-        '                     Return level1
-        '                 End Function)
-        '_MainWindow = ProcessList.First
-
-        BodyMessage = If(BodyMessage, String.Empty)
-        Me.BodyMessage = BodyMessage
-        If BodyMessage.Length = 0 Then Me.BodyMessage = "No Message"
+        bodyMessage = If(bodyMessage, String.Empty)
+        Me.BodyMessage = bodyMessage
+        If bodyMessage.Length = 0 Then Me.BodyMessage = "No Message"
 
         Me.Type = Type
         ColorStyle = ColorTheme
@@ -554,113 +511,136 @@ Public Class Prompt
         Return DialogResult
 
     End Function
+    Private Enum CharacterType
+        None
+        Space
+        NotSpace
+    End Enum
     Private Sub ResizeMe()
 
-        TextBounds.Clear()
-        Dim RowBWidth As Integer = 0
-        Dim IconZoneWH As Integer = IconPadding * 2 + Icon.Height
+        Dim proposedFormSize As New Size()
+        Dim proposedTextSize As New Size()
+        Dim proposedGridSize As New Size()
 
-#Region " #1 - Get TextWidth "
-        'a) Width & Height as a Rectangle based on total area...if there are long words wider than the Rectangle, it will need expanding below =============
-        Dim TextSize As Size = MeasureText(BodyMessage, Font)
-        Dim TextArea As Integer = TextSize.Width * TextSize.Height
-
-        Dim x2yRatio As Double = 3
-        'x * y = TextArea, x is x2yRatio larger than y ∴ ( y * x2yRatio ) * y = TextArea ∴ y² = TextArea ÷ x2yRatio ∴ y=√ ( TextArea ÷ x2yRatio )
-        Dim y As Double = Math.Sqrt(TextArea / x2yRatio)
-        RowBWidth = CInt(y * x2yRatio)
-        '==============================
-        'Ensure extra long words are considered
-        Dim Words As New List(Of Integer)(From rm In RegexMatches(BodyMessage, "[^ ]{1,}", RegexOptions.None) Select MeasureText(rm.Value, Font).Width)
-        If Words.Max > RowBWidth Then
-            'If a word is wider than the derived width the expand the width but if the word appears in the RowsA section, then add IconZoneWH as this value is subtracted below: Dim LinesA = WrapWords(BodyMessage, Font, RowBWidth - *** IconZoneWH *** )
-            'Dim LinesA = WrapWords(BodyMessage, Font, RowBWidth - IconZoneWH) makes an empty String if too long ... so remove empty strings - easy fix
-        End If
-#End Region
-
-        Dim Attempts As Integer
-        Dim RowsABHeight As Integer = 0
-        Do
-            RowBWidth = {RowBWidth, SideBorderWidths + Words.Max + SideBorderWidths, MinimumSize.Width}.Max
-#Region " #1 - Get TextHeight "
-            Dim RowsA As New Dictionary(Of Rectangle, String)
-            Dim RowsB As New Dictionary(Of Rectangle, String)
-            Dim LinesA = WrapWords(BodyMessage, Font, RowBWidth - IconZoneWH)
-            Dim LinesB As New Dictionary(Of Integer, String)
-            Dim LineHeight As Integer = MeasureText("|".ToUpperInvariant, Font).Height
-            Dim LineIndex As Integer = 0
-            Dim WidenText As Boolean = False
-
-            For Each Line In LinesA.Where(Function(l) l.Value.Any)
-                If LineIndex * LineHeight >= IconZoneWH Then
-                    Dim RemainingLines = Join(LinesA.Values.Skip(LineIndex).ToArray, vbNewLine)
-                    LinesB = WrapWords(RemainingLines, Font, RowBWidth)
-                    Exit For
-
-                Else
-                    Dim TopRightIconPoint As New Point(IconZoneWH, LineIndex * LineHeight)
-                    RowsA.Add(New Rectangle(TopRightIconPoint, New Size(If(WidenText, SideBorderWidths, 0) + RowBWidth - TopRightIconPoint.X, LineHeight)), Line.Value)
-                    TextBounds.Add(RowsA.Last.Key, RowsA.Last.Value)
-
+        If BodyMessage.Any Then
+#Region " #0 Get word Rectangles - no matter what size this Form should be "
+            Dim characterGroups As New Dictionary(Of Integer, String)
+            Dim firstLetter As Char = BodyMessage.First
+            Dim lastType As CharacterType = If(TrimReturn(firstLetter).Any, CharacterType.NotSpace, CharacterType.Space)
+            Dim typeString As String = String.Empty
+            For Each letter As Char In BodyMessage
+                Dim currentType As CharacterType = If(TrimReturn(letter).Any, CharacterType.NotSpace, CharacterType.Space)
+                If lastType <> currentType Then
+                    characterGroups.Add(characterGroups.Count, typeString)
+                    lastType = currentType
+                    typeString = String.Empty
                 End If
-                LineIndex += 1
+                typeString &= letter
             Next
-            For Each Line In LinesB
-                RowsB.Add(New Rectangle(New Point(0, LineIndex * LineHeight), New Size(If(WidenText, SideBorderWidths, 0) + RowBWidth, LineHeight)), Line.Value)
-                TextBounds.Add(RowsB.Last.Key, RowsB.Last.Value)
-                LineIndex += 1
+            characterGroups.Add(characterGroups.Count, typeString)
+            Dim wordSizes As New Dictionary(Of Integer, Size)
+            For Each group In characterGroups
+                wordSizes.Add(group.Key, MeasureText(group.Value, Font))
             Next
-            RowsABHeight = (RowsA.Count + RowsB.Count) * LineHeight
+            Dim rowHeight As Integer = wordSizes.Values.Max(Function(w) w.Height)
+            Dim largestWord As Integer = wordSizes.Values.Max(Function(w) w.Width)
 #End Region
-            'Dim rectangleA As New Rectangle(RowsA.Keys.Min(Function(r) r.Left), RowsA.Keys.Min(Function(r) r.Top), RowsA.Keys.Max(Function(r) r.Width), RowsA.Keys.Max(Function(r) r.Bottom))
-            'Dim rectangleB As New Rectangle(RowsB.Keys.Min(Function(r) r.Left), RowsB.Keys.Min(Function(r) r.Top), RowsB.Keys.Max(Function(r) r.Width), RowsB.Keys.Max(Function(r) r.Bottom))
-            If RowsA.Any Then
-                Dim RowsABottom As Integer = RowsA.Last.Key.Bottom
-                If RowsABottom > IconZoneWH Then
-                    'Center Icon between Text Rows
-                    Dim yOffset = CInt((RowsABottom - Icon.Height) / 2)
-                    _IconBounds = New Rectangle(IconPadding, yOffset, Icon.Width, Icon.Height)
-
-                ElseIf IconZoneWH > RowsABottom And Not RowsB.Any Then
-                    'Center Text between IconZone
-                    Dim RowOffset As Integer = CInt((IconZoneWH - RowsABottom) / 2)
-                    TextBounds.Clear()
-                    For Each Row In RowsA
-                        TextBounds.Add(New Rectangle(Row.Key.X, Row.Key.Y + RowOffset, Row.Key.Width, Row.Key.Height), Row.Value)
-                    Next
-                    _IconBounds = New Rectangle(IconPadding, IconPadding, Icon.Width, Icon.Height)
-
-                Else
-                    'Text height in top rows matches the height of the Icon
-                    _IconBounds = New Rectangle(IconPadding, IconPadding, Icon.Width, Icon.Height)
-                End If
-            End If
-            RowBWidth += CInt(Words.Average)
-            Attempts += 1
-        Loop While attempts < 1 Or RowBWidth / {RowsABHeight, 1}.max < 2
-
-        Width = (SideBorderWidths * 2) + {TextBounds.Max(Function(x) x.Key.Right), GridBounds.Right}.Max
-        Dim ButtonBarTop As Integer = IconPadding + {TextBounds.Keys.Last.Bottom, IconBounds.Bottom}.Max
-
-#Region " GRID WIDTH / HEIGHT / PLACEMENT  / VISIBILITY "
-        If Table.DataSource IsNot Nothing Then
-            Dim TLP_Table As New TableLayoutPanel With {.ColumnCount = 1, .RowCount = 1, .CellBorderStyle = TableLayoutPanelCellBorderStyle.None, .BorderStyle = BorderStyle.None}
-            With TLP_Table
-                .Left = 0
-                Dim GridWidth As Integer = Width - (SideBorderWidths * 2)
-                .Width = GridWidth
-                .Top = GridBounds.Top
-                Dim GridHeight As Integer = Table.Columns.HeadBounds.Height + Table.Rows.Take(15).Count * Table.Rows.RowHeight      ' 15 Rows MAXIMUM
-                .Height = GridHeight
-                .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = GridWidth})
-                .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = GridHeight})
-                .Controls.Add(Table)
+#Region " #1 Get best size for the Form "
+            If Table.DataSource Is Nothing Then
+                Table.Visible = False
+                Table.Size = New Size(1, 1)
+#Region " Text.Size is the main driver of the Form's Size - Get proposed text dimensions [width X height] "
+                'a) Width & Height as a Rectangle based on total area...if there are long words wider than the Rectangle, it will need expanding
+                Dim TextSize As Size = MeasureText(BodyMessage, Font)
+                Dim TextArea As Integer = TextSize.Width * TextSize.Height
+                Dim width2height_Ratio As Double = 3 'Prompt box looks good when width is 3 times the height
+                'Area = Width * Height                       ex Area = 10,000 ( x * y )
+                '∵ Width = 3*Height                         ex x = 3y
+                'Area = Width (3*Height) * Height            ex Area = 3y * y
+                'Area = 3*Height * Height                    ex y² * 3 = 10,000
+                'Area = Height² * 3                          ex y² = 10,000 / 3
+                'Height = √Area/3                            ex y = √3,333.33   57.73
+                'Width = Height * 3                          ex x = 57.73 * 3 = 173.21   ... 57.73 * 173.21 = 10,000
+                'Area of 10,000 should have a width of 173.21 and a height of 57.73
+                Dim proposedTextHeight As Double = Math.Sqrt(TextArea / width2height_Ratio)
+                Dim proposedTextWidth As Double = proposedTextHeight * width2height_Ratio
+                proposedTextSize = New Size(Convert.ToInt32({proposedTextWidth, largestWord}.Max), Convert.ToInt32(proposedTextHeight))
+#End Region
+            Else
+                Table.Visible = True
+                Table.Columns.ColumnWidths()
                 Table.Columns.DistibuteWidths()
-            End With
-            Controls.Add(TLP_Table)
-            ButtonBarTop = TLP_Table.Bottom
-        End If
+#Region " Grid.Size is the main driver of the Form's Size - Get proposed text dimensions [width X height] "
+                Dim idealGridWidth As Integer = Table.Columns.Sum(Function(x) x.Width + 1)
+                Dim proposedGridWidth As Integer = {1000, {idealGridWidth, 200}.Max}.Min 'No smaller than 200 wide, no larger than 1000 wide
+                proposedGridWidth = If(MaximumSize.IsEmpty, proposedGridWidth, {proposedGridWidth, MaximumSize.Width}.Min) 'Ensure within MaximumSize.Width, if any
+                Dim gridRowsCount As Integer = {{1, Table.Rows.Count}.Max, 15}.Min
+                Dim proposedGridHeight As Integer = Table.Columns.HeadBounds.Height + (Table.Rows.RowHeight * gridRowsCount)
+                proposedGridHeight = If(MaximumSize.IsEmpty, proposedGridHeight, {proposedGridHeight, MaximumSize.Height}.Min) 'Ensure within MaximumSize.Height, if any
+                Dim tlpTable As New TableLayoutPanel With {
+                .Name = "gridContainer",
+                .ColumnCount = 1,
+                .RowCount = 1,
+                .Margin = New Padding(0),
+                .CellBorderStyle = TableLayoutPanelCellBorderStyle.None,
+                .BorderStyle = BorderStyle.None}
+                With tlpTable
+                    .Size = New Size(proposedGridWidth, proposedGridHeight)
+                    .ColumnStyles.Add(New ColumnStyle With {
+                                      .SizeType = SizeType.Absolute,
+                                      .Width = proposedGridWidth
+                                      })
+                    .RowStyles.Add(New RowStyle With {
+                                      .SizeType = SizeType.Absolute,
+                                      .Height = proposedGridWidth
+                                      })
+                    .Controls.Add(Table)
+                End With
+                TLP.SetSize(tlpTable)
+                Controls.Add(tlpTable)
+                proposedGridSize = New Size(proposedGridWidth, proposedGridHeight)
 #End Region
+            End If
+#End Region
+            'If no Grid, TextSize = ( Height * 3, Height ). If Grid, then Form.Width will depend on Grid.Size
+            'Now check for Form Min and Max Size restrictions...
+            Dim proposedClientWidth As Integer = IconBounds.Right + If(proposedGridSize.IsEmpty, proposedTextSize.Width, proposedGridSize.Width)
+            proposedClientWidth = If(MaximumSize.IsEmpty, proposedClientWidth, {proposedClientWidth, MaximumSize.Width}.Min)
+            proposedClientWidth = If(MinimumSize.IsEmpty, proposedClientWidth, {proposedClientWidth, MinimumSize.Width}.Max)
+
+            'Now a Width is determined, the TextBounds collection can be filled
+            'XXXXXXXXXX
+            'XXXXXXXXXX  L I N E   1 ...................
+            'XXXXXXXXXX_________________________________
+            'XXXXXXXXXX
+            'XXXXXXXXXX  L I N E   2 ...................
+            'XXXXXXXXXX_________________________________
+            '
+            ' L I N E   3 ..............................
+
+#Region " #3 - Around the Icon "
+            Dim lines As New Dictionary(Of Integer, List(Of String))
+            Dim lineIndex As Integer = 0
+            Dim leftBuffer As Integer = 6
+            Dim wordBoundsLeft As Integer = IconBounds.Right + leftBuffer
+            TextBounds.Clear()
+            For Each wordSize In wordSizes
+                If wordBoundsLeft > proposedClientWidth Then
+                    'Image.Width + Word.Width > Content.Width ... new line
+                    Dim pastIcon As Boolean = rowHeight * lines.Count > IconBounds.Bottom
+                    wordBoundsLeft = If(pastIcon, leftBuffer, IconBounds.Right + leftBuffer)
+                    lineIndex += 1
+                End If
+                If Not lines.ContainsKey(lineIndex) Then lines.Add(lineIndex, New List(Of String))
+                lines(lineIndex).Add(characterGroups(wordSize.Key))
+                TextBounds.Add(New Rectangle(wordBoundsLeft, lineIndex * rowHeight, wordSize.Value.Width, rowHeight), characterGroups(wordSize.Key))
+                wordBoundsLeft += wordSize.Value.Width
+            Next
+#End Region
+        End If
+
+        Width = 50 + (SideBorderWidths * 2) + {TextBounds.Max(Function(x) x.Key.Right), proposedGridSize.Width}.Max
+        Dim ButtonBarTop As Integer = IconPadding + {TextBounds.Keys.Last.Bottom, IconBounds.Bottom}.Max
 
         _ButtonBarBounds = New Rectangle(0, {ButtonBarTop, MinimumSize.Height - ButtonBarHeight}.Max, ClientSize.Width - 1, If(Type = IconOption.TimedMessage, 0, ButtonBarHeight))
         Height = TitleBarHeight + ButtonBarBounds.Bottom + BottomBorderHeight
@@ -698,7 +678,6 @@ Public Class TitleBarImage
     Private ReadOnly _TitleBarAlignment As HorizontalAlignment = Nothing
     Private PositionOffset As Point = Point.Empty
     Private ReadOnly _Img As Image = Nothing
-
     ''' <summary>Displays an image in the TitleBar of the specified form.</summary>
     ''' <param name="frm">The form to display the image on.</param>
     ''' <param name="Img">The Image to display.</param>
@@ -717,15 +696,13 @@ Public Class TitleBarImage
         _Img = Img
         SetHandlers()
     End Sub
-
     Protected Overrides Sub OnPaint(ByVal e As PaintEventArgs)
         If e IsNot Nothing Then
             e.Graphics.DrawImage(_Img, 0, 0, Width, Height)
             MyBase.OnPaint(e)
         End If
     End Sub
-
-    Protected Overrides Sub OnShown(ByVal e As System.EventArgs)
+    Protected Overrides Sub OnShown(ByVal e As EventArgs)
         Dim ratio As Double = _Img.Width / _Img.Height
         Height = SystemInformation.CaptionHeight - 4
         Width = CInt(Height * ratio)
@@ -733,14 +710,12 @@ Public Class TitleBarImage
         Opacity = 1.0
         MyBase.OnShown(e)
     End Sub
-
     Protected Overrides Sub OnMouseDown(ByVal e As System.Windows.Forms.MouseEventArgs)
         PositionOffset.X = MousePosition.X - _frm.Left
         PositionOffset.Y = MousePosition.Y - _frm.Top
         MyBase.OnMouseDown(e)
         _frm.Focus()
     End Sub
-
     Protected Overrides Sub OnMouseMove(ByVal e As System.Windows.Forms.MouseEventArgs)
         If MouseButtons = MouseButtons.Left Then
             _frm.Left = MousePosition.X - PositionOffset.X
@@ -748,7 +723,6 @@ Public Class TitleBarImage
         End If
         MyBase.OnMouseMove(e)
     End Sub
-
     Private Sub SetPosition()
         If _TitleBarAlignment = HorizontalAlignment.Left Then
             Left = _frm.Left + 10
@@ -761,21 +735,17 @@ Public Class TitleBarImage
             Top = _frm.Top + 4
         End If
     End Sub
-
     Private Sub SetHandlers()
         AddHandler _frm.FormClosing, AddressOf Frm_Closing
         AddHandler _frm.Move, AddressOf Frm_Move
         AddHandler _frm.Resize, AddressOf Frm_Resize
     End Sub
-
     Private Sub Frm_Closing(ByVal sender As Object, ByVal e As System.Windows.Forms.FormClosingEventArgs)
         Close()
     End Sub
-
     Private Sub Frm_Move(ByVal sender As Object, ByVal e As System.EventArgs)
         SetPosition()
     End Sub
-
     Private Sub Frm_Resize(ByVal sender As Object, ByVal e As System.EventArgs)
         SetPosition()
     End Sub

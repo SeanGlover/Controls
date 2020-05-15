@@ -318,7 +318,7 @@ Public Class FindReplace
                     Case Else
                         Dim Find As New ImageCombo
                         With Find
-                            .DropDown.CheckOnSelect = False
+                            .CheckOnSelect = False
                             AddHandler .SelectionChanged, AddressOf RequestMade
                             AddHandler .ClearTextClicked, AddressOf RequestMade
                         End With
@@ -326,7 +326,7 @@ Public Class FindReplace
 
                         Dim Replace As New ImageCombo
                         With Replace
-                            .DropDown.CheckBoxes = False
+                            .CheckBoxes = False
                             AddHandler .SelectionChanged, AddressOf RequestMade
                         End With
                         ReplaceControl_ = Replace
