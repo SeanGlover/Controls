@@ -742,18 +742,19 @@ Public Module Functions
         End If
 
     End Function
-    Public Function MeasureText(Text As String, TextFont As Font) As Size
+    Public Function MeasureText(Text As String, TextFont As Font, Optional adjustmentFactor As Double = 1.03) As Size
 
-        If Not If(Text, String.Empty).Any Or TextFont Is Nothing Then
-            Return New Size(0, 0)
-
-        Else
+        If If(Text, String.Empty).Any Or TextFont Is Nothing Then
             Dim gTextSize As SizeF
             Using g As Graphics = Graphics.FromImage(My.Resources.Plus)
-                Dim sf As New StringFormat With {.Trimming = StringTrimming.None}
+                Dim sf As New StringFormat With {
+                    .Trimming = StringTrimming.None}
                 gTextSize = g.MeasureString(Text, TextFont, RectangleF.Empty.Size, sf)
             End Using
-            Return New Size(Convert.ToInt32(gTextSize.Width), Convert.ToInt32(gTextSize.Height))
+            Return New Size(Convert.ToInt32(adjustmentFactor * gTextSize.Width), Convert.ToInt32(gTextSize.Height))
+
+        Else
+            Return New Size(0, 0)
 
         End If
 

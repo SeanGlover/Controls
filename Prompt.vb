@@ -9,7 +9,7 @@ Public Class Prompt
     Private Const WM_NCACTIVATE As Integer = &H86
     Private Const WM_NCPAINT As Integer = &H85
     Private Const ButtonBarHeight As Integer = 36
-    Private WithEvents Table As New DataViewer With {.Font = PreferredFont, .Visible = True, .Dock = DockStyle.Fill}
+    Private ReadOnly Property Table As DataViewer
     Private WithEvents OK As New Button With {.Text = "OK", .Font = PreferredFont, .Margin = New Padding(0), .Size = New Size(100, ButtonBarHeight - 6), .ImageAlign = ContentAlignment.MiddleLeft, .Image = My.Resources.ButtonYes, .BackColor = Color.GhostWhite, .ForeColor = Color.Black, .FlatStyle = FlatStyle.Popup}
     Private WithEvents YES As New Button With {.Text = "Yes", .Font = PreferredFont, .Margin = New Padding(0), .Size = New Size(100, ButtonBarHeight - 6), .ImageAlign = ContentAlignment.MiddleLeft, .Image = My.Resources.ButtonYes, .BackColor = Color.GhostWhite, .ForeColor = Color.Black, .FlatStyle = FlatStyle.Popup}
     Private WithEvents NO As New Button With {.Text = "No", .Font = PreferredFont, .Margin = New Padding(0), .Size = New Size(100, ButtonBarHeight - 6), .ImageAlign = ContentAlignment.MiddleLeft, .Image = My.Resources.ButtonNo, .BackColor = Color.GhostWhite, .ForeColor = Color.Black, .FlatStyle = FlatStyle.Popup}
@@ -64,7 +64,10 @@ Public Class Prompt
     Public Property Datasource As Object
         Set(value As Object)
             _DataSource = value
-            Table.DataSource = value
+            _Table = New DataViewer With {
+                .Font = PreferredFont,
+                .Dock = DockStyle.Fill,
+                .DataSource = value}
         End Set
         Get
             Return _DataSource
@@ -306,7 +309,7 @@ Public Class Prompt
     End Sub
     Protected Overrides Sub OnFontChanged(e As EventArgs)
 
-        Table.Font = Font
+        If Table IsNot Nothing Then Table.Font = Font
         YES.Font = Font
         NO.Font = Font
         _PreferredFont = Font
@@ -352,7 +355,7 @@ Public Class Prompt
     End Sub
     Private Sub Message_Closing(sender As Object, e As System.ComponentModel.CancelEventArgs) Handles MyBase.Closing
 
-        Table.DataSource = Nothing
+        _Table = Nothing
         TitleMessage = String.Empty
         BodyMessage = String.Empty
         If MainWindow IsNot Nothing Then
@@ -546,9 +549,7 @@ Public Class Prompt
             Dim largestWord As Integer = wordSizes.Values.Max(Function(w) w.Width)
 #End Region
 #Region " #1 Get best size for the Form "
-            If Table.DataSource Is Nothing Then
-                Table.Visible = False
-                Table.Size = New Size(1, 1)
+            If Datasource Is Nothing Then
 #Region " Text.Size is the main driver of the Form's Size - Get proposed text dimensions [width X height] "
                 'a) Width & Height as a Rectangle based on total area...if there are long words wider than the Rectangle, it will need expanding
                 Dim TextSize As Size = MeasureText(BodyMessage, Font)
@@ -568,15 +569,15 @@ Public Class Prompt
 #End Region
             Else
                 Table.Visible = True
-                Table.Columns.ColumnWidths()
-                Table.Columns.DistibuteWidths()
+                Table.AutoSize = True
 #Region " Grid.Size is the main driver of the Form's Size - Get proposed text dimensions [width X height] "
-                Dim idealGridWidth As Integer = Table.Columns.Sum(Function(x) x.Width + 1)
-                Dim proposedGridWidth As Integer = {1000, {idealGridWidth, 200}.Max}.Min 'No smaller than 200 wide, no larger than 1000 wide
+                Dim idealGridWidth As Integer = Table.IdealSize.Width
+                Dim proposedGridWidth As Integer = {1000, {idealGridWidth, largestWord, 200}.Max}.Min 'No smaller than 200 wide, no larger than 1000 wide
                 proposedGridWidth = If(MaximumSize.IsEmpty, proposedGridWidth, {proposedGridWidth, MaximumSize.Width}.Min) 'Ensure within MaximumSize.Width, if any
                 Dim gridRowsCount As Integer = {{1, Table.Rows.Count}.Max, 15}.Min
-                Dim proposedGridHeight As Integer = Table.Columns.HeadBounds.Height + (Table.Rows.RowHeight * gridRowsCount)
+                Dim proposedGridHeight As Integer = Table.IdealSize.Height
                 proposedGridHeight = If(MaximumSize.IsEmpty, proposedGridHeight, {proposedGridHeight, MaximumSize.Height}.Min) 'Ensure within MaximumSize.Height, if any
+                proposedGridSize = New Size(proposedGridWidth, proposedGridHeight)
                 Dim tlpTable As New TableLayoutPanel With {
                 .Name = "gridContainer",
                 .ColumnCount = 1,
@@ -585,20 +586,19 @@ Public Class Prompt
                 .CellBorderStyle = TableLayoutPanelCellBorderStyle.None,
                 .BorderStyle = BorderStyle.None}
                 With tlpTable
-                    .Size = New Size(proposedGridWidth, proposedGridHeight)
+                    .Size = proposedGridSize
                     .ColumnStyles.Add(New ColumnStyle With {
                                       .SizeType = SizeType.Absolute,
                                       .Width = proposedGridWidth
                                       })
                     .RowStyles.Add(New RowStyle With {
                                       .SizeType = SizeType.Absolute,
-                                      .Height = proposedGridWidth
+                                      .Height = proposedGridHeight
                                       })
                     .Controls.Add(Table)
                 End With
                 TLP.SetSize(tlpTable)
                 Controls.Add(tlpTable)
-                proposedGridSize = New Size(proposedGridWidth, proposedGridHeight)
 #End Region
             End If
 #End Region
@@ -639,11 +639,26 @@ Public Class Prompt
 #End Region
         End If
 
-        Width = 50 + (SideBorderWidths * 2) + {TextBounds.Max(Function(x) x.Key.Right), proposedGridSize.Width}.Max
-        Dim ButtonBarTop As Integer = IconPadding + {TextBounds.Keys.Last.Bottom, IconBounds.Bottom}.Max
+        Width = 3 + (SideBorderWidths * 2) + {TextBounds.Max(Function(x) x.Key.Right), proposedGridSize.Width}.Max + 3 'Exterior width
+        Dim clientWidth As Integer = ClientSize.Width 'Interior / available width
 
-        _ButtonBarBounds = New Rectangle(0, {ButtonBarTop, MinimumSize.Height - ButtonBarHeight}.Max, ClientSize.Width - 1, If(Type = IconOption.TimedMessage, 0, ButtonBarHeight))
-        Height = TitleBarHeight + ButtonBarBounds.Bottom + BottomBorderHeight
+        Dim textBottom As Integer = IconPadding + {TextBounds.Keys.Last.Bottom, IconBounds.Bottom}.Max
+        Dim tlpGrid As Control = Controls.Item("gridContainer")
+        If tlpGrid Is Nothing Then
+            _ButtonBarBounds = New Rectangle(0,
+                                             {textBottom, MinimumSize.Height - ButtonBarHeight}.Max,
+                                             clientWidth - 1, If(Type = IconOption.TimedMessage, 0,
+                                             ButtonBarHeight))
+        Else
+            Table.Columns.DistibuteWidths()
+            tlpGrid.Location = New Point(CInt((clientWidth - tlpGrid.Width) / 2), textBottom)
+            _ButtonBarBounds = New Rectangle(0,
+                                 {tlpGrid.Bounds.Bottom, MinimumSize.Height - ButtonBarHeight}.Max,
+                                 clientWidth - 1, If(Type = IconOption.TimedMessage, 0,
+                                 ButtonBarHeight))
+        End If
+
+        Height = TitleBarHeight + ButtonBarBounds.Bottom + BottomBorderHeight 'Exterior height
 
 #Region " BUTTON PLACEMENT / VISIBILITY "
         For Each Button In {YES, NO, OK}
@@ -653,7 +668,7 @@ Public Class Prompt
         Select Case Type
             Case IconOption.Critical, IconOption.OK, IconOption.Warning
                 OK.Visible = True
-                OK.Left = Convert.ToInt32((ClientSize.Width - OK.Width) / 2)
+                OK.Left = Convert.ToInt32((clientWidth - OK.Width) / 2)
 
             Case IconOption.TimedMessage
                 PromptTimer.Start()

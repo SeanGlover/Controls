@@ -615,6 +615,37 @@ Public Class DataViewer
 
     End Sub
 #Region " PROPERTIES - FUNCTIONS - METHODS "
+    Private AutoSize_ As Boolean = False
+    Public Overloads Property AutoSize As Boolean
+        Get
+            Return AutoSize_
+        End Get
+        Set(value As Boolean)
+            If value <> AutoSize_ Then
+                AutoSize_ = value
+                If value Then
+                    Columns.ColumnWidths()
+                    Columns.DistibuteWidths()
+                    Size = IdealSize
+                End If
+            End If
+        End Set
+    End Property
+    Public ReadOnly Property IdealSize As Size
+        Get
+            Dim auto_Size As Size = TotalSize
+            Return New Size(auto_Size.Width, auto_Size.Height + HeaderHeight)
+        End Get
+    End Property
+    Public ReadOnly Property TotalSize As Size
+        Get
+            Dim totalWidth As Integer = Columns.Select(Function(c) c.Width).Sum
+            Dim totalHeight As Integer = Rows.Count * Rows.RowHeight
+            If totalWidth > ClientRectangle.Width Then totalHeight += HScroll.Height 'Make room for Horizontal Scroll Bar to fully show rows
+            If totalHeight > ClientRectangle.Height Then totalWidth += VScroll.Width 'Make room for Vertical Scroll Bar to fully show columns
+            Return New Size(totalWidth, totalHeight)
+        End Get
+    End Property
     Private Timer_ As WaitTimer
     Public ReadOnly Property Timer As WaitTimer
         Get
@@ -657,15 +688,6 @@ Public Class DataViewer
     Public ReadOnly Property VisibleRowCount As Integer
         Get
             Return CInt(Math.Ceiling(Height - HeaderHeight) / RowHeight)
-        End Get
-    End Property
-    Public ReadOnly Property TotalSize As Size
-        Get
-            Dim totalWidth As Integer = Columns.Select(Function(c) c.Width).Sum
-            Dim totalHeight As Integer = Rows.Count * Rows.RowHeight
-            If totalWidth > ClientRectangle.Width Then totalHeight += HScroll.Height
-            If totalHeight > ClientRectangle.Height Then totalWidth += VScroll.Width
-            Return New Size(totalWidth, totalHeight)
         End Get
     End Property
     Private ReadOnly Property HeaderHeight As Integer
@@ -1612,10 +1634,14 @@ Public Class ColumnCollection
         Next
         RaiseEvent CollectionSizingEnd(Me, Nothing)
     End Sub
-    Public Sub DistibuteWidths()
+    Public Sub DistibuteWidths(Optional testing As Boolean = False)
 
         'If Viewer.Width>Columns.Width ... Then share extra space among columns
-        Dim ExtraWidth = CInt((Parent.Width - HeadBounds.Width) / Count)
+        Dim parentControl As Control = Parent
+        Do While parentControl.Parent IsNot Nothing AndAlso parentControl.Dock = DockStyle.Fill 'Or <> DockStyle.None?
+            parentControl = parentControl.Parent
+        Loop
+        Dim ExtraWidth = CInt((parentControl.Width - HeadBounds.Width) / Count)
         If ExtraWidth >= 1 Then
             'Space to spare
             Dim VisibleColumns As New List(Of Column)
@@ -1625,6 +1651,7 @@ Public Class ColumnCollection
                     Column.Width += ExtraWidth
                 End If
             Next
+            If testing Then Stop
             If VisibleColumns.Any Then
                 Do While Parent.HScrollVisible
                     VisibleColumns.Last.Width -= 1
