@@ -1027,16 +1027,18 @@ Public Class DataViewer
                             .Column = If(mouseColumns.Any, mouseColumns.First, Nothing) 'Ensure .Column has current value
                             Cursor = Cursors.Default
                             'Change the sort order
-                            If .Column.SortOrder = SortOrder.Ascending Then
-                                .Column.SortOrder = SortOrder.Descending
+                            If .Column IsNot Nothing Then
+                                If .Column.SortOrder = SortOrder.Ascending Then
+                                    .Column.SortOrder = SortOrder.Descending
 
-                            Else
-                                Dim formerSortOrder = .Column.SortOrder
-                                .Column.SortOrder = SortOrder.Ascending
-                                If formerSortOrder = SortOrder.None Then .Column.AutoWidth()
+                                Else
+                                    Dim formerSortOrder = .Column.SortOrder
+                                    .Column.SortOrder = SortOrder.Ascending
+                                    If formerSortOrder = SortOrder.None Then .Column.AutoWidth()
 
+                                End If
+                                Rows.SortBy(.Column)
                             End If
-                            Rows.SortBy(.Column)
 #End Region
                         End If
 #End Region
@@ -1587,17 +1589,23 @@ Public Class ColumnCollection
     Friend Sub ColumnsXH()
 
         Dim columnHeight As Integer = 0
-        For Each column In Me
-            columnHeight = {column.HeadSize.Height, column.HeaderStyle.Height, columnHeight}.Max
-        Next
+        Try
+            For Each column In Me
+                columnHeight = {column.HeadSize.Height, column.HeaderStyle.Height, columnHeight}.Max
+            Next
+        Catch ex As InvalidOperationException
 
+        End Try
         Dim columnLeft As Integer = 0
-        For Each column In Me
-            column.HeadBounds = New Rectangle(columnLeft, 0, column.Width, columnHeight)
-            column.HeaderStyle.Height = columnHeight
-            columnLeft += column.Width
-        Next
-        Parent?.Invalidate()
+        Try
+            For Each column In Me
+                column.HeadBounds = New Rectangle(columnLeft, 0, column.Width, columnHeight)
+                column.HeaderStyle.Height = columnHeight
+                columnLeft += column.Width
+            Next
+            Parent?.Invalidate()
+        Catch ex As InvalidOperationException
+        End Try
 
     End Sub
     Friend Sub Reorder(Column As Column, ViewIndex As Integer)
@@ -1637,25 +1645,28 @@ Public Class ColumnCollection
     Public Sub DistibuteWidths(Optional testing As Boolean = False)
 
         'If Viewer.Width>Columns.Width ... Then share extra space among columns
-        Dim parentControl As Control = Parent
-        Do While parentControl.Parent IsNot Nothing AndAlso parentControl.Dock = DockStyle.Fill 'Or <> DockStyle.None?
-            parentControl = parentControl.Parent
-        Loop
-        Dim ExtraWidth = CInt((parentControl.Width - HeadBounds.Width) / Count)
-        If ExtraWidth >= 1 Then
-            'Space to spare
-            Dim VisibleColumns As New List(Of Column)
-            For Each Column In Me
-                If Column.Visible Then
-                    VisibleColumns.Add(Column)
-                    Column.Width += ExtraWidth
-                End If
-            Next
-            If testing Then Stop
-            If VisibleColumns.Any Then
+        Dim VisibleColumns As New List(Of Column)(From c In Me Where c.Visible)
+        If VisibleColumns.Any Then
+            Dim parentControl As Control = Parent
+            Do While parentControl.Parent IsNot Nothing AndAlso parentControl.Dock = DockStyle.Fill 'Or <> DockStyle.None?
+                parentControl = parentControl.Parent
+            Loop
+            Dim ExtraWidth = CInt((parentControl.Width - HeadBounds.Width) / Count)
+            If ExtraWidth >= 1 Then
+                Dim rollingWidth As Integer = 0
+                Dim maxWidth As Integer = parentControl.Width
+                'Space to spare
+                For Each visibleColumn In VisibleColumns
+                    rollingWidth += ExtraWidth
+                    visibleColumn.Width += ExtraWidth
+                    If rollingWidth > maxWidth Then Exit For
+                Next
+                If testing Then Stop
                 Do While Parent.HScrollVisible
-                    VisibleColumns.Last.Width -= 1
-                    Parent.Invalidate()
+                    For Each Column In Me
+                        Column.Width -= 1
+                        Parent.Invalidate()
+                    Next
                 Loop
             End If
         End If

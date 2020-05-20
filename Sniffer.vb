@@ -22,38 +22,43 @@ Public Class Sniffer
 
     Private WithEvents ProxyServer As ProxyServer
     Private Const ProxyPort As Integer = 18880
+    Private ReadOnly Property SniffRequests As Integer
     Public Property Name As String
     Public Property Tag As Object
     Public ReadOnly Property Clients As New List(Of Http.HttpWebClient)
     Public Property Search As New SearchRequest
-    'Public ReadOnly Property FindRequestHeaders As New Dictionary(Of String, List(Of String)) 'Key=Host, List of Header names
-    'Public ReadOnly Property FindResponseBody As New List(Of String) 'List of strings to watch for in Response.Body
-    'Public Property FindRequestURL As Uri
     Public ReadOnly Property ClientsString As New List(Of String)
+    Public ReadOnly Property Sniffing As Boolean = False
     Public Sub New()
     End Sub
 
     Public Sub StartSniffing()
 
-        ProxyServer = New ProxyServer
-        Dim explicitEndPoint As New ExplicitProxyEndPoint(IPAddress.Any, ProxyPort, True)
-        With ProxyServer
-            .AddEndPoint(explicitEndPoint)
-            .Start()
-            .SetAsSystemHttpProxy(explicitEndPoint)
-            .SetAsSystemHttpsProxy(explicitEndPoint)
-        End With
+        Clients.Clear()
+        ClientsString.Clear()
+        If Not Sniffing Then
+            ProxyServer = New ProxyServer
+            Dim explicitEndPoint As New ExplicitProxyEndPoint(IPAddress.Any, ProxyPort + SniffRequests, True)
+            With ProxyServer
+                .AddEndPoint(explicitEndPoint)
+                .Start()
+                .SetAsSystemHttpProxy(explicitEndPoint)
+                .SetAsSystemHttpsProxy(explicitEndPoint)
+            End With
+            _Sniffing = True
+            _SniffRequests += 1
+        End If
 
     End Sub
     Public Sub StopSniffing()
 
+        _Sniffing = False
         If ProxyServer IsNot Nothing AndAlso ProxyServer.ProxyRunning Then
             Try
                 ProxyServer.[Stop]()
             Catch ex As InvalidOperationException
             End Try
         End If
-        Clients.Clear()
 
     End Sub
 
@@ -72,16 +77,27 @@ Public Class Sniffer
                            Dim response As Http.Response = e.HttpClient.Response
                            If Not response.StatusCode = 0 Then
                                RaiseEvent Alert(response, New AlertEventArgs(CStr(response.StatusCode)))
-                               If response.HasBody Then
+                               If response.HasBody And 0 = 1 Then '/// Errors trying to read BodyString as Response is still processing the reading of the Body
+                                   Dim responseValues As New List(Of KeyValuePair(Of String, String))
                                    With Search
                                        If .By = FindyBy.Body Then
-                                           For Each searchValue In .Values
-                                               'If response.BodyString.Contains(searchText) Then
-                                               '    RaiseEvent Found(Me, New SnifferEventArgs)
-                                               'End If
-                                           Next
+                                           If .Expression Is Nothing Then 'Explicit
+                                               For Each searchValue In .Values
+                                                   If response.BodyString.Contains(searchValue) Then
+                                                       responseValues.Add(New KeyValuePair(Of String, String)(searchValue, response.BodyString))
+                                                   End If
+                                               Next
+                                           Else 'Regex
+                                               Dim bodyMatches = RegexMatches(response.BodyString, .Expression.SearchPattern, .Expression.SearchOptions)
+                                               For Each bodyMatch In bodyMatches
+                                                   responseValues.Add(New KeyValuePair(Of String, String)(bodyMatch.Value, response.BodyString))
+                                               Next
+                                           End If
                                        End If
                                    End With
+                                   If responseValues.Any Then
+                                       RaiseEvent Found(Me, New SnifferEventArgs(responseValues))
+                                   End If
                                End If
                                ClientsString.Add(ClientToString(e.HttpClient))
                            End If
@@ -123,9 +139,7 @@ Public Class Sniffer
 
     End Sub
     Public Function ClientsToString() As String
-
-        Return Join(ClientsString.ToArray, StrDup(20, vbNewLine & Controls.BlackOut & vbNewLine))
-
+        Return Join((From cs In ClientsString Where cs IsNot Nothing).ToArray, StrDup(20, vbNewLine & Controls.BlackOut & vbNewLine))
     End Function
     Private Function ClientToString(client As Titanium.Web.Proxy.Http.HttpWebClient) As String
 

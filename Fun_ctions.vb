@@ -87,12 +87,17 @@ Public Module Functions
     Public Enum Theme
         None
         Blue
+        DarkBlue
+        MidnightBlue
         Pink
         Grey
         Black
         Red
+        DarkRed
         Yellow
+        Gold
         Green
+        DarkGreen
         Orange
         Brown
         Turquoise
@@ -104,20 +109,38 @@ Public Module Functions
     Friend ReadOnly GlossyImages As New Dictionary(Of Theme, Image) From {
         {Theme.Black, My.Resources.glossyBlack},
         {Theme.Blue, My.Resources.glossyBlue},
+        {Theme.DarkBlue, ShadeImage(My.Resources.glossyBlue, Color.Black, 128)},
+        {Theme.MidnightBlue, ShadeImage(My.Resources.glossyBlue, Color.Black, 192)},
         {Theme.Brown, My.Resources.glossyBrown},
         {Theme.Green, My.Resources.glossyGreen},
+        {Theme.DarkGreen, ShadeImage(My.Resources.glossyGreen, Color.Black, 128)},
         {Theme.Grey, My.Resources.glossyGrey},
         {Theme.Orange, My.Resources.glossyOrange},
         {Theme.Pink, My.Resources.glossyPink},
         {Theme.Purple, My.Resources.glossyPurple},
         {Theme.Red, My.Resources.glossyRed},
+        {Theme.DarkRed, ShadeImage(My.Resources.glossyRed, Color.Black, 128)},
         {Theme.Turquoise, My.Resources.glossyTurquoise},
-        {Theme.Yellow, My.Resources.glossyYellow}
+        {Theme.Yellow, My.Resources.glossyYellow},
+        {Theme.Gold, ShadeImage(My.Resources.glossyYellow, Color.Goldenrod, 128)}
     }
     Friend Function GlossyForecolor(glossyTheme As Theme) As Color
 
         Dim glossyColor As Color = Color.FromName(glossyTheme.ToString)
         Return BackColorToForeColor(glossyColor)
+
+    End Function
+    Public Function ShadeImage(imageIn As Image, OverlayColor As Color, Optional OverlayAlpha As Byte = 64) As Image
+
+        Using g As Graphics = Graphics.FromImage(imageIn)
+            g.SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
+            g.InterpolationMode = Drawing2D.InterpolationMode.HighQualityBicubic
+            g.PixelOffsetMode = Drawing2D.PixelOffsetMode.HighQuality
+            Using overlayBrush As New SolidBrush(Color.FromArgb(OverlayAlpha, OverlayColor))
+                g.FillRectangle(overlayBrush, New RectangleF(New Point(0, 0), imageIn.Size))
+            End Using
+        End Using
+        Return imageIn
 
     End Function
     Public Function ResizeImage(ByVal image As Image, imageSize As Size) As Bitmap
@@ -318,10 +341,14 @@ Public Module Functions
     End Function
     Public Function QuotientRound(Dividend As Long, Divisor As Long) As Long
 
-        'Dividend -The dividend Is the number you are dividing up
-        'Divisor -The divisor Is the number you are dividing by
-        'Quotient -The quotient Is the answer
-        Return Long.Parse(Split(CDec(Dividend / Divisor).ToString(InvariantCulture), ".")(0), InvariantCulture)
+        '/// Dividend ==> The dividend Is the number you are dividing up
+        '/// Divisor  ==> The divisor Is the number you are dividing by
+        '/// Quotient ==> The quotient Is the answer
+        If Divisor = 0 Then
+            Return 0
+        Else
+            Return Long.Parse(Split(CDec(Dividend / Divisor).ToString(InvariantCulture), ".")(0), InvariantCulture)
+        End If
 
     End Function
     Public Function DoubleSplit(Number As Double) As KeyValuePair(Of Long, Double)
@@ -3417,7 +3444,16 @@ Public Class FooDictionary(Of TKey, TValue)
     End Sub
 End Class
 
+Public NotInheritable Class TokenEventArgs
+    Public ReadOnly Property Token As Token
+    Public Sub New(eventToken As Token)
+        Token = eventToken
+    End Sub
+End Class
 Public NotInheritable Class Token
+    Public Event Expired(sender As Object, e As TokenEventArgs)
+    Public Event Expiring(sender As Object, e As TokenEventArgs)
+    Private WithEvents ExpiryTimer As New Timer With {.Interval = 1000}
     Public Sub New()
     End Sub
     Public Sub New(tokenString As String)
@@ -3432,12 +3468,42 @@ Public NotInheritable Class Token
     End Sub
     Public Property Name As String
     Public Property Value As String
+    Private Expiry_ As Date
     Public Property Expiry As Date
-    Public ReadOnly Property Expired As Boolean
         Get
-            Return Expiry <= Now
+            Return Expiry_
+        End Get
+        Set(value As Date)
+            If Expiry_ <> value Then
+                Expiry_ = value
+                ExpiryTimer.Start()
+            End If
+        End Set
+    End Property
+    Public ReadOnly Property RemainingTime As TimeSpan
+        Get
+            If Valid Then
+                Return Expiry.Subtract(Now)
+            Else
+                Return New TimeSpan()
+            End If
         End Get
     End Property
+    Public ReadOnly Property Valid As Boolean
+        Get
+            Return Now < Expiry
+        End Get
+    End Property
+    Private Sub ExpiryTimer_Tick() Handles ExpiryTimer.Tick
+
+        If Valid Then
+            If RemainingTime.TotalSeconds < 60 Then RaiseEvent Expiring(Me, New TokenEventArgs(Me))
+        Else
+            ExpiryTimer.Stop()
+            RaiseEvent Expired(Me, New TokenEventArgs(Me))
+        End If
+
+    End Sub
     Public Overrides Function ToString() As String
         Return Join({Name, Value, DateTimeToString(Expiry)}, Delimiter)
     End Function

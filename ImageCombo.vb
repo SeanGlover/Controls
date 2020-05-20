@@ -113,26 +113,50 @@ Public NotInheritable Class ImageCombo
 
         If e IsNot Nothing Then
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+
+            Dim hasImage As Boolean = Image IsNot Nothing
+
             If Mode = ImageComboMode.Button Then
 #Region " BUTTON STYLE - ADD COLORS "
-                e.Graphics.DrawImage(If(InBounds, GlossyDictionary(ButtonTheme), My.Resources.glossyGrey), ClientRectangle)
+                e.Graphics.DrawImage(If(InBounds, GlossyDictionary(If(ButtonMouseTheme = Theme.None, Theme.Grey, ButtonMouseTheme)), GlossyDictionary(If(ButtonTheme = Theme.None, Theme.Grey, ButtonTheme))), ClientRectangle)
                 Dim penTangle As Rectangle = ClientRectangle
                 penTangle.Inflate(-2, -2)
                 penTangle.Offset(-1, -1)
                 Using borderPen As New Pen(If(InBounds, Brushes.LimeGreen, Brushes.DarkGray), 3)
                     e.Graphics.DrawRectangle(borderPen, penTangle)
                 End Using
-                penTangle.Inflate(-4, 0)
+#Region " SET BOUNDS "
+                With ImageBounds
+                    If hasImage Then
+                        Dim Padding As Integer = {0, Convert.ToInt32((Height - Image.Height) / 2)}.Max     'Might be negative if Image.Height > Height
+                        .X = Spacing
+                        .Y = Padding
+                        .Width = Image.Width
+                        .Height = {Height, Image.Height}.Min
+                    Else
+                        .X = Spacing
+                        .Y = 0
+                        .Width = 0
+                        .Height = Height
+                    End If
+                End With
+                With TextBounds
+                    .X = ImageBounds.Right + Spacing          'LOOKS BETTER OFFSET BY A FEW PIXELS
+                    .Y = 0
+                    .Width = Width - ({ImageBounds.Width, DropBounds.Width, ClearTextBounds.Width, EyeBounds.Width}.Sum + Spacing + Spacing + Spacing)
+                    .Height = Height
+                End With
+#End Region
                 Dim buttonAlignment As StringFormat = New StringFormat With {
                     .LineAlignment = StringAlignment.Center,
                     .Alignment = If(HorizontalAlignment = HorizontalAlignment.Center, StringAlignment.Center, If(HorizontalAlignment = HorizontalAlignment.Left, StringAlignment.Near, StringAlignment.Far))
                 }
-                Dim glossyFore As Color = If(InBounds, GlossyForecolor(ButtonTheme), Color.Black)
+                Dim glossyFore As Color = If(InBounds, Color.Black, GlossyForecolor(ButtonTheme))
                 Using glossyBrush As New SolidBrush(glossyFore)
                     e.Graphics.DrawString(Replace(Text, "&", "&&"),
                                                                           Font,
                                                                           glossyBrush,
-                                                                          penTangle,
+                                                                          TextBounds,
                                                                           buttonAlignment)
                 End Using
 #End Region
@@ -143,7 +167,6 @@ Public NotInheritable Class ImageCombo
                 End Using
 #Region " SET BOUNDS "
                 Dim hasText As Boolean = Text.Any
-                Dim hasImage As Boolean = Image IsNot Nothing
                 Dim hasDrop As Boolean = Not Mode = ImageComboMode.Button And Items.Any
                 Dim hasClear As Boolean = Not Mode = ImageComboMode.Button And hasText
                 Dim hasEye As Boolean = PasswordProtected And hasClear
@@ -331,7 +354,7 @@ Public NotInheritable Class ImageCombo
     Public Property CheckBoxes As Boolean = True
     Public Property CheckOnSelect As Boolean = False
     Public Property MultiSelect As Boolean
-    Private ButtonTheme_ As Theme = Theme.Yellow
+    Private ButtonTheme_ As Theme = Theme.Grey
     Public Property ButtonTheme As Theme
         Get
             Return ButtonTheme_
@@ -339,6 +362,18 @@ Public NotInheritable Class ImageCombo
         Set(value As Theme)
             If value <> ButtonTheme_ Then
                 ButtonTheme_ = value
+                Invalidate()
+            End If
+        End Set
+    End Property
+    Private ButtonMouseTheme_ As Theme = Theme.Yellow
+    Public Property ButtonMouseTheme As Theme
+        Get
+            Return ButtonMouseTheme_
+        End Get
+        Set(value As Theme)
+            If value <> ButtonMouseTheme_ Then
+                ButtonMouseTheme_ = value
                 Invalidate()
             End If
         End Set

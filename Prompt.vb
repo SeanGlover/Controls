@@ -9,6 +9,7 @@ Public Class Prompt
     Private Const WM_NCACTIVATE As Integer = &H86
     Private Const WM_NCPAINT As Integer = &H85
     Private Const ButtonBarHeight As Integer = 36
+    Private Const IconPadding As Integer = 3
     Private ReadOnly Property Table As DataViewer
     Private WithEvents OK As New Button With {.Text = "OK", .Font = PreferredFont, .Margin = New Padding(0), .Size = New Size(100, ButtonBarHeight - 6), .ImageAlign = ContentAlignment.MiddleLeft, .Image = My.Resources.ButtonYes, .BackColor = Color.GhostWhite, .ForeColor = Color.Black, .FlatStyle = FlatStyle.Popup}
     Private WithEvents YES As New Button With {.Text = "Yes", .Font = PreferredFont, .Margin = New Padding(0), .Size = New Size(100, ButtonBarHeight - 6), .ImageAlign = ContentAlignment.MiddleLeft, .Image = My.Resources.ButtonYes, .BackColor = Color.GhostWhite, .ForeColor = Color.Black, .FlatStyle = FlatStyle.Popup}
@@ -151,7 +152,6 @@ Public Class Prompt
             PromptTimer.Interval = 1000 * value
         End Set
     End Property
-    Private Const IconPadding As Integer = 3
     Private ReadOnly Property IconBounds As Rectangle
         Get
             Return New Rectangle(IconPadding, IconPadding, Icon.Width, Icon.Height)
@@ -481,23 +481,7 @@ Public Class Prompt
             Case StyleOption.Custom
 
         End Select
-        With Table
-            With .Columns.HeaderStyle
-                .BackColor = ShadeColor
-                .ShadeColor = ShadeColor
-                .ForeColor = TextColor
-            End With
-            With .Rows
-                With .RowStyle
-                    .BackColor = Color.GhostWhite
-                    .ForeColor = Color.Black
-                End With
-                With .AlternatingRowStyle
-                    .BackColor = AlternatingRowColor
-                    .ForeColor = Color.Black
-                End With
-            End With
-        End With
+
         For Each InputButton As Button In {YES, NO, OK}
             InputButton.ForeColor = TextColor
             InputButton.BackColor = BorderColor
@@ -526,7 +510,7 @@ Public Class Prompt
         Dim proposedGridSize As New Size()
 
         If BodyMessage.Any Then
-#Region " #0 Get word Rectangles - no matter what size this Form should be "
+#Region " #0 Get word sizes "
             Dim characterGroups As New Dictionary(Of Integer, String)
             Dim firstLetter As Char = BodyMessage.First
             Dim lastType As CharacterType = If(TrimReturn(firstLetter).Any, CharacterType.NotSpace, CharacterType.Space)
@@ -568,8 +552,25 @@ Public Class Prompt
                 proposedTextSize = New Size(Convert.ToInt32({proposedTextWidth, largestWord}.Max), Convert.ToInt32(proposedTextHeight))
 #End Region
             Else
-                Table.Visible = True
-                Table.AutoSize = True
+                With Table
+                    .Visible = True
+                    .AutoSize = True
+                    With .Columns.HeaderStyle
+                        .BackColor = ShadeColor
+                        .ShadeColor = ShadeColor
+                        .ForeColor = TextColor
+                    End With
+                    With .Rows
+                        With .RowStyle
+                            .BackColor = Color.GhostWhite
+                            .ForeColor = Color.Black
+                        End With
+                        With .AlternatingRowStyle
+                            .BackColor = AlternatingRowColor
+                            .ForeColor = Color.Black
+                        End With
+                    End With
+                End With
 #Region " Grid.Size is the main driver of the Form's Size - Get proposed text dimensions [width X height] "
                 Dim idealGridWidth As Integer = Table.IdealSize.Width
                 Dim proposedGridWidth As Integer = {1000, {idealGridWidth, largestWord, 200}.Max}.Min 'No smaller than 200 wide, no larger than 1000 wide
@@ -618,24 +619,43 @@ Public Class Prompt
             '
             ' L I N E   3 ..............................
 
-#Region " #3 - Around the Icon "
+#Region " #3 - Get word rectangles "
             Dim lines As New Dictionary(Of Integer, List(Of String))
             Dim lineIndex As Integer = 0
             Dim leftBuffer As Integer = 6
             Dim wordBoundsLeft As Integer = IconBounds.Right + leftBuffer
+            Dim pastIcon As Boolean = False
             TextBounds.Clear()
-            For Each wordSize In wordSizes
-                If wordBoundsLeft > proposedClientWidth Then
+            For Each wordSize In wordSizes 'Indexed words and spaces
+                If wordBoundsLeft + wordSize.Value.Width > proposedClientWidth Then
                     'Image.Width + Word.Width > Content.Width ... new line
-                    Dim pastIcon As Boolean = rowHeight * lines.Count > IconBounds.Bottom
+                    pastIcon = rowHeight * lines.Count > IconBounds.Bottom
                     wordBoundsLeft = If(pastIcon, leftBuffer, IconBounds.Right + leftBuffer)
                     lineIndex += 1
                 End If
                 If Not lines.ContainsKey(lineIndex) Then lines.Add(lineIndex, New List(Of String))
                 lines(lineIndex).Add(characterGroups(wordSize.Key))
-                TextBounds.Add(New Rectangle(wordBoundsLeft, lineIndex * rowHeight, wordSize.Value.Width, rowHeight), characterGroups(wordSize.Key))
+                TextBounds.Add(New Rectangle(wordBoundsLeft, IconPadding + (lineIndex * rowHeight), wordSize.Value.Width, rowHeight), characterGroups(wordSize.Key))
                 wordBoundsLeft += wordSize.Value.Width
             Next
+            If pastIcon Then
+                Dim relativeSizing = TextIconSizing(IconBounds.Height, rowHeight)
+                Dim iconAdjust As Integer = relativeSizing.Key
+                Dim textAdjust As Integer = relativeSizing.Value
+
+            Else
+                Dim textHeight As Integer = lines.Count * rowHeight
+                Dim extraSpace As Integer = CInt(QuotientRound(IconBounds.Height - textHeight, 2))
+                If extraSpace > 0 Then
+                    Dim newBounds As New Dictionary(Of Rectangle, String)
+                    For Each textBound In TextBounds
+                        With textBound.Key
+                            newBounds.Add(New Rectangle(.Left, .Top + extraSpace, .Width, .Height), textBound.Value)
+                        End With
+                    Next
+                    _TextBounds = newBounds
+                End If
+            End If
 #End Region
         End If
 
@@ -686,6 +706,35 @@ Public Class Prompt
         CenterToScreen()
 
     End Sub
+    Private Function TextIconSizing(iconHeight As Integer, textHeight As Integer) As KeyValuePair(Of Integer, Integer)
+
+        '/// Key = Icon.Height delta, Value=Text.Height delta ... both must grow only as shrinking the Icon or Text height not ideal
+        '/// 4 possible outcomes: a) Neither change, b) Text grows, c) Icon grows or d) both grow
+
+        Dim qr = QuotientRemainder(iconHeight, textHeight) 'renders ==> (#Rows of text, #Pixels total remaining)
+        Dim rows As Byte = CByte(qr.Key)
+        Dim pixels As Byte = CByte(qr.Value)
+        '(48, 17)=(2, 14) meaning 2 rows with 14 pixels to split between the 2 rows ( 7 each - too high ) ... additional row is just past the Icon bottom
+        '(48, 23)=(2, 2)  meaning 2 rows with 2 pixels to split between the 2 rows ( 1 each - OK ) ... text line height is just short of the icon bottom
+        '/// ∴ Low remainder = grow Text while high remainder = grow Icon
+
+        Dim textPixelsGrow = QuotientRemainder(pixels, rows) 'Determines how to distribute pixels...(#Pixels, #Rows) ==> (14 pixels, 2 rows) ==> ( 7 pixels, 0 remainder)
+
+        If textPixelsGrow.Key <= 4 Then
+            'OK to use a hard value of 4 since padding 2 above text and 2 below text is ok, more than that is noticeable
+            Return New KeyValuePair(Of Integer, Integer)(Convert.ToInt32(textPixelsGrow.Value), Convert.ToInt32(textPixelsGrow.Key))
+
+        Else
+            Dim iconDelta As Integer = textHeight - pixels 'If textHeight=17 and pixels=14 then only 3 change
+            'Try evenly splitting pixels among the Icon and Rows
+            Dim pixelSplit = QuotientRemainder(iconDelta, rows + 1) '...say 4 delta amoung 2 rows and Icon
+            Dim textGrowMax As Long = {pixelSplit.Key, 4}.Max
+            Dim iconGrowValue As Long = textGrowMax - pixelSplit.Key
+            Return New KeyValuePair(Of Integer, Integer)(Convert.ToInt32(iconGrowValue), Convert.ToInt32(textGrowMax))
+
+        End If
+
+    End Function
 End Class
 Public Class TitleBarImage
     Inherits Form
