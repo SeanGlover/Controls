@@ -2345,6 +2345,7 @@ End Class
             Return If(Parent Is Nothing, -1, Parent.IndexOf(Me))
         End Get
     End Property
+    Public Property Tag As object
     Private WithEvents Style_ As New CellStyle With {.BackColor = Color.Transparent, .ShadeColor = Color.White, .ForeColor = Color.Black, .Font = New Font("Century Gothic", 8)}
     Public ReadOnly Property Style As CellStyle
         Get

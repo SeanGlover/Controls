@@ -10,10 +10,18 @@ Imports System.Text.RegularExpressions
 Public Class SnifferEventArgs
     Inherits EventArgs
     Public ReadOnly Property Headers As List(Of KeyValuePair(Of String, String))
+    Public ReadOnly Property HeadersDistinct As New Dictionary(Of String, String)
     Public Sub New()
     End Sub
     Public Sub New(headers As List(Of KeyValuePair(Of String, String)))
+
         Me.Headers = headers
+        If headers IsNot Nothing Then
+            For Each header In headers
+                If Not HeadersDistinct.ContainsKey(header.Key) Then HeadersDistinct.Add(header.Key, header.Value)
+            Next
+        End If
+
     End Sub
 End Class
 Public Class Sniffer
