@@ -86,6 +86,7 @@ Public Module Functions
 #End Region
     Public Enum Theme
         None
+        MediumBlue
         Blue
         DarkBlue
         MidnightBlue
@@ -109,6 +110,7 @@ Public Module Functions
     Friend ReadOnly GlossyImages As New Dictionary(Of Theme, Image) From {
         {Theme.Black, My.Resources.glossyBlack},
         {Theme.Blue, My.Resources.glossyBlue},
+        {Theme.MediumBlue, My.Resources.IBM},
         {Theme.DarkBlue, ShadeImage(My.Resources.glossyBlue, Color.Black, 128)},
         {Theme.MidnightBlue, ShadeImage(My.Resources.glossyBlue, Color.Black, 192)},
         {Theme.Brown, My.Resources.glossyBrown},
@@ -1338,10 +1340,14 @@ Public Module Functions
             CanRead = IsFile(FilePathOrName) And File.Exists(FilePathOrName)
         End If
         If CanRead Then
-            Dim Content As String
-            Using SR As New StreamReader(FilePathOrName)
-                Content = SR.ReadToEnd
-            End Using
+            Dim Content As String = Nothing
+            Try
+                Using SR As New StreamReader(FilePathOrName)
+                    Content = SR.ReadToEnd
+                End Using
+            Catch ex As IOException
+                MsgBox(ex.Message)
+            End Try
             Return Content
         Else
             Return Nothing

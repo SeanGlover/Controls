@@ -479,6 +479,16 @@ Namespace My.Resources
         End Property
         
         '''<summary>
+        '''  Looks up a localized resource of type System.Drawing.Bitmap.
+        '''</summary>
+        Friend ReadOnly Property IBM() As System.Drawing.Bitmap
+            Get
+                Dim obj As Object = ResourceManager.GetObject("IBM", resourceCulture)
+                Return CType(obj,System.Drawing.Bitmap)
+            End Get
+        End Property
+        
+        '''<summary>
         '''  Looks up a localized resource of type System.Byte[].
         '''</summary>
         Friend ReadOnly Property IEquatable() As Byte()
@@ -1032,7 +1042,7 @@ Namespace My.Resources
         ''', T.OWNER
         ''', T.SCHEMA
         ''', T.TABLENAME
-        ''', T.OBJTYPE
+        ''', CAST(&apos;Table&apos; AS VARCHAR(5))
         ''', C.ATTNUM
         ''', C.ATTNAME
         ''', C.FORMAT_TYPE
@@ -1042,11 +1052,16 @@ Namespace My.Resources
         '''FROM _v_table T
         '''LEFT JOIN _v_relation_column C
         '''ON (T.OBJID=C.OBJID)
-        '''WHERE T.TABLENAME In (///TABLES///)
-        ''')
-        '''--====================
-        '''SELECT *
-        '''FROM columnTypes.
+        '''
+        '''///tableCONDITIONS///
+        '''
+        '''UNION ALL
+        '''
+        '''SELECT CAST(&apos;NZSQL&apos; AS CHAR(5))
+        ''', V.DATABASE
+        ''', V.OWNER
+        ''', V.SCHEMA
+        ''', V.VIEWNAME        ''' [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property SQL_ColumnTypes_NZ() As String
             Get

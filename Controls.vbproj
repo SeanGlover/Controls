@@ -593,6 +593,9 @@
   <ItemGroup>
     <None Include="Resources\circles.png" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\IBM.png" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
