@@ -3853,81 +3853,85 @@ Public Module iData
                              Optional NotifyCreatedFormattedFile As Boolean = False)
 
         If TableCollection IsNot Nothing Then
-            Dim App As New Excel.Application
-            Dim Book As Excel.Workbook = App.Workbooks.Add
-            ExcelPath_ = ExcelPath
-            With App
-                .Visible = ShowFile
-                .DisplayAlerts = DisplayMessages
-            End With
-
-            For Each Table As DataTable In TableCollection.Tables
-                Dim Sheet As Excel.Worksheet = DirectCast(Book.Sheets.Add, Excel.Worksheet)
-                Dim col, row As Integer
-
-                ' Copy the DataTable to an object array - multi-dimensional array ( defined column and row count )
-                Dim rawData(Table.Rows.Count, Table.Columns.Count - 1) As Object
-
-                If IncludeHeaders Then
-                    ' Copy the column names to the first row of the object array
-                    For col = 0 To Table.Columns.Count - 1
-                        Dim headerName As String = Table.Columns(col).ColumnName.ToUpperInvariant
-                        rawData(0, col) = headerName
-                    Next
-                End If
-
-                ' Copy the values to the object array
-                Dim RowOffset As Integer = If(IncludeHeaders, 1, 0)
-                For col = 0 To Table.Columns.Count - 1
-                    For row = 0 To Table.Rows.Count - 1
-                        rawData(row + RowOffset, col) = Table.Rows(row).ItemArray(col)
-                    Next
-                Next
-
-                With Sheet
-                    .Name = Table.TableName
-                    SheetName_ = .Name
-                    Dim TableRange As String = String.Format(InvariantCulture, "A1:{0}{1}", ExcelColName(Table.Columns.Count), Table.Rows.Count + 1)
-                    .Range(TableRange, Type.Missing).Value2 = rawData
-                End With
-                ReleaseObject(Sheet)
-                Table_ = Table
-            Next
-            DirectCast(Book.Sheets("Sheet1"), Excel.Worksheet).Delete()
-
             Try
-                Book.Close(True, ExcelPath)
-            Catch ex As ExternalException
-                Using MESSAGE As New Prompt
-                    MESSAGE.Show("Error!", ex.Message, Prompt.IconOption.Critical)
-                End Using
-            End Try
-
-            ReleaseObject(Book)
-
-            'Release the Application object
-            App.Quit()
-            ReleaseObject(App)
-
-            'Collect the unreferenced objects
-            GC.Collect()
-            GC.WaitForPendingFinalizers()
-
-            Dim Windows = Process.GetProcesses
-            For Each ExcelProcess In From w In Windows Where w.ProcessName.ToUpperInvariant.Contains("EXCEL") And w.MainWindowTitle.Length = 0 Select w
-                Try
-                    ExcelProcess.Kill()
-                Catch ex As Win32Exception
-                End Try
-            Next
-            If FormatSheet Then
-                With New BackgroundWorker
-                    AddHandler .DoWork, AddressOf ExcelWorker_Start
-                    AddHandler .RunWorkerCompleted, AddressOf ExcelWorker_End
-                    .WorkerReportsProgress = NotifyCreatedFormattedFile
-                    .RunWorkerAsync()
+                Dim App As New Excel.Application
+                Dim Book As Excel.Workbook = App.Workbooks.Add
+                ExcelPath_ = ExcelPath
+                With App
+                    .Visible = ShowFile
+                    .DisplayAlerts = DisplayMessages
                 End With
-            End If
+
+                For Each Table As DataTable In TableCollection.Tables
+                    Dim Sheet As Excel.Worksheet = DirectCast(Book.Sheets.Add, Excel.Worksheet)
+                    Dim col, row As Integer
+
+                    ' Copy the DataTable to an object array - multi-dimensional array ( defined column and row count )
+                    Dim rawData(Table.Rows.Count, Table.Columns.Count - 1) As Object
+
+                    If IncludeHeaders Then
+                        ' Copy the column names to the first row of the object array
+                        For col = 0 To Table.Columns.Count - 1
+                            Dim headerName As String = Table.Columns(col).ColumnName.ToUpperInvariant
+                            rawData(0, col) = headerName
+                        Next
+                    End If
+
+                    ' Copy the values to the object array
+                    Dim RowOffset As Integer = If(IncludeHeaders, 1, 0)
+                    For col = 0 To Table.Columns.Count - 1
+                        For row = 0 To Table.Rows.Count - 1
+                            rawData(row + RowOffset, col) = Table.Rows(row).ItemArray(col)
+                        Next
+                    Next
+
+                    With Sheet
+                        .Name = Table.TableName
+                        SheetName_ = .Name
+                        Dim TableRange As String = String.Format(InvariantCulture, "A1:{0}{1}", ExcelColName(Table.Columns.Count), Table.Rows.Count + 1)
+                        .Range(TableRange, Type.Missing).Value2 = rawData
+                    End With
+                    ReleaseObject(Sheet)
+                    Table_ = Table
+                Next
+                DirectCast(Book.Sheets("Sheet1"), Excel.Worksheet).Delete()
+
+                Try
+                    Book.Close(True, ExcelPath)
+                Catch ex As ExternalException
+                    Using MESSAGE As New Prompt
+                        MESSAGE.Show("Error!", ex.Message, Prompt.IconOption.Critical)
+                    End Using
+                End Try
+
+                ReleaseObject(Book)
+
+                'Release the Application object
+                App.Quit()
+                ReleaseObject(App)
+
+                'Collect the unreferenced objects
+                GC.Collect()
+                GC.WaitForPendingFinalizers()
+
+                Dim Windows = Process.GetProcesses
+                For Each ExcelProcess In From w In Windows Where w.ProcessName.ToUpperInvariant.Contains("EXCEL") And w.MainWindowTitle.Length = 0 Select w
+                    Try
+                        ExcelProcess.Kill()
+                    Catch ex As Win32Exception
+                    End Try
+                Next
+                If FormatSheet Then
+                    With New BackgroundWorker
+                        AddHandler .DoWork, AddressOf ExcelWorker_Start
+                        AddHandler .RunWorkerCompleted, AddressOf ExcelWorker_End
+                        .WorkerReportsProgress = NotifyCreatedFormattedFile
+                        .RunWorkerAsync()
+                    End With
+                End If
+            Catch ex As Runtime.InteropServices.COMException
+                MsgBox(ex.Message)
+            End Try
         End If
 
     End Sub

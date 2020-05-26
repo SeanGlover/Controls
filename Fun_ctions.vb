@@ -12,6 +12,7 @@ Imports System.ComponentModel
 Imports System.Runtime.InteropServices
 Imports System.Reflection
 Imports System.Globalization
+Imports ExcelDataReader
 Public Module Functions
 #Region " GENERAL DECLARATIONS "
     Public ReadOnly Segoe As New Font("Segoe UI", 9)
@@ -1484,6 +1485,51 @@ Public Module Functions
 
         End Using
         Return Sheets
+
+    End Function
+    Public Function ExcelDataSet(excelPath As String) As DataSet
+
+        If excelPath Is Nothing Then
+            Return Nothing
+        Else
+            If File.Exists(excelPath) Then
+                Try
+                    Dim excelSet As DataSet = Nothing
+                    Using stream As FileStream = File.Open(excelPath, FileMode.Open, FileAccess.Read)
+                        Using excelReader As IExcelDataReader = ExcelReaderFactory.CreateOpenXmlReader(stream)
+                            excelSet = excelReader.AsDataSet
+                        End Using
+                    End Using
+                    Dim newSet As DataSet = excelSet.Clone
+                    'The reader creates a table for each tab BUT with Column0, Column1, Column2 ... and the 1st row is used in the rows
+                    For Each excelTable As DataTable In excelSet.Tables
+                        If excelTable.AsEnumerable.Any Then
+                            Dim firstRow As DataRow = excelTable.Rows(0)
+                            For Each column As DataColumn In excelTable.Columns
+                                column.ColumnName = firstRow(column).ToString
+                            Next
+                            excelTable.Rows.Remove(firstRow)
+                            Dim newTable As DataTable = excelTable.Clone
+                            For Each column As DataColumn In excelTable.Columns
+                                newTable.Columns(column.ColumnName).DataType = GetDataType(column)
+                            Next
+                            For Each row In excelTable.AsEnumerable
+                                newTable.Rows.Add(row.ItemArray)
+                            Next
+                        End If
+                    Next
+                    Return excelSet
+
+                Catch ex As IOException
+                    'If User has the file open
+                    MsgBox(ex.Message)
+                    Return Nothing
+
+                End Try
+            Else
+                Return Nothing
+            End If
+        End If
 
     End Function
     Public Function DataColumnToList(Column As DataColumn) As List(Of Object)

@@ -313,60 +313,63 @@ Public Class DataViewer
                     ControlPaint.DrawBorder3D(e.Graphics, HeadFullBounds, Border3DStyle.Sunken)
                     Dim ColumnStart As Integer = ColumnIndex(HScroll.Value)
                     VisibleColumns.Clear()
-                    For ColumnIndex As Integer = ColumnStart To {Columns.Count - 1, ColumnStart + 30}.Min
-                        Dim Column As Column = Columns(ColumnIndex)
-                        With Column
-                            If .Visible Then
-                                Dim HeadBounds As Rectangle = .HeadBounds
-                                HeadBounds.Offset(-HScroll.Value, 0)
-                                If HeadBounds.Left >= Width Then Exit For
-                                VisibleColumns.Add(Column, HeadBounds)
-                                If .HeaderStyle.Theme = Theme.None Then
-                                    Using LinearBrush As New LinearGradientBrush(HeadBounds, .HeaderStyle.BackColor, .HeaderStyle.ShadeColor, LinearGradientMode.Vertical)
-                                        e.Graphics.FillRectangle(LinearBrush, HeadBounds)
-                                    End Using
-                                Else
-                                    e.Graphics.DrawImage(GlossyImages(.HeaderStyle.Theme), HeadBounds)
-                                End If
-                                e.Graphics.DrawRectangle(Pens.Silver, HeadBounds)
+                    Try
+                        For ColumnIndex As Integer = ColumnStart To {Columns.Count - 1, ColumnStart + 30}.Min
+                            Dim Column As Column = Columns(ColumnIndex)
+                            With Column
+                                If .Visible Then
+                                    Dim HeadBounds As Rectangle = .HeadBounds
+                                    HeadBounds.Offset(-HScroll.Value, 0)
+                                    If HeadBounds.Left >= Width Then Exit For
+                                    VisibleColumns.Add(Column, HeadBounds)
+                                    If .HeaderStyle.Theme = Theme.None Then
+                                        Using LinearBrush As New LinearGradientBrush(HeadBounds, .HeaderStyle.BackColor, .HeaderStyle.ShadeColor, LinearGradientMode.Vertical)
+                                            e.Graphics.FillRectangle(LinearBrush, HeadBounds)
+                                        End Using
+                                    Else
+                                        e.Graphics.DrawImage(GlossyImages(.HeaderStyle.Theme), HeadBounds)
+                                    End If
+                                    e.Graphics.DrawRectangle(Pens.Silver, HeadBounds)
 #Region " [0] DRAW HEADER IMAGE "
-                                Dim imageSize As Size = .SizeImage
-                                Dim imageTop As Integer = CInt((HeadBounds.Height - imageSize.Height) / 2)
-                                Dim ImageBounds As New Rectangle(New Point(HeadBounds.Left + If(imageSize.Width = 0, 0, 2), imageTop), imageSize)
-                                If .Image IsNot Nothing Then
-                                    e.Graphics.DrawImage(.Image, ImageBounds)
-                                    'e.Graphics.DrawRectangle(Pens.Yellow, ImageBounds)
-                                End If
+                                    Dim imageSize As Size = .SizeImage
+                                    Dim imageTop As Integer = CInt((HeadBounds.Height - imageSize.Height) / 2)
+                                    Dim ImageBounds As New Rectangle(New Point(HeadBounds.Left + If(imageSize.Width = 0, 0, 2), imageTop), imageSize)
+                                    If .Image IsNot Nothing Then
+                                        e.Graphics.DrawImage(.Image, ImageBounds)
+                                        'e.Graphics.DrawRectangle(Pens.Yellow, ImageBounds)
+                                    End If
 #End Region
 #Region " [3] DRAW SORT TRIANGLE "
-                                Dim sortSize As Size = .SizeSort
-                                Dim sortTop As Integer = CInt((HeadBounds.Height - sortSize.Height) / 2)
-                                Dim sortBounds As New Rectangle(HeadBounds.Right - (.SizeSort.Width + If(sortSize.Width = 0, 0, 4)), sortTop, .SizeSort.Width, .SizeSort.Height) '4 is 2+Sort+2
-                                If Not .SortOrder = SortOrder.None Then e.Graphics.DrawImage(If(.SortOrder = SortOrder.Ascending, My.Resources.SortDown, My.Resources.SortUp), sortBounds)
+                                    Dim sortSize As Size = .SizeSort
+                                    Dim sortTop As Integer = CInt((HeadBounds.Height - sortSize.Height) / 2)
+                                    Dim sortBounds As New Rectangle(HeadBounds.Right - (.SizeSort.Width + If(sortSize.Width = 0, 0, 4)), sortTop, .SizeSort.Width, .SizeSort.Height) '4 is 2+Sort+2
+                                    If Not .SortOrder = SortOrder.None Then e.Graphics.DrawImage(If(.SortOrder = SortOrder.Ascending, My.Resources.SortDown, My.Resources.SortUp), sortBounds)
 #End Region
 #Region " [2] DRAW FILTER "
-                                Dim filterSize As Size = .SizeFilter
-                                Dim filterTop As Integer = CInt((HeadBounds.Height - filterSize.Height) / 2)
-                                Dim filterBounds As New Rectangle(sortBounds.Left - filterSize.Width, filterTop, filterSize.Width, filterSize.Height)
-                                If .Filtered Then e.Graphics.DrawImage(My.Resources.FilterCancel, filterBounds)
+                                    Dim filterSize As Size = .SizeFilter
+                                    Dim filterTop As Integer = CInt((HeadBounds.Height - filterSize.Height) / 2)
+                                    Dim filterBounds As New Rectangle(sortBounds.Left - filterSize.Width, filterTop, filterSize.Width, filterSize.Height)
+                                    If .Filtered Then e.Graphics.DrawImage(My.Resources.FilterCancel, filterBounds)
 #End Region
 #Region " [1] DRAW HEADER TEXT "
-                                Dim textLeft As Integer = ImageBounds.Right + If(ImageBounds.Width = 0, 0, 2)
-                                Dim textTop As Integer = CInt((HeadBounds.Height - .SizeText.Height) / 2)
-                                Dim TextBounds As Rectangle = New Rectangle(textLeft, textTop, filterBounds.Left - textLeft, .SizeText.Height)
-                                TextRenderer.DrawText(e.Graphics, .Text, .HeaderStyle.Font, TextBounds, .HeaderStyle.ForeColor, Color.Transparent, TextFormatFlags.VerticalCenter Or TextFormatFlags.HorizontalCenter)
+                                    Dim textLeft As Integer = ImageBounds.Right + If(ImageBounds.Width = 0, 0, 2)
+                                    Dim textTop As Integer = CInt((HeadBounds.Height - .SizeText.Height) / 2)
+                                    Dim TextBounds As Rectangle = New Rectangle(textLeft, textTop, filterBounds.Left - textLeft, .SizeText.Height)
+                                    TextRenderer.DrawText(e.Graphics, .Text, .HeaderStyle.Font, TextBounds, .HeaderStyle.ForeColor, Color.Transparent, TextFormatFlags.VerticalCenter Or TextFormatFlags.HorizontalCenter)
 #End Region
-                                e.Graphics.DrawRectangle(Pens.Silver, HeadBounds)
-                                If Column Is _MouseData.Column Then
-                                    If _MouseData.CurrentAction = MouseInfo.Action.MouseOverHead Then
-                                        Using HighlightBrush As New SolidBrush(Color.FromArgb(128, Color.Yellow))
-                                            e.Graphics.FillRectangle(HighlightBrush, HeadBounds)
-                                        End Using
+                                    e.Graphics.DrawRectangle(Pens.Silver, HeadBounds)
+                                    If Column Is _MouseData.Column Then
+                                        If _MouseData.CurrentAction = MouseInfo.Action.MouseOverHead Then
+                                            Using HighlightBrush As New SolidBrush(Color.FromArgb(128, Color.Yellow))
+                                                e.Graphics.FillRectangle(HighlightBrush, HeadBounds)
+                                            End Using
+                                        End If
                                     End If
                                 End If
-                            End If
-                        End With
-                    Next
+                            End With
+                        Next
+                    Catch ex As IndexOutOfRangeException
+                    End Try
 #Region " DRAW HEADER EDGE "
                     With _MouseData
                         If .CurrentAction = MouseInfo.Action.MouseOverHeadEdge Then
@@ -897,6 +900,7 @@ Public Class DataViewer
                                 "Datatype is " & formatType,
                                 "Width=" & headWidth,
                                 "Content Width=" & contentWidth,
+                                "Index=" & .ViewIndex,
                                 "Row Count=" & rowCount,
                                 "Row Height=" & RowHeight,
                                 "Sort Order is " & sortOrder,
@@ -1408,6 +1412,9 @@ Public Class DataViewer
     End Sub
 
     '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ T O   F I L E
+    Public Sub Export(filePath As String)
+        DataTableToExcel(Table, filePath, True, False, False, True, True)
+    End Sub
     Private Sub ExportToFile(sender As Object, e As EventArgs)
 
         If Rows.Any Then
@@ -1465,7 +1472,13 @@ Public Class ColumnCollection
     Friend Event CollectionSizingStart(sender As Object, e As EventArgs)
     Friend Event CollectionSizingEnd(sender As Object, e As EventArgs)
     Friend Event ColumnSized(sender As Object, e As EventArgs)
-    Public ReadOnly Property IsBusy As Boolean
+    Private IsBusy_ As Boolean = False
+    Friend ReadOnly Property IsBusy As Boolean
+        Get
+            IsBusy_ = ColumnsWorker.IsBusy Or IsBusy_
+            Return IsBusy_
+        End Get
+    End Property
     Private WithEvents AddRemoveTimer As New Timer With {.Interval = 100}
     Private WithEvents ReOrderTimer As New Timer With {.Interval = 100}
     Private ReadOnly MoveColumns As New Dictionary(Of Column, Integer)
@@ -1621,13 +1634,13 @@ Public Class ColumnCollection
     Private Sub CanReorder(sender As Object, e As EventArgs)
 
         RemoveHandler CollectionSizingEnd, AddressOf CanReorder
-        _IsBusy = True
+        IsBusy_ = True
         For Each Column In MoveColumns
             Remove(Column.Key)
             Insert(Column.Value, Column.Key)
         Next
         MoveColumns.Clear()
-        _IsBusy = False
+        IsBusy_ = False
         ColumnsXH()
 
     End Sub
@@ -1674,13 +1687,10 @@ Public Class ColumnCollection
     End Sub
     Private Sub FormatSizeWorker_Start(sender As Object, e As DoWorkEventArgs) Handles ColumnsWorker.DoWork
 
-        If Not IsBusy Then
-            _IsBusy = True
-            For Each Column In Where(Function(c) c.Visible)
-                ColumnWidth(Column, True)
-                If ColumnsWorker.CancellationPending Then Exit For
-            Next
-        End If
+        For Each Column In Where(Function(c) c.Visible)
+            ColumnWidth(Column, True)
+            If ColumnsWorker.CancellationPending Then Exit For
+        Next
 
     End Sub
     Friend Sub ColumnWidth(ColumnItem As Column, Optional BackgroundProcess As Boolean = False)
@@ -1728,7 +1738,6 @@ Public Class ColumnCollection
 
     End Sub
     Private Sub FormatSizeWorker_End(sender As Object, e As RunWorkerCompletedEventArgs) Handles ColumnsWorker.RunWorkerCompleted
-        _IsBusy = False
         RaiseEvent CollectionSizingEnd(Me, Nothing)
     End Sub
     Friend Sub CancelWorkers()

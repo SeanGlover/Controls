@@ -59,8 +59,22 @@ Public Class Tabs
     Public ReadOnly Property MouseZone As Zone
 
     Public Sub New()
+        Initialize()
+    End Sub
+    Public Sub New(pageNames As String())
+
+        Initialize()
+        If pageNames IsNot Nothing Then
+            For Each pageName In pageNames
+                TabPages.Add(pageName, pageName)
+            Next
+        End If
+
+    End Sub
+    Private Sub Initialize()
 
         Dock = DockStyle.Fill
+        Margin = New Padding(0)
         DrawMode = TabDrawMode.OwnerDrawFixed
         SizeMode = TabSizeMode.Normal
         ItemSize = New Size(40, 26)
