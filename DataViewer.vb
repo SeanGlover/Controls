@@ -3000,7 +3000,8 @@ Public Class InvisibleForm
     End Sub
 #End Region
 End Class
-Public Class WaitTimer
+Public NotInheritable  Class WaitTimer
+    Inherits Control
     Private ReadOnly BaseForm As Form
     Private ReadOnly BaseControl As Control
     Private ReadOnly HideLocation As New Point(-500, -500)
@@ -3073,6 +3074,7 @@ Public Class WaitTimer
             End If
         End Set
     End Property
+    Public Property Limit As Integer
     Private TitleImage_ As Image
     Public Property TitleImage As Image
         Get
@@ -3090,13 +3092,21 @@ Public Class WaitTimer
 
         If Not tickColor.IsEmpty Then Me.TickColor = tickColor
         TimerTicks = 0
-        TickTimer.Start()
+        If Limit = 0 Then TickTimer.Start()
         Dim centerLocation As Point = CenterItem(TickForm.Size)
         centerLocation.Offset(Offset)
         SetSafeControlPropertyValue(TickForm, "Location", centerLocation)
         SetSafeControlPropertyValue(TickForm, "Visible", True)
         _DelegateImage = DrawProgress(TimerTicks, tickColor)
         SetSafeControlPropertyValue(TickForm, "BackgroundImage", DelegateImage)
+
+    End Sub
+    Public Sub Increment()
+
+        TimerTicks += CInt(100 / {Limit, 1}.Max)
+        TimerTicks = {100, TimerTicks}.Min
+        '1 / 50 ... 2
+        TickForm.BackgroundImage = DrawProgress(TimerTicks, TickColor)
 
     End Sub
     Public Sub StopTicking()

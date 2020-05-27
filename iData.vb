@@ -378,6 +378,41 @@ Friend Class ResponseFailure
 End Class
 #End Region
 '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+Public Structure StringStartEnd
+    Implements IEquatable(Of StringStartEnd)
+    Public Sub New(value As String, start As Integer, length As Integer)
+        Me.Value = value
+        Me.Start = start
+        Me.Length = length
+    End Sub
+    Public Property Value As String
+    Public Property Start As Integer
+    Public Property Length As Integer
+    Public ReadOnly Property Finish As Integer
+        Get
+            Return Start + Length
+        End Get
+    End Property
+    Public Overrides Function GetHashCode() As Integer
+        Return Start.GetHashCode Xor Length.GetHashCode Xor Value.GetHashCode
+    End Function
+    Public Overloads Function Equals(ByVal other As StringStartEnd) As Boolean Implements IEquatable(Of StringStartEnd).Equals
+        Return Start = other.Start AndAlso Length = other.Length AndAlso Value = other.Value
+    End Function
+    Public Shared Operator =(ByVal value1 As StringStartEnd, ByVal value2 As StringStartEnd) As Boolean
+        Return value1.Equals(value2)
+    End Operator
+    Public Shared Operator <>(ByVal value1 As StringStartEnd, ByVal value2 As StringStartEnd) As Boolean
+        Return Not value1 = value2
+    End Operator
+    Public Overrides Function Equals(ByVal obj As Object) As Boolean
+        If TypeOf obj Is StringStartEnd Then
+            Return CType(obj, StringStartEnd) = Me
+        Else
+            Return False
+        End If
+    End Function
+End Structure
 Public Class StringData
     Implements IEquatable(Of StringData)
     Public Sub New()
