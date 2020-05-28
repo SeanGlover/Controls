@@ -3037,10 +3037,17 @@ Public Module ThreadHelperClass
             Dim t As Type = Item.GetType
             If Item.InvokeRequired Then
                 Dim d As SetPropertyCallback = New SetPropertyCallback(AddressOf SetSafeControlPropertyValue)
-                Item.Invoke(d, New Object() {Item, PropertyName, PropertyValue})
+                Try
+                    Item.Invoke(d, New Object() {Item, PropertyName, PropertyValue})
+                Catch ex As ObjectDisposedException
+                End Try
+
             Else
                 Dim pi As PropertyInfo = t.GetProperty(PropertyName)
-                pi.SetValue(Item, PropertyValue)
+                Try
+                    pi.SetValue(Item, PropertyValue)
+                Catch ex As ObjectDisposedException
+                End Try
             End If
         End If
 

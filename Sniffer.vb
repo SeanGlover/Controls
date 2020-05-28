@@ -130,9 +130,14 @@ Public Class Sniffer
 #End Region
             ElseIf .By = FindyBy.RequestURL Then
 #Region " ... A GIVEN REQUEST URL MATCHES ( ex JSESSIONID ) "
-                Dim lookForURL As String = .RequestURL?.ToString.ToUpperInvariant
-                Dim requestURL As String = request.RequestUri.ToString.ToUpperInvariant()
-                Dim urlMatches As Boolean = If(.Expression Is Nothing, lookForURL = requestURL, Regex.Match(request.RequestUri.ToString, .Expression.SearchPattern, .Expression.SearchOptions).Success)
+                Dim urlMatches As Boolean = False
+                If .Expression Is Nothing Then
+                    Dim lookForURL As String = .RequestURL?.ToString.ToUpperInvariant
+                    Dim requestURL As String = request.RequestUri.ToString.ToUpperInvariant()
+                    urlMatches = lookForURL = requestURL
+                Else
+                    urlMatches = Regex.Match(request.RequestUri.ToString, .Expression.SearchPattern, .Expression.SearchOptions).Success
+                End If
                 If urlMatches Then
                     For Each requestHeader As HttpHeader In request.Headers
                         requestHeaders.Add(New KeyValuePair(Of String, String)(requestHeader.Name, requestHeader.Value))
