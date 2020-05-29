@@ -1241,6 +1241,22 @@ Public Module Functions
         '1 Up+Released
         Return Not {0, 1}.Contains(NativeMethods.GetKeyState(Key))
     End Function
+    Public Function RunIcon(runIndex As Long) As Icon
+
+        Dim mod8 As Byte = CByte(runIndex Mod 8)
+        Dim runningMan As Icon = Nothing
+        If mod8 = 0 Then runningMan = My.Resources.r1
+        If mod8 = 1 Then runningMan = My.Resources.r2
+        If mod8 = 2 Then runningMan = My.Resources.r3
+        If mod8 = 3 Then runningMan = My.Resources.r4
+        If mod8 = 4 Then runningMan = My.Resources.r5
+        If mod8 = 5 Then runningMan = My.Resources.r6
+        If mod8 = 6 Then runningMan = My.Resources.r7
+        If mod8 = 7 Then runningMan = My.Resources.r8
+        Return runningMan
+
+    End Function
+
 #Region " FILES "
     Public Sub ZipIt(ZipPath As String, ZipFiles As String())
 
@@ -1511,7 +1527,8 @@ Public Module Functions
                             excelTable.Rows.Remove(firstRow)
                             Dim newTable As DataTable = excelTable.Clone
                             For Each column As DataColumn In excelTable.Columns
-                                newTable.Columns(column.ColumnName).DataType = GetDataType(column)
+                                Dim columnType As Type = GetDataType(column)
+                                newTable.Columns(column.ColumnName).DataType = If(columnType Is GetType(DateAndTime), GetType(Date), columnType)
                             Next
                             For Each row In excelTable.AsEnumerable
                                 newTable.Rows.Add(row.ItemArray)

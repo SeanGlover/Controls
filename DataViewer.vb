@@ -3006,7 +3006,6 @@ Public NotInheritable  Class WaitTimer
     Private ReadOnly BaseControl As Control
     Private ReadOnly HideLocation As New Point(-500, -500)
     Private WithEvents TickTimer As New Timer With {.Interval = 100}
-    Private TimerTicks As Integer
     Private ReadOnly TickForm As New InvisibleForm With {
         .Size = New Size(150, 150),
         .Location = HideLocation
@@ -3031,18 +3030,17 @@ Public NotInheritable  Class WaitTimer
         If Picture = ImageType.Circle Then
             TickForm.BackgroundImage = DrawProgress(TimerTicks, TickColor)
         Else
-            If TimerTicks = 0 Then TickForm.BackgroundImage = My.Resources.Spin1
-            If TimerTicks = 1 Then TickForm.BackgroundImage = My.Resources.Spin2
-            If TimerTicks = 2 Then TickForm.BackgroundImage = My.Resources.Spin3
-            If TimerTicks = 3 Then TickForm.BackgroundImage = My.Resources.Spin4
-            If TimerTicks = 4 Then TickForm.BackgroundImage = My.Resources.Spin5
-            If TimerTicks = 5 Then TickForm.BackgroundImage = My.Resources.Spin6
-            If TimerTicks = 6 Then TickForm.BackgroundImage = My.Resources.Spin7
-            If TimerTicks = 7 Then
-                TickForm.BackgroundImage = My.Resources.Spin8
-                TimerTicks = -1
-            End If
+            Dim mod8 As Integer = TimerTicks Mod 8
+            If mod8 = 0 Then TickForm.BackgroundImage = My.Resources.Spin1
+            If mod8 = 1 Then TickForm.BackgroundImage = My.Resources.Spin2
+            If mod8 = 2 Then TickForm.BackgroundImage = My.Resources.Spin3
+            If mod8 = 3 Then TickForm.BackgroundImage = My.Resources.Spin4
+            If mod8 = 4 Then TickForm.BackgroundImage = My.Resources.Spin5
+            If mod8 = 5 Then TickForm.BackgroundImage = My.Resources.Spin6
+            If mod8 = 6 Then TickForm.BackgroundImage = My.Resources.Spin7
+            If mod8 = 7 Then TickForm.BackgroundImage = My.Resources.Spin8
         End If
+        If RunningIcon And BaseForm IsNot Nothing Then BaseForm.Icon = RunIcon(TimerTicks)
         TimerTicks += 1
 
     End Sub
@@ -3075,6 +3073,7 @@ Public NotInheritable  Class WaitTimer
         End Set
     End Property
     Public Property Limit As Integer
+    Public Property RunningIcon As Boolean
     Private TitleImage_ As Image
     Public Property TitleImage As Image
         Get
@@ -3086,6 +3085,22 @@ Public NotInheritable  Class WaitTimer
                 TickForm.TitleImage = value
                 SetSafeControlPropertyValue(TickForm, "TitleImage", value)
             End If
+        End Set
+    End Property
+    Private TimerTicks As Integer
+    Public Property TickValue As Integer
+        Get
+            Return TimerTicks
+        End Get
+        Set(value As Integer)
+            TickTimer.Stop()
+            TimerTicks = value
+            Dim centerLocation As Point = CenterItem(TickForm.Size)
+            centerLocation.Offset(Offset)
+            SetSafeControlPropertyValue(TickForm, "Location", centerLocation)
+            SetSafeControlPropertyValue(TickForm, "Visible", True)
+            _DelegateImage = DrawProgress(TimerTicks, TickColor)
+            SetSafeControlPropertyValue(TickForm, "BackgroundImage", DelegateImage)
         End Set
     End Property
     Public Sub StartTicking(Optional tickColor As Color = Nothing)
@@ -3106,7 +3121,12 @@ Public NotInheritable  Class WaitTimer
         TimerTicks += CInt(100 / {Limit, 1}.Max)
         TimerTicks = {100, TimerTicks}.Min
         '1 / 50 ... 2
-        TickForm.BackgroundImage = DrawProgress(TimerTicks, TickColor)
+        Dim centerLocation As Point = CenterItem(TickForm.Size)
+        centerLocation.Offset(Offset)
+        SetSafeControlPropertyValue(TickForm, "Location", centerLocation)
+        SetSafeControlPropertyValue(TickForm, "Visible", True)
+        _DelegateImage = DrawProgress(TimerTicks, TickColor)
+        SetSafeControlPropertyValue(TickForm, "BackgroundImage", DelegateImage)
 
     End Sub
     Public Sub StopTicking()
