@@ -180,6 +180,7 @@
     <Compile Include="Sniffer.vb" />
     <Compile Include="Tabs.vb" />
     <Compile Include="TreeViewer.vb" />
+    <Compile Include="Web.vb" />
     <Compile Include="Worker.vb">
       <SubType>Component</SubType>
     </Compile>
@@ -601,6 +602,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\IBM.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Edit.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

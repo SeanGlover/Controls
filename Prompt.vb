@@ -77,9 +77,10 @@ Public Class Prompt
     Public Property ColorStyle As StyleOption = StyleOption.Plain
     Private ReadOnly Property AlternatingRowColor As Color
     Private ReadOnly Property BackgroundColor As Color
-    Private ReadOnly Property TextColor As Color
+    Private ReadOnly Property HeaderTextColor As Color = Color.White
     Private ReadOnly Property ShadeColor As Color
     Private ReadOnly Property AccentColor As Color
+    Public Property OutlineText As Boolean
     Public Property TitleMessage As String
     Public Property BodyMessage As String
     Public Property TitleBarImageLeftSide As Boolean = True
@@ -214,8 +215,8 @@ Public Class Prompt
                 End If
 
                 Dim yOffset As Integer = Convert.ToInt32((TitleBarBounds.Height - ImageHeight) / 2)
-                Dim ImageBounds As Rectangle = Nothing
-                Dim TextBounds As Rectangle = Nothing
+                Dim ImageBounds As Rectangle
+                Dim TextBounds As Rectangle
 
                 If TitleBarImageLeftSide Then
                     ImageBounds = New Rectangle(horizontalPadding, yOffset, ImageWidth, ImageHeight)
@@ -225,7 +226,7 @@ Public Class Prompt
                     ImageBounds = New Rectangle(TextBounds.Width + horizontalPadding, yOffset, ImageWidth, ImageHeight)
                 End If
                 g.DrawImage(TitleBarImage, ImageBounds)
-                TextRenderer.DrawText(g, TitleMessage, PreferredFont, TextBounds, Color.White, BorderColor, TextFormatFlags.VerticalCenter Or TextFormatFlags.Left)
+                TextRenderer.DrawText(g, TitleMessage, PreferredFont, TextBounds, HeaderTextColor, BorderColor, TextFormatFlags.VerticalCenter Or TextFormatFlags.Left)
             End If
 
         End Using
@@ -265,12 +266,15 @@ Public Class Prompt
             AddressBounds.Clear()
             For Each TextBound In TextBounds
                 Dim isURL As Boolean = Regex.Match(TextBound.Value, "https{0,1}:[^ ]{1,}", RegexOptions.None).Success
-                Dim textColor As Color = If(isURL, Color.Blue, ForeColor)
-                Using urlFont As New Font(Font.FontFamily, Font.Size, FontStyle.Underline)
-                    TextRenderer.DrawText(e.Graphics, TextBound.Value, If(isURL, urlFont, Font), TextBound.Key.Location, textColor)
-                End Using
-                If isURL Then AddressBounds.Add(TextBound.Key, TextBound.Value)
-                e.Graphics.DrawRectangle(Pens.Red, TextBound.Key)
+                If isURL Then
+                    Using urlFont As New Font(Font.FontFamily, Font.Size, FontStyle.Underline)
+                        TextRenderer.DrawText(e.Graphics, TextBound.Value, urlFont, TextBound.Key.Location, Color.Blue)
+                    End Using
+                    AddressBounds.Add(TextBound.Key, TextBound.Value)
+                Else
+                    TextRenderer.DrawText(e.Graphics, TextBound.Value, Font, TextBound.Key.Location, ForeColor)
+                End If
+                If OutlineText Then e.Graphics.DrawRectangle(Pens.Red, TextBound.Key)
             Next
             If Not Type = IconOption.TimedMessage Then
                 Using ButtonBarBrush As New SolidBrush(Color.FromArgb(32, BackgroundColor))
@@ -386,7 +390,7 @@ Public Class Prompt
                                     BorderColor As Color) As DialogResult
         _AlternatingRowColor = AlternatingRowColor
         _BackgroundColor = BackgroundColor
-        _TextColor = TextColor
+        ForeColor = TextColor
         _ShadeColor = ShadeColor
         _AccentColor = AccentColor
         _BorderColor = BorderColor
@@ -416,7 +420,8 @@ Public Class Prompt
             Case StyleOption.BlackGold
                 _AlternatingRowColor = Color.Gold
                 _BackgroundColor = Color.Black
-                _TextColor = Color.White
+                _HeaderTextColor = Color.White
+                ForeColor = Color.White
                 _ShadeColor = Color.DarkKhaki
                 _AccentColor = Color.DarkGoldenrod
                 BorderColor = Color.Black
@@ -424,7 +429,8 @@ Public Class Prompt
             Case StyleOption.Blue
                 _AlternatingRowColor = Color.LightSkyBlue
                 _BackgroundColor = Color.CornflowerBlue
-                _TextColor = Color.White
+                _HeaderTextColor = Color.White
+                ForeColor = Color.Black
                 _ShadeColor = Color.DarkBlue
                 _AccentColor = Color.DarkSlateBlue
                 BorderColor = Color.RoyalBlue
@@ -432,7 +438,8 @@ Public Class Prompt
             Case StyleOption.Bright
                 _AlternatingRowColor = Color.Gold
                 _BackgroundColor = Color.HotPink
-                _TextColor = Color.White
+                _HeaderTextColor = Color.White
+                ForeColor = Color.White
                 _ShadeColor = Color.Fuchsia
                 _AccentColor = Color.DarkOrchid
                 BorderColor = Color.DarkMagenta
@@ -440,7 +447,8 @@ Public Class Prompt
             Case StyleOption.Grey
                 _AlternatingRowColor = Color.DarkGray
                 _BackgroundColor = Color.Gainsboro
-                _TextColor = Color.White
+                _HeaderTextColor = Color.Black
+                ForeColor = Color.White
                 _ShadeColor = Color.Silver
                 _AccentColor = Color.Gray
                 BorderColor = Color.Black
@@ -448,7 +456,8 @@ Public Class Prompt
             Case StyleOption.Earth
                 _AlternatingRowColor = Color.Beige
                 _BackgroundColor = Color.Green
-                _TextColor = Color.White
+                _HeaderTextColor = Color.White
+                ForeColor = Color.White
                 _ShadeColor = Color.DarkGreen
                 _AccentColor = Color.DarkOliveGreen
                 BorderColor = Color.Maroon
@@ -457,7 +466,8 @@ Public Class Prompt
                 _AlternatingRowColor = Color.Lavender
                 _BackgroundColor = Color.Fuchsia
                 BackgroundImageLayout = ImageLayout.Stretch
-                _TextColor = Color.White
+                _HeaderTextColor = Color.White
+                ForeColor = Color.White
                 _ShadeColor = Color.Gainsboro
                 _AccentColor = Color.DarkOrange
                 BorderColor = Color.YellowGreen
@@ -465,7 +475,8 @@ Public Class Prompt
             Case StyleOption.Plain
                 _AlternatingRowColor = Color.Gainsboro
                 _BackgroundColor = Color.LightGray
-                _TextColor = Color.Black
+                _HeaderTextColor = Color.White
+                ForeColor = Color.Black
                 _ShadeColor = Color.DarkGray
                 _AccentColor = Color.Gainsboro
                 BorderColor = Color.Silver
@@ -473,7 +484,8 @@ Public Class Prompt
             Case StyleOption.RedBrown
                 _AlternatingRowColor = Color.Chocolate
                 _BackgroundColor = Color.Orange
-                _TextColor = Color.White
+                _HeaderTextColor = Color.White
+                ForeColor = Color.White
                 _ShadeColor = Color.Crimson
                 _AccentColor = Color.Peru
                 BorderColor = Color.SaddleBrown
@@ -483,11 +495,10 @@ Public Class Prompt
         End Select
 
         For Each InputButton As Button In {YES, NO, OK}
-            InputButton.ForeColor = TextColor
+            InputButton.ForeColor = HeaderTextColor
             InputButton.BackColor = BorderColor
         Next
 
-        ForeColor = TextColor
         PathColors = {Color.Gray, BackColor, ShadeColor, AccentColor}.ToList
         ResizeMe()
         If ParentControl Is Nothing Then
@@ -558,7 +569,7 @@ Public Class Prompt
                     With .Columns.HeaderStyle
                         .BackColor = ShadeColor
                         .ShadeColor = ShadeColor
-                        .ForeColor = TextColor
+                        .ForeColor = ForeColor
                     End With
                     With .Rows
                         With .RowStyle
@@ -639,7 +650,7 @@ Public Class Prompt
                 wordBoundsLeft += wordSize.Value.Width
             Next
             If pastIcon Then
-                Dim relativeSizing = TextIconSizing(IconBounds.Height, rowHeight)
+                Dim relativeSizing = TextIconSizing(rowHeight)
                 Dim iconAdjust As Integer = relativeSizing.Key
                 Dim textAdjust As Integer = relativeSizing.Value
 
@@ -706,10 +717,11 @@ Public Class Prompt
         CenterToScreen()
 
     End Sub
-    Private Function TextIconSizing(iconHeight As Integer, textHeight As Integer) As KeyValuePair(Of Integer, Integer)
+    Private Function TextIconSizing(textHeight As Integer) As KeyValuePair(Of Integer, Integer)
 
         '/// Key = Icon.Height delta, Value=Text.Height delta ... both must grow only as shrinking the Icon or Text height not ideal
         '/// 4 possible outcomes: a) Neither change, b) Text grows, c) Icon grows or d) both grow
+        Dim iconHeight As Integer = IconBounds.Height
 
         Dim qr = QuotientRemainder(iconHeight, textHeight) 'renders ==> (#Rows of text, #Pixels total remaining)
         Dim rows As Byte = CByte(qr.Key)

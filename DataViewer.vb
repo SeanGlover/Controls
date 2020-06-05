@@ -415,7 +415,7 @@ Public Class DataViewer
                                         With rowCell
                                             Dim cellValue As Object = .Value
                                             Dim drawCellAsSelected As Boolean = If(FullRowSelect, Row.Selected, .Selected)
-                                            Dim cellStyle = If(drawCellAsSelected, Rows.SelectionRowStyle, rowStyle)
+                                            Dim cellStyle = If(drawCellAsSelected, Row.SelectionStyle, rowStyle)
                                             If MouseData.CurrentAction = MouseInfo.Action.GridSelecting Then .Selected = drawBounds.IntersectsWith(CellBounds)
 #Region " C E L L   B A C K G R O U N D "
                                             If drawCellAsSelected Then   'Already drew the entire row before "DRAW CELLS" Region
@@ -424,7 +424,7 @@ Public Class DataViewer
                                                         e.Graphics.FillRectangle(LinearBrush, CellBounds)
                                                     End Using
                                                 Else
-                                                    e.Graphics.DrawImage(GlossyImages(Rows.SelectionRowStyle.Theme), CellBounds)
+                                                    e.Graphics.DrawImage(GlossyImages(Row.SelectionStyle.Theme), CellBounds)
                                                 End If
                                             End If
 #End Region
@@ -1000,11 +1000,6 @@ Public Class DataViewer
                 .AutoClose = True
                 .Hide()
             End With
-            With GridOptions
-                .Tag = Nothing
-                .AutoClose = True
-                .Hide()
-            End With
             With _MouseData
                 Dim clickPoint As Point = e.Location
                 Dim mouseColumns = VisibleColumns.Where(Function(vc) vc.Value.Contains(New Point(clickPoint.X, 0))).Select(Function(c) c.Key) 'Use for all EXCEPT Edge ( left button )
@@ -1077,7 +1072,7 @@ Public Class DataViewer
                                         .Clear()
                                         Dim values = columnValues.OrderByDescending(Function(c) c.Value.Count).ThenBy(Function(t) t.Key)
                                         For Each distinctValue In values
-                                            .Add(Join({"value=" & distinctValue.Key, "count=" & distinctValue.Value.Count}, ","))
+                                            .Add(distinctValue.Key & " (" & distinctValue.Value.Count & ")")
                                         Next
                                     End With
                                     .HintText = "Distinct count = " & .Items.Count
@@ -1102,6 +1097,11 @@ Public Class DataViewer
                     .Column = If(mouseColumns.Any, mouseColumns.First, Nothing) 'Ensure .Column has current value
                     .Cell = If(.Row Is Nothing Or .Column Is Nothing, Nothing, .Row.Cells(.Column.Name))
                     If e.Button = MouseButtons.Left Then
+                        With GridOptions
+                            .Tag = Nothing
+                            .AutoClose = True
+                            .Hide()
+                        End With
 #Region " L E F T - Cell / Row selection "
                         If .Cell Is Nothing Then
                             .CurrentAction = MouseInfo.Action.None
@@ -1123,8 +1123,7 @@ Public Class DataViewer
                     ElseIf e.Button = MouseButtons.Right Then
 #Region " R I G H T - Show Cell properties "
                         GridOptions.AutoClose = False
-                        Dim relativePoint As Point = If(.Cell Is Nothing, e.Location, New Point(.CellBounds.Right - HScroll.Value, .CellBounds.Top - VScroll.Value))
-                        GridOptions.Location = PointToScreen(relativePoint)
+                        Dim relativePoint As Point = If(.Cell Is Nothing, e.Location, New Point(.CellBounds.Right, .CellBounds.Top))
                         GridOptions.Show(PointToScreen(relativePoint))
 #End Region
                     End If
@@ -2354,11 +2353,29 @@ End Class
             Return If(Parent Is Nothing, -1, Parent.IndexOf(Me))
         End Get
     End Property
-    Public Property Tag As object
-    Private WithEvents Style_ As New CellStyle With {.BackColor = Color.Transparent, .ShadeColor = Color.White, .ForeColor = Color.Black, .Font = New Font("Century Gothic", 8)}
+    Public Property Tag As Object
+    Private WithEvents Style_ As New CellStyle With {
+        .BackColor = Color.Transparent,
+        .ShadeColor = Color.White,
+        .ForeColor = Color.Black,
+        .Font = New Font("Century Gothic", 8),
+        .Theme = Theme.None
+    }
     Public ReadOnly Property Style As CellStyle
         Get
-            Return Style_ 'If(DefaultStyle = Style_, If(Selected, Parent.SelectionRowStyle, If(Index Mod 2 = 0, Parent.RowStyle, Parent.AlternatingRowStyle)), Style_)
+            Return Style_
+        End Get
+    End Property
+    Private WithEvents SelectionStyle_ As New CellStyle With {
+        .BackColor = Color.DarkSlateGray,
+        .ShadeColor = Color.Gray,
+        .ForeColor = Color.White,
+        .Font = New Font("Century Gothic", 8),
+        .Theme = Theme.None
+    }
+    Public ReadOnly Property SelectionStyle As CellStyle
+        Get
+            Return SelectionStyle_
         End Get
     End Property
     Friend ReadOnly Property StyleChanged As Boolean
@@ -3060,14 +3077,14 @@ Public NotInheritable  Class WaitTimer
     End Property
     Public Property TickColor As Color
     Public Property Offset As New Point(0, 0)
-    Private Text_ As String
-    Public Property Text As String
+    Private FormText_ As String
+    Public Property FormText As String
         Get
-            Return Text_
+            Return FormText_
         End Get
         Set(value As String)
-            If Text_ <> value Then
-                Text_ = value
+            If FormText_ <> value Then
+                FormText_ = value
                 SetSafeControlPropertyValue(TickForm, "Text", value)
             End If
         End Set

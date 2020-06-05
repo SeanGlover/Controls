@@ -135,14 +135,16 @@ Public Module Functions
     End Function
     Public Function ShadeImage(imageIn As Image, OverlayColor As Color, Optional OverlayAlpha As Byte = 64) As Image
 
-        Using g As Graphics = Graphics.FromImage(imageIn)
-            g.SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
-            g.InterpolationMode = Drawing2D.InterpolationMode.HighQualityBicubic
-            g.PixelOffsetMode = Drawing2D.PixelOffsetMode.HighQuality
-            Using overlayBrush As New SolidBrush(Color.FromArgb(OverlayAlpha, OverlayColor))
-                g.FillRectangle(overlayBrush, New RectangleF(New Point(0, 0), imageIn.Size))
+        If imageIn IsNot Nothing Then
+            Using g As Graphics = Graphics.FromImage(imageIn)
+                g.SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
+                g.InterpolationMode = Drawing2D.InterpolationMode.HighQualityBicubic
+                g.PixelOffsetMode = Drawing2D.PixelOffsetMode.HighQuality
+                Using overlayBrush As New SolidBrush(Color.FromArgb(OverlayAlpha, OverlayColor))
+                    g.FillRectangle(overlayBrush, New RectangleF(New Point(0, 0), imageIn.Size))
+                End Using
             End Using
-        End Using
+        End If
         Return imageIn
 
     End Function
@@ -920,40 +922,34 @@ Public Module Functions
     End Function
     Public Function LevenshteinDistance(ByVal s As String, ByVal t As String) As Integer
 
-        If s Is Nothing Or t Is Nothing Then
-            Return 0
-        Else
-            Dim n As Integer = s.Length
-            Dim m As Integer = t.Length
-            Dim d As New Dictionary(Of Point, Integer)      '(n + 1, m + 1) As Integer
+        s = If(s, String.Empty)
+        t = If(t, String.Empty)
+        Dim n As Integer = s.Length
+        Dim m As Integer = t.Length
+        Dim d = New Integer(n)() {} 'New Integer(n, m) {}
 
-            If n = 0 Then
-                Return m
-            Else
-                If m = 0 Then
-                    Return n
-                Else
-                    For i As Integer = 0 To n
-                        d.Add(New Point(i, 0), i)
-                    Next
-                    For j As Integer = 0 To m
-                        d.Add(New Point(0, j), j)
-                    Next
-                    For i As Integer = 1 To n
-                        For j As Integer = 1 To m
-                            Dim Cost As Integer
-                            If t(j - 1) = s(i - 1) Then
-                                Cost = 0
-                            Else
-                                Cost = 1
-                            End If
-                            d(New Point(i, j)) = Math.Min(Math.Min(d(New Point(i - 1, j)) + 1, d(New Point(i, j - 1))) + 1, d(New Point(i - 1, j - 1)) + Cost)
-                        Next
-                    Next
-                    Return d(New Point(n, m))
-                End If
-            End If
-        End If
+        If n = 0 Then Return m
+        If m = 0 Then Return n
+
+        Dim i As Integer = 0
+        While i <= n
+            d(i) = New Integer(m) {}
+            d(i)(0) = Math.Min(Threading.Interlocked.Increment(i), i - 1)
+        End While
+
+        Dim j As Integer = 0
+        While j <= m
+            d(0)(j) = Math.Min(Threading.Interlocked.Increment(j), j - 1)
+        End While
+
+        For x As Integer = 1 To n
+            For y As Integer = 1 To m
+                Dim cost As Integer = If((t(y - 1) = s(x - 1)), 0, 1)
+                d(x)(y) = Math.Min(Math.Min(d(x - 1)(y) + 1, d(x)(y - 1) + 1), d(x - 1)(y - 1) + cost)
+            Next
+        Next
+
+        Return d(n)(m)
 
     End Function
     Friend Sub ParenthesisNodes(StringNode As StringData, TextIn As String)
@@ -3047,29 +3043,62 @@ Public NotInheritable Class CustomRenderer
 End Class
 Public Module ThreadHelperClass
     Delegate Sub SetPropertyCallback(ByVal c As Control, ByVal n As String, v As Object)
+    Delegate Sub GetPropertyCallback(ByVal c As Control, ByVal n As String)
     Public Sub SetSafeControlPropertyValue(ByVal Item As Control, ByVal PropertyName As String, PropertyValue As Object)
 
-        If Item Is Nothing Then
-        Else
-            Dim t As Type = Item.GetType
-            If Item.InvokeRequired Then
-                Dim d As SetPropertyCallback = New SetPropertyCallback(AddressOf SetSafeControlPropertyValue)
-                Try
-                    Item.Invoke(d, New Object() {Item, PropertyName, PropertyValue})
-                Catch ex As ObjectDisposedException
-                End Try
+        If Item IsNot Nothing Then
+            Try
+                Dim t As Type = Item.GetType
+                If Item.InvokeRequired Then
+                    Dim d As SetPropertyCallback = New SetPropertyCallback(AddressOf SetSafeControlPropertyValue)
+                    Try
+                        Item.Invoke(d, New Object() {Item, PropertyName, PropertyValue})
+                    Catch ex As TargetInvocationException
+                    End Try
 
-            Else
-                Dim pi As PropertyInfo = t.GetProperty(PropertyName)
-                Try
-                    pi.SetValue(Item, PropertyValue)
-                Catch ex As ObjectDisposedException
-                End Try
-            End If
+                Else
+                    Dim pi As PropertyInfo = t.GetProperty(PropertyName)
+                    Try
+                        pi.SetValue(Item, PropertyValue)
+                    Catch ex As TargetInvocationException
+                    End Try
+                End If
+            Catch ex As ObjectDisposedException
+
+            End Try
         End If
 
     End Sub
+    Public Function GetSafeControlPropertyValue(ByVal Item As Control, ByVal PropertyName As String) As Object
 
+        If Item Is Nothing Then
+            Return Nothing
+        Else
+            Try
+                Dim t As Type = Item.GetType
+                If Item.InvokeRequired Then
+                    Dim d As GetPropertyCallback = New GetPropertyCallback(AddressOf GetSafeControlPropertyValue)
+                    Try
+                        Return Item.Invoke(d, New Object() {Item, PropertyName})
+                    Catch ex As TargetInvocationException
+                    End Try
+                    Return Nothing
+
+                Else
+                    Dim pi As PropertyInfo = t.GetProperty(PropertyName)
+                    Try
+                        Return pi.GetValue(Item)
+                    Catch ex As TargetInvocationException
+                        Return Nothing
+                    End Try
+
+                End If
+            Catch ex As ObjectDisposedException
+                Return Nothing
+            End Try
+        End If
+
+    End Function
 #Region " FUNCTIONING PARALLEL.FOREACH - BUT IS SLOOOOWW "
     'Dim myOptions As ParallelOptions = New ParallelOptions With {
     '    .MaxDegreeOfParallelism = Environment.ProcessorCount
@@ -3518,69 +3547,4 @@ Public Class FooDictionary(Of TKey, TValue)
     Protected Sub New(serializationInfo As Runtime.Serialization.SerializationInfo, streamingContext As Runtime.Serialization.StreamingContext)
         Throw New NotImplementedException()
     End Sub
-End Class
-
-Public NotInheritable Class TokenEventArgs
-    Public ReadOnly Property Token As Token
-    Public Sub New(eventToken As Token)
-        Token = eventToken
-    End Sub
-End Class
-Public NotInheritable Class Token
-    Public Event Expired(sender As Object, e As TokenEventArgs)
-    Public Event Expiring(sender As Object, e As TokenEventArgs)
-    Private WithEvents ExpiryTimer As New Timer With {.Interval = 1000}
-    Public Sub New()
-    End Sub
-    Public Sub New(tokenString As String)
-
-        Dim tokenElements() As String = Split(tokenString, Delimiter)
-        If tokenElements.Length = 3 Then
-            Name = tokenElements.First
-            Value = tokenElements(1)
-            Expiry = StringToDateTime(tokenElements.Last)
-        End If
-
-    End Sub
-    Public Property Name As String
-    Public Property Value As String
-    Private Expiry_ As Date
-    Public Property Expiry As Date
-        Get
-            Return Expiry_
-        End Get
-        Set(value As Date)
-            If Expiry_ <> value Then
-                Expiry_ = value
-                ExpiryTimer.Start()
-            End If
-        End Set
-    End Property
-    Public ReadOnly Property RemainingTime As TimeSpan
-        Get
-            If Valid Then
-                Return Expiry.Subtract(Now)
-            Else
-                Return New TimeSpan()
-            End If
-        End Get
-    End Property
-    Public ReadOnly Property Valid As Boolean
-        Get
-            Return Now < Expiry
-        End Get
-    End Property
-    Private Sub ExpiryTimer_Tick() Handles ExpiryTimer.Tick
-
-        If Valid Then
-            If RemainingTime.TotalSeconds < 60 Then RaiseEvent Expiring(Me, New TokenEventArgs(Me))
-        Else
-            ExpiryTimer.Stop()
-            RaiseEvent Expired(Me, New TokenEventArgs(Me))
-        End If
-
-    End Sub
-    Public Overrides Function ToString() As String
-        Return Join({Name, Value, DateTimeToString(Expiry)}, Delimiter)
-    End Function
 End Class

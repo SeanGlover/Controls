@@ -1,8 +1,6 @@
 ﻿Option Explicit On
 Option Strict On
 Imports System.Drawing
-Imports System.Security
-Imports SQLitePCL
 
 Public NotInheritable Class Worker
     Inherits ComponentModel.BackgroundWorker

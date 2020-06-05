@@ -9,8 +9,8 @@ Public Class Login
         Vertical
     End Enum
     Public Event ValuesSubmitted(ByVal sender As Object, ByVal e As LoginEventArgs)
-    Private ReadOnly UID As New ImageCombo With {.Image = My.Resources.UID, .HighlightOnFocus = True, .BorderStyle = Border3DStyle.Flat, .HintText = "User ID", .WrapText = False, .Name = "UID"}
-    Private ReadOnly PWD As New ImageCombo With {.Image = My.Resources.Password, .HighlightOnFocus = True, .BorderStyle = Border3DStyle.Flat, .HintText = "Password", .WrapText = False, .Name = "PWD", .PasswordProtected = True}
+    Public ReadOnly Property UID As New ImageCombo With {.Image = My.Resources.UID, .HighlightOnFocus = True, .BorderStyle = Border3DStyle.Flat, .HintText = "User ID", .WrapText = False, .Name = "UID"}
+    Public ReadOnly Property PWD As New ImageCombo With {.Image = My.Resources.Password, .HighlightOnFocus = True, .BorderStyle = Border3DStyle.Flat, .HintText = "Password", .WrapText = False, .Name = "PWD", .PasswordProtected = True}
     Private MyCredentials As New Credentials
     Public Sub New()
 
