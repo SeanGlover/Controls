@@ -1419,18 +1419,16 @@ Public Class DataViewer
         If Rows.Any Then
             With SaveFile
                 .InitialDirectory = Desktop
+                .FileName = "FileName"
                 Dim ExportObject As ToolStripDropDownItem = DirectCast(sender, ToolStripDropDownItem)
                 Select Case ExportObject.Text
                     Case "Excel"
-                        .FileName = "FileName.xlsx"
-                        .Filter = "Excel Files|*.xls,*.xlsx".ToString(InvariantCulture)
+                        .Filter = "Excel Files|*.xlsx".ToString(InvariantCulture)
 
                     Case ".csv"
-                        .FileName = "FileName.csv"
-                        .Filter = "CSV|*.csv".ToString(InvariantCulture)
+                        .Filter = "*.csv".ToString(InvariantCulture)
 
                     Case ".txt"
-                        .FileName = "FileName.txt"
                         .Filter = "TXT Files (*.txt*)|*.txt".ToString(InvariantCulture)
 
                     Case Else

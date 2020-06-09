@@ -447,8 +447,8 @@ Public Class Prompt
             Case StyleOption.Grey
                 _AlternatingRowColor = Color.DarkGray
                 _BackgroundColor = Color.Gainsboro
-                _HeaderTextColor = Color.Black
-                ForeColor = Color.White
+                _HeaderTextColor = Color.White
+                ForeColor = Color.Black
                 _ShadeColor = Color.Silver
                 _AccentColor = Color.Gray
                 BorderColor = Color.Black

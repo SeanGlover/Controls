@@ -3,6 +3,8 @@ Option Strict On
 Imports System.Windows.Forms
 Imports System.Drawing
 Imports System.Drawing.Drawing2D
+Imports System.Text.RegularExpressions
+
 Public NotInheritable Class TabsEventArgs
     Inherits EventArgs
     Public Property MouseButton As MouseButtons = MouseButtons.None
@@ -155,7 +157,8 @@ Public Class Tabs
 #Region " TEXT BOUNDS "
                         Dim TextBounds As Rectangle
                         If If(.ItemText, String.Empty).Any Then
-                            Dim TextSize As Size = TextRenderer.MeasureText(.ItemText, Font)
+                            Dim ampersandItemText As String = Regex.Replace(.ItemText, "&{1,}", "&&", RegexOptions.None)
+                            Dim TextSize As Size = TextRenderer.MeasureText(ampersandItemText, Font)
                             'TextBounds = New Rectangle(ImageBounds.Right, TabBounds.Top, TabBounds.Right, TabBounds.Height - FatPenThickness)
                             TextBounds = New Rectangle(ImageBounds.Right, TabBounds.Top, TextSize.Width, TabBounds.Height - FatPenThickness)
                         Else
@@ -206,7 +209,8 @@ Public Class Tabs
                                 End Using
                             End If
                         End If
-                        TextRenderer.DrawText(e.Graphics, .Text, e.Font, TextBounds, .HeaderForeColor, TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
+                        Dim ampersandText As String = Regex.Replace(.ItemText, "&{1,}", "&&", RegexOptions.None)
+                        TextRenderer.DrawText(e.Graphics, ampersandText, e.Font, TextBounds, .HeaderForeColor, TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
                         If TabItem Is MouseTab And MouseZone = Zone.Text Then
                             Using FadedTextZoneBrush As New SolidBrush(Color.FromArgb(64, ZoneColor))
                                 e.Graphics.FillRectangle(FadedTextZoneBrush, TextBounds)
@@ -653,8 +657,7 @@ Public Class Tab
             If value <> _ItemText Then
                 _ItemText = value
                 SetSafeControlPropertyValue(Me, "Text", value)
-                'Rework bounds
-                TabControl.Invalidate()
+                TabControl.Invalidate() 'Rework bounds
             End If
         End Set
     End Property

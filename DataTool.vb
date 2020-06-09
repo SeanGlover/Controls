@@ -231,7 +231,7 @@ End Class
     Implements IDisposable
 #Region " DISPOSE "
     Dim disposed As Boolean = False
-    <NonSerialized> Private ReadOnly Handle As Runtime.InteropServices.SafeHandle = New Microsoft.Win32.SafeHandles.SafeFileHandle(IntPtr.Zero, True)
+    <NonSerialized> Private ReadOnly Handle As SafeHandle = New Microsoft.Win32.SafeHandles.SafeFileHandle(IntPtr.Zero, True)
     Public Sub Dispose() Implements IDisposable.Dispose
         Dispose(True)
         GC.SuppressFinalize(Me)
@@ -248,8 +248,6 @@ End Class
 #End Region
 #Region " EVENTS "
     Friend Event GenericEvent(sender As Object, e As AlertEventArgs)
-    Friend Event ConnectionChanged(sender As Object, e As ConnectionChangedEventArgs)
-    Friend Event TypeChanged(sender As Object, e As ScriptTypeChangedEventArgs)
     Friend Event StateChanged(sender As Object, e As ScriptStateChangedEventArgs)
     Friend Event NameChanged(sender As Object, e As ScriptNameChangedEventArgs)
     Friend Event VisibleChanged(sender As Object, e As ScriptVisibleChangedEventArgs)
@@ -314,15 +312,12 @@ End Class
         End Get
         Set(value As Connection)
             If _Connection <> value Then
-                'Body.Connection = value
-                Dim FormerValue As Connection = _Connection
                 _Connection = value
                 Save(SaveAction.ChangeContent)
-                RaiseEvent ConnectionChanged(Me, New ConnectionChangedEventArgs(FormerValue, value))
             End If
         End Set
     End Property
-    Public ReadOnly Property Type As ExecutionType
+    Public Property Type As ExecutionType
     Private ReadOnly Property FileExtension As String
         Get
             Return "." & If(Type = ExecutionType.Null, "txt", If(Type = ExecutionType.DDL, "ddl", "sql"))
@@ -379,9 +374,9 @@ End Class
     Public Property Name As String
         Get
             If State = ViewState.OpenDraft And Parent IsNot Nothing Then
-                'Dim OpenDrafts As New List(Of Script)(From SI In Parent Where SI.State = ViewState.OpenDraft And SI.Body.InstructionType = Body.InstructionType)
-                'Dim SystemGeneratedName As String = Body.InstructionType.ToString & (1 + OpenDrafts.IndexOf(Me))
-                _Name = "SystemGeneratedName"
+                Dim OpenDrafts As New List(Of Script)(From SI In Parent Where SI.State = ViewState.OpenDraft And SI.Type = Type)
+                Dim SystemGeneratedName As String = Type.ToString & (1 + OpenDrafts.IndexOf(Me))
+                _Name = SystemGeneratedName
             End If
             Return _Name
         End Get
@@ -787,7 +782,67 @@ Public Class DataTool
         .Margin = New Padding(0),
         .Font = GothicFont
     }
-    Private WithEvents TypeTimer As New Threading.Timer(New Threading.TimerCallback(AddressOf TickTimer), Nothing, Threading.Timeout.Infinite, Threading.Timeout.Infinite)
+#Region " ACTIVETEXT DECLARATIONS "
+    Private TypeTime As Date
+    Private WithEvents TextWorker As New Worker With {
+        .WorkerSupportsCancellation = True
+    }
+    Private WithEvents TypeWorker As New Worker With {
+        .WorkerReportsProgress = False,
+        .WorkerSupportsCancellation = False
+    }
+    Private WithEvents ObjectsWorker As New Worker With {
+        .WorkerReportsProgress = False,
+        .WorkerSupportsCancellation = False
+    }
+    Private WithEvents ConnectionWorker As New Worker With {
+        .WorkerReportsProgress = False,
+        .WorkerSupportsCancellation = False
+    }
+    Private WithEvents SystemWorker As New Worker With {
+        .WorkerReportsProgress = False,
+        .WorkerSupportsCancellation = False
+    }
+    Private ReadOnly Property DataSources As New Dictionary(Of String, List(Of SystemObject))
+    Private Property ActiveType As ExecutionType
+    Private ReadOnly Property ActiveConnection As Connection
+    Private ReadOnly Property ActiveObject As SystemObject
+
+    Private ReadOnly Labels As New List(Of InstructionElement)
+    Private ReadOnly Property Withs As New List(Of InstructionElement)
+    Private ReadOnly Property TablesObject As New List(Of SystemObject)
+    Private ReadOnly Property GroupedLabels As Dictionary(Of InstructionElement.LabelName, List(Of InstructionElement))
+        Get
+            Dim gl As New Dictionary(Of InstructionElement.LabelName, List(Of InstructionElement))
+            Dim dl As New List(Of InstructionElement)(Labels.Distinct)
+            For Each Label In dl
+                If Not gl.ContainsKey(Label.Source) Then gl.Add(Label.Source, New List(Of InstructionElement))
+                gl(Label.Source).Add(Label)
+                gl(Label.Source).Sort(Function(x, y) x.Block.Start.CompareTo(y.Block.Start))
+            Next
+            Return gl
+        End Get
+    End Property
+    Private ReadOnly Property TablesElement As List(Of InstructionElement)
+        Get
+            Dim emptyList As New List(Of InstructionElement)
+            If GroupedLabels.ContainsKey(InstructionElement.LabelName.SystemTable) Then
+                Try
+                    Dim tables = GroupedLabels(InstructionElement.LabelName.SystemTable)
+                    Return tables
+                Catch ex As KeyNotFoundException
+                    Return emptyList
+                End Try
+            Else
+                Return emptyList
+            End If
+        End Get
+    End Property
+    Private ReadOnly Property ElementObjects As New Dictionary(Of InstructionElement, List(Of SystemObject))
+    Private ReadOnly Property ActiveText As String
+    Private ReadOnly Property TextNoComments As String
+    Private ReadOnly Property CommandText As String
+#End Region
 #End Region
 #Region " organise "
     Private ReadOnly Message As New Prompt With {.Font = GothicFont}
@@ -887,12 +942,13 @@ Public Class DataTool
     Private WithEvents FindAndReplace As New FindReplace With {.Font = GothicFont}
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Private ReadOnly ObjectsSet As New DataSet With {.DataSetName = "Objects"}
-    Private WithEvents ObjectsWorker As New BackgroundWorker With {.WorkerReportsProgress = True}
+    Private WithEvents ObjectsTreeWorker As New BackgroundWorker With {.WorkerReportsProgress = True}
     Private SyncWorkers As Dictionary(Of String, BackgroundWorker)
     Private SyncSet As Dictionary(Of String, DataTable)
     Private WithEvents Stop_Watch As New Stopwatch
     Private ReadOnly Intervals As New Dictionary(Of String, TimeSpan)
     Private ReadOnly ObjectsDictionary As New Dictionary(Of String, Dictionary(Of String, Dictionary(Of SystemObject.ObjectType, List(Of SystemObject))))
+    Private RequestInitiated As Boolean
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Private Pane_MouseLocation As Point
     Private Pane_MouseObject As InstructionElement
@@ -1352,10 +1408,20 @@ Public Class DataTool
 #End Region
 
 #Region " CONNECTION MANAGEMENT "
-    Private Sub DataSource_Clicked(sender As Object, e As EventArgs)
-        With DirectCast(sender, ToolStripMenuItem)
-            ActiveScript.Connection = Connections.Item("DSN=" & .Text & ";")
+    Private Sub SetConnection(newConnection As Connection)
+
+        With ActiveScript()
+            .Connection = newConnection
+            .TabPage.HeaderBackColor = .Connection.BackColor
+            .TabPage.HeaderForeColor = .Connection.ForeColor
+            Dim Message As String = "Currently connected to " & .Connection.DataSource
+            If .Connection.Properties.ContainsKey("NICKNAME") Then Message &= Join({String.Empty, "(", .Connection.Properties("NICKNAME"), ")"})
+            RaiseEvent Alert(newConnection, New AlertEventArgs(Message))
         End With
+
+    End Sub
+    Private Sub DataSource_Clicked(sender As Object, e As EventArgs)
+        SetConnection(Connections.Item("DSN=" & DirectCast(sender, ToolStripMenuItem).Text & ";"))
     End Sub
     Private Sub ConnectionProperties_Showing(sender As Object, e As EventArgs)
 
@@ -2099,16 +2165,12 @@ Public Class DataTool
             End With
             AddHandler addScript.VisibleChanged, AddressOf Script_VisibleChanged
             AddHandler addScript.NameChanged, AddressOf Script_NameChanged
-            AddHandler addScript.TypeChanged, AddressOf Script_TypeChanged
-            AddHandler addScript.ConnectionChanged, AddressOf Script_ConnectionChanged
             AddHandler addScript.GenericEvent, AddressOf Script_GenericEvent
 
         ElseIf e.State = CollectionChangeAction.Remove Then
             Dim removeScript As Script = e.Item
             RemoveHandler removeScript.VisibleChanged, AddressOf Script_VisibleChanged
             RemoveHandler removeScript.NameChanged, AddressOf Script_NameChanged
-            RemoveHandler removeScript.TypeChanged, AddressOf Script_TypeChanged
-            RemoveHandler removeScript.ConnectionChanged, AddressOf Script_ConnectionChanged
             RemoveHandler removeScript.GenericEvent, AddressOf Script_GenericEvent
             Dim RemoveNode As Node = FileTree.Nodes.ItemByTag(removeScript)
             RemoveNode?.RemoveMe()
@@ -2209,37 +2271,6 @@ Public Class DataTool
         Script_Tabs.Refresh()
 
     End Sub
-    Private Sub Script_TypeChanged(sender As Object, e As ScriptTypeChangedEventArgs)
-
-        With DirectCast(sender, Script)
-            If .TabPage IsNot Nothing Then 'If dragging a closed script ( no tab ) - this event can fire
-                .TabPage.ItemText = .Name
-                .TabPage.Image = .TabImage
-            End If
-            Script_Tabs.Refresh()
-        End With
-
-    End Sub
-    Private Sub Script_ConnectionChanged(sender As Object, e As ConnectionChangedEventArgs)
-
-        If e.NewConnection Is Nothing Then
-            'Password change
-            'AddHandler Connection.PasswordChanged, AddressOf ConnectionChanged *** USE???
-
-        Else
-            With e.NewConnection
-                Dim scriptConnection As Script = DirectCast(sender, Script)
-                If scriptConnection.TabPage IsNot Nothing Then 'If dragging a closed script ( no tab ) - this event can fire
-                    scriptConnection.TabPage.HeaderBackColor = e.NewConnection.BackColor
-                    scriptConnection.TabPage.HeaderForeColor = e.NewConnection.ForeColor
-                End If
-                Dim Message As String = "Currently connected to " & .DataSource
-                If .Properties.ContainsKey("NICKNAME") Then Message &= Join({String.Empty, "(", .Properties("NICKNAME"), ")"})
-                RaiseEvent Alert(e.NewConnection, New AlertEventArgs(Message))
-            End With
-        End If
-
-    End Sub
     Private Sub Script_GenericEvent(sender As Object, e As AlertEventArgs)
         RaiseEvent Alert(sender, e)
     End Sub
@@ -2248,14 +2279,6 @@ Public Class DataTool
 
         FindAndReplace.Parent = DirectCast(sender, RicherTextBox)
         CMS_PaneOptions.Close()
-
-    End Sub
-    Private Sub ActivePane_TextChanged(sender As Object, e As EventArgs)
-
-        ActiveText = DirectCast(sender, RicherTextBox).Text
-        ActiveScript.Text = ActiveText
-        SaveAs.Image = If(ActiveScript.FileTextMatchesText, My.Resources.saved, My.Resources.savedNot)
-        TypeTimer.Change(1000, 0)
 
     End Sub
     Private Sub ActivePane_KeyDown(sender As Object, e As KeyEventArgs)
@@ -2486,15 +2509,771 @@ Public Class DataTool
         'A ClosedScript node was dropped on an active pane
         Pane_NodeDropped(e)
     End Sub
-#End Region
-#Region " B O D Y "
-    Private ActiveText As String
-    Private Sub TickTimer(state As Object)
+    Private Sub ActivePane_TextChanged(sender As Object, e As EventArgs)
 
-        Dim xxx As String = If(state Is Nothing, String.Empty, state.ToString)
-        RaiseEvent Alert(TypeTimer, New AlertEventArgs(ActiveText))
+        _ActiveText = DirectCast(sender, RicherTextBox).Text
+        ActiveScript.Text = ActiveText
+        SaveAs.Image = If(ActiveScript.FileTextMatchesText, My.Resources.saved, My.Resources.savedNot)
+
+        Labels.Clear()
+        Withs.Clear()
+        TablesObject.Clear()
+        ElementObjects.Clear()
+
+        If ActiveText.Any Then
+            TypeTime = Now
+            If Not TextWorker.IsBusy Then TextWorker.RunWorkerAsync()
+        Else
+            With ActiveScript()
+                .Connection = Nothing
+                .Type = ExecutionType.Null
+                With .TabPage
+                    .HeaderBackColor = SystemColors.Control
+                    .HeaderForeColor = Color.Black
+                    .Image = Nothing
+                    .ItemText = ActiveScript.Name
+                End With
+            End With
+        End If
 
     End Sub
+#End Region
+#Region " A C T I V E T E X T "
+    Private Sub TextWorker_Start() Handles TextWorker.DoWork
+
+        Do While TypeTime.AddSeconds(1) > Now Or TypeWorker.IsBusy Or ObjectsWorker.IsBusy Or ConnectionWorker.IsBusy
+        Loop
+
+    End Sub
+    Private Sub TextWorker_End() Handles TextWorker.RunWorkerCompleted
+        TypeWorker.RunWorkerAsync()
+    End Sub
+#Region " D D L   O r   S Q L "
+    Private Sub TypeWorker_Start() Handles TypeWorker.DoWork
+
+        _TextNoComments = StripComments(ActiveText)
+        ActiveType = GetInstructionType(TextNoComments)
+
+    End Sub
+    Private Function StripComments(textIn As String) As String
+
+        REM /// -- EXEMPTS TEXT FROM CONSIDERATION, BUT NOT IF IT IS IN APOSTROPHES (CONSTANTS)
+        REM /// 1] SELECT  '----------------------' = CONSTANT
+        REM /// 2] --SELECT 'SPG'                   = GREENOUT
+
+        Dim textOut As String = If(IsNothing(textIn), String.Empty, textIn) 'RegEx THROWS AN ERROR FROM A NULL INPUT VALUE...
+
+        Dim GreenOuts As New List(Of StringData)(From M In Regex.Matches(textOut, CommentPattern, RegexOptions.IgnoreCase) Select New StringData(M))
+        Dim Constants As New List(Of StringData)(From M In Regex.Matches(textOut, "'[^'\r\n]{0,}'", RegexOptions.IgnoreCase) Select New StringData(M))
+
+        For Each Constant In Constants
+            With Constant
+                .BackColor = Color.Gainsboro
+                .ForeColor = Color.Black
+            End With
+            'Labels.Add(New InstructionElement With {.Source = InstructionElement.LabelName.Constant,
+            '                 .Block = Constant,
+            '                 .Highlight = Constant})
+        Next
+        GreenOuts = (From G In GreenOuts Where (From C In Constants Where Not C.Contains(G)).Any).ToList
+        For Each GreenOut In GreenOuts
+            With GreenOut
+                .BackColor = Color.White
+                .ForeColor = Color.DarkGreen
+            End With
+            'Labels.Add(New InstructionElement With {.Source = InstructionElement.LabelName.Comment,
+            '             .Block = GreenOut,
+            '             .Highlight = GreenOut})
+            textOut = textOut.Remove(GreenOut.Start, GreenOut.Length)
+            textOut = textOut.Insert(GreenOut.Start, StrDup(GreenOut.Length, "-"))
+        Next
+        Return textOut
+
+    End Function
+    Private Function GetInstructionType(UncommentedText As String) As ExecutionType
+
+        ActiveType = ExecutionType.Null
+        REM /// _CommentsReplaced REMOVES POTENTIAL MATCHES FROM TEXT INSIDE A COMMENT...WHICH SHOULD NOT BE CONSIDERED
+
+        If UncommentedText.Any Then
+            Dim Match_Comment As Match = Regex.Match(UncommentedText, "COMMENT\s{1,}ON\s{1,}(TABLE|COLUMN|FUNCTION|TRIGGER|DOCUMENT|PROCEDURE|ROLE|TRUSTED|MASK)\s{1,}", RegexOptions.IgnoreCase)
+            Dim Match_Drop As Match = Regex.Match(UncommentedText, "DROP[\s]{1,}(TABLE|VIEW|Function|TRIGGER)[\s]{1,}" & ObjectPattern, RegexOptions.IgnoreCase)
+            Dim Match_Insert As Match = Regex.Match(UncommentedText, "INSERT[\s]{1,}INTO[\s]{1,}" + ObjectPattern + "([\s]{0,}\([A-Z0-9!%{}^~_@#$]{1,}(,[\s]{0,}[A-Z0-9!%{}^~_@#$]{1,}){0,}\)){0,}", RegexOptions.IgnoreCase)
+            Dim Match_Delete As Match = Regex.Match(UncommentedText, "DELETE[\s]{1,}FROM[\s]{1,}" + ObjectPattern, RegexOptions.IgnoreCase)
+            Dim Match_Update As Match = Regex.Match(UncommentedText, "UPDATE[\s]{1,}" + ObjectPattern + "([\s]{1,}([A-Z0-9!%{}^~_@#$]{1,})){0,1}[\s]{1,}Set[\s]{1,}", RegexOptions.IgnoreCase)
+            Dim Match_CreateAlterDrop As Match = Regex.Match(UncommentedText, "(CREATE|ALTER|DROP)(\s{1,}OR REPLACE){0,1}\s{1,}((AUXILIARY\s+){0,1}TABLE|(BLOB\s+|CLOB\s+|LOB\s+)TABLESPACE|VIEW|Function|TRIGGER)[\s]{1,}" + ObjectPattern, RegexOptions.IgnoreCase)
+            Dim Match_GrantRevoke As Match = Regex.Match(UncommentedText, "(GRANT|REVOKE)[\s]{1,}((Select|UPDATE|INSERT|DELETE|ALTER|INDEX|REFERENCES|EXECUTE)[\s]{0,}[,]{0,1}[\s]{0,}){1,8}[\s]{1,}On[\s]{1,}" + ObjectPattern, RegexOptions.IgnoreCase)
+            If Match_Comment.Success Or Match_Drop.Success Or Match_Insert.Success Or Match_Delete.Success Or Match_Update.Success Or Match_CreateAlterDrop.Success Or Match_GrantRevoke.Success Then
+                Return ExecutionType.DDL
+
+            ElseIf Regex.Match(UncommentedText, SelectPattern, RegexOptions.IgnoreCase).Success Then
+                Return ExecutionType.SQL
+
+            Else
+                Return ExecutionType.Null
+
+            End If
+        Else
+            Return ExecutionType.Null
+
+        End If
+
+    End Function
+    Private Sub TypeWorker_End() Handles TypeWorker.RunWorkerCompleted
+
+        With ActiveScript()
+            .Type = ActiveType
+            .TabPage.ItemText = .Name
+            .TabPage.Image = .TabImage
+        End With
+        Script_Tabs.Refresh()
+        ObjectsWorker.RunWorkerAsync()
+
+    End Sub
+#End Region
+#Region " G E T   O B J E C T S "
+    Private Sub ObjectsWorker_Start(sender As Object, e As DoWorkEventArgs) Handles ObjectsWorker.DoWork
+        AssignLabels(TextNoComments)
+        AddObjects()
+    End Sub
+    Private Sub AssignLabels(textIn As String)
+
+        REM /// REQUIRES KNOWING IF IsDDL + CALLS ParenthesisNodes
+        Dim Blackout_Selects As String = textIn
+        Dim BlackOut_Parentheses As String = textIn
+        Dim Blackout_Handled As String = textIn
+
+        If IsNothing(textIn) OrElse textIn.Length = 0 Then
+        Else
+            REM /// BEGIN BY IDENTIFYING SIMPLE OBJECTS
+#Region " UNION - ADD BLOCK "
+            Dim Unions As New List(Of StringData)(From M In Regex.Matches(textIn, "[\s\r\n]{1,}\b(UNION ALL|UNION|EXCEPT|INTERSECT)\b[\s\r\n]{1,}", RegexOptions.IgnoreCase) Select New StringData(M))
+            For Each Union In Unions
+                With Union
+                    '.BackColor = My.Settings.Union_Back
+                    '.ForeColor = My.Settings.Union_Fore
+                End With
+                Labels.Add(New InstructionElement With {.Source = InstructionElement.LabelName.Union,
+                         .Block = Union,
+                         .Highlight = Union})
+            Next
+#End Region
+#Region " SELECT STATEMENTS "
+            Dim Selects As New List(Of StringData)(From M In Regex.Matches(textIn, SelectPattern, RegexOptions.IgnoreCase) Select New StringData(M))
+            For Each SelectStatement In Selects
+                With SelectStatement
+                    .BackColor = Color.FromArgb(64, Color.Tomato)
+                    .ForeColor = Color.Black
+                End With
+                Blackout_Selects = ChangeText(Blackout_Selects, SelectStatement)
+                Labels.Add(New InstructionElement With {.Source = InstructionElement.LabelName.SelectBlock,
+                             .Block = SelectStatement,
+                             .Highlight = New StringData With {
+                                                .Start = SelectStatement.Start,
+                                                .Length = "SELECT".Length,
+                                                .Value = "SELECT"
+                                                }
+                            })
+                REM /// COMPLICATED TO DETERMINE END OF FIELD...EXAMPLE:    (CASE LEFT(R.SAI, 2) WHEN 'WW' THEN 'Y' ELSE 'N' END) --H.IN
+                Labels.AddRange(FieldsFromBlocks(SelectStatement, "SELECT[\s]{1,}"))
+            Next
+#End Region
+#Region " GROUP BY/ORDER BY "
+            Dim GroupBys As New List(Of StringData)(From M In Regex.Matches(textIn, "\bGROUP[\s]{1,}BY\b[\s]{1,}([A-Z0-9!%{}^~_@#$]{1,}([.][A-Z0-9!%{}^~_@#$]{1,}){0,2})(,[\s]{1,}[A-Z0-9!%{}^~_@#$]{1,}([.][A-Z0-9!%{}^~_@#$]{1,}){0,2}){0,}", RegexOptions.IgnoreCase) Select New StringData(M))
+            For Each GroupBy In GroupBys
+                Dim GroupByHighlight = Regex.Match(GroupBy.Value, "\bGROUP[\s]{1,}BY\b", RegexOptions.IgnoreCase).Value
+                Labels.Add(New InstructionElement With {.Source = InstructionElement.LabelName.GroupBlock,
+                             .Block = GroupBy,
+                             .Highlight = New StringData With {.Start = GroupBy.Start,
+                             .Length = GroupByHighlight.Length,
+                             .Value = GroupByHighlight}})
+                Labels.AddRange(FieldsFromBlocks(GroupBy, "GROUP[\s]{1,}BY[\s]{1,}"))
+            Next
+            Dim OrderBys As New List(Of StringData)(From M In Regex.Matches(textIn, "\bORDER[\s]{1,}BY\b[\s]{1,}([A-Z0-9!%{}^~_@#$]{1,}([.][A-Z0-9!%{}^~_@#$]{1,}){0,2})(,[\s]{1,}[A-Z0-9!%{}^~_@#$]{1,}([.][A-Z0-9!%{}^~_@#$]{1,}){0,2}){0,}", RegexOptions.IgnoreCase) Select New StringData(M))
+            For Each OrderBy In OrderBys
+                Dim OrderByHighlight = Regex.Match(OrderBy.Value, "\bORDER[\s]{1,}BY\b", RegexOptions.IgnoreCase).Value
+                Labels.Add(New InstructionElement With {.Source = InstructionElement.LabelName.OrderBlock,
+                             .Block = OrderBy,
+                             .Highlight = New StringData With {.Start = OrderBy.Start,
+                             .Length = OrderByHighlight.Length,
+                             .Value = OrderByHighlight}})
+                Labels.AddRange(FieldsFromBlocks(OrderBy, "ORDER[\s]{1,}BY[\s]{1,}"))
+            Next
+#End Region
+#Region " FETCH/LIMIT "
+            Dim Limits As New List(Of StringData)(From M In Regex.Matches(textIn, "(FETCH[\s]{1,}FIRST[\s]{1,}[0-9]{1,}[\s]{1,}ROWS[\s]{1,}ONLY|LIMIT[\s]{1,}[0-9]{1,})", RegexOptions.IgnoreCase) Select New StringData(M))
+            For Each Limit In Limits
+                With Limit
+                    .BackColor = Color.FromArgb(64, Color.MediumVioletRed)
+                    .ForeColor = Color.Black
+                End With
+                Labels.Add(New InstructionElement With {.Source = InstructionElement.LabelName.Limit,
+                             .Block = Limit,
+                             .Highlight = New StringData With {.Start = Limit.Start,
+                             .Length = 5,
+                             .Value = Regex.Match(Limit.Value, "FETCH|LIMIT", RegexOptions.IgnoreCase).Value}})
+            Next
+#End Region
+            REM /// STRIP AWAY PARTS OF TEXT IDENTIFIED SO THEY ARE NOT CONSIDERED AGAIN
+            REM /// LOOKS FOR ACCEPTABLE OBJECT NAMING CONVENTIONS- CERTAIN CHARACTERS ARE NOT ALLOWED IN TABLE, VIEW, FUNCTION, AND TRIGGER NAMES + CAN BE AS: {1] DB.OWNER.NAME, 2] OWNER.NAME, 3] NAME}
+            Dim PotentialObjects As New List(Of StringData)(From M In Regex.Matches(textIn, ObjectPattern, RegexOptions.IgnoreCase) Select New StringData(M))
+#Region " PROCEDURAL ACTIONS ON SYSTEM.TABLES "
+            If ActiveType = ExecutionType.DDL Then
+                Dim Patterns As New Dictionary(Of String, String)
+#Region " TRIGGER SECTION - CAN CONTAIN TABLES, VIEWS, FUNCTIONS "
+                Patterns.Add("TriggerInsertDelete", "(BEFORE|AFTER|INSTEAD[\s]{1,}OF)[\s]{1,}(INSERT|DELETE)[\s]{1,}ON[\s]")
+                Patterns.Add("TriggerUpdate", "(BEFORE|AFTER|INSTEAD[\s]{1,}OF)[\s]{1,}(UPDATE[\s]{1,}OF[\s]{1,})([A-Z0-9!%{}^~_@#$]{1,})([\s]{0,}[,][\s]{0,}[A-Z0-9!%{}^~_@#$]{1,}){0,}[\s]{1,}ON[\s]{1,}")
+#End Region
+#Region " GRANT/REVOKE SECTION "
+                REM /// OTHER DDL COMMANDS: GRANT|REVOKE (SELECT|UPDATE|INSERT|DELETE|ALTER|INDEX|REFERENCES|EXECUTE) ON
+                Patterns.Add("GrantRevoke", "(GRANT|REVOKE)[\s]{1,}(SELECT|UPDATE|INSERT|DELETE|ALTER|INDEX|REFERENCES|EXECUTE)[\s]{1,}ON[\s]{1,}(FUNCTION[\s]{1,}){0,}")
+#End Region
+#Region " ALTER/DROP SECTION "
+                REM /// OTHER DDL COMMANDS: ALTER|DROP TABLE (CREATE WOULD BE NEW AND THEREFORE SHOULD NOT COUNT)
+                Patterns.Add("AlterDrop", "(ALTER|DROP)[\s]{1,}(TABLE|VIEW)[\s]{1,}")
+#End Region
+#Region " INSERT/UPDATE/DELETE SECTION "
+                REM /// OTHER DDL COMMANDS: INSERT INTO, UPDATE, DELETE FROM}
+                Patterns.Add("InsertUpdateDelete", "(INSERT[\s]{1,}INTO|DELETE[\s]{1,}FROM|UPDATE)[\s]{1,}")
+#End Region
+#Region " ITERATE PATTERNS...TextElements.Add(SystemTable) "
+                For Each Pattern In Patterns.Keys
+                    Dim Statements As New List(Of StringData)(From M In Regex.Matches(textIn, Patterns(Pattern) + ObjectPattern, RegexOptions.IgnoreCase) Select New StringData(M))
+                    Dim KeyWords As New List(Of String)(From PK In Regex.Matches(Patterns(Pattern), "[A-Z]{2,}", RegexOptions.IgnoreCase) Select DirectCast(PK, Match).Value)
+                    Dim Tables = (From S In Statements, PO In PotentialObjects Where S.Contains(PO) And Not KeyWords.Intersect({PO.Value}).Any Select PO)
+                    For Each Table In Tables
+                        With Table
+                            '.BackColor = My.Settings.TableSystem_Back
+                            '.ForeColor = My.Settings.TableSystem_Fore
+                        End With
+                        Dim SystemTableElement As New InstructionElement With {.Source = InstructionElement.LabelName.SystemTable,
+                                     .Block = Table,
+                                     .Highlight = Table}
+                        Labels.Add(SystemTableElement)
+                    Next
+                    For Each Statement In Statements
+                        Blackout_Handled = ChangeText(textIn, Statement)
+                    Next
+                Next
+#End Region
+            End If
+#End Region
+            Dim Root As New StringData(Blackout_Handled)
+            ParenthesisNodes(Root, textIn)
+            BlackOut_Parentheses = Blackout_Handled
+#Region " WITH BLOCKS - ALWAYS TEXT OUTSIDE PARENTHESES: WITH ABC (X, Y, Z) AS (SELECT ...) "
+            REM /// EASIER TO CAPTURE WITH BLOCKS WHEN IGNORING CONTENT INSIDE WITH(ignore me)
+            For Each ParenthesesBlock As StringData In Root.All
+                BlackOut_Parentheses = ChangeText(BlackOut_Parentheses, ParenthesesBlock)
+            Next
+            Dim WithColors As New List(Of Color)({Color.SlateBlue, Color.OrangeRed, Color.Peru, Color.YellowGreen, Color.BlueViolet, Color.Olive, Color.DarkOliveGreen, Color.DarkMagenta})
+            REM /// 1] WITH DEBITS ■■■■ AS ■■■■ |2] WITH DEBITS AS ■■■■ |3] , FINAL ■■■■ AS ■■■■ |4] , FINAL AS ■■■■
+            Dim WithPattern As String = "(?<=WITH |,)[\s]{0,}[A-Z0-9!%{}^~_@#$]{1,}[\s]{0,}[■]{0,}[\s]AS[\s]{0,}[■]{1,}"
+            Dim WithBlocks As New List(Of StringData)(From M In Regex.Matches(BlackOut_Parentheses, WithPattern, RegexOptions.IgnoreCase) Select New StringData(M))
+            For Each WithBlock In WithBlocks
+                REM /// REGEX LOOKBEHIND MUST HAVE A FIXED LENGTH WHICH MEANS HAVING TO ADJUST THE StringData.START ACCOUNTING FOR PRECEDING SPACES
+                Dim WithStart As Integer = 0
+                For Each Item In WithBlock.Value
+                    If Item = " " Then
+                        WithStart += 1
+                    Else
+                        Exit For
+                    End If
+                Next
+                Dim NewStart As Integer = (WithBlock.Start + WithStart)
+                Dim NewLength As Integer = (WithBlock.Length - WithStart)
+                Dim WithValue As String = Split(WithBlock.Value.Substring(WithStart, NewLength), " ").First
+                WithValue = Split(WithValue, BlackOut).First
+                Dim WithElement As New InstructionElement With {
+                                 .Source = InstructionElement.LabelName.WithBlock,
+                                 .Block = New StringData With {
+                                             .Start = NewStart,
+                                             .Length = WithBlock.Length - WithStart,
+                                             .Value = textIn.Substring(NewStart, NewLength)
+                                 },
+                                 .Highlight = New StringData With {
+                                            .Start = NewStart,
+                                            .Length = WithValue.Length,
+                                            .Value = WithValue,
+                                            .BackColor = WithColors(_Withs.Count Mod WithColors.Count)
+                                 }
+                                 }
+                Withs.Add(WithElement)
+            Next
+            Labels.AddRange(Withs)
+#End Region
+#Region " GET TABLES - WHICH ALWAYS FOLLOW <FROM> - 3 STAGES "
+            REM /// IT IS BEST TO HANDLE OUTSIDE () AND INSIDE () SEPARATELY
+#Region " OUTSIDE () "
+            Dim From_OutsideWiths As New List(Of InstructionElement)(FromBlocks(New StringData With {.Value = BlackOut_Parentheses}))
+            Labels.AddRange(From_OutsideWiths)
+#End Region
+#Region " INSIDE (a) - INNER FROM STATEMENTS ( NO NESTED FROM STATEMENT(s) ) "
+            REM /// (SELECT...FROM TABLENAME...WHERE)
+            REM /// NEED INNERMOST FROM STATEMENTS FIRST SINCE THEY WILL INTERFERE WITH OUTER FROM STATEMENTS...SELECT A, (SELECT B FROM) FROM (SELECT *)
+            Dim FromInnerValuePair As KeyValuePair(Of String, List(Of InstructionElement)) = FromWhittle(Blackout_Handled)
+            Labels.AddRange(FromInnerValuePair.Value)
+#End Region
+#Region " INSIDE (b) - OUTER FROM STATEMENTS ( HAS NESTED FROM STATEMENT(s) ) "
+            Dim FromOuterValuePair As KeyValuePair(Of String, List(Of InstructionElement)) = FromWhittle(FromInnerValuePair.Key)
+            Labels.AddRange(FromOuterValuePair.Value)
+#End Region
+#End Region
+        End If
+
+    End Sub
+    Private Shared Function ChangeText(FullString As String, _StringData As StringData, Optional Value As String = BlackOut) As String
+
+        Dim NewValue As String = FullString
+        With _StringData
+            NewValue = NewValue.Remove(.Start, .Length)
+            NewValue = NewValue.Insert(.Start, StrDup(.Length, Value))
+        End With
+        Return NewValue
+
+    End Function
+    Private Function FromWhittle(TextIn As String) As KeyValuePair(Of String, List(Of InstructionElement))
+
+        Dim Root As New StringData With {.Value = TextIn}
+        ParenthesisNodes(Root, TextIn)
+
+        Dim FromsAll As New List(Of StringData)(From PT In Root.All Where PT.Value.ToUpperInvariant.Contains("FROM"))
+        Dim FromsWithFroms As New List(Of StringData)(From FA In FromsAll Where (From P In FA.Parentheses Where P.Value.ToUpperInvariant.Contains("FROM")).Any)
+        Dim FromsNoFroms As New List(Of StringData)(FromsAll.Except(FromsWithFroms))
+        Dim FromElements As New List(Of InstructionElement)
+        Dim FromText As String = TextIn
+        For Each Section In FromsNoFroms
+            FromElements.AddRange(FromBlocks(Section))
+            FromText = FromText.Remove(Section.Start, Section.Length)
+            FromText = FromText.Insert(Section.Start, StrDup(Section.Length, BlackOut))
+        Next
+        Return New KeyValuePair(Of String, List(Of InstructionElement))(FromText, FromElements)
+
+    End Function
+    Private Function FromBlocks(_StringData As StringData) As List(Of InstructionElement)
+
+        Dim From_SectionValue As String = Nothing
+        Dim FromElements As New List(Of InstructionElement)
+        Dim WithList As New Dictionary(Of String, Color)
+        For Each _With In _Withs
+            If WithList.ContainsKey(_With.Highlight.Value) Then
+            Else
+                WithList.Add(_With.Highlight.Value, _With.Highlight.BackColor)
+            End If
+        Next
+
+        REM /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        REM /// ***** DUPLICATIONS DUE TO NESTED FROM STATEMENTS...ObjectsFromText.FromsInsideBubbles CALLS FOR EACH FROM IN A BUBBLE
+        REM /// FUNCTION TAKES A SECTION OF BODY.TEXT AND SEGMENTS TEXT BLOCKS OF FROM...=>|WHERE
+        REM /// FromBlockPattern IS NON-GREEDY SO NEED TO ITERATE MULTIPLE FROM's UNTIL ALL ARE GONE (EX. UNIONS)
+        REM /// FROM[^©] = FROM+ANYTHING UP TO A KEY WORD OR EOL... DO NOT USE <BlackOut> AS BUBBLES WILL HAVE BLACKED OUT ANY () IN THE FROM BLOCK
+        REM /// NonCharacter As String = "©"
+        REM /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        Dim FromBlockPattern As String = "FROM[\s]{1,}[^" & NonCharacter & "]{1,}?(?=\bWHERE\b|\bUNION\b|\bEXCEPT\b|\bINTERSECT\b|\bGROUP\b|\bORDER\b|\bLIMIT\b|\bFETCH\b|\z)"
+
+        REM /// GET THE FROM CHUNK FROM START TO END INCLUDING ALL JOINS, ETC UP TO BUT NOT INCLUDING WHERE, UNION, ETC
+        Dim From_Sections As New List(Of StringData)(From M In Regex.Matches(_StringData.Value, FromBlockPattern, RegexOptions.IgnoreCase) Select New StringData(M))
+
+        For Each From_Section In From_Sections
+            From_SectionValue = From_Section.Value
+            Dim Root As New StringData(From_Section.Value)
+            ParenthesisNodes(Root, From_SectionValue)
+            If Root.Parentheses.Any Then
+                Dim Base = Root.All.First
+                From_SectionValue = From_SectionValue.Remove(Base.Start, Base.Length)
+                From_SectionValue = From_SectionValue.Insert(Base.Start, StrDup(Base.Length, BlackOut))
+            End If
+            Do
+                REM /// FromBlockPattern IS LAZY...DO IS REQUIRED AS Regex.Match SET TO LAZY
+                Dim FromBlockMatch = Regex.Match(From_SectionValue, FromJoinCommaPattern, RegexOptions.IgnoreCase)
+                If FromBlockMatch.Success Then
+                    Dim InnerItems As New List(Of Match)(From R In Regex.Matches(From_SectionValue, FromJoinCommaPattern, RegexOptions.IgnoreCase) Select DirectCast(R, Match))
+                    REM /// InnerItems=EACH MATCH OF OTHER REFERENCED TABLES IN THE FROM BLOCK SUCH AS:     C085365.ACTIONS_TODAY AT
+                    For Each InnerItem In InnerItems
+                        Dim InnerChunk As String = From_SectionValue.Substring(InnerItem.Index, From_SectionValue.Length - InnerItem.Index)
+#Region " TESTING "
+                        If InnerItem.Value.Contains("Ø") Then
+                            Stop
+                        ElseIf InnerItem.Value.Contains("Ø") Then
+                            Stop
+                        End If
+#End Region
+                        Dim InnerStart As Integer = 0
+#Region " CLEANUP - REMOVE PRECEDING SPACES AND MOVE FORWARD THE START POSITION BASED ON COUNT OF PRECEDING SPACES "
+                        For Each Item In InnerItem.Value
+                            If Item = " " Then
+                                InnerStart += 1
+                            Else
+                                Exit For
+                            End If
+                        Next
+#End Region
+                        Dim NewStart As Integer = _StringData.Start + From_Section.Start + InnerItem.Index + InnerStart
+                        Dim InnerValue As String = Split(InnerItem.Value.Substring(InnerStart, InnerItem.Length - InnerStart), " ").First
+                        Dim SourceType As InstructionElement.LabelName = Nothing
+                        Dim HighlightBackColor As Color = Color.DarkBlue
+                        Dim HighlightForeColor As Color = Color.White
+
+                        If WithList.ContainsKey(InnerValue) Then
+                            REM /// WITH (a,b) AS (SELECT WILL MATCH IsRoutineTable SO CHECK FIRST
+                            SourceType = InstructionElement.LabelName.WithTable
+                            HighlightBackColor = Color.White
+                            HighlightForeColor = WithList(InnerValue)
+
+                        ElseIf InnerValue.ToUpper(Globalization.CultureInfo.InvariantCulture) = "TABLE" And Regex.Match(InnerChunk, "TABLE[■]{2,}", RegexOptions.IgnoreCase).Success Then
+                            REM /// TABLE(SELECT... IS NESTED SO CONTENT OF () *IS* BLACKED OUT
+                            SourceType = InstructionElement.LabelName.FloatingTable
+                            'HighlightBackColor = My.Settings.TableFloating_Back
+                            'HighlightForeColor = My.Settings.TableFloating_Fore
+
+                        ElseIf Regex.Match(InnerChunk, InnerValue & "[■]{1,}", RegexOptions.IgnoreCase).Success Then
+                            REM /// XMLTABLE( + OTHER ROUTINE TABLES ARE *NOT* NESTED WITH ANOTHER SELECT STATEMENT SO CONTENT OF () IS NOT BLACKED OUT
+                            SourceType = InstructionElement.LabelName.RoutineTable
+                            'HighlightBackColor = My.Settings.TableRoutine_Back
+                            'HighlightForeColor = My.Settings.TableRoutine_Fore
+
+                        Else
+                            SourceType = InstructionElement.LabelName.SystemTable
+                            'HighlightBackColor = My.Settings.TableSystem_Back
+                            'HighlightForeColor = My.Settings.TableSystem_Fore
+
+                        End If
+                        FromElements.Add(New InstructionElement With
+                                             {.Source = SourceType,
+                                              .Block = New StringData With {
+                                                    .Start = _StringData.Start + From_Section.Start,
+                                                    .Length = From_Section.Length,
+                                                    .Value = From_Section.Value,
+                                                    .BackColor = Color.FromArgb(64, Color.Black)},
+                                             .Highlight = New StringData With {
+                                                    .Start = NewStart,
+                                                    .Length = InnerValue.Length,
+                                                    .Value = InnerValue,
+                                                    .BackColor = HighlightBackColor,
+                                                    .ForeColor = HighlightForeColor}}
+                                                    )
+#Region " REPLACE THE FOUND OBJECT WITH A NON-CHARACTER USED IN THE PATTERN SO IT IS REMOVED FROM CONSIDERATION IN THE NEXT ITERATION "
+                        REM /// EACH ITERATION REMOVES A FOUND ITEM AND IS NOT CONSIDERED IN NEXT EVALUATION ///
+                        From_SectionValue = From_SectionValue.Remove(InnerItem.Index, InnerItem.Length)
+                        From_SectionValue = From_SectionValue.Insert(InnerItem.Index, StrDup(InnerItem.Length, NonCharacter))
+#End Region
+                    Next
+                Else
+                    REM /// ALL MATCHES HAVE BEEN REPLACED BY <NonCharacter>. NOTHING REMAINS
+                    Exit Do
+                End If
+            Loop
+        Next
+        FromElements.Sort(Function(x, y) String.Compare(x.Source.ToString.ToUpperInvariant, y.Source.ToString.ToUpperInvariant, StringComparison.Ordinal))
+        Labels.AddRange(FromElements)
+        Return FromElements
+
+    End Function
+    Private Function FieldsFromBlocks(DataString As StringData, Pattern As String) As List(Of InstructionElement)
+
+        Dim Fields As New List(Of InstructionElement)
+        Dim SourceType As InstructionElement.LabelName
+        Dim FieldPattern As String = Nothing
+        Dim ForeColor As Color = Color.Black
+        If Pattern.Contains("GROUP") Then
+            SourceType = InstructionElement.LabelName.GroupField
+            FieldPattern = "\bGROUP[\s]{1,}BY\b[\s]{1,}"
+            ForeColor = Color.DarkOrange
+
+        ElseIf Pattern.Contains("ORDER") Then
+            SourceType = InstructionElement.LabelName.OrderField
+            FieldPattern = "\bORDER[\s]{1,}BY\b[\s]{1,}"
+            ForeColor = Color.Blue
+
+        ElseIf Pattern.Contains("SELECT") Then
+            SourceType = InstructionElement.LabelName.SelectField
+            FieldPattern = "\bSELECT\b[\s]{1,}"
+
+        End If
+        Dim FieldSection As String = DataString.Value.Remove(0, Regex.Match(DataString.Value, FieldPattern, RegexOptions.IgnoreCase).Length)
+        Dim FieldSectionNoParenthesis As String = FieldSection
+        REM /// REMOVE CONTENT INSIDE () SINCE FUNCTIONS, ETC OFTEN CONTAIN COMMAS WHICH IS NEEDED AS A "§" FOR THE FIELD
+        Dim Root As New StringData With {.Value = FieldSection}
+        ParenthesisNodes(Root, FieldSection)
+        For Each Section In Root.Parentheses
+            FieldSectionNoParenthesis = FieldSectionNoParenthesis.Remove(Section.Start, Section.Length)
+            FieldSectionNoParenthesis = FieldSectionNoParenthesis.Insert(Section.Start, StrDup(Section.Length, BlackOut))
+        Next
+        Dim DelimitMatches As New List(Of StringData)(From M In Regex.Matches(FieldSectionNoParenthesis, ",[ ]{0,}", RegexOptions.IgnoreCase) Select New StringData(M))
+        For Each Section In DelimitMatches
+            FieldSectionNoParenthesis = FieldSectionNoParenthesis.Remove(Section.Start, Section.Length)
+            FieldSectionNoParenthesis = FieldSectionNoParenthesis.Insert(Section.Start, StrDup(Section.Length, "½"))
+        Next
+        FieldSectionNoParenthesis = Regex.Replace(FieldSectionNoParenthesis, " ", "¾")
+        Dim FieldStart As Integer = (DataString.Value.Length - FieldSection.Length)
+        Dim FieldMatches As New List(Of StringData)(From M In Regex.Matches(FieldSectionNoParenthesis, "[^½\s®]{1,}", RegexOptions.IgnoreCase) Select New StringData(M))
+
+        For Each Field As StringData In FieldMatches
+            Dim FieldValue As String = FieldSection.Substring(Field.Start, Field.Length)
+            FieldValue = Regex.Replace(FieldValue, "[\t\r\n]", BlackOut)
+            FieldValue = Regex.Replace(FieldValue, "■$", String.Empty)
+            If FieldValue.StartsWith("½", StringComparison.InvariantCulture) Then Stop
+            Dim FieldElement As New StringData With {
+                                        .Start = DataString.Start + FieldStart + Field.Start,
+                                        .Length = Field.Length,
+                                        .Value = FieldValue,
+                                        .BackColor = Color.White,
+                                        .ForeColor = ForeColor
+                                        }
+            Fields.Add(New InstructionElement With {.Source = SourceType,
+                       .Block = FieldElement,
+                       .Highlight = FieldElement
+                       })
+        Next
+        Return Fields
+
+    End Function
+    Private Sub ParenthesisNodes(StringNode As StringData, TextIn As String)
+
+        REM /// MUST BE DELIMITED BY A CHARACTER WHICH WILL NEVER BE FOUND IN SCRIPT
+        Dim Group = ParenthesisCapture(TextIn)
+
+        REM /// GROUP.LENGTH=0 MEANS NO () FOUND IN TextIn
+        REM /// IF TextIn.LENGTH=0 THEN HAS REACHED EOL
+
+        If TextIn.Length = 0 Then
+            REM /// EOL
+
+        ElseIf Group.Length = 0 Then
+            REM /// NO PARENTHESIS LEFT=SIBLINGS ADDED, NOW ADD CHILDREN
+            Dim NewNodes As List(Of StringData) = StringNode.Parentheses
+            For Each ChildNode In NewNodes
+                Dim TextValues = Split(ChildNode.Value, NonCharacter)
+                ChildNode.Value = TextValues.First
+                ParenthesisNodes(ChildNode, TextValues.Last)
+            Next
+
+        Else
+            REM /// FOUND PARENTHESIS...ADD SIBLINGS BY RECURSING ON TEXT. MUST SUBSTITUTE PARENTHESIS WITH {} OTHERWISE INFINITE LOOP
+            Dim ChildText As String = "{" & TextIn.Substring(Group.Start + 1, Group.Length - 2) & "}"
+            Dim SiblingText As String = TextIn.Remove(Group.Start, Group.Length)
+            SiblingText = SiblingText.Insert(Group.Start, StrDup(Group.Length, "-"))
+
+            Dim NodeText As String = Join({Group.Value, NonCharacter, ChildText}, String.Empty)
+            If StringNode IsNot Nothing Then
+                Dim ParentGroup As StringData = StringNode
+                Group.Start += ParentGroup.Start
+                StringNode.Parentheses.Add(New StringData With {
+                                      .Start = Group.Start,
+                                      .Length = Group.Length,
+                                      .Value = NodeText})
+            End If
+            ParenthesisNodes(StringNode, SiblingText)
+
+        End If
+
+    End Sub
+    Private Sub AddObjects()
+
+        REM /// Translates ME.Text into a list of MY.SETTINGS.SystemObjects
+        REM /// LOCAL VARIABLE <SETTINGSOBJECTS> IS A REPLICA OF DataTool.SystemObjects (MY.SETTINGS.SystemObjects)
+        If TablesElement.Any Then
+            REM /// TEXT BUT NOT A QUERY OR PROCEDURE STATEMENT... ie) LIST: C085365.EMAILS, C085365.ADDRESSES, C.OPENACTH3, C.CUSTACTH3, C.CUSTINDH3
+            Dim UnstructuredItems As New List(Of StringData)(From M In Regex.Matches(TextNoComments, ObjectPattern, RegexOptions.IgnoreCase) Select New StringData(M))
+            For Each Item In UnstructuredItems
+                REM /// ONLY ADD WORDS THAT EXIST IN MY.SETTINGS.SystemObjects
+                TablesObject.AddRange(SystemObjects.Items(Item.Value))
+            Next
+
+        Else
+            REM /// SCHEMAS SHOWS DEPTH OF DETAIL IN BODY.TEXT...FROM ACTIONS=1, C085365.ACTIONS=2, DSNA1.C085365.ACTIONS=3
+            REM /// USE SystemObjectCollection.Items(DataString As String)
+
+            '======================= ENUMERATION ERRORS FOR PSRR UNIVERSE PA
+            For Each Item In TablesElement
+                If Not ElementObjects.ContainsKey(Item) Then ElementObjects.Add(Item, SystemObjects.Items(Item.Highlight.Value))
+            Next
+            For Each Item In TablesElement
+                TablesObject.AddRange(SystemObjects.Items(Item.Highlight.Value))
+            Next
+            '======================= ENUMERATION ERRORS FOR PSRR UNIVERSE PA
+
+        End If
+        _TablesObject = TablesObject.Distinct.ToList
+        TablesObject.Sort(Function(f1, f2)
+                              Dim Level1 = String.Compare(f1.DSN, f2.DSN, StringComparison.InvariantCulture)
+                              If Level1 <> 0 Then
+                                  Return Level1
+                              Else
+                                  Dim Level2 = String.Compare(f1.Type.ToString, f2.Type.ToString, StringComparison.InvariantCulture)
+                                  If Level2 <> 0 Then
+                                      Return Level2
+                                  Else
+                                      Dim Level3 = String.Compare(f1.Owner, f2.Owner, StringComparison.InvariantCulture)
+                                      If Level3 <> 0 Then
+                                          Return Level3
+                                      Else
+                                          Dim Level4 = String.Compare(f1.Name, f2.Name, StringComparison.InvariantCulture)
+                                          Return Level4
+                                      End If
+                                  End If
+                              End If
+                          End Function)
+
+    End Sub
+    Private Sub ObjectsWorker_End(sender As Object, e As RunWorkerCompletedEventArgs) Handles ObjectsWorker.RunWorkerCompleted
+        ConnectionWorker.RunWorkerAsync()
+    End Sub
+#End Region
+#Region " G E T   D A T A S O U R C E "
+    Private Sub ConnectionWorker_Start(sender As Object, e As DoWorkEventArgs) Handles ConnectionWorker.DoWork
+
+        _ActiveObject = Nothing
+        Dim CommonObjects = (From o In SystemObjects, t In TablesObject Where t.DSN = o.DSN
+                             Group o By _DSN = o.DSN Into DSNGroup = Group
+                             Select New With {.DSN = _DSN, .Tables = DSNGroup.ToList}).ToDictionary(Function(k) k.DSN, Function(v) v.Tables)
+        _DataSources = CommonObjects.Where(Function(k) If(k.Key, String.Empty).Any).OrderByDescending(Function(v) v.Value.Count).ToDictionary(Function(k) k.Key, Function(v) v.Value)
+
+        'SELECT * FROM profiles ===> C085365.PROFILES
+
+        If DataSources.Values.Any Then
+            Dim ObjectsInDatasource = DataSources.Values.First
+            'SYSIBM.SYSDUMMY1...and others exists in all DB2 databases
+            Dim CommonTableObjects = From t In TablesObject Group t By _DSN = t.DSN Into DSNGroup = Group Select New With {.DSN = _DSN, .Tables = DSNGroup.ToList}
+            Dim TableOrderedCount = CommonTableObjects.Where(Function(x) Not If(x.DSN, String.Empty).Length = 0).OrderByDescending(Function(x) x.Tables.Count)
+
+            Dim TableOrderedTop = TableOrderedCount.First.Tables
+            If ObjectsInDatasource.Intersect(TableOrderedTop).Any Then
+                _ActiveObject = TableOrderedTop.First
+            Else
+                _ActiveObject = ObjectsInDatasource.First
+            End If
+            _ActiveConnection = ActiveObject.Connection
+            '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■   TESTING
+            'If Text.Contains("Q085365.PSRR_UNIVERSES") And Text.Contains("CAST('NY' AS VARCHAR(5))") Then Stop
+            '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■   TESTING
+        Else
+            REM /// COULD NOT MATCH MY.SETTINGS.SYSTEMOBJECTS TO TEXT
+            _ActiveObject = Nothing
+            _ActiveConnection = Nothing
+
+            'Check if a DSN is provided
+            Dim Datasource_Pattern As String = Join((From S In Connections.Sources Select Join({"\b", S, "\b"}, String.Empty)).ToArray, "|") '(ABC|DEF|XYZ)
+            Dim MatchDatasourceName As Match = Regex.Match(TextNoComments, Datasource_Pattern, RegexOptions.IgnoreCase)
+            If MatchDatasourceName.Success Then
+                _ActiveConnection = Connections.Item("DSN=" & MatchDatasourceName.Value)
+
+            Else
+                'Check if a UID is provided
+                Dim UserId_Pattern As String = Join((From S In Connections Where S.UserID.Length > 0 Select Join({"\b", S.UserID, "\b"}, String.Empty)).ToArray, "|")
+                Dim MatchUserId As Match = Regex.Match(TextNoComments, UserId_Pattern, RegexOptions.IgnoreCase)
+                If MatchUserId.Success Then
+                    Dim UIDs = From S In Connections Where S.UserID = MatchUserId.Value
+                    If UIDs.Any Then _ActiveConnection = UIDs.First
+                End If
+            End If
+        End If
+
+    End Sub
+    Private Sub ConnectionWorker_End(sender As Object, e As RunWorkerCompletedEventArgs) Handles ConnectionWorker.RunWorkerCompleted
+        If ActiveConnection IsNot Nothing And ActiveScript.Connection Is Nothing Then SetConnection(ActiveConnection)
+    End Sub
+#End Region
+#Region " S H O R T H A N D   T R A N S L A T I O N "
+    Private Sub SystemWorker_Start() Handles SystemWorker.DoWork
+
+        REM /// THIS ROUTINE TRANSLATES SOME SHORTHAND FEATURES INTO FUNCTIONING SQL / DDL
+        '                      ● LIMIT 20           ==> FETCH FIRST 20 ROWS ONLYSUCH AS DROPPING THE OWNER NAME, FETCH, ETC
+        '                      ● FROM REALTIMEI     ==> C.REALTIMEI
+        '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+        REM /// WHEN SUBMITTING A REQUEST TO DB2 - IF THE OBJECT IS NOT YOUR OWN, THE OWNER VALUE MUST BE PROVIDED
+        REM /// SINCE THE CONNECTION IS NOW SET...LOOK FOR SYSTEMOBJECTS IN ONE DATASOURCE
+
+        REM /// ME.SystemObjects - List(Of SystemObject), ME.SystemTables - List(Of Element)
+        REM /// OBJECTIVE IS TO CORRELATE Elements (TEXT) TO SystemObjects (DATABASE)
+
+        Dim activeConnection As Connection = ActiveScript.Connection
+        If ActiveConnection Is Nothing Then
+            _CommandText = Nothing
+        Else
+            Dim DatabaseText As String = ActiveText
+            REM /// STEP 1] GET FULLNAMES (OWNER+NAME) FOR EACH TABLE/VIEW
+            Dim ConnectionDictionary As New Dictionary(Of InstructionElement, String)
+            For Each Element In ElementObjects.Keys
+                Dim FullName As String = Nothing
+                Dim ConnectionCollection = ElementObjects(Element).Where(Function(x) x.DSN = ActiveConnection.DataSource).ToList
+                If ConnectionCollection.Any Then
+                    REM /// IF THERE IS A LIST, IT WILL ONLY HAVE 1 ITEM. SYSTEM OBJECTS ARE DISTINCT AS: DSN+OWNER+NAME
+                    FullName = ConnectionCollection.First.FullName
+
+                Else
+                    REM /// EITHER a) ELEMENT (KEY) HAS AN EMPTY LIST (VALUE) ... THEN NEW ITEM
+                    REM /// OR b) ELEMENT (KEY) HAS A LIST (VALUE) BUT NOT WITHIN THE DATASOURCE ... THEN NEW ITEM IN DATASOURCE
+                    REM /// NOW ENSURE OWNER+NAME
+                    Dim TableViewName As String = Element.Highlight.Value
+                    Dim Levels As String() = Split(TableViewName, ".")
+                    REM /// a) DSNA1.C.REALTIMEH3 b) C.REALTIMEH3 c) DSNA1.REALTIMEH3 d) REALTIMEH3
+                    Select Case Levels.Count
+                        Case 3
+                            REM /// a) DSNA1.C.REALTIMEH3
+                            FullName = Join({Levels(1), Levels(2)}, ".")
+                        Case 2
+                            REM /// b) C.REALTIMEH3 Or c) DSNA1.REALTIMEH3
+                            Dim SourcePattern As String = "(" & Join(Connections.Sources.ToArray, "|") & ")[\s]{0,}\."
+                            If Regex.Match(TableViewName, SourcePattern, RegexOptions.IgnoreCase).Success Then
+                                REM /// c) DSNA1.REALTIMEH3...OWNER NOT STATED
+                                FullName = Join({ActiveConnection.UserID, Levels(1)}, ".")
+
+                            Else
+                                REM /// b) C.REALTIMEH3
+                                FullName = Join({Levels(0), Levels(1)}, ".")
+
+                            End If
+                        Case 1
+                            REM /// d) REALTIMEH3...OWNER NOT STATED
+                            'FullName = Join({_Connection.UserID, Levels(0)}, ".")
+                            FullName = Levels(0)
+                    End Select
+                End If
+                ConnectionDictionary.Add(Element, FullName)
+            Next
+            REM /// STEP 2] UPDATE THE TEXT WITH THE FULLNAMES + CHANGE LIMIT TO FETCH (FOR DB2)
+            REM /// MUST SORT ON ALL OBJECTS SINCE CHANGING BOTH SystemTable AND Limit
+            Dim ReverseOrder As New List(Of InstructionElement)(Labels)
+            ReverseOrder.Sort(Function(y, x) x.Highlight.Start.CompareTo(y.Highlight.Start))
+
+            For Each Element In ReverseOrder
+                If Element.Source = InstructionElement.LabelName.SystemTable And ConnectionDictionary.ContainsKey(Element) Then
+                    REM /// IS SYSTEM TABLE
+                    With Element.Highlight
+                        DatabaseText = DatabaseText.Remove(.Start, .Length)
+                        DatabaseText = DatabaseText.Insert(.Start, ConnectionDictionary(Element))
+                    End With
+
+                Else
+                    REM /// LIMIT
+                    If Element.Source = InstructionElement.LabelName.Limit And ActiveConnection.Language = QueryLanguage.Db2 Then
+                        Dim Limit As InstructionElement = Element
+                        With Limit
+                            Dim RowCount As Integer = Integer.Parse(Regex.Match(.Block.Value, "[0-9]{1,}", RegexOptions.None).Value, Globalization.CultureInfo.InvariantCulture)
+                            Try
+                                Dim LimitText As String = DatabaseText.Substring(.Block.Start, .Block.Length)
+                                If LimitText.ToUpper(Globalization.CultureInfo.InvariantCulture).StartsWith("LIMIT", StringComparison.InvariantCulture) Then
+                                    DatabaseText = DatabaseText.Remove(.Block.Start, .Block.Length)
+                                    DatabaseText = DatabaseText.Insert(.Block.Start, Join({"FETCH FIRST", RowCount.ToString(Globalization.CultureInfo.InvariantCulture), "ROWS ONLY"}))
+                                    If Not Regex.Match(DatabaseText, "FETCH\s+FIRST\s+[0-9]{1,9}\s+ROWS\s+ONLY", RegexOptions.IgnoreCase).Success Then
+                                        Stop
+                                    End If
+                                End If
+                            Catch ex As ArgumentOutOfRangeException
+                            End Try
+                        End With
+                    End If
+                End If
+            Next
+            _CommandText = DatabaseText
+        End If
+    End Sub
+    Private Sub SystemWorker_End() Handles SystemWorker.RunWorkerCompleted
+
+    End Sub
+#End Region
 #End Region
 #Region " ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ RUN SCRIPT "
     Private Sub RunScript(Optional _Script As Script = Nothing)
@@ -2532,40 +3311,37 @@ Public Class DataTool
                                 'SQL_Statement = Replace(SQL_Statement, SheetName.Name, "[" & SheetName.Name & "]")
                             Next
                         Else
-                            If 0 = 1 Then
-                                '    Dim body As BodyElements = .Body
-                                '    'If Owner is provided, it should be used as the ColumnTypes query runs faster and is more accurate.
-                                '    Dim savedObjects As New List(Of SystemObject)(SystemObjects.Where(Function(so) so.Connection = .Connection))
-                                '    Dim needObjects As New List(Of SystemObject)
-                                '    For Each bodyObject In body.TablesElement
-                                '        Dim foundObject As Boolean = False
-                                '        For Each savedObject In savedObjects
-                                '            If savedObject.Name?.ToUpperInvariant = bodyObject.Name?.ToUpperInvariant Then
-                                '                If bodyObject.Owner?.Any Then
-                                '                    If savedObject?.Owner.ToUpperInvariant = bodyObject.Owner.ToUpperInvariant Then foundObject = True
-                                '                Else
-                                '                    foundObject = True
-                                '                End If
-                                '            End If
-                                '        Next
-                                '        If Not foundObject Then
-                                '            needObjects.Add(New SystemObject With {
-                                '        .Name = If(bodyObject.Name, bodyObject.Name.ToUpperInvariant),
-                                '        .Owner = If(bodyObject.Owner, bodyObject.Owner.ToUpperInvariant)
-                                '})
-                                '        End If
-                                '    Next
-                                '    If needObjects.Any Then
-                                '        Dim needNames As New List(Of String)(From no In needObjects Select no.FullName)
-                                '        RaiseEvent Alert(.Body, New AlertEventArgs("Adding to profile: " & Join(needNames.ToArray, ",") & "-(RunQuery)"))
-                                '        Dim tableColumnSQL As String = ColumnSQL(needObjects, .Connection.Language)
-                                '        With New SQL(.Connection, tableColumnSQL)
-                                '            AddHandler .Completed, AddressOf ColumnsSQL_Completed
-                                '            .Execute()
-                                '        End With
-                                '    End If
+                            'If Owner is provided, it should be used as the ColumnTypes query runs faster and is more accurate.
+                            Dim savedObjects As New List(Of SystemObject)(SystemObjects.Where(Function(so) so.Connection = .Connection))
+                            Dim needObjects As New List(Of SystemObject)
+                            For Each element In TablesElement
+                                Dim foundObject As Boolean = False
+                                For Each savedObject In savedObjects
+                                    If savedObject.Name?.ToUpperInvariant = element.Name?.ToUpperInvariant Then
+                                        If element.Owner?.Any Then
+                                            If savedObject?.Owner.ToUpperInvariant = element.Owner.ToUpperInvariant Then foundObject = True
+                                        Else
+                                            foundObject = True
+                                        End If
+                                    End If
+                                Next
+                                If Not foundObject Then
+                                    needObjects.Add(New SystemObject With {
+                                .Name = If(element.Name, element.Name.ToUpperInvariant),
+                                .Owner = If(element.Owner, element.Owner.ToUpperInvariant)
+                        })
+                                End If
+                            Next
+                            If needObjects.Any Then
+                                Dim needNames As New List(Of String)(From no In needObjects Select no.FullName)
+                                RaiseEvent Alert(Nothing, New AlertEventArgs("Adding to profile: " & Join(needNames.ToArray, ",") & "-(RunQuery)"))
+                                Dim tableColumnSQL As String = ColumnSQL(needObjects, .Connection.Language)
+                                With New SQL(.Connection, tableColumnSQL)
+                                    AddHandler .Completed, AddressOf ColumnsSQL_Completed
+                                    .Execute()
+                                End With
                             End If
-                            With New SQL(.Connection, .Text)
+                            With New SQL(.Connection, If(CommandText, .Text))
                                 AddHandler .Completed, AddressOf Execute_Completed
                                 .Name = _Script.CreatedString
                                 .Execute()
@@ -3266,14 +4042,13 @@ Public Class DataTool
             Return (From n In Tree_Objects.SelectedNodes Where n Is n.Root Select DirectCast(n.Tag, Connection)).ToList
         End Get
     End Property
-    Private RequestInitiated As Boolean
     Private Sub ObjectSyncClicked(sender As Object, e As EventArgs) Handles Button_ObjectsSync.Click
 
         ' *** Correct any discrepancies between SystemObjects and Database ***
         'SelectedConnections ie) User decides which items to update ( NOT USED )
         If Not RequestInitiated Then
             RequestInitiated = True
-            If ObjectsSet.Tables.Count = 0 And Not ObjectsWorker.IsBusy Then
+            If ObjectsSet.Tables.Count = 0 And Not ObjectsTreeWorker.IsBusy Then
                 Script_Grid.Timer.Picture = WaitTimer.ImageType.Spin
                 Script_Grid.Timer.StartTicking()
 #Region " SQL BARRAGE "
@@ -3364,12 +4139,12 @@ Public Class DataTool
                     Level1Node.Nodes.Clear()
                 Next
                 RequestInitiated = False
-                ObjectsWorker.RunWorkerAsync()
+                ObjectsTreeWorker.RunWorkerAsync()
             End Using
         End If
 
     End Sub
-    Private Sub LoadSystemObjects(sender As Object, e As EventArgs) Handles ObjectsWorker.DoWork
+    Private Sub LoadSystemObjects(sender As Object, e As EventArgs) Handles ObjectsTreeWorker.DoWork
 
         Dim ClockLoadTime As Boolean = False
 
@@ -3513,7 +4288,7 @@ Public Class DataTool
 #End Region
 
     End Sub
-    Private Sub ObjectTreeviewLoaded() Handles ObjectsWorker.RunWorkerCompleted
+    Private Sub ObjectTreeviewLoaded() Handles ObjectsTreeWorker.RunWorkerCompleted
         ObjectsTreeview_AutoWidth(Nothing, Nothing)
         ExpandCollapseOnOff(HandlerAction.Add)
     End Sub

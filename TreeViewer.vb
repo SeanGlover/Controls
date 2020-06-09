@@ -1987,7 +1987,7 @@ Public Class Node
         End Get
         Set(value As String)
             If Not _Text = value Then
-                _Text = value
+                _Text = Replace(value, "&", "&&")
                 _Bounds.Width = TextRenderer.MeasureText(value, Font).Width
                 RequiresRepaint()
             End If

@@ -3989,7 +3989,12 @@ Public Module iData
         With DirectCast(sender, BackgroundWorker)
             RemoveHandler .RunWorkerCompleted, AddressOf ExcelWorker_End
             If .WorkerReportsProgress Then
-                RaiseEvent Alerts(sender, New AlertEventArgs(Join({"Formatted Excel Workbook", ExcelPath_, "in", Math.Round(Watch.Elapsed.TotalSeconds, 1), "seconds"})))
+                Dim excelMessage As String = Join({"Formatted Excel Workbook", ExcelPath_, "in", Math.Round(Watch.Elapsed.TotalSeconds, 1), "seconds"})
+                RaiseEvent Alerts(sender, New AlertEventArgs(excelMessage))
+                Using MESSAGE As New Prompt
+                    MESSAGE.TitleBarImage = My.Resources.Excel
+                    MESSAGE.Show("Excel file formatted", excelMessage, Prompt.IconOption.OK)
+                End Using
             End If
         End With
         If Table_ IsNot Nothing Then Table_.Dispose()
