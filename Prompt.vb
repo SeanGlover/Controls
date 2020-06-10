@@ -93,16 +93,16 @@ Public Class Prompt
             If Icon_ Is Nothing Then
                 Select Case Type
                     Case IconOption.Critical
-                        Return My.Resources._Error
+                        Return My.Resources.okNot
 
                     Case IconOption.OK
-                        Return My.Resources.Check
+                        Return My.Resources.ok
 
                     Case IconOption.TimedMessage
                         Return My.Resources.Clock
 
                     Case IconOption.Warning
-                        Return My.Resources.Warning_
+                        Return My.Resources.Warning
 
                     Case IconOption.YesNo
                         Return My.Resources.Question

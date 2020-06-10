@@ -1412,7 +1412,27 @@ Public Class DataViewer
 
     '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ T O   F I L E
     Public Sub Export(filePath As String)
-        DataTableToExcel(Table, filePath, True, False, False, True, True)
+
+        'Using ts As New DataSet
+        '    For t = 1 To 5
+        '        ts.Tables.Add(Table.Copy)
+        '    Next
+        '    DataSetToExcel(TableSet:=ts,
+        '                     ExcelPath:=filePath,
+        '                     FormatSheet:=True,
+        '                     ShowFile:=False,
+        '                     DisplayMessages:=False,
+        '                     IncludeHeaders:=True,
+        '                     NotifyCreatedFormattedFile:=True)
+        'End Using
+        DataTableToExcel(Table:=Table,
+                         ExcelPath:=filePath,
+                         FormatSheet:=True,
+                         ShowFile:=False,
+                         DisplayMessages:=False,
+                         IncludeHeaders:=True,
+                         NotifyCreatedFormattedFile:=True)
+
     End Sub
     Private Sub ExportToFile(sender As Object, e As EventArgs)
 
@@ -1446,7 +1466,7 @@ Public Class DataViewer
         Select Case GetFileNameExtension(SaveFile.FileName).Value
             Case ExtensionNames.Excel
                 AddHandler Alerts, AddressOf FileSaved
-                DataTableToExcel(Table, SaveFile.FileName, True, False, False, True, True)
+                Export(SaveFile.FileName)
 
             Case ExtensionNames.Text
                 DataTableToTextFile(Table, SaveFile.FileName)
@@ -1731,7 +1751,7 @@ Public Class ColumnCollection
         With kvp
             If .Value IsNot Nothing Then .Key.DataType = .Value
         End With
-        RaiseEvent ColumnSized(Me(e.ProgressPercentage), Nothing)
+        RaiseEvent ColumnSized(Me({e.ProgressPercentage, Count - 1}.Min), Nothing)
 
     End Sub
     Private Sub FormatSizeWorker_End(sender As Object, e As RunWorkerCompletedEventArgs) Handles ColumnsWorker.RunWorkerCompleted

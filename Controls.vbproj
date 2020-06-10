@@ -606,6 +606,24 @@
   <ItemGroup>
     <None Include="Resources\Edit.png" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\checked.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\checkedNot.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\checkedBig.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\checkNotBig.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\ok.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\okNot.ico" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>

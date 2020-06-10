@@ -926,7 +926,7 @@ Public Module Functions
         t = If(t, String.Empty)
         Dim n As Integer = s.Length
         Dim m As Integer = t.Length
-        Dim d = New Integer(n)() {} 'New Integer(n, m) {}
+        Dim d As Integer()() = New Integer(n)() {} 'New Integer(n, m) {}
 
         If n = 0 Then Return m
         If m = 0 Then Return n

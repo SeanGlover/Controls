@@ -2063,7 +2063,7 @@ Public Class DataTool
                         End If
 
                     ElseIf .Text?.Any Then
-                        Using message As New Prompt With {.TitleBarImage = My.Resources.Warning_.ToBitmap}
+                        Using message As New Prompt With {.TitleBarImage = My.Resources.Warning.ToBitmap}
                             If message.Show("You have unsaved work. Continue?",
                                             "[Yes] to discard, [No] to cancel",
                                             Prompt.IconOption.YesNo,
@@ -4838,7 +4838,7 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
                     If results.Any Then
                         exportCombo.DataSource = results
                         exportCombo.SelectedIndex = 0
-                        exportCombo.Image = My.Resources.Check.ToBitmap
+                        exportCombo.Image = My.Resources.ok.ToBitmap
                         exportCombo.Image.Tag = Join(results.ToArray, BlackOut)
                     Else
                         exportCombo.Image = My.Resources.Info
@@ -4871,7 +4871,7 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
         If tableSpace.Image Is Nothing Then
             If tableName.Text?.Any Then
                 Dim matchingNames As New List(Of String)
-                If SameImage(My.Resources.Check.ToBitmap, tableName.Image) Then matchingNames.AddRange(Split(tableName.Image?.Tag?.ToString, BlackOut))
+                If SameImage(My.Resources.ok.ToBitmap, tableName.Image) Then matchingNames.AddRange(Split(tableName.Image?.Tag?.ToString, BlackOut))
                 Dim foundTablename As Boolean = matchingNames.Contains(tableName.Text)
                 If Not foundTablename Then 'Results from MouseOver SQL did not return any results ... probably new table but maybe not. Check if TableName exists
                     Dim validTablename As String = DB2TableNamingConvention(tableName.Text)
@@ -4904,12 +4904,12 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
                                             .DataSource = Spaces.Keys
                                             .SelectedIndex = 0
                                             .IsReadOnly = True
-                                            .Image = If(Spaces.Count = 1, My.Resources.Check.ToBitmap, My.Resources.Info)
+                                            .Image = If(Spaces.Count = 1, My.Resources.ok.ToBitmap, My.Resources.Info)
                                         End With
                                         If Spaces.Count = 1 Then
                                             REM /// NO NEED FOR USER INPUT. BEGIN EXPORT INTO NEW TABLE
                                             Export_CreateTable(exportConnection, Spaces.First.Key, tableName.Text)
-                                            tableSpace.Image = My.Resources.Check.ToBitmap
+                                            tableSpace.Image = My.Resources.ok.ToBitmap
                                         End If
                                     End With
 #End Region

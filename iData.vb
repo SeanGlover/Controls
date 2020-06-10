@@ -3865,8 +3865,6 @@ Public Module iData
     End Function
 #End Region
 #Region " DataTable <===> EXCEL "
-    Private ExcelPath_ As String, SheetName_ As String, Table_ As DataTable
-    Private ReadOnly Watch As New Stopwatch
     Public Sub DataTableToExcel(Table As DataTable,
                              ExcelPath As String,
                              Optional FormatSheet As Boolean = False,
@@ -3882,7 +3880,7 @@ Public Module iData
         End If
 
     End Sub
-    Public Sub DataSetToExcel(TableCollection As DataSet,
+    Public Sub DataSetToExcel(TableSet As DataSet,
                              ExcelPath As String,
                              Optional FormatSheet As Boolean = False,
                              Optional ShowFile As Boolean = False,
@@ -3890,128 +3888,96 @@ Public Module iData
                              Optional IncludeHeaders As Boolean = True,
                              Optional NotifyCreatedFormattedFile As Boolean = False)
 
-        If TableCollection IsNot Nothing Then
+        If TableSet IsNot Nothing Then
+            TableSet.Namespace = ExcelPath
+            TableSet.CaseSensitive = NotifyCreatedFormattedFile
             Try
                 Dim App As New Excel.Application
                 Dim Book As Excel.Workbook = App.Workbooks.Add
-                ExcelPath_ = ExcelPath
                 With App
                     .Visible = ShowFile
                     .DisplayAlerts = DisplayMessages
+                    .UserName = DateToDB2Timestamp(Now)
                 End With
 
-                For Each Table As DataTable In TableCollection.Tables
+                For Each Table As DataTable In TableSet.Tables
                     Dim Sheet As Excel.Worksheet = DirectCast(Book.Sheets.Add, Excel.Worksheet)
-                    Dim col, row As Integer
+                    Dim arrayWidth As Integer = Table.Columns.Count - 1
+                    Dim columnIndex As Integer
+                    Dim arrayDepth As Integer = Table.Rows.Count - If(IncludeHeaders, 0, 1)
+                    Dim rowIndex As Integer
 
-                    ' Copy the DataTable to an object array - multi-dimensional array ( defined column and row count )
-                    Dim rawData(Table.Rows.Count, Table.Columns.Count - 1) As Object
+                    'Copy the DataTable to an object array - multi-dimensional array ( defined column and row count )
+                    Dim excelArray As Object()() = New Object(arrayDepth)() {}
+                    Dim rawData(arrayDepth, arrayWidth) As Object
 
+                    Dim RowOffset As Integer
                     If IncludeHeaders Then
-                        ' Copy the column names to the first row of the object array
-                        For col = 0 To Table.Columns.Count - 1
-                            Dim headerName As String = Table.Columns(col).ColumnName.ToUpperInvariant
-                            rawData(0, col) = headerName
+                        'Copy the column names to the first row of the object array
+                        excelArray(0) = New Object(arrayWidth) {}
+                        For columnIndex = 0 To arrayWidth
+                            Dim columnName As String = Table.Columns(columnIndex).ColumnName.ToUpperInvariant
+                            excelArray(0)(columnIndex) = columnName
+                            rawData(0, columnIndex) = columnName
                         Next
+                        RowOffset = 1
                     End If
-
-                    ' Copy the values to the object array
-                    Dim RowOffset As Integer = If(IncludeHeaders, 1, 0)
-                    For col = 0 To Table.Columns.Count - 1
-                        For row = 0 To Table.Rows.Count - 1
-                            rawData(row + RowOffset, col) = Table.Rows(row).ItemArray(col)
+                    'Copy the values to the object array
+                    For rowIndex = 0 To Table.Rows.Count - 1
+                        excelArray(rowIndex + RowOffset) = New Object(arrayWidth) {}
+                        For columnIndex = 0 To arrayWidth
+                            Dim cellValue As Object = Table.Rows(rowIndex).ItemArray(columnIndex)
+                            excelArray(rowIndex + RowOffset)(columnIndex) = cellValue
+                            rawData(rowIndex + RowOffset, columnIndex) = cellValue
                         Next
                     Next
-
                     With Sheet
                         .Name = Table.TableName
-                        SheetName_ = .Name
                         Dim TableRange As String = String.Format(InvariantCulture, "A1:{0}{1}", ExcelColName(Table.Columns.Count), Table.Rows.Count + 1)
                         .Range(TableRange, Type.Missing).Value2 = rawData
                     End With
                     ReleaseObject(Sheet)
-                    Table_ = Table
                 Next
                 DirectCast(Book.Sheets("Sheet1"), Excel.Worksheet).Delete()
-
-                Try
-                    Book.Close(True, ExcelPath)
-                Catch ex As ExternalException
-                    Using MESSAGE As New Prompt
-                        MESSAGE.Show("Error!", ex.Message, Prompt.IconOption.Critical)
-                    End Using
-                End Try
-
-                ReleaseObject(Book)
-
-                'Release the Application object
-                App.Quit()
-                ReleaseObject(App)
-
-                'Collect the unreferenced objects
-                GC.Collect()
-                GC.WaitForPendingFinalizers()
-
-                Dim Windows = Process.GetProcesses
-                For Each ExcelProcess In From w In Windows Where w.ProcessName.ToUpperInvariant.Contains("EXCEL") And w.MainWindowTitle.Length = 0 Select w
-                    Try
-                        ExcelProcess.Kill()
-                    Catch ex As Win32Exception
-                    End Try
-                Next
                 If FormatSheet Then
-                    With New BackgroundWorker
-                        AddHandler .DoWork, AddressOf ExcelWorker_Start
-                        AddHandler .RunWorkerCompleted, AddressOf ExcelWorker_End
-                        .WorkerReportsProgress = NotifyCreatedFormattedFile
+                    With New Worker
+                        AddHandler .DoWork, AddressOf ExcelFormatWorker_Start
+                        AddHandler .RunWorkerCompleted, AddressOf ExcelFormatWorker_End
+                        .Tag = New KeyValuePair(Of Excel.Workbook, DataSet)(Book, TableSet)
                         .RunWorkerAsync()
                     End With
+                Else
+                    ReleaseExcel(App, Book, ExcelPath)
                 End If
-            Catch ex As Runtime.InteropServices.COMException
-                MsgBox(ex.Message)
+            Catch ex As COMException
+                MsgBox(ex.Message, MsgBoxStyle.Critical, "Error!")
             End Try
         End If
 
     End Sub
-    Private Sub ExcelWorker_Start(sender As Object, e As DoWorkEventArgs)
+    Private Sub ExcelFormatWorker_Start(sender As Object, e As DoWorkEventArgs)
 
-        With DirectCast(sender, BackgroundWorker)
-            RemoveHandler .DoWork, AddressOf ExcelWorker_Start
-        End With
-        Watch.Start()
-        RaiseEvent Alerts(sender, New AlertEventArgs(Join({"Formatting Excel Workbook", ExcelPath_, "at", Now.ToLongTimeString})))
-        FormatSheet(ExcelPath_, SheetName_, Table_)
+        Dim formatWorker As Worker = DirectCast(sender, Worker)
+        RemoveHandler formatWorker.DoWork, AddressOf ExcelFormatWorker_Start
 
-    End Sub
-    Private Sub ExcelWorker_End(sender As Object, e As RunWorkerCompletedEventArgs)
+        Dim kvp As KeyValuePair(Of Excel.Workbook, DataSet) = DirectCast(formatWorker.Tag, KeyValuePair(Of Excel.Workbook, DataSet))
+        Dim workBook As Excel.Workbook = kvp.Key
+        Dim tableSet As DataSet = kvp.Value
+        Dim excelApplication As Excel.Application = workBook.Application
+        excelApplication.DisplayAlerts = False
+        Dim startTime As Date = DB2TimestampToDate(excelApplication.UserName)
+        Dim excelPath As String = tableSet.Namespace
+        RaiseEvent Alerts(sender, New AlertEventArgs(Join({"Formatting Excel Workbook", excelPath, "at", startTime.ToLongTimeString})))
 
-        Watch.Stop()
-        With DirectCast(sender, BackgroundWorker)
-            RemoveHandler .RunWorkerCompleted, AddressOf ExcelWorker_End
-            If .WorkerReportsProgress Then
-                Dim excelMessage As String = Join({"Formatted Excel Workbook", ExcelPath_, "in", Math.Round(Watch.Elapsed.TotalSeconds, 1), "seconds"})
-                RaiseEvent Alerts(sender, New AlertEventArgs(excelMessage))
-                Using MESSAGE As New Prompt
-                    MESSAGE.TitleBarImage = My.Resources.Excel
-                    MESSAGE.Show("Excel file formatted", excelMessage, Prompt.IconOption.OK)
-                End Using
-            End If
-        End With
-        If Table_ IsNot Nothing Then Table_.Dispose()
-
-    End Sub
-    Public Sub FormatSheet(ExcelPath As String, SheetName As String, Table As DataTable)
-
-        If Table IsNot Nothing Then
-            Dim App As New Excel.Application
-            Dim Book As Excel.Workbook = App.Workbooks.Open(ExcelPath)
-            Dim Sheet As Excel.Worksheet = DirectCast(Book.Sheets(SheetName), Excel.Worksheet)
-            Dim TableRange As String = String.Format(InvariantCulture, "A1:{0}{1}", ExcelColName(Table.Columns.Count), Table.Rows.Count + 1)
-            With App
-                .DisplayAlerts = False
+#Region " FORMAT BOOK "
+        For Each table As DataTable In tableSet.Tables
+            Dim Sheet As Excel.Worksheet = DirectCast(workBook.Sheets(table.TableName), Excel.Worksheet)
+            Sheet.Select()
+            With excelApplication
                 .ActiveWindow.SplitRow = 1
                 .ActiveWindow.FreezePanes = True
             End With
+            Dim TableRange As String = String.Format(InvariantCulture, "A1:{0}{1}", ExcelColName(table.Columns.Count), table.Rows.Count + 1)
             With Sheet
                 .Cells.VerticalAlignment = Excel.XlVAlign.xlVAlignCenter
                 With .Range(TableRange, Type.Missing)
@@ -4035,7 +4001,7 @@ Public Module iData
                         .Name = "Trebuchet MS"      'Sakkal Majalla
                         .Size = 8
                     End With
-                    For Each Column As DataColumn In Table.Columns
+                    For Each Column As DataColumn In table.Columns
                         Dim ColumnRange As Excel.Range = .Range(.Cells(2, Column.Ordinal + 1), .Cells(2, Column.Ordinal + 1)).EntireColumn
                         Dim ColumnType As Type = GetDataType(Column)
                         Dim CR As String = ColumnRange.Address
@@ -4053,7 +4019,7 @@ Public Module iData
                                 ColumnRange.HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter
 
                             Case GetType(String)
-                                Dim Objects As New List(Of Object)(From r In Table.AsEnumerable Select r(Column))
+                                Dim Objects As New List(Of Object)(From r In table.AsEnumerable Select r(Column))
                                 Dim Strings As New List(Of String)(From o In Objects Where Not IsDBNull(o) Select Trim(Convert.ToString(o, InvariantCulture)))
                                 If Strings.Any Then
                                     If Strings.Min(Function(s) s.Length) = Strings.Max(Function(s) s.Length) Then
@@ -4067,7 +4033,7 @@ Public Module iData
 
                         End Select
                     Next
-                    Dim TopRowRange As String = String.Format(InvariantCulture, "A1:{0}{1}", ExcelColName(Table.Columns.Count), 1)
+                    Dim TopRowRange As String = String.Format(InvariantCulture, "A1:{0}{1}", ExcelColName(table.Columns.Count), 1)
                     With .Range(TopRowRange, Type.Missing)
                         .Interior.Color = Color.Gainsboro
                         With .Font
@@ -4080,35 +4046,32 @@ Public Module iData
                     .EntireColumn.AutoFit()
                 End With
             End With
-#Region " CLEANUP "
-            Try
-                Book.Close(True, ExcelPath)
-
-            Catch ex As ExternalException
-                Using MESSAGE As New Prompt
-                    MESSAGE.Show("Error!", ex.Message, Prompt.IconOption.Critical)
-                End Using
-            End Try
-
-            ReleaseObject(Book)
-
-            'Release the Application object
-            App.Quit()
-            ReleaseObject(App)
-
-            'Collect the unreferenced objects
-            GC.Collect()
-            GC.WaitForPendingFinalizers()
-
-            Dim Windows = Process.GetProcesses
-            For Each ExcelProcess In From w In Windows Where w.ProcessName.ToUpperInvariant.Contains("EXCEL") And w.MainWindowTitle.Length = 0 Select w
-                Try
-                    ExcelProcess.Kill()
-                Catch ex As Win32Exception
-                End Try
-            Next
+            ReleaseObject(Sheet)
+        Next
 #End Region
+
+    End Sub
+    Private Sub ExcelFormatWorker_End(sender As Object, e As RunWorkerCompletedEventArgs)
+
+        Dim formatWorker As Worker = DirectCast(sender, Worker)
+        RemoveHandler formatWorker.RunWorkerCompleted, AddressOf ExcelFormatWorker_End
+
+        Dim kvp As KeyValuePair(Of Excel.Workbook, DataSet) = DirectCast(formatWorker.Tag, KeyValuePair(Of Excel.Workbook, DataSet))
+        Dim workBook As Excel.Workbook = kvp.Key
+        Dim tableSet As DataSet = kvp.Value
+        Dim excelApplication As Excel.Application = workBook.Application
+        Dim startTime As Date = DB2TimestampToDate(excelApplication.UserName)
+        Dim excelPath As String = tableSet.Namespace
+        Dim NotifyCreatedFormattedFile As Boolean = tableSet.CaseSensitive
+        If NotifyCreatedFormattedFile Then
+            Dim finishedMessage As String = Join({"Formatted Excel Workbook", excelPath, "in", TimespanToString(startTime, Now)})
+            RaiseEvent Alerts(sender, New AlertEventArgs(finishedMessage))
+            Using finishedNotice As New Prompt
+                finishedNotice.TitleBarImage = My.Resources.Excel
+                finishedNotice.Show("Excel file formatted", finishedMessage, Prompt.IconOption.OK)
+            End Using
         End If
+        ReleaseExcel(excelApplication, workBook, excelPath)
 
     End Sub
     Private Function ExcelColName(ByVal Col As Integer) As String
@@ -4134,7 +4097,36 @@ Public Module iData
         End If
 
     End Function
-    Public Sub ReleaseObject(ByVal Item As Object)
+    Private Sub ReleaseExcel(excelApplication As Excel.Application, excelBook As Excel.Workbook, excelPath As String)
+
+        Try
+            excelBook.Close(True, excelPath)
+        Catch ex As ExternalException
+            Using MESSAGE As New Prompt
+                MESSAGE.Show("Error!", ex.Message, Prompt.IconOption.Critical)
+            End Using
+        End Try
+
+        ReleaseObject(excelBook)
+
+        'Release the Application object
+        excelApplication.Quit()
+        ReleaseObject(excelApplication)
+
+        'Collect the unreferenced objects
+        GC.Collect()
+        GC.WaitForPendingFinalizers()
+
+        Dim Windows = Process.GetProcesses
+        For Each ExcelProcess In From w In Windows Where w.ProcessName.ToUpperInvariant.Contains("EXCEL") And w.MainWindowTitle.Length = 0 Select w
+            Try
+                ExcelProcess.Kill()
+            Catch ex As Win32Exception
+            End Try
+        Next
+
+    End Sub
+    Private Sub ReleaseObject(ByVal Item As Object)
         Try
             Marshal.ReleaseComObject(Item)
             Item = Nothing
