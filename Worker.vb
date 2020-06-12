@@ -12,7 +12,15 @@ End Class
 Public NotInheritable Class Ticker
     Inherits Windows.Forms.Timer
     Private ReadOnly RunIcons As New Dictionary(Of Byte, Icon)
+    Private ReadOnly RunForm As Windows.Forms.Form
     Public Sub New()
+        Initialize()
+    End Sub
+    Public Sub New(updateForm As Windows.Forms.Form)
+        RunForm = updateForm
+        Initialize()
+    End Sub
+    Private Sub Initialize()
 
         Dim icons = MyIcons()
         For Each runIcon As KeyValuePair(Of String, Icon) In MyIcons()
@@ -24,27 +32,14 @@ Public NotInheritable Class Ticker
 
     End Sub
     Public Property Name As String
-    Private Counter_ As Integer
     Public Property Counter As Integer
-        Get
-            Return Counter_
-        End Get
-        Set(value As Integer)
-            If MaxCount >= 0 Then
-                Counter_ = {MaxCount, value}.Min
-            Else
-                Counter_ = value
-            End If
-        End Set
-    End Property
-    Public Property MaxCount As Integer = -1
     Public Property Flag As Boolean
     Private Sub Ticked(sender As Object, e As EventArgs) Handles Me.Tick
 
-        If Counter = MaxCount Then
-            Counter_ = 0
-        Else
-            Counter_ += 1
+        Counter += 1
+        If RunForm IsNot Nothing Then
+            SetSafeControlPropertyValue(RunForm, "Icon", RunIcon)
+            'SetSafeControlPropertyValue(RunForm, "Text", Counter.ToString)
         End If
 
     End Sub

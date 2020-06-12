@@ -477,6 +477,21 @@ Public Module Functions
         End If
 
     End Function
+    Public Function Db2DateToDate(Db2Date As String) As Date
+
+        '2020-06-01
+        Db2Date = Replace(Db2Date, "'", String.Empty)
+        If Regex.Match(Db2Date, "20[0-9]{2}-[01][0-9]-[0123][0-9]", RegexOptions.None).Success Then
+            Dim dateElements As String() = Split(Db2Date, "-")
+            Dim Db2year As Integer = CInt(dateElements.First)
+            Dim Db2Month As Integer = CInt(dateElements(1))
+            Dim Db2Day As Integer = CInt(dateElements.Last)
+            Return New Date(Db2year, Db2Month, Db2Day)
+        Else
+            Return Date.MinValue
+        End If
+
+    End Function
     Public Function DateToAccessString(DateValue As Date) As String
 
         '#4/1/2012#
@@ -3522,7 +3537,7 @@ Public NotInheritable Class ClipboardHelper
 End Class
 
 <Serializable>
-Public Class FooDictionary(Of TKey, TValue)
+Public Class SpecialDictionary(Of TKey, TValue)
     Inherits Dictionary(Of TKey, TValue)
     Implements IDictionary(Of TKey, TValue)
     Public Sub New()
@@ -3530,19 +3545,31 @@ Public Class FooDictionary(Of TKey, TValue)
     End Sub
     Public Shadows Function Item(key As TKey) As TValue
 
+        KeyExists = TriState.UseDefault
         If key.GetType Is GetType(String) Then
-            Dim matchingKey As TKey = key
+            Dim matchingKey As TKey = Nothing
             For Each keyItem As TKey In Keys
                 If keyItem.ToString.ToUpperInvariant = key.ToString.ToUpperInvariant Then
                     matchingKey = keyItem
                     Exit For
                 End If
             Next
-            Return MyBase.Item(matchingKey)
+            If matchingKey Is Nothing Then
+                KeyExists = TriState.False
+                Return Nothing
+            Else
+                KeyExists = TriState.True
+                Return MyBase.Item(matchingKey)
+            End If
         Else
             Return MyBase.Item(key)
         End If
 
+    End Function
+    Private KeyExists As TriState
+    Public Shadows Function ContainsKey(key As TKey) As Boolean
+        Dim value = Item(key)
+        Return KeyExists = TriState.True
     End Function
     Protected Sub New(serializationInfo As Runtime.Serialization.SerializationInfo, streamingContext As Runtime.Serialization.StreamingContext)
         Throw New NotImplementedException()

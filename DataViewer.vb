@@ -4,6 +4,7 @@ Imports System.Windows.Forms
 Imports System.Drawing
 Imports System.ComponentModel
 Imports System.Drawing.Drawing2D
+Imports System.Reflection
 #Region " STRUCTURES + ENUMERATIONS "
 Public Enum MouseRegion
     Header
@@ -159,7 +160,7 @@ Public Class DataViewer
         Next
         GridOptions.Items.Add(Grid_FileExport)
 
-        For Each setting In Settings
+        For Each setting In Settings()
             Dim settingMatches = RegexMatches(setting.Name, "^[a-z]{1,}(?=[A-Z])", System.Text.RegularExpressions.RegexOptions.None)
             If settingMatches.Any Then
                 Dim controlName As String = settingMatches.First.Value
@@ -3035,7 +3036,7 @@ Public Class InvisibleForm
     End Sub
 #End Region
 End Class
-Public NotInheritable  Class WaitTimer
+Public NotInheritable Class WaitTimer
     Inherits Control
     Private ReadOnly BaseForm As Form
     Private ReadOnly BaseControl As Control
@@ -3050,6 +3051,7 @@ Public NotInheritable  Class WaitTimer
         Spin
         Circle
     End Enum
+
     Public Sub New(baseControl As Control, baseForm As Form)
 
         If baseControl IsNot Nothing Then
@@ -3060,25 +3062,7 @@ Public NotInheritable  Class WaitTimer
         End If
 
     End Sub
-    Private Sub TickTimer_Tick(sender As Object, e As EventArgs) Handles TickTimer.Tick
 
-        If Picture = ImageType.Circle Then
-            TickForm.BackgroundImage = DrawProgress(TimerTicks, TickColor)
-        Else
-            Dim mod8 As Integer = TimerTicks Mod 8
-            If mod8 = 0 Then TickForm.BackgroundImage = My.Resources.Spin1
-            If mod8 = 1 Then TickForm.BackgroundImage = My.Resources.Spin2
-            If mod8 = 2 Then TickForm.BackgroundImage = My.Resources.Spin3
-            If mod8 = 3 Then TickForm.BackgroundImage = My.Resources.Spin4
-            If mod8 = 4 Then TickForm.BackgroundImage = My.Resources.Spin5
-            If mod8 = 5 Then TickForm.BackgroundImage = My.Resources.Spin6
-            If mod8 = 6 Then TickForm.BackgroundImage = My.Resources.Spin7
-            If mod8 = 7 Then TickForm.BackgroundImage = My.Resources.Spin8
-        End If
-        If RunningIcon And BaseForm IsNot Nothing Then BaseForm.Icon = RunIcon(TimerTicks)
-        TimerTicks += 1
-
-    End Sub
     Private Picture_ As ImageType = ImageType.Circle
     Public Property Picture As ImageType
         Get
@@ -3107,7 +3091,7 @@ Public NotInheritable  Class WaitTimer
             End If
         End Set
     End Property
-    Public Property Limit As Integer
+    Public Property Limit As Integer = 0
     Public Property RunningIcon As Boolean
     Private TitleImage_ As Image
     Public Property TitleImage As Image
@@ -3151,10 +3135,30 @@ Public NotInheritable  Class WaitTimer
         SetSafeControlPropertyValue(TickForm, "BackgroundImage", DelegateImage)
 
     End Sub
+    Private Sub TickTimer_Tick(sender As Object, e As EventArgs) Handles TickTimer.Tick
+
+        If Picture = ImageType.Circle Then
+            TickForm.BackgroundImage = DrawProgress(TimerTicks, TickColor)
+        Else
+            Dim mod8 As Integer = TimerTicks Mod 8
+            If mod8 = 0 Then TickForm.BackgroundImage = My.Resources.Spin1
+            If mod8 = 1 Then TickForm.BackgroundImage = My.Resources.Spin2
+            If mod8 = 2 Then TickForm.BackgroundImage = My.Resources.Spin3
+            If mod8 = 3 Then TickForm.BackgroundImage = My.Resources.Spin4
+            If mod8 = 4 Then TickForm.BackgroundImage = My.Resources.Spin5
+            If mod8 = 5 Then TickForm.BackgroundImage = My.Resources.Spin6
+            If mod8 = 6 Then TickForm.BackgroundImage = My.Resources.Spin7
+            If mod8 = 7 Then TickForm.BackgroundImage = My.Resources.Spin8
+        End If
+        If RunningIcon And BaseForm IsNot Nothing Then BaseForm.Icon = RunIcon(TimerTicks)
+        TimerTicks += 1
+
+    End Sub
     Public Sub Increment()
 
         TimerTicks += CInt(100 / {Limit, 1}.Max)
         TimerTicks = {100, TimerTicks}.Min
+        If TimerTicks = Limit Then TimerTicks = 0
         '1 / 50 ... 2
         Dim centerLocation As Point = CenterItem(TickForm.Size)
         centerLocation.Offset(Offset)

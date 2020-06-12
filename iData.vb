@@ -1808,6 +1808,65 @@ Public Class JobCollection
         End If
 
     End Function
+    Public Shadows Function AddRange(jobList As List(Of Object)) As List(Of Job)
+
+        If jobList Is Nothing Then
+            Return Nothing
+        Else
+            Dim addJobs As New List(Of Job)
+            For Each jobItem In jobList
+                Dim jobType As Type = jobItem.GetType
+                If jobType = GetType(DDL) Then addJobs.Add(New Job(DirectCast(jobItem, DDL)))
+                If jobType = GetType(ETL) Then addJobs.Add(New Job(DirectCast(jobItem, ETL)))
+                If jobType = GetType(SQL) Then addJobs.Add(New Job(DirectCast(jobItem, SQL)))
+            Next
+            MyBase.AddRange(addJobs)
+            Return addJobs
+        End If
+
+    End Function
+    Public Shadows Function AddRange(ddls As List(Of DDL)) As List(Of Job)
+
+        If ddls Is Nothing Then
+            Return Nothing
+        Else
+            Dim addJobs As New List(Of Job)
+            For Each ddlItem In ddls
+                addJobs.Add(New Job(ddlItem))
+            Next
+            MyBase.AddRange(addJobs)
+            Return addJobs
+        End If
+
+    End Function
+    Public Shadows Function AddRange(etls As List(Of ETL)) As List(Of Job)
+
+        If etls Is Nothing Then
+            Return Nothing
+        Else
+            Dim addJobs As New List(Of Job)
+            For Each etlItem In etls
+                addJobs.Add(New Job(etlItem))
+            Next
+            MyBase.AddRange(addJobs)
+            Return addJobs
+        End If
+
+    End Function
+    Public Shadows Function AddRange(sqls As List(Of SQL)) As List(Of Job)
+
+        If sqls Is Nothing Then
+            Return Nothing
+        Else
+            Dim addJobs As New List(Of Job)
+            For Each sqlItem In sqls
+                addJobs.Add(New Job(sqlItem))
+            Next
+            MyBase.AddRange(addJobs)
+            Return addJobs
+        End If
+
+    End Function
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Public Sub SortCollection()
 
@@ -2953,7 +3012,6 @@ Public Class ETL
                 Handle.Dispose()
                 ' Free any other managed objects here.
                 If Table IsNot Nothing Then Table.Dispose()
-                If Message IsNot Nothing Then Message.Dispose()
                 If DDL IsNot Nothing Then _DDL.Dispose()
             End If
             disposed = True
@@ -3050,7 +3108,6 @@ Public Class ETL
                 Return Join(DDL.ToArray, vbNewLine)
             End Get
         End Property
-        Private ReadOnly Message As New Prompt
         Friend Sub Fill()
 
             _Started = Now
@@ -3250,8 +3307,16 @@ Public Class ETL
             Dim CanProceed As Boolean = SourceColumns.Count = Columns.Count
             If CanProceed Then
                 CanProceed = Not ColumnsOutOfSequence.Any
-                If ColumnsDifferentName.Any Then CanProceed = Message.Show("Datasource Columns names are not present in the destination Table.", "Select Yes to continue or No to cancel.", Prompt.IconOption.YesNo) = DialogResult.Yes
-
+                Dim differentNames As New List(Of String)
+                For Each columnName In ColumnsDifferentName
+                    differentNames.Add(vbTab & "● " & Join({columnName.Key, columnName.Value}, vbTab & " vs "))
+                Next
+                Using proceedOK As New Prompt
+                    If ColumnsDifferentName.Any Then CanProceed = proceedOK.Show(
+                        "Select Yes to continue or No to cancel",
+                        "The below column names ( left ) are not present in the destination Db2 table " & TableName & " ( right ) : =======================================" & vbNewLine & Join(differentNames.ToArray, vbNewLine),
+                        Prompt.IconOption.YesNo) = DialogResult.Yes
+                End Using
             Else
                 REM /// CAN NOT PROCEED - SOURCE COLUMNS COUNT MUST EQUAL DESTINATION COLUMNS COUNT...FOR NOW
                 Dim MissingInDestinationTable As New List(Of String)(From CDN In ColumnsDifferentName.Keys Where CDN.Length > 0 And Not Columns.ContainsKey(CDN) Select CDN)
@@ -3265,11 +3330,13 @@ Public Class ETL
                     WiderTable = "Destination DB2 Table (" & TableName & ")"
                     NarrowerTable = "Source DataTable"
                 End If
-                Message.Datasource = ColumnTable
-                Message.Show("Insert cancelled",
-                         Join({"The number of columns in the", WiderTable, "exceeds that of the", NarrowerTable}),
-                         Prompt.IconOption.Critical,
-                         Prompt.StyleOption.Earth)
+                Using cancelledProcedure As New Prompt
+                    cancelledProcedure.Datasource = ColumnTable
+                    cancelledProcedure.Show("Insert cancelled",
+                             Join({"The number of columns in the", WiderTable, "exceeds that of the", NarrowerTable}),
+                             Prompt.IconOption.Critical,
+                             Prompt.StyleOption.Earth)
+                End Using
                 Dim Response = New ResponseEventArgs(InstructionType.DDL, ConnectionString, String.Empty, Join({"The number of columns in the", WiderTable, "exceeds that of the", NarrowerTable}), Nothing)
                 RaiseEvent Completed(Me, New ResponsesEventArgs(Response))
             End If
@@ -4019,6 +4086,7 @@ Public Module iData
                                 ColumnRange.HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter
 
                             Case GetType(String)
+                                ColumnRange.NumberFormat = "@" 'Don't do this and values looking like numbers are converted
                                 Dim Objects As New List(Of Object)(From r In table.AsEnumerable Select r(Column))
                                 Dim Strings As New List(Of String)(From o In Objects Where Not IsDBNull(o) Select Trim(Convert.ToString(o, InvariantCulture)))
                                 If Strings.Any Then
@@ -4195,21 +4263,21 @@ Public Module iData
                     End If
                 Else
                     If columnType = GetType(DateAndTime) Then
-                        DataType = "TIMESTAMP"
-                        Length = 10
-                        Scale = 6
+                        dataType = "TIMESTAMP"
+                        length = 10
+                        scale = 6
                     Else
                         If {GetType(Byte), GetType(Short)}.Contains(columnType) Then
-                            DataType = "SMALLINT"
-                            Length = 2
+                            dataType = "SMALLINT"
+                            length = 2
                         Else
                             If columnType = GetType(Integer) Then
-                                DataType = "INTEGER"
-                                Length = 4
+                                dataType = "INTEGER"
+                                length = 4
                             Else
                                 If columnType = GetType(Long) Then
-                                    DataType = "BIGINT"
-                                    Length = 8
+                                    dataType = "BIGINT"
+                                    length = 8
                                 Else
                                     If {GetType(Decimal), GetType(Double)}.Contains(columnType) Then
                                         '1234567.11 IS DECIMAL(9, 2)
@@ -4233,17 +4301,17 @@ Public Module iData
                                         Else
                                             'No values in column? Set DECIMAL(10, 2) as default
                                             dataType = "DECIMAL"
-                                            Length = 10
-                                            Scale = 2
+                                            length = 10
+                                            scale = 2
 
                                         End If
                                     Else
                                         If columnType = GetType(Boolean) Then
                                             'IBM® DB2® 9.x does Not implement a Boolean SQL type.
                                             'Solution: The DB2 database interface converts BOOLEAN type to CHAR(1) columns And stores '1' or '0' values in the column.
-                                            DataType = "CHAR"
-                                            Length = 1
-                                            Scale = 0
+                                            dataType = "CHAR"
+                                            length = 1
+                                            scale = 0
                                         Else
                                             If columnType = GetType(String) Then
 #Region " CHAR + VARCHAR "
@@ -4251,19 +4319,19 @@ Public Module iData
                                                 If lengths.Any Then
                                                     Dim minLength As Integer = {lengths.Min, 2003}.Min
                                                     Dim maxLength As Integer = {lengths.Max, 2003}.Min
-                                                    DataType = If(minLength = maxLength, "CHAR", "VARCHAR") 'Same length for each value=CHAR, Variant lengths for values=VARCHAR
-                                                    Length = CShort(maxLength)
+                                                    dataType = If(minLength = maxLength, "CHAR", "VARCHAR") 'Same length for each value=CHAR, Variant lengths for values=VARCHAR
+                                                    length = CShort(maxLength)
                                                 Else
                                                     'No values in column? Set VARCHAR(50) as default
-                                                    DataType = "VARCHAR"
-                                                    Length = 50
+                                                    dataType = "VARCHAR"
+                                                    length = 50
                                                 End If
 #End Region
                                             Else
                                                 'DUMMY VALUE!
                                                 Stop
-                                                DataType = "VARCHAR"
-                                                Length = 50
+                                                dataType = "VARCHAR"
+                                                length = 50
                                             End If
                                         End If
                                     End If

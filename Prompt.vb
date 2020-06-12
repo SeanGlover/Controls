@@ -638,7 +638,8 @@ Public Class Prompt
             Dim pastIcon As Boolean = False
             TextBounds.Clear()
             For Each wordSize In wordSizes 'Indexed words and spaces
-                If wordBoundsLeft + wordSize.Value.Width > proposedClientWidth Then
+                Dim isReturn As Boolean = {vbNewLine, vbCrLf, vbCr}.Contains(characterGroups(wordSize.Key))
+                If isReturn Or wordBoundsLeft + wordSize.Value.Width > proposedClientWidth Then
                     'Image.Width + Word.Width > Content.Width ... new line
                     pastIcon = rowHeight * lines.Count > IconBounds.Bottom
                     wordBoundsLeft = If(pastIcon, leftBuffer, IconBounds.Right + leftBuffer)

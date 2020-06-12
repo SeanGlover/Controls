@@ -2854,7 +2854,7 @@ Public Class DataTool
 
         Dim From_SectionValue As String = Nothing
         Dim FromElements As New List(Of InstructionElement)
-        Dim WithList As New Dictionary(Of String, Color)
+        Dim WithList As New SpecialDictionary(Of String, Color)
         For Each _With In _Withs
             If WithList.ContainsKey(_With.Highlight.Value) Then
             Else
@@ -2919,7 +2919,7 @@ Public Class DataTool
                             REM /// WITH (a,b) AS (SELECT WILL MATCH IsRoutineTable SO CHECK FIRST
                             SourceType = InstructionElement.LabelName.WithTable
                             HighlightBackColor = Color.White
-                            HighlightForeColor = WithList(InnerValue)
+                            HighlightForeColor = WithList.Item(InnerValue)
 
                         ElseIf InnerValue.ToUpper(Globalization.CultureInfo.InvariantCulture) = "TABLE" And Regex.Match(InnerChunk, "TABLE[■]{2,}", RegexOptions.IgnoreCase).Success Then
                             REM /// TABLE(SELECT... IS NESTED SO CONTENT OF () *IS* BLACKED OUT
@@ -2953,6 +2953,11 @@ Public Class DataTool
                                                     .BackColor = HighlightBackColor,
                                                     .ForeColor = HighlightForeColor}}
                                                     )
+
+                        ' /////////////// T E S T I N G ///////////////
+                        If FromElements.Last.Source = InstructionElement.LabelName.SystemTable And FromElements.Last.Name.Contains("INITIAL") Then Stop
+                        ' /////////////// T E S T I N G ///////////////
+
 #Region " REPLACE THE FOUND OBJECT WITH A NON-CHARACTER USED IN THE PATTERN SO IT IS REMOVED FROM CONSIDERATION IN THE NEXT ITERATION "
                         REM /// EACH ITERATION REMOVES A FOUND ITEM AND IS NOT CONSIDERED IN NEXT EVALUATION ///
                         From_SectionValue = From_SectionValue.Remove(InnerItem.Index, InnerItem.Length)
@@ -3286,6 +3291,7 @@ Public Class DataTool
                 If .Connection.CanConnect Then
                     RaiseEvent Alert("*Start", New AlertEventArgs("*Start"))
                     If .Type = ExecutionType.DDL Then
+                        RaiseEvent Alert("Procedure", New AlertEventArgs("*Start"))
 #Region " D D L "
                         Cursor.Current = Cursors.WaitCursor
                         Dim procedure As New DDL(.Connection, .Text, My.Settings.ddlPrompt, My.Settings.ddlRowCount)
@@ -3303,6 +3309,7 @@ Public Class DataTool
 #End Region
 
                     ElseIf .Type = ExecutionType.SQL Then
+                        RaiseEvent Alert("Query", New AlertEventArgs("*Start"))
 #Region " S Q L "
                         RaiseEvent Alert(_Script, New AlertEventArgs("Running query " & .Name))
                         'https://www.ibm.com/support/knowledgecenter/SSEPEK_11.0.0/cattab/src/tpc/db2z_catalogtablesintro.html
@@ -3333,7 +3340,7 @@ Public Class DataTool
                                 End If
                             Next
                             If needObjects.Any Then
-                                Dim needNames As New List(Of String)(From no In needObjects Select no.FullName)
+                                Dim needNames As New List(Of String)(From no In needObjects Where If(no.Owner, String.Empty).Any Select no.FullName)
                                 RaiseEvent Alert(Nothing, New AlertEventArgs("Adding to profile: " & Join(needNames.ToArray, ",") & "-(RunQuery)"))
                                 Dim tableColumnSQL As String = ColumnSQL(needObjects, .Connection.Language)
                                 With New SQL(.Connection, tableColumnSQL)
@@ -3376,11 +3383,11 @@ Public Class DataTool
     Private Sub Execute_Completed(sender As Object, e As ResponseEventArgs)
 
         Cursor.Current = Cursors.Default
-        RaiseEvent Alert("*End", New AlertEventArgs("*End"))
         Script_Grid?.Timer?.StopTicking()
         Dim pane As RicherTextBox = ActivePane()
 
         Dim IsQuery As Boolean = sender.GetType Is GetType(SQL)
+        RaiseEvent Alert(If(IsQuery, "Query", "Procedure"), New AlertEventArgs("*End"))
         Dim ItemName As String
 
         If IsQuery Then
@@ -3422,6 +3429,7 @@ Public Class DataTool
                 'Show message immediately as it can take time to set datasource, etc
                 BulletMessage = Bulletize({e.Columns.ToString(InvariantCulture) & " columns", e.Rows.ToString(InvariantCulture) & " rows", ElapsedMessage})
                 TLP_PaneGrid.ColumnStyles(0).Width = 0
+                RaiseEvent Alert("Query", New AlertEventArgs("*FormatStart"))
                 Script_Grid.Timer?.StartTicking(Color.LawnGreen)
                 With New Worker
                     .Tag = {sender, _Script}
@@ -3554,6 +3562,7 @@ Public Class DataTool
 
     End Sub
 #End Region
+
 #Region " FileTree EVENTS "
     Private Sub ClosedScript_NodeDragOver(sender As Object, e As DragEventArgs) Handles Script_Tabs.DragOver, Script_Grid.DragOver
 
@@ -3571,6 +3580,7 @@ Public Class DataTool
         Pane_NodeDropped(e)
     End Sub
 #End Region
+
 #Region " SCRIPT CONTROL EVENTS "
     Private Sub FindRequest(sender As Object, e As ZoneEventArgs) Handles FindAndReplace.ZoneClicked
 
@@ -5190,6 +5200,7 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
             TLP_PaneGrid.ColumnStyles(1).Width = Column1Percent
             TLP_PaneGrid.ColumnStyles(2).Width = ColumnToPercent
         End If
+        RaiseEvent Alert("Query", New AlertEventArgs("*FormatEnd"))
 
     End Sub
 #End Region
