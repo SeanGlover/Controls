@@ -1412,7 +1412,7 @@ Public Class DataViewer
     End Sub
 
     '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ T O   F I L E
-    Public Sub Export(filePath As String)
+    Public Sub Export(filePath As String, Optional MessageWhenComplete As Boolean = False)
 
         'Using ts As New DataSet
         '    For t = 1 To 5
@@ -1426,13 +1426,18 @@ Public Class DataViewer
         '                     IncludeHeaders:=True,
         '                     NotifyCreatedFormattedFile:=True)
         'End Using
+        With GridOptions
+            .Tag = Nothing
+            .AutoClose = True
+            .Hide()
+        End With
         DataTableToExcel(Table:=Table,
                          ExcelPath:=filePath,
                          FormatSheet:=True,
                          ShowFile:=False,
                          DisplayMessages:=False,
                          IncludeHeaders:=True,
-                         NotifyCreatedFormattedFile:=True)
+                         NotifyCreatedFormattedFile:=MessageWhenComplete)
 
     End Sub
     Private Sub ExportToFile(sender As Object, e As EventArgs)

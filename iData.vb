@@ -3266,7 +3266,7 @@ Public Class ETL
             Dim ColumnsDifferentName As New Dictionary(Of String, String)
             Dim ColumnsOutOfSequence As New List(Of String)
 
-            For ColumnIndex = 1 To {SourceColumns.Count, Table.Columns.Count}.Max
+            For ColumnIndex = 1 To {SourceColumns.Count, Table.Columns.Count, DestinationColumnIndices.Count}.Max
                 Dim SourceIndex As Integer = ColumnIndex - 1
                 Dim DestinationIndex As Integer = ColumnIndex - If(IsZeroBased, 1, 0)
                 Dim CP As New ColumnParity With {.Index = ColumnIndex,
@@ -3279,14 +3279,14 @@ Public Class ETL
                     CP.SourceName = SourceColumns(SourceIndex).ColumnName
                     CP.SourceType = SourceColumns(SourceIndex).DataType
                 Else
-                    CP.SourceName = "X" & ColumnIndex
+                    CP.SourceName = "Missing"
                     CP.SourceType = GetType(Object)
                 End If
                 If DestinationColumnIndices.ContainsKey(DestinationIndex) Then
                     CP.DestinationName = DestinationColumnIndices(DestinationIndex).Name
                     CP.DestinationType = DestinationColumnIndices(DestinationIndex).Format
                 Else
-                    CP.DestinationName = "X" & ColumnIndex
+                    CP.DestinationName = "Missing"
                     CP.DestinationName = GetType(Object).ToString & ColumnIndex
                 End If
 #End Region
@@ -3294,6 +3294,7 @@ Public Class ETL
                 ColumnTable.Rows.Add(CP.ToArray)
                 If CP.SourceName <> CP.DestinationName Then ColumnsDifferentName.Add(CP.SourceName, CP.DestinationName)
             Next
+
             Dim SourceNames = ColumnsParity.Select(Function(c) c.SourceName).ToList
             Dim DestinationNames = ColumnsParity.Select(Function(c) c.DestinationName).ToList
             For Each Column As ColumnParity In ColumnsParity
@@ -3335,7 +3336,7 @@ Public Class ETL
                     cancelledProcedure.Show("Insert cancelled",
                              Join({"The number of columns in the", WiderTable, "exceeds that of the", NarrowerTable}),
                              Prompt.IconOption.Critical,
-                             Prompt.StyleOption.Earth)
+                             Prompt.StyleOption.Grey)
                 End Using
                 Dim Response = New ResponseEventArgs(InstructionType.DDL, ConnectionString, String.Empty, Join({"The number of columns in the", WiderTable, "exceeds that of the", NarrowerTable}), Nothing)
                 RaiseEvent Completed(Me, New ResponsesEventArgs(Response))

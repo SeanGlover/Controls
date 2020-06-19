@@ -1431,13 +1431,20 @@ Public Module Functions
     End Function
     Public Function GetFiles(Path As String, Optional Extension As String = ".txt") As List(Of String)
 
-        Return (From Folder In SafeWalk.EnumerateFiles(Path, "*" & Extension, SearchOption.AllDirectories)).ToList
+        Return SafeWalk.EnumerateFiles(Path, "*" & Extension, SearchOption.AllDirectories).ToList
+
+    End Function
+    Public Function GetFiles(Folder As FileInfo, Optional Extension As String = ".txt") As List(Of String)
+
+        If Folder Is Nothing Then
+            Return Nothing
+        Else
+            Return SafeWalk.EnumerateFiles(Folder.FullName, "*" & Extension, SearchOption.AllDirectories).ToList
+        End If
 
     End Function
     Public Function GetFiles(Path As String, Extension As String, Level As SearchOption) As List(Of String)
-
-        Return (From Folder In SafeWalk.EnumerateFiles(Path, "*" & Extension, Level)).ToList
-
+        Return SafeWalk.EnumerateFiles(Path, "*" & Extension, Level).ToList
     End Function
     Public Function GetFileNameExtension(Path As String) As KeyValuePair(Of String, ExtensionNames)
 

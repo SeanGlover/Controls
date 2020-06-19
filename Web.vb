@@ -233,6 +233,8 @@ Public NotInheritable Class Token
             Name = tokenElements.First
             Value = tokenElements(1)
             Expiry = StringToDateTime(tokenElements.Last)
+        Else
+            ExpiryTimer.Start()
         End If
 
     End Sub

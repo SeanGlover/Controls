@@ -814,12 +814,15 @@ Public Class DataTool
     Private ReadOnly Property GroupedLabels As Dictionary(Of InstructionElement.LabelName, List(Of InstructionElement))
         Get
             Dim gl As New Dictionary(Of InstructionElement.LabelName, List(Of InstructionElement))
-            Dim dl As New List(Of InstructionElement)(Labels.Distinct)
-            For Each Label In dl
-                If Not gl.ContainsKey(Label.Source) Then gl.Add(Label.Source, New List(Of InstructionElement))
-                gl(Label.Source).Add(Label)
-                gl(Label.Source).Sort(Function(x, y) x.Block.Start.CompareTo(y.Block.Start))
-            Next
+            Try 'Can get < Collection was modified; enumeration operation may not execute > errors
+                Dim dl As New List(Of InstructionElement)(Labels.Distinct)
+                For Each Label In dl
+                    If Not gl.ContainsKey(Label.Source) Then gl.Add(Label.Source, New List(Of InstructionElement))
+                    gl(Label.Source).Add(Label)
+                    gl(Label.Source).Sort(Function(x, y) x.Block.Start.CompareTo(y.Block.Start))
+                Next
+            Catch ex As InvalidOperationException
+            End Try
             Return gl
         End Get
     End Property
@@ -2206,6 +2209,7 @@ Public Class DataTool
             newTab.Controls.Add(newPane)
             Script_Tabs.TabPages.Add(newTab)
             visibleScript.TabPage_ = newTab
+            Script_Tabs.SelectedTab = newTab
             AddHandler newTab.TextChanged, AddressOf AutoWidth
             With newPane
                 AddHandler .TextChanged, AddressOf ActivePane_TextChanged
