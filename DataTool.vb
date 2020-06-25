@@ -72,14 +72,16 @@ Public Class ScriptVisibleChangedEventArgs
 End Class
 <ComVisible(False)> Public Class ScriptCollection
     Inherits List(Of Script)
-    Private ReadOnly Scripts_DirectoryInfo As DirectoryInfo = Directory.CreateDirectory(MyDocuments & "\DataManager\Scripts")
     Public Event Alert(sender As Object, e As AlertEventArgs)
     Public Event CollectionChanged(sender As Object, e As ScriptsEventArgs)
     Public Sub New()
+        Directory.CreateDirectory(MyDocuments & "\DataManager\Scripts")
+        Directory.CreateDirectory(MyDocuments & "\DataManager\Temp\")
     End Sub
     Public Sub Load()
 
-        Dim fileScripts As New List(Of String)(GetFiles(Scripts_DirectoryInfo.FullName, ".ddl").Union(GetFiles(Scripts_DirectoryInfo.FullName, ".sql")).Union(GetFiles(Scripts_DirectoryInfo.FullName, ".txt")))
+        Dim scriptsPath As String = MyDocuments & "\DataManager\Scripts"
+        Dim fileScripts As New List(Of String)(GetFiles(scriptsPath, ".ddl").Union(GetFiles(scriptsPath, ".sql")).Union(GetFiles(scriptsPath, ".txt")))
         For Each fileScript In fileScripts
             Add(New Script(fileScript))
         Next
@@ -279,16 +281,11 @@ End Class
         Dim fileName As String = GetFileNameExtension(ScriptPath).Key
         _Name = Replace(fileName, "♥", String.Empty)
         _Created = File.GetCreationTime(ScriptPath)
-        Dim dsnBody As String()
-        Using SR As New StreamReader(Path)
-            dsnBody = Split(SR.ReadToEnd, BodyDelimiter)
-        End Using
-        DSN_Body = New KeyValuePair(Of String, String)("DSN=" & dsnBody.First, Regex.Replace(dsnBody.Last, vbCrLf, vbLf, RegexOptions.None))
         Dim dsn = DSN_Body.Key
         _Connection = DataTool.Connections.Item(dsn)
         _Type = If(_Path.EndsWith(".ddl", StringComparison.InvariantCulture), ExecutionType.DDL, If(_Path.EndsWith(".sql", StringComparison.InvariantCulture), ExecutionType.SQL, ExecutionType.Null))
         Favorite_ = fileName.StartsWith("♥", StringComparison.CurrentCulture)
-        _Text = DSN_Body.Value
+        Text_ = DSN_Body.Value
 
     End Sub
 #End Region
@@ -339,6 +336,18 @@ End Class
         End Get
     End Property
     Friend ReadOnly Property DSN_Body As KeyValuePair(Of String, String)
+        Get
+            If File.Exists(Path) Then
+                Dim dsnBody As String()
+                Using SR As New StreamReader(Path)
+                    dsnBody = Split(SR.ReadToEnd, BodyDelimiter)
+                End Using
+                Return New KeyValuePair(Of String, String)("DSN=" & dsnBody.First, Regex.Replace(dsnBody.Last, vbCrLf, vbLf, RegexOptions.None))
+            Else
+                Return Nothing
+            End If
+        End Get
+    End Property
     Public ReadOnly Property FileTextMatchesText As Boolean
         Get
             If FileCreated Then
@@ -374,9 +383,11 @@ End Class
     Public Property Name As String
         Get
             If State = ViewState.OpenDraft And Parent IsNot Nothing Then
+                If PathTemp IsNot Nothing AndAlso File.Exists(PathTemp) Then File.Delete(PathTemp)
                 Dim OpenDrafts As New List(Of Script)(From SI In Parent Where SI.State = ViewState.OpenDraft And SI.Type = Type)
                 Dim SystemGeneratedName As String = Type.ToString & (1 + OpenDrafts.IndexOf(Me))
                 _Name = SystemGeneratedName
+                SetPathTemp(SystemGeneratedName)
             End If
             Return _Name
         End Get
@@ -424,6 +435,18 @@ End Class
         End Set
     End Property
     Friend ReadOnly Property Path As String
+    Friend ReadOnly Property PathTemp As String
+    Private Sub SetPathTemp(scriptName As String)
+
+        Dim snapshot As Date = Now
+        Dim amPM As String = If(snapshot.Hour < 12, "AM", "PM")
+        _PathTemp = MyDocuments & "\DataManager\Temp\" & scriptName & "_" & Format(snapshot, "MMM-dd-yyyy @ h·mm ") & amPM & ".txt" 'SQL1_MAY-01-2020 @ 3:04PM.txt
+        Using newStream As New StreamWriter(PathTemp)
+            newStream.Write(Text)
+        End Using
+
+    End Sub
+
     Private _Ran As Date = New Date
     Friend ReadOnly Property Ran As Date
         Get
@@ -478,6 +501,7 @@ End Class
 #Region " From Draft "
                     Case FormerState = ViewState.OpenDraft And NewState = ViewState.None
                         REM /// Discard (User clicked [x] and doesn't want to save work)
+                        File.Delete(PathTemp)
                         RaiseEvent VisibleChanged(Me, New ScriptVisibleChangedEventArgs(Me, False))
                         Parent.Remove(Me)
 
@@ -498,7 +522,7 @@ End Class
 
                     Case FormerState = ViewState.OpenSaved And NewState = ViewState.ClosedSaved
                         REM /// Save Text changes
-                        Save(SaveAction.ChangeContent)
+                        If Save(SaveAction.ChangeContent) Then File.Delete(PathTemp)
                         RaiseEvent VisibleChanged(Me, New ScriptVisibleChangedEventArgs(Me, False))
 
                     Case FormerState = ViewState.OpenSaved And NewState = ViewState.ClosedNotSaved
@@ -520,6 +544,7 @@ End Class
                         REM /// Script to become visible
                         REM /// Drop Dummy Tab
                         REM /// Add at TabIndex
+                        SetPathTemp(Name)
                         RaiseEvent VisibleChanged(Me, New ScriptVisibleChangedEventArgs(Me, True))
 #End Region
                 End Select
@@ -527,7 +552,27 @@ End Class
             End If
         End Set
     End Property
+    Private Text_ As String
     Friend Property Text As String
+        Get
+            Return Text_
+        End Get
+        Set(value As String)
+            If value <> Text_ Then
+                Text_ = value
+                Using sw As New StreamWriter(PathTemp)
+                    Dim connectionText As String = If(Connection Is Nothing, String.Empty, Connection.Properties("DSN"))
+                    Dim scriptText As String = Regex.Replace(If(value, String.Empty), vbLf, vbCrLf)
+                    Dim lines As New List(Of String) From {
+                        connectionText,
+                        "■■■■■■■■■■■■■■■■■■■■",
+                        scriptText
+                    }
+                    sw.Write(Join(lines.ToArray, vbNewLine))
+                End Using
+            End If
+        End Set
+    End Property
     Public Function Save(Action As SaveAction) As Boolean
 
         Dim ActionTime As Date = Now
@@ -600,7 +645,6 @@ End Class
                         End Using
                     End Try
             End Select
-            _DSN_Body = New KeyValuePair(Of String, String)("DSN=" & ConnectionText, ScriptText)
             Return True
         End If
 
@@ -1836,6 +1880,9 @@ Public Class DataTool
         End If
 
     End Sub
+    Private Sub SaveAs_SetImage()
+        SaveAs.Image = If(ActiveScript.State = Script.ViewState.OpenDraft, If(If(ActiveText, String.Empty).Any, My.Resources.savedNot, My.Resources.Save), If(ActiveScript.FileTextMatchesText, My.Resources.saved, My.Resources.savedNot))
+    End Sub
 #End Region
     Private Sub ButtonMouseEnter(sender As Object, e As EventArgs) Handles MessageButton.MouseEnter
         If sender Is MessageButton And MessageRicherBox.Text.Any Then MessageButton.ShowDropDown()
@@ -2051,7 +2098,7 @@ Public Class DataTool
                     If .FileCreated Then
                         Dim textA As String = .Text
                         Dim textB As String = .DSN_Body.Value
-
+                        'Stop
                         If .FileTextMatchesText Then
                             'NO CHANGES...DO NOTHING
                             .State = Script.ViewState.ClosedNotSaved
@@ -2094,8 +2141,7 @@ Public Class DataTool
     Private Sub Tabs_ZoneChange(sender As Object, e As TabsEventArgs) Handles Script_Tabs.ZoneMouseChange
 
         If Not e.InZone = Tabs.Zone.None Then
-            Dim TipLocation = Script_Tabs.PointToScreen(If(e.InTab, e.OutTab).Bounds.Location)
-            TipLocation.Offset(ActiveTab.Bounds.Width, 3)
+            SaveAs_SetImage()
 
             Select Case e.InZone
                 Case Tabs.Zone.Add
@@ -2112,7 +2158,6 @@ Public Class DataTool
                     End With
 
                 Case Tabs.Zone.Text
-                    'Tabs_TipManager("Reorder tab|Drag tab and drop in new position", TipLocation)
 
                 Case Tabs.Zone.Close
 
@@ -2237,6 +2282,7 @@ Public Class DataTool
                 End Using
             End If
             scriptNode.Image = bmp
+
 
         Else
             Dim invisibleScript As Script = e.Item
@@ -2517,7 +2563,7 @@ Public Class DataTool
 
         _ActiveText = DirectCast(sender, RicherTextBox).Text
         ActiveScript.Text = ActiveText
-        SaveAs.Image = If(ActiveScript.FileTextMatchesText, My.Resources.saved, My.Resources.savedNot)
+        SaveAs_SetImage()
 
         Labels.Clear()
         Withs.Clear()

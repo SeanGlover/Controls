@@ -10,8 +10,6 @@ Imports Excel = Microsoft.Office.Interop.Excel
 Imports System.ComponentModel
 Imports System.Runtime.InteropServices
 Imports System.Globalization
-Imports System.Data.SqlClient
-Imports Controls
 
 Public Enum QueryLanguage
     None
@@ -385,6 +383,15 @@ Public Structure StringStartEnd
         Me.Start = start
         Me.Length = length
     End Sub
+    Public Sub New(matchToString As Match)
+
+        If matchToString IsNot Nothing Then
+            Value = matchToString.Value
+            Start = matchToString.Index
+            Length = matchToString.Length
+        End If
+
+    End Sub
     Public Property Value As String
     Public Property Start As Integer
     Public Property Length As Integer
@@ -411,6 +418,10 @@ Public Structure StringStartEnd
         Else
             Return False
         End If
+    End Function
+
+    Public Overrides Function ToString() As String
+        Return Value & " Start ( " & Start & " ) " & " End ( " & Finish & " ) " & " Length ( " & Length & " ) "
     End Function
 End Structure
 Public Class StringData

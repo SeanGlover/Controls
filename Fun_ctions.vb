@@ -631,7 +631,6 @@ Public Module Functions
         End If
 
     End Function
-
     Public Function DB2TableNamingConvention(tableName As String) As String
 
         'https://www.sfu.ca/sasdoc/sashtml/accdb/z0455680.htm
@@ -722,7 +721,15 @@ Public Module Functions
             Return Nothing
         Else
             Return (From m In Regex.Matches(InputString, Pattern, Options) Select DirectCast(m, Match)).ToList
+        End If
 
+    End Function
+    Public Function RegexStringMatches(InputString As String, Pattern As String, Options As RegexOptions) As List(Of StringStartEnd)
+
+        If InputString Is Nothing Or Pattern Is Nothing Then
+            Return Nothing
+        Else
+            Return (From m In RegexMatches(InputString, Pattern, Options) Select New StringStartEnd(m)).ToList
         End If
 
     End Function
@@ -1039,7 +1046,44 @@ Public Module Functions
         Return New Rectangle(New Point(upperLeftX, upperLeftY), New Size(bottomRightX - upperLeftX, bottomRightY - upperLeftY))
 
     End Function
+
 #Region " ENUMS "
+    Public Function RegexAbbreviatedMonthName(Optional grouped As Boolean = False) As String
+
+        Dim months As New List(Of String)(EnumNames(GetType(AbbreviatedMonthName)).Except({"None"}))
+        Dim monthString As String = Join(months.ToArray, "|")
+        Return If(grouped, "(" & monthString & ")", monthString)
+
+    End Function
+    Public Function StringToAbbreviatedMonth(monthString As String) As AbbreviatedMonthName
+
+        If monthString Is Nothing Then
+            Return AbbreviatedMonthName.None
+        Else
+            Dim monthMatch As Match = Regex.Match(monthString, RegexAbbreviatedMonthName(True), RegexOptions.IgnoreCase)
+            If monthMatch.Success Then
+                Return ParseEnum(Of AbbreviatedMonthName)(monthMatch.Value)
+            Else
+                Return AbbreviatedMonthName.None
+            End If
+        End If
+
+    End Function
+    Public Enum AbbreviatedMonthName
+        None = 0
+        Jan = 1
+        Feb = 2
+        Mar = 3
+        Apr = 4
+        May = 5
+        Jun = 6
+        Jul = 7
+        Aug = 8
+        Sep = 9
+        Oct = 10
+        Nov = 11
+        Dec = 12
+    End Enum
     Public Function EnumNames(EnumItem As Object) As List(Of String)
 
         If EnumItem Is Nothing Then
@@ -1063,6 +1107,8 @@ Public Module Functions
         Return enumValue
 
     End Function
+#End Region
+
     Public Function ContentAlignToStringFormat(alignString As String) As StringFormat
 
         Dim alignElements As New List(Of String)(Regex.Split(alignString, "(?=[A-Z])", System.Text.RegularExpressions.RegexOptions.None).Skip(1))
@@ -1092,7 +1138,7 @@ Public Module Functions
         End If
 
     End Function
-#End Region
+
     Public Function BackColorToForeColor(backColor As Color) As Color
 
         With backColor
@@ -1594,6 +1640,57 @@ Public Module Functions
         Return html
 
     End Function
+    Public Function BalancingCharacters(inString As String, Optional leftSide As String = "(", Optional rightSide As String = Nothing, Optional isRegex As Boolean = False) As List(Of StringStartEnd)
+
+        Dim strings As New List(Of StringStartEnd)
+
+        Dim regexReserved As New List(Of String) From {"/", "\", "(", ")"} 'Start small, add at a later time
+        Dim leftRight As New Dictionary(Of String, String) From {
+            {"(", ")"},
+            {"[", "]"},
+            {"<", ">"},
+            {"{", "}"},
+            {"<table", "</table>"}
+        }
+        rightSide = If(rightSide, leftRight(leftSide))
+        Dim leftPattern As String = String.Empty
+        Dim rightPattern As String = String.Empty
+
+        If isRegex Then
+            leftPattern = leftSide
+            rightPattern = rightSide
+        Else
+            For Each letter In leftSide
+                leftPattern &= If(regexReserved.Contains(letter), "\", String.Empty) & letter
+            Next
+            For Each letter In rightSide
+                rightPattern &= If(regexReserved.Contains(letter), "\", String.Empty) & letter
+            Next
+        End If
+
+        Dim leftMatches As New List(Of Match)(RegexMatches(inString, leftPattern, RegexOptions.Multiline).OrderByDescending(Function(m) m.Index))
+        Dim rightMatches As New List(Of Match)(RegexMatches(inString, rightPattern, RegexOptions.Multiline).OrderBy(Function(m) m.Index))
+
+        For Each leftMatch In leftMatches
+            Dim rights As New List(Of Match)(From rm In rightMatches Where rm.Index > leftMatch.Index)
+            If rights.Any Then
+                Dim firstRight As Match = rights.First
+                Dim leftStart As Integer = leftMatch.Index
+                Dim rightEnd As Integer = firstRight.Index + firstRight.Length
+                Dim stringLength As Integer = rightEnd - leftStart
+                Dim leftrightString As String = inString.Substring(leftStart, stringLength)
+                strings.Add(New StringStartEnd(leftrightString, leftStart, stringLength))
+                rightMatches.Remove(firstRight)
+            End If
+        Next
+        If strings.Any Then
+            Return strings.OrderBy(Function(s) s.Start).ToList
+        Else
+            Return strings
+        End If
+
+    End Function
+
     Public Function NameToProperty(objectProperty As String) As System.Configuration.SettingsPropertyValue
 
         Dim mySettings As New List(Of System.Configuration.SettingsPropertyValue)(From pv In My.Settings.PropertyValues Select DirectCast(pv, System.Configuration.SettingsPropertyValue))

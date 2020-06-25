@@ -79,6 +79,15 @@ Public Class DataViewer
 #Region " GENERAL DECLARATIONS "
     Private WithEvents BindingSource As New BindingSource
     Private ReadOnly GothicFont As Font = My.Settings.applicationFont
+    Private ForceRedraw_ As Boolean
+    Public Property ForceRedraw As Boolean
+        Get
+            Return ForceRedraw_
+        End Get
+        Set(value As Boolean)
+            Invalidate()
+        End Set
+    End Property
     '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ C O N T R O L S
     Private WithEvents SaveFile As New SaveFileDialog
     Private WithEvents CopyTimer As New Timer With {.Interval = 3000, .Tag = 0}
