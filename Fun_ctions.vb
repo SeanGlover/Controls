@@ -881,9 +881,39 @@ Public Module Functions
         Return parentLocation
 
     End Function
-    Public Function GetHexColor(ColorName As Color) As String
-        Return "#" & Hex(ColorName.R) & Hex(ColorName.G) & Hex(ColorName.B)
+
+#Region " COLOR "
+    Function ColorToHtmlHex(ByVal color As Color) As String
+        Return String.Format(InvariantCulture, "#{0:X2}{1:X2}{2:X2}", color.R, color.G, color.B)
     End Function
+    Public Function HtmlToColor(ByVal colorString As String) As Color
+
+        If colorString Is Nothing Then
+            Return Nothing
+        Else
+            Dim htmlColorRegex As Regex = New Regex("^#((?'R'[0-9a-f]{2})(?'G'[0-9a-f]{2})(?'B'[0-9a-f]{2}))" & "|((?'R'[0-9a-f])(?'G'[0-9a-f])(?'B'[0-9a-f]))$", RegexOptions.Compiled Or RegexOptions.IgnoreCase)
+            Dim match = htmlColorRegex.Match(colorString)
+            If match.Success Then
+                Return Color.FromArgb(ColorComponentToValue(match.Groups("R").Value), ColorComponentToValue(match.Groups("G").Value), ColorComponentToValue(match.Groups("B").Value))
+            Else
+                Return Nothing
+            End If
+        End If
+
+    End Function
+    Private Function ColorComponentToValue(ByVal component As String) As Integer
+
+        Debug.Assert(component IsNot Nothing)
+        Debug.Assert(component.Length > 0)
+        Debug.Assert(component.Length <= 2)
+        If component.Length = 1 Then
+            component += component
+        End If
+        Return Integer.Parse(component, System.Globalization.NumberStyles.HexNumber, InvariantCulture)
+
+    End Function
+#End Region
+
     Public Function Bulletize(Items As String()) As String
 
         Dim List As New List(Of String)
@@ -942,10 +972,12 @@ Public Module Functions
         Return Attempts.Last
 
     End Function
-    Public Function LevenshteinDistance(ByVal s As String, ByVal t As String) As Integer
+    Public Function LevenshteinDistance(ByVal s As String, ByVal t As String, Optional caseInsensitive As Boolean = False) As Integer
 
         s = If(s, String.Empty)
+        s = If(caseInsensitive, s.ToUpperInvariant, s)
         t = If(t, String.Empty)
+        t = If(caseInsensitive, t.ToUpperInvariant, t)
         Dim n As Integer = s.Length
         Dim m As Integer = t.Length
         Dim d As Integer()() = New Integer(n)() {} 'New Integer(n, m) {}

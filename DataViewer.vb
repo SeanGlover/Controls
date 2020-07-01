@@ -365,7 +365,16 @@ Public Class DataViewer
                                     Dim textLeft As Integer = ImageBounds.Right + If(ImageBounds.Width = 0, 0, 2)
                                     Dim textTop As Integer = CInt((HeadBounds.Height - .SizeText.Height) / 2)
                                     Dim TextBounds As Rectangle = New Rectangle(textLeft, textTop, filterBounds.Left - textLeft, .SizeText.Height)
-                                    TextRenderer.DrawText(e.Graphics, .Text, .HeaderStyle.Font, TextBounds, .HeaderStyle.ForeColor, Color.Transparent, TextFormatFlags.VerticalCenter Or TextFormatFlags.HorizontalCenter)
+                                    'TextRenderer.DrawText(e.Graphics, .Text, .HeaderStyle.Font, TextBounds, .HeaderStyle.ForeColor, Color.Transparent, .HeaderStyle.Alignment)
+                                    Using headerTextBrush As New SolidBrush(.HeaderStyle.ForeColor)
+                                        e.Graphics.DrawString(
+                                            .Text,
+                                            .HeaderStyle.Font,
+                                            headerTextBrush,
+                                            TextBounds,
+                                            .HeaderStyle.Alignment
+                                        )
+                                    End Using
 #End Region
                                     e.Graphics.DrawRectangle(Pens.Silver, HeadBounds)
                                     If Column Is _MouseData.Column Then
@@ -652,11 +661,15 @@ Public Class DataViewer
     End Property
     Public ReadOnly Property TotalSize As Size
         Get
-            Dim totalWidth As Integer = Columns.Select(Function(c) c.Width).Sum
-            Dim totalHeight As Integer = Rows.Count * Rows.RowHeight
-            If totalWidth > ClientRectangle.Width Then totalHeight += HScroll.Height 'Make room for Horizontal Scroll Bar to fully show rows
-            If totalHeight > ClientRectangle.Height Then totalWidth += VScroll.Width 'Make room for Vertical Scroll Bar to fully show columns
-            Return New Size(totalWidth, totalHeight)
+            Try
+                Dim totalWidth As Integer = Columns.Width
+                Dim totalHeight As Integer = Rows.Count * Rows.RowHeight
+                If totalWidth > ClientRectangle.Width Then totalHeight += HScroll.Height 'Make room for Horizontal Scroll Bar to fully show rows
+                If totalHeight > ClientRectangle.Height Then totalWidth += VScroll.Width 'Make room for Vertical Scroll Bar to fully show columns
+                Return New Size(totalWidth, totalHeight)
+            Catch ex As InvalidOperationException
+                Return New Size(ClientRectangle.Width, ClientRectangle.Height)
+            End Try
         End Get
     End Property
     Private Timer_ As WaitTimer
@@ -1849,6 +1862,10 @@ End Class
                 _DataType = NewColumn.DataType
                 DColumn = NewColumn
             End With
+            HeaderStyle_.Alignment = New StringFormat With {
+                .Alignment = StringAlignment.Center,
+                .LineAlignment = StringAlignment.Center
+            }
         End If
 
     End Sub
@@ -2559,7 +2576,8 @@ End Class
             If Value Is Nothing Then
                 Return Nothing
             Else
-                Select Case Column.DataType
+                Dim cellType As Type = If(Column Is Nothing, DataType, Column.DataType)
+                Select Case cellType
                     Case GetType(String)
                         Return Value.ToString
 

@@ -611,10 +611,10 @@ Public Structure InstructionElement
         Return Key
     End Function
     Public Overrides Function GetHashCode() As Integer
-        Return Block.GetHashCode Xor Highlight.GetHashCode Xor Source.GetHashCode
+        Return If(Block, New StringData).GetHashCode Xor If(Highlight, New StringData).GetHashCode Xor Source.GetHashCode
     End Function
     Public Overloads Function Equals(ByVal other As InstructionElement) As Boolean Implements IEquatable(Of InstructionElement).Equals
-        Return Block = other.Block AndAlso Highlight = other.Highlight AndAlso Source = other.Source
+        Return If(Block, New StringData) = If(other.Block, New StringData) AndAlso If(Highlight, New StringData) = If(other.Highlight, New StringData) AndAlso Source = other.Source
     End Function
     Public Shared Operator =(ByVal value1 As InstructionElement, ByVal value2 As InstructionElement) As Boolean
         Return value1.Equals(value2)
@@ -3894,13 +3894,10 @@ Public Module iData
                 Dim ColumnsValuesAsStrings = From C In Columns Select New With {.Name = C.ColumnName, .Values = From R In DataTable.AsEnumerable Select Trim(If(C.DataType Is GetType(Date) And Not IsDBNull(R(C.ColumnName)), If(DirectCast(R(C.ColumnName), Date).TimeOfDay.Ticks = 0, DirectCast(R(C.ColumnName), Date).ToShortDateString, DirectCast(R(C.ColumnName), Date).ToString("M/d/yyyy h:mm tt", InvariantCulture)), R(C.ColumnName).ToString))}
                 Dim ColumnWidths = From CV In ColumnsValuesAsStrings Select New With {.Name = CV.Name.ToString(InvariantCulture), .Width = 18 + {TextRenderer.MeasureText(CV.Name, TableFont).Width, (From V In CV.Values Select TextRenderer.MeasureText(V, TableFont).Width).Max}.Max}
                 Dim Top As New List(Of String)
-                If HeaderBackColor.Name = "0" Then
-                    HeaderBackColor = Color.DarkGray
-                ElseIf HeaderForeColor.Name = "0" Then
-                    HeaderForeColor = Color.White
-                End If
-                Dim HBS As String = GetHexColor(HeaderBackColor)
-                Dim HFS As String = GetHexColor(HeaderForeColor)
+                If HeaderBackColor.IsEmpty Then HeaderBackColor = Color.DarkGray
+                If HeaderForeColor.IsEmpty Then HeaderForeColor = Color.White
+                Dim HBS As String = ColorToHtmlHex(HeaderBackColor)
+                Dim HFS As String = ColorToHtmlHex(HeaderForeColor)
 #Region " CSS Table Properties "
                 Top.Clear()
                 Top.Add("<!DOCTYPE html>")
