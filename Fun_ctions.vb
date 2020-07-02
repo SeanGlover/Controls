@@ -1006,6 +1006,101 @@ Public Module Functions
         Return d(n)(m)
 
     End Function
+    Public Function ConsecutiveLetters(word1 As String, word2 As String) As KeyValuePair(Of Integer, String)
+
+        word1 = If(word1, String.Empty)
+        word2 = If(word2, String.Empty)
+
+        Dim shortestWord As String = If(word1.Length < word2.Length, word1, word2)
+        Dim longestWord As String = If(word1.Length > word2.Length, word1, word2)
+
+        Dim letterCount As Integer = 0
+        For i = 0 To shortestWord.Length - 1
+            If shortestWord.Substring(i, 1) = longestWord.Substring(i, 1) Then
+                letterCount += 1
+            Else
+                Exit For
+            End If
+        Next
+        Return New KeyValuePair(Of Integer, String)(letterCount, shortestWord.Substring(0, letterCount))
+
+    End Function
+    Public Function Anacronym(words As String) As String
+
+        If words Is Nothing Then
+            Return Nothing
+
+        ElseIf words.Any Then
+            Dim wordList As New List(Of String)(From w In Regex.Split(words, "[\s]{1,}") Where w.Any)
+            Dim startingLetters As New List(Of String)(From w In wordList Where Not {"AND", "OF"}.Contains(w) Select w.First + String.Empty)
+            Return Join(startingLetters.ToArray, String.Empty)
+        Else
+            Return String.Empty
+        End If
+
+    End Function
+    Public Function AbbreviationCompare(word1 As String, word2 As String) As Integer
+
+        word1 = If(word1, String.Empty).ToUpperInvariant
+        word2 = If(word2, String.Empty).ToUpperInvariant
+
+        '/// COMPARE LEFT AGAINST RIGHT 1st ///
+        Dim abbreviationLeft As Match = Regex.Match(word1, "[^.\s]{1,}(?=\.)", RegexOptions.None)
+        If abbreviationLeft.Success Then
+            Dim matchAbbreviation As Match = Regex.Match(word2, "(?<=^|\s)CH[A-Z]{1,}")
+            '/// Don't need to test on matchAbbreviation.Success since String.Remove(0, 0) does not throw an error ///
+            Dim leftWord As String = Regex.Replace(word1, "[^.\s]{1,}\.", String.Empty) 'Removing abbreviation including .
+            Dim rightWord As String = word2.Remove(matchAbbreviation.Index, matchAbbreviation.Length) 'Remove only 1 instance
+            Dim theLeftMatches = RegexMatches(word1, "(?<=^|\s)THE", RegexOptions.None)
+            Dim theRightMatches = RegexMatches(word2, "(?<=^|\s)THE", RegexOptions.None)
+            If Not theLeftMatches.Count = theRightMatches.Count Then
+                'Don't let a fluff word like <The> muddy the correlation
+                For Each leftMatch In theLeftMatches
+                    leftWord = leftWord.Remove(leftMatch.Index, leftMatch.Length)
+                Next
+                For Each rightMatch In theRightMatches
+                    rightWord = rightWord.Remove(rightMatch.Index, rightMatch.Length)
+                Next
+            End If
+            If leftWord = rightWord Then
+                Return leftWord.Length
+            Else
+                leftWord = Regex.Replace(leftWord, "[^A-Z]", String.Empty, RegexOptions.None)
+                rightWord = Regex.Replace(rightWord, "[^A-Z]", String.Empty, RegexOptions.None)
+                If leftWord = rightWord Then
+                    Return leftWord.Length
+                Else
+                    Dim shortestLongestWord = ShortestLongest(leftWord, rightWord)
+                    Dim shortestWord As String = shortestLongestWord.First
+                    Dim longestWord As String = shortestLongestWord.Last
+                    Dim wordDeviation As Integer = LevenshteinDistance(leftWord, rightWord)
+                    If shortestWord.Length > 5 And wordDeviation / longestWord.Length <= 0.2 Then
+                        'LevenshteinDistance best
+                        Return longestWord.Length - wordDeviation
+
+                    Else
+                        'Use ConsecutiveLetters
+                        Dim successiveMatchCount = ConsecutiveLetters(shortestWord, longestWord).Key
+                        If successiveMatchCount > 2 And successiveMatchCount / longestWord.Length >= 0.7 Then
+                            Return longestWord.Length - successiveMatchCount
+                        Else
+                            Return 0
+                        End If
+                    End If
+                End If
+            End If
+        Else
+            Return 0
+        End If
+
+    End Function
+    Public Function ShortestLongest(string1 As String, string2 As String) As String()
+
+        string1 = If(string1, String.Empty)
+        string2 = If(string2, String.Empty)
+        Return If(string1.Length <= string2.Length, {string1, string2}, {string2, string1})
+
+    End Function
     Friend Sub ParenthesisNodes(StringNode As StringData, TextIn As String)
 
         REM /// MUST BE DELIMITED BY A CHARACTER WHICH WILL NEVER BE FOUND IN SCRIPT
