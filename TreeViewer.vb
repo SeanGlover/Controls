@@ -5,7 +5,6 @@ Imports System.Drawing
 Imports System.Runtime.InteropServices
 Imports System.Drawing.Drawing2D
 Imports Controls
-
 Public Enum NodeRegion
     Expander
     Favorite
@@ -251,7 +250,6 @@ Public Class TreeViewer
                                 End Using
 
                             End If
-
                             If .HasChildren Then
                                 If Node.Expanded Then
                                     e.Graphics.DrawImage(CollapseImage, Node.ExpandCollapseBounds)
@@ -262,7 +260,6 @@ Public Class TreeViewer
                             If .CanFavorite Then
                                 e.Graphics.DrawImage(If(.Favorite, My.Resources.star, My.Resources.starEmpty), Node.FavoriteBounds)
                             End If
-#Region " CHECKBOX "
                             If .CheckBox Then
                                 Using CheckFont As New Font("Marlett", 10)
                                     If .PartialChecked Then
@@ -281,8 +278,16 @@ Public Class TreeViewer
                                     e.Graphics.DrawRectangle(Pen, .CheckBounds)
                                 End Using
                             End If
-#End Region
-                            Dim SelectionBounds As New Rectangle(.ImageBounds.Left, .Bounds.Top, .ImageBounds.Width + .Bounds.Width + 5, .Bounds.Height)
+                            If .TipText IsNot Nothing Then
+                                Dim triangleHeight As Single = 8
+                                Dim trianglePoints As New List(Of PointF) From {
+                                        New PointF(.Bounds.Left, .Bounds.Top),
+                                        New PointF(.Bounds.Left + triangleHeight, .Bounds.Top),
+                                        New PointF(.Bounds.Left, .Bounds.Top + triangleHeight)
+                                }
+                                e.Graphics.FillPolygon(Brushes.DarkOrange, trianglePoints.ToArray)
+                            End If
+                            Dim SelectionBounds As New Rectangle(.ImageBounds.Left, .Bounds.Top, .Bounds.Right - { .FavoriteBounds.Left, .ExpandCollapseBounds.Left}.Min, .Bounds.Height)
                             Using Brush As New SolidBrush(If(DragData.DropHighlightNode Is Node, DropHighlightColor, .BackColor))
                                 SelectionBounds.Inflate(-1, -1)
                                 e.Graphics.FillRectangle(Brush, SelectionBounds)
@@ -323,7 +328,7 @@ Public Class TreeViewer
                                 Else
                                     REM /// HORIZONTAL LINES LEFT OF EXPAND/COLLAPSE
                                     NodeHorizontalLeftPoint = New Point(.Parent.ExpandCollapseBounds.Left + ExpandCollapseCenter + 1, VerticalCenter)
-                                    NodeHorizontalRightPoint = New Point(.ExpandCollapseBounds.Left, VerticalCenter)
+                                    NodeHorizontalRightPoint = New Point({ .FavoriteBounds.Left, .ExpandCollapseBounds.Left}.Min, VerticalCenter)
                                     e.Graphics.DrawLine(Pen, NodeHorizontalLeftPoint, NodeHorizontalRightPoint)
                                 End If
                             End Using
@@ -1133,7 +1138,7 @@ Public Class TreeViewer
         RollingHeight = Offset.Y
 
         REM /// ITERATE ALL NODES CHANGING BOUNDS
-        RefreshNodeBounds_Lines(Nodes)
+        RefreshNodesBounds_Lines(Nodes)
 
         REM /// TOTAL SIZE + RESIZE THE CONTROL IF AUTOSIZE
 #Region " DETERMINE THE MAXIMUM POSSIBLE SIZE OF THE CONTROL AND COMPARE TO THE UNRESTRICTED SIZE "
@@ -1223,7 +1228,7 @@ Public Class TreeViewer
         RR = False
 
     End Sub
-    Private Sub RefreshNodeBounds_Lines(Nodes As NodeCollection)
+    Private Sub RefreshNodesBounds_Lines(Nodes As NodeCollection)
 
         Dim NodeIndex As Integer = 0
         For Each Node As Node In Nodes
@@ -1231,12 +1236,12 @@ Public Class TreeViewer
                 ._Index = NodeIndex
                 ._Visible = If(.Parent Is Nothing, True, .Parent.Expanded)
                 If .Visible Then
-                    RefreshNodeBounds_Lines(Node)
+                    RefreshNodeBounds_Lines(Node, True)
                     ._VisibleIndex = VisibleIndex
                     VisibleIndex += 1
                     If .Bounds.Right > RollingWidth Then RollingWidth = .Bounds.Right
                     RollingHeight += .Height
-                    If .HasChildren Then RefreshNodeBounds_Lines(.Nodes)
+                    If .HasChildren Then RefreshNodesBounds_Lines(.Nodes)
                 End If
                 NodeIndex += 1
             End With
@@ -1246,9 +1251,9 @@ Public Class TreeViewer
     End Sub
     Private Sub RefreshNodeBounds_Lines(Node As Node)
 
+        Dim Y As Integer = RollingHeight - VScroll.Value
+        Dim HorizontalSpacing As Integer = 3
         With Node
-            Dim Y As Integer = RollingHeight - VScroll.Value
-            Dim HorizontalSpacing As Integer = 3
             REM EXPAND/COLLAPSE
             ._ExpandCollapseBounds.X = Offset.X + HorizontalSpacing + If(IsNothing(.Parent), If(RootLines, 6, 0), .Parent.ExpandCollapseBounds.Right + HorizontalSpacing)
             ._ExpandCollapseBounds.Y = Y + CInt((.Height - ExpandHeight) / 2)
@@ -1276,6 +1281,44 @@ Public Class TreeViewer
 
             REM TEXT
             ._Bounds.X = ._ImageBounds.Right + If(._ImageBounds.Width = 0, 0, HorizontalSpacing)
+            ._Bounds.Y = Y
+            ._Bounds.Width = TextRenderer.MeasureText(.Text, .Font).Width
+            ._Bounds.Height = .Height
+        End With
+
+    End Sub
+    Private Sub RefreshNodeBounds_Lines(Node As Node, collapseBeforeText As Boolean)
+
+        Dim Y As Integer = RollingHeight - VScroll.Value
+        Dim HorizontalSpacing As Integer = 3
+        With Node
+            REM FAVORITE
+            ._FavoriteBounds.X = Offset.X + HorizontalSpacing + If(IsNothing(.Parent), If(RootLines, 6, 0), .Parent.ExpandCollapseBounds.Right + HorizontalSpacing)
+            ._FavoriteBounds.Y = Y + CInt((.Height - FavoriteImage.Height) / 2)
+            ._FavoriteBounds.Width = If(.CanFavorite, FavoriteImage.Width, 0)
+            ._FavoriteBounds.Height = If(.CanFavorite, FavoriteImage.Height, .Height)
+
+            REM CHECKBOX
+            ._CheckBounds.X = ._FavoriteBounds.Right + If(._FavoriteBounds.Width = 0, 0, HorizontalSpacing)
+            ._CheckBounds.Width = If(.CheckBox, CheckHeight, 0)
+            ._CheckBounds.Height = CheckHeight
+            ._CheckBounds.Y = Y + CInt((.Height - ._CheckBounds.Height) / 2)
+
+            REM IMAGE
+            ._ImageBounds.X = ._CheckBounds.Right + If(._CheckBounds.Width = 0, 0, HorizontalSpacing)
+            ._ImageBounds.Height = If(IsNothing(.Image), 0, If(.ImageScaling, .Height, .Image.Height))
+            'MAKE IMAGE SQUARE IF SCALING
+            ._ImageBounds.Width = If(IsNothing(.Image), 0, If(.ImageScaling, ._ImageBounds.Height, .Image.Width))
+            ._ImageBounds.Y = Y + CInt((.Height - ._ImageBounds.Height) / 2)
+
+            REM EXPAND/COLLAPSE
+            ._ExpandCollapseBounds.X = ._ImageBounds.Right + HorizontalSpacing '+ If(IsNothing(.Parent), If(RootLines, 6, 0), .Parent._ImageBounds.Right + HorizontalSpacing)
+            ._ExpandCollapseBounds.Y = Y + CInt((.Height - ExpandHeight) / 2)
+            ._ExpandCollapseBounds.Width = If(.HasChildren, ExpandHeight, 0)
+            ._ExpandCollapseBounds.Height = ExpandHeight
+
+            REM TEXT
+            ._Bounds.X = ._ExpandCollapseBounds.Right + If(._ExpandCollapseBounds.Width = 0, 0, HorizontalSpacing)
             ._Bounds.Y = Y
             ._Bounds.Width = TextRenderer.MeasureText(.Text, .Font).Width
             ._Bounds.Height = .Height
@@ -1993,6 +2036,7 @@ Public Class Node
             End If
         End Set
     End Property
+    Public Property TipText As String
     Public ReadOnly Property Options As New List(Of Object)
     Public ReadOnly Property ChildOptions As New List(Of Object)
     Private _Font As New Font("Calibri", 9)
@@ -2359,6 +2403,9 @@ Public Class Node
         End Select
 
     End Sub
+    Public Overrides Function ToString() As String
+        Return Join({Text, If(Nodes.Any, "( " & Nodes.Count & " )", String.Empty)})
+    End Function
 #End Region
 #Region "IDisposable Support"
     Private DisposedValue As Boolean ' To detect redundant calls IDisposable

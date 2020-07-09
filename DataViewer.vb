@@ -313,9 +313,13 @@ Public Class DataViewer
             With Columns
                 Dim HeadFullBounds As New Rectangle(-HScroll.Value, 0, {1, .HeadBounds.Width}.Max, .HeadBounds.Height)
                 If .HeaderStyle.Theme = Theme.None Then
-                    Using LinearBrush As New LinearGradientBrush(HeadFullBounds, .HeaderStyle.BackColor, .HeaderStyle.ShadeColor, LinearGradientMode.Vertical)
-                        e.Graphics.FillRectangle(LinearBrush, HeadFullBounds)
-                    End Using
+                    If .HeaderStyle.BackImage Is Nothing Then
+                        Using LinearBrush As New LinearGradientBrush(HeadFullBounds, .HeaderStyle.BackColor, .HeaderStyle.ShadeColor, LinearGradientMode.Vertical)
+                            e.Graphics.FillRectangle(LinearBrush, HeadFullBounds)
+                        End Using
+                    Else
+                        e.Graphics.DrawImage(.HeaderStyle.BackImage, HeadFullBounds)
+                    End If
                 Else
                     e.Graphics.DrawImage(GlossyImages(.HeaderStyle.Theme), HeadFullBounds)
                 End If
@@ -333,9 +337,13 @@ Public Class DataViewer
                                     If HeadBounds.Left >= Width Then Exit For
                                     VisibleColumns.Add(Column, HeadBounds)
                                     If .HeaderStyle.Theme = Theme.None Then
-                                        Using LinearBrush As New LinearGradientBrush(HeadBounds, .HeaderStyle.BackColor, .HeaderStyle.ShadeColor, LinearGradientMode.Vertical)
-                                            e.Graphics.FillRectangle(LinearBrush, HeadBounds)
-                                        End Using
+                                        If .HeaderStyle.BackImage Is Nothing Then
+                                            Using LinearBrush As New LinearGradientBrush(HeadBounds, .HeaderStyle.BackColor, .HeaderStyle.ShadeColor, LinearGradientMode.Vertical)
+                                                e.Graphics.FillRectangle(LinearBrush, HeadBounds)
+                                            End Using
+                                        Else
+                                            e.Graphics.DrawImage(.HeaderStyle.BackImage, HeadBounds)
+                                        End If
                                     Else
                                         e.Graphics.DrawImage(GlossyImages(.HeaderStyle.Theme), HeadBounds)
                                     End If
@@ -434,7 +442,7 @@ Public Class DataViewer
                                         With rowCell
                                             Dim cellValue As Object = .Value
                                             Dim drawCellAsSelected As Boolean = If(FullRowSelect, Row.Selected, .Selected)
-                                            Dim cellStyle = If(drawCellAsSelected, Row.SelectionStyle, rowStyle)
+                                            Dim cellStyle = If(drawCellAsSelected, If(Rows.SelectionRowStyle.Theme = Theme.None And Rows.SelectionRowStyle.BackImage Is Nothing, Row.SelectionStyle, Rows.SelectionRowStyle), rowStyle)
                                             If MouseData.CurrentAction = MouseInfo.Action.GridSelecting Then .Selected = drawBounds.IntersectsWith(CellBounds)
 #Region " C E L L   B A C K G R O U N D "
                                             If drawCellAsSelected Then   'Already drew the entire row before "DRAW CELLS" Region
@@ -443,7 +451,7 @@ Public Class DataViewer
                                                         e.Graphics.FillRectangle(LinearBrush, CellBounds)
                                                     End Using
                                                 Else
-                                                    e.Graphics.DrawImage(GlossyImages(Row.SelectionStyle.Theme), CellBounds)
+                                                    e.Graphics.DrawImage(GlossyImages(cellStyle.Theme), CellBounds)
                                                 End If
                                             End If
 #End Region
@@ -1803,6 +1811,8 @@ Public Class ColumnCollection
                     If e.ChangedProperty = CellStyle.Properties.Padding Then .HeaderStyle.Padding = HeaderStyle.Padding
                     If e.ChangedProperty = CellStyle.Properties.ShadeColor Then .HeaderStyle.ShadeColor = HeaderStyle.ShadeColor
                     If e.ChangedProperty = CellStyle.Properties.Theme Then .HeaderStyle.Theme = HeaderStyle.Theme
+                    If e.ChangedProperty = CellStyle.Properties.Image Then .HeaderStyle.BackImage = HeaderStyle.BackImage
+                    Stop
                 End If
             End With
         Next
@@ -2397,7 +2407,12 @@ End Class
             Return _Parent
         End Get
     End Property
-    Public ReadOnly Property Cells As New Dictionary(Of String, Cell)
+    Public ReadOnly Property Cells As New SpecialDictionary(Of String, Cell)
+    Public ReadOnly Property Values As List(Of Object)
+        Get
+            Return (From c In Cells.Values Select c.Value).ToList
+        End Get
+    End Property
     Public ReadOnly Property Index As Integer
         Get
             Return If(Parent Is Nothing, -1, Parent.IndexOf(Me))
@@ -2702,9 +2717,11 @@ Public NotInheritable Class StyleEventArgs
     Public ReadOnly Property ChangedProperty As CellStyle.Properties
     Public ReadOnly Property PropertyValue As Object
     Public Sub New(changedProperty As CellStyle.Properties, changedValue As Object)
+
         Me.ChangedProperty = changedProperty
         PropertyName = changedProperty.ToString
         PropertyValue = changedValue
+
     End Sub
 End Class
 <Serializable()> <TypeConverter(GetType(PropertyConverter))> Public Class CellStyle
@@ -2721,6 +2738,7 @@ End Class
         ImageScaling
         Height
         Padding
+        Image
     End Enum
     Public Sub New()
         Height = Padding.Top + CInt(Font.GetHeight) + Padding.Bottom
@@ -2889,6 +2907,23 @@ End Class
             If value <> _Padding Then
                 _Padding = value
                 RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.Padding, value))
+            End If
+        End Set
+    End Property
+    Private _BackImage As Image
+    <Browsable(True)>
+    <DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)>
+    <Category("Layout")>
+    <Description("Background image")>
+    <RefreshProperties(RefreshProperties.All)>
+    Public Property BackImage As Image
+        Get
+            Return _BackImage
+        End Get
+        Set(ByVal value As Image)
+            If Not SameImage(value, BackImage) Then
+                _BackImage = value
+                RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.Image, value))
             End If
         End Set
     End Property

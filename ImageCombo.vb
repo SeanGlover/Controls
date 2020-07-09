@@ -118,7 +118,7 @@ Public NotInheritable Class ImageCombo
 
             If Mode = ImageComboMode.Button Then
 #Region " BUTTON STYLE - ADD COLORS "
-                e.Graphics.DrawImage(If(InBounds, GlossyDictionary(If(ButtonMouseTheme = Theme.None, Theme.Grey, ButtonMouseTheme)), GlossyDictionary(If(ButtonTheme = Theme.None, Theme.Grey, ButtonTheme))), ClientRectangle)
+                e.Graphics.DrawImage(If(InBounds, GlossyDictionary(If(ButtonMouseTheme = Theme.None, Theme.Gray, ButtonMouseTheme)), GlossyDictionary(If(ButtonTheme = Theme.None, Theme.Gray, ButtonTheme))), ClientRectangle)
                 Dim penTangle As Rectangle = ClientRectangle
                 penTangle.Inflate(-2, -2)
                 penTangle.Offset(-1, -1)
@@ -151,7 +151,7 @@ Public NotInheritable Class ImageCombo
                     .LineAlignment = StringAlignment.Center,
                     .Alignment = If(HorizontalAlignment = HorizontalAlignment.Center, StringAlignment.Center, If(HorizontalAlignment = HorizontalAlignment.Left, StringAlignment.Near, StringAlignment.Far))
                 }
-                Dim glossyFore As Color = If(InBounds, Color.Black, GlossyForecolor(ButtonTheme))
+                Dim glossyFore As Color = GlossyForecolor(If(InBounds, ButtonMouseTheme, ButtonTheme))
                 Using glossyBrush As New SolidBrush(glossyFore)
                     e.Graphics.DrawString(Replace(Text, "&", "&&"),
                                                                           Font,
@@ -354,7 +354,7 @@ Public NotInheritable Class ImageCombo
     Public Property CheckBoxes As Boolean = True
     Public Property CheckOnSelect As Boolean = False
     Public Property MultiSelect As Boolean
-    Private ButtonTheme_ As Theme = Theme.Grey
+    Private ButtonTheme_ As Theme = Theme.Gray
     Public Property ButtonTheme As Theme
         Get
             Return ButtonTheme_
@@ -806,6 +806,8 @@ Public NotInheritable Class ImageCombo
     Public Event ItemSelected(ByVal sender As Object, ByVal e As ImageComboEventArgs)
     Public Event DropDownOpened(ByVal sender As Object, ByVal e As EventArgs)
     Public Event DropDownClosed(ByVal sender As Object, ByVal e As EventArgs)
+    Public Event TextPasted(ByVal sender As Object, e As EventArgs)
+    Public Event TextCopied(ByVal sender As Object, e As EventArgs)
     Friend Sub OnItemSelected(ByVal ComboItem As ComboItem, DropDownVisible As Boolean)
 
         If Not ComboItem.Index = SelectedIndex Then
@@ -915,11 +917,13 @@ Public NotInheritable Class ImageCombo
                     SelectionIndex = CursorIndex
                     Clipboard.SetText(TextSelection)
                     Text = Text.Remove(SelectionStart, TextSelection.Length)
+                    RaiseEvent TextCopied(Me, Nothing)
 #End Region
                 ElseIf e.KeyCode = Keys.C AndAlso Control.ModifierKeys = Keys.Control Then
 #Region " COPY "
                     Clipboard.Clear()
                     Clipboard.SetText(Selection)
+                    RaiseEvent TextCopied(Me, Nothing)
 #End Region
                 ElseIf e.KeyCode = Keys.V AndAlso Control.ModifierKeys = Keys.Control And Not IsReadOnly Then
 #Region " PASTE "
@@ -929,6 +933,7 @@ Public NotInheritable Class ImageCombo
                     Text = Text.Insert(S, ClipboardText)
                     CursorIndex = S + ClipboardText.Length
                     SelectionIndex = CursorIndex
+                    RaiseEvent TextPasted(Me, Nothing)
 #End Region
                 ElseIf e.KeyCode = Keys.Enter Then
 #Region " SUBMIT "

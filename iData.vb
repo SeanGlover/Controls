@@ -494,7 +494,7 @@ Public Class StringData
         Return Join({Value, Start, Length}, "*")
     End Function
     Public Overrides Function GetHashCode() As Integer
-        Return Start.GetHashCode Xor Length.GetHashCode Xor Value.GetHashCode Xor BackColor.GetHashCode Xor ForeColor.GetHashCode
+        Return Start.GetHashCode Xor Length.GetHashCode Xor If(Value, String.Empty).GetHashCode Xor BackColor.GetHashCode Xor ForeColor.GetHashCode
     End Function
     Public Overloads Function Equals(ByVal other As StringData) As Boolean Implements IEquatable(Of StringData).Equals
         If other Is Nothing Then

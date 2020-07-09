@@ -92,7 +92,9 @@ Public Module Functions
         DarkBlue
         MidnightBlue
         Pink
-        Grey
+        Gray
+        MediumGray
+        DarkGray
         Black
         Red
         DarkRed
@@ -117,7 +119,9 @@ Public Module Functions
         {Theme.Brown, My.Resources.glossyBrown},
         {Theme.Green, My.Resources.glossyGreen},
         {Theme.DarkGreen, ShadeImage(My.Resources.glossyGreen, Color.Black, 128)},
-        {Theme.Grey, My.Resources.glossyGrey},
+        {Theme.Gray, My.Resources.glossyGrey},
+        {Theme.MediumGray, ShadeImage(My.Resources.glossyGrey, Color.Black, 64)},
+        {Theme.DarkGray, ShadeImage(My.Resources.glossyGrey, Color.Black, 128)},
         {Theme.Orange, My.Resources.glossyOrange},
         {Theme.Pink, My.Resources.glossyPink},
         {Theme.Purple, My.Resources.glossyPurple},
@@ -129,8 +133,17 @@ Public Module Functions
     }
     Friend Function GlossyForecolor(glossyTheme As Theme) As Color
 
-        Dim glossyColor As Color = Color.FromName(glossyTheme.ToString)
-        Return BackColorToForeColor(glossyColor)
+        '/// .Net Gray colors are deceiving. Gray (128, 128, 128) is darker than DarkGray (169, 169, 169) White = (255, 255, 255)
+        Select Case glossyTheme
+            Case Theme.Gray '=.Net LightGray
+                Return Color.Black
+            Case Theme.MediumGray
+                Return Color.White
+            Case Else
+                Dim glossyColor As Color = Color.FromName(glossyTheme.ToString)
+                Return BackColorToForeColor(glossyColor)
+        End Select
+        Dim testColor As Color = Color.Gold
 
     End Function
     Public Function ShadeImage(imageIn As Image, OverlayColor As Color, Optional OverlayAlpha As Byte = 64) As Image

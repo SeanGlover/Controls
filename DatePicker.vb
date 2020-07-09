@@ -208,6 +208,8 @@ Public Class DatePicker
 #Region " Events "
     Public Event DateChanged(ByVal sender As Object, e As DateRangeEventArgs)
     Public Event DateSubmitted(ByVal sender As Object, e As DateRangeEventArgs)
+    Public Event TextPasted(ByVal sender As Object, e As EventArgs)
+    Public Event TextCopied(ByVal sender As Object, e As EventArgs)
     Friend Sub Date_Changed(e As DateRangeEventArgs)
         DropDown.SelectionStart = e.Start
         RaiseEvent DateChanged(Me, e)
@@ -263,6 +265,27 @@ Public Class DatePicker
                 Field = If(Field = 0, UBound(FormatSections.ToArray), Field - 1)
                 ResizeMe()
 
+            ElseIf e.KeyCode = Keys.C AndAlso Control.ModifierKeys = Keys.Control Then
+                Clipboard.Clear()
+                Clipboard.SetText(Selection)
+                RaiseEvent TextCopied(Me, Nothing)
+
+            ElseIf Control.ModifierKeys = Keys.Control AndAlso e.KeyCode = Keys.V Then
+                Dim pastedValue As String = Clipboard.GetText
+                Dim dateMatch As Match = Regex.Match(pastedValue, "2[0-9][01][0-9][123][0-9]", RegexOptions.None)
+                If dateMatch.Success Then
+                    Value = Date.ParseExact(dateMatch.Value, "yyMMdd", InvariantCulture)
+                Else
+                    '2020-06-29
+                    dateMatch = Regex.Match(pastedValue, "20[0-9]{2}-[01][0-9]-[0-3][0-9]", RegexOptions.None)
+                    If dateMatch.Success Then
+                        Value = Date.ParseExact(dateMatch.Value, "yyyy-MM-dd", InvariantCulture)
+                    Else
+
+                    End If
+                End If
+                RaiseEvent TextPasted(Me, Nothing)
+
             ElseIf e.KeyCode = Keys.Right Then
                 Field = If(Field = UBound(FormatSections.ToArray), 0, Field + 1)
                 ResizeMe()
@@ -298,10 +321,6 @@ Public Class DatePicker
                     _SelectionPixelStart = TextLength(Text.Substring(0, S))
                 End If
                 _SelectionPixelEnd = _SelectionPixelStart
-
-            ElseIf e.KeyCode = Keys.C AndAlso Control.ModifierKeys = Keys.Control Then
-                Clipboard.Clear()
-                Clipboard.SetText(Selection)
 
             End If
             Invalidate()

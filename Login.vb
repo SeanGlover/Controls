@@ -121,9 +121,7 @@ Public Class Login
             UserId = UID.Text
             .Password = PWD.Text
             PassWord = PWD.Text
-            If Not (String.IsNullOrEmpty(.UserId) Or String.IsNullOrEmpty(.Password)) Then
-                RaiseEvent ValuesSubmitted(Me, New LoginEventArgs(MyCredentials))
-            End If
+            RaiseEvent ValuesSubmitted(Me, New LoginEventArgs(MyCredentials))
         End With
 
     End Sub
