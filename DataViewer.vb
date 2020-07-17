@@ -442,7 +442,10 @@ Public Class DataViewer
                                         With rowCell
                                             Dim cellValue As Object = .Value
                                             Dim drawCellAsSelected As Boolean = If(FullRowSelect, Row.Selected, .Selected)
-                                            Dim cellStyle = If(drawCellAsSelected, If(Rows.SelectionRowStyle.Theme = Theme.None And Rows.SelectionRowStyle.BackImage Is Nothing, Row.SelectionStyle, Rows.SelectionRowStyle), rowStyle)
+                                            Dim cellStyle = If(drawCellAsSelected, If(Row.SelectionStyle.Theme = Theme.None And Row.SelectionStyle.BackImage Is Nothing, Rows.SelectionRowStyle, Row.SelectionStyle), rowStyle)
+                                            'If drawCellAsSelected And cellStyle.Theme = Theme.DarkRed Then Stop
+                                            'If Row.Selected And rowCell.Text = "055224" And Row.Cells.Item("CUSTNO").ValueWhole = 1338968 Then Stop
+                                            'If Row.Tag?.ToString = "Mky" Then Stop
                                             If MouseData.CurrentAction = MouseInfo.Action.GridSelecting Then .Selected = drawBounds.IntersectsWith(CellBounds)
 #Region " C E L L   B A C K G R O U N D "
                                             If drawCellAsSelected Then   'Already drew the entire row before "DRAW CELLS" Region
@@ -986,12 +989,23 @@ Public Class DataViewer
                                 ElseIf .CurrentAction = MouseInfo.Action.GridSelecting Then
                                     .SelectPointB = newPoint
                                     Redraw = True
-                                    ' NEEDS WORK
                                     If Width - newPoint.X < 10 Then HScroll.Value = {HScroll.Value + 20, HScroll.Maximum}.Min
                                     If Height - newPoint.Y < 10 Then VScroll.Value = {VScroll.Value + RowHeight, VScroll.Maximum}.Min
-                                    ' NEEDS WORK
-                                    RaiseEvent Alert({ .SelectPointA, .SelectPointB}, New AlertEventArgs("Grid selecting"))
-
+#Region " GET SELECTION COUNTS & TOTALS "
+                                    Dim rowsSelected As New List(Of Row)(From r In Rows Where (From c In r.Cells.Values Where c.Selected).Any)
+                                    Dim cellsSelected As New List(Of Cell)
+                                    rowsSelected.ForEach(Sub(r) cellsSelected.AddRange(From c In r.Cells.Values Where c.Selected))
+                                    Dim columnsCells As New Dictionary(Of Column, List(Of Cell))
+                                    Dim doubleList As New List(Of Double)
+                                    cellsSelected.ForEach(Sub(c)
+                                                              If Not columnsCells.ContainsKey(c.Column) Then columnsCells.Add(c.Column, New List(Of Cell))
+                                                              columnsCells(c.Column).Add(c)
+                                                              doubleList.Add(c.ValueDecimal)
+                                                          End Sub)
+                                    Dim totals As Object() = {rowsSelected.Count, cellsSelected.Count, doubleList.Sum}
+                                    Dim selectionStatement As String = String.Format(InvariantCulture, "Selected {0:####} rows, {1:#####} cells totalling {2:C2}", totals)
+                                    RaiseEvent Alert(Me, New AlertEventArgs(selectionStatement))
+#End Region
                                 Else
                                     .CurrentAction = If(.Column Is Nothing, MouseInfo.Action.None, MouseInfo.Action.MouseOverGrid)
                                     If Not Rows.SingleSelect And ControlKeyDown And .Row IsNot lastMouseRow Then
@@ -1147,7 +1161,7 @@ Public Class DataViewer
                                              Next
                                              Return Nothing
                                          End Function)
-                            .Cell.Selected = If(cellSelectedCounter = 0, Not .Cell.Selected, True)
+                            .Cell.Selected = cellSelectedCounter <> 0 OrElse Not .Cell.Selected
                             RaiseEvent CellClicked(Me, New ViewerEventArgs(MouseData))
                         End If
 #End Region
@@ -1275,7 +1289,9 @@ Public Class DataViewer
                             Using copyTable As New DataTable
                                 With copyTable
                                     For Each columnName In selectedHeaders
-                                        .Columns.Add(columnName, Columns.Item(columnName).DataType)
+                                        Dim viewerColumn As Column = Columns.Item(columnName)
+                                        Dim columnType As Type = If(viewerColumn.DataType = GetType(DateAndTime), GetType(Date), viewerColumn.DataType)
+                                        .Columns.Add(columnName, columnType)
                                     Next
                                     Dim selectedRows = (From sc In selectedCells Group sc By rowIndex = sc.Value Into rowGroup = Group
                                                         Select New With {.Index = rowIndex, .rowValues = (From c In rowGroup Order By c.Key.Index Select c.Key.Value).ToArray}).ToDictionary(Function(k) k.Index, Function(v) v.rowValues)
@@ -1812,7 +1828,6 @@ Public Class ColumnCollection
                     If e.ChangedProperty = CellStyle.Properties.ShadeColor Then .HeaderStyle.ShadeColor = HeaderStyle.ShadeColor
                     If e.ChangedProperty = CellStyle.Properties.Theme Then .HeaderStyle.Theme = HeaderStyle.Theme
                     If e.ChangedProperty = CellStyle.Properties.Image Then .HeaderStyle.BackImage = HeaderStyle.BackImage
-                    Stop
                 End If
             End With
         Next
@@ -2467,6 +2482,39 @@ End Class
 
         End Set
     End Property
+    Public Function Similar(other As Row, Optional KeyFields As String() = Nothing) As Boolean
+
+        If other Is Nothing Then
+            Return False
+        Else
+            Dim matches As New Dictionary(Of String, Boolean)
+            For Each cell In Cells
+                Dim cellName As String = cell.Key
+                Dim cellValue As Object = cell.Value.Value
+                Dim otherCell As Cell = other.Cells.Item(cellName)
+                If otherCell Is Nothing Then
+                    matches.Add(cellName, False)
+                Else
+                    If KeyFields Is Nothing Then
+                        matches.Add(cellName, otherCell.Value?.ToString = cellValue?.ToString)
+                    Else
+                        Dim upperKeys As New List(Of String)(From kf In KeyFields Select kf.ToUpperInvariant)
+                        If upperKeys.Contains(cellName.ToUpperInvariant) Then
+                            matches.Add(cellName, otherCell.Value?.ToString = cellValue?.ToString)
+                        Else
+                            matches.Add(cellName, False)
+                        End If
+                    End If
+                End If
+            Next
+            If KeyFields Is Nothing Then
+                Return matches.Values.Where(Function(v) v = True).Any
+            Else
+                Return matches.Values.Where(Function(v) v = True).Count = KeyFields.Count
+            End If
+        End If
+
+    End Function
     Private Sub RowStyle_PropertyChanged(sender As Object, e As StyleEventArgs) Handles Style_.PropertyChanged
         Using defaultStyle As New CellStyle With {.BackColor = Color.Transparent, .ShadeColor = Color.White, .ForeColor = Color.Black, .Font = New Font("Century Gothic", 8)}
             _StyleChanged = Style_ <> defaultStyle
@@ -2667,11 +2715,9 @@ End Class
             End If
         End Set
     End Property
-    Public Shadows ReadOnly Property ToString As String
-        Get
-            Return Join({Name, Text, DataType.ToString}, ", ")
-        End Get
-    End Property
+    Public Overrides Function ToString() As String
+        Return Join({Name, Text, DataType.ToString}, ", ")
+    End Function
     Public ReadOnly Property Style As CellStyle
         Get
             If Parent.Parent Is Nothing Then

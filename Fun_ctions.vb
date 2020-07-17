@@ -580,9 +580,12 @@ Public Module Functions
                 If Dates.Count = 1 Then
                     Return Nothing
                 Else
-                    Dim diff = Dates.Max.Subtract(Dates.Min)
-                    Return TimeSpan.FromTicks(Convert.ToInt64(diff.Ticks / (Dates.Count - 1)))
-
+                    Try
+                        Dim diff = Dates.Max.Subtract(Dates.Min)
+                        Return TimeSpan.FromTicks(Convert.ToInt64(diff.Ticks / (Dates.Count - 1)))
+                    Catch ex As InvalidOperationException
+                        Return New TimeSpan
+                    End Try
                 End If
             Else
                 Return Nothing
@@ -892,6 +895,88 @@ Public Module Functions
         Dim ObjectCenter As New Size(Convert.ToInt32(ItemSize.Width / 2), Convert.ToInt32(ItemSize.Height / 2))
         parentLocation.Offset(-ObjectCenter.Width, -ObjectCenter.Height)
         Return parentLocation
+
+    End Function
+    Public Function DotProduct(arr1 As Integer(), arr2 As Integer()) As Integer
+
+        If arr1 Is Nothing Or arr2 Is Nothing Then
+            Return 0
+        Else
+            Return arr1.Zip(arr2, Function(d1, d2) d1 * d2).Sum()
+        End If
+
+    End Function
+    Private Sub CrossProduct(ByVal vect_A As Integer(), ByVal vect_B As Integer(), ByVal cross_P As Integer())
+
+        cross_P(0) = vect_A(1) * vect_B(2) - vect_A(2) * vect_B(1)
+        cross_P(1) = vect_A(2) * vect_B(0) - vect_A(0) * vect_B(2)
+        cross_P(2) = vect_A(0) * vect_B(1) - vect_A(1) * vect_B(0)
+
+    End Sub
+    Public Function InTriangle(ByVal checkPoint As Point, points As Point()) As Boolean
+
+        If points Is Nothing Then
+            Return Nothing
+        Else
+            Return InTriangle(checkPoint, points(0), points(1), points(2))
+        End If
+
+    End Function
+    Public Function InTriangle(ByVal checkPoint As Point, points As PointF()) As Boolean
+
+        If points Is Nothing Then
+            Return Nothing
+        Else
+            Dim pointAx As Integer = Convert.ToInt32(points(0).X)
+            Dim pointA As New Point(Convert.ToInt32(points(0).X), Convert.ToInt32(points(0).Y))
+            Dim pointB As New Point(Convert.ToInt32(points(1).X), Convert.ToInt32(points(1).Y))
+            Dim pointC As New Point(Convert.ToInt32(points(2).X), Convert.ToInt32(points(2).Y))
+            Return InTriangle(checkPoint, pointA, pointB, pointC)
+        End If
+
+    End Function
+    Public Function InTriangle(ByVal checkPoint As Point, ByVal pointA As Point, ByVal pointB As Point, ByVal pointC As Point) As Boolean
+
+        Dim p As New Numerics.Vector2(checkPoint.X, checkPoint.Y)
+        Dim p0 As New Numerics.Vector2(pointA.X, pointA.Y)
+        Dim p1 As New Numerics.Vector2(pointB.X, pointB.Y)
+        Dim p2 As New Numerics.Vector2(pointC.X, pointC.Y)
+
+        If InLine(checkPoint, pointA, pointB) Or InLine(checkPoint, pointA, pointC) Or InLine(checkPoint, pointB, pointC) Then
+            'Point is on the border edge
+            Return True
+        Else
+            'Check if point is between edges
+            Dim a = 0.5F * (-p1.Y * p2.X + p0.Y * (-p1.X + p2.X) + p0.X * (p1.Y - p2.Y) + p1.X * p2.Y)
+            Dim sign = If(a < 0, -1, 1)
+            Dim s = (p0.Y * p2.X - p0.X * p2.Y + (p2.Y - p0.Y) * p.X + (p0.X - p2.X) * p.Y) * sign
+            Dim t = (p0.X * p1.Y - p0.Y * p1.X + (p0.Y - p1.Y) * p.X + (p1.X - p0.X) * p.Y) * sign
+            Return s > 0 AndAlso t > 0 AndAlso (s + t) < 2 * a * sign
+        End If
+
+    End Function
+    Public Function InLine(ByVal checkPoint As Point, ByVal pointA As Point, ByVal pointB As Point) As Boolean
+
+        If checkPoint = pointA Or checkPoint = pointB Then
+            Return True
+        Else
+            Dim xMin As Integer = {pointA.X, pointB.X}.Min
+            Dim xMax As Integer = {pointA.X, pointB.X}.Max
+            Dim yMin As Integer = {pointA.Y, pointB.Y}.Min
+            Dim yMax As Integer = {pointA.Y, pointB.Y}.Max
+            If pointA.X = pointB.X Then 'Vertical line
+                Return checkPoint.X = pointA.X And checkPoint.Y >= yMin And checkPoint.Y <= yMax
+
+            ElseIf pointA.Y = pointB.Y Then 'Horizontal line
+                Return checkPoint.Y = pointA.Y And checkPoint.X >= xMin And checkPoint.X <= xMax
+
+            Else
+                Dim slope As Double = (pointA.Y - pointB.Y) / (pointA.X - pointB.X)
+                Dim points As New List(Of Point)(From p In Enumerable.Range(yMin, yMax - yMin) Select New Point(p, CInt(p * slope)))
+                Return points.Contains(checkPoint)
+
+            End If
+        End If
 
     End Function
 
@@ -1707,7 +1792,7 @@ Public Module Functions
         Return Sheets
 
     End Function
-    Public Function ExcelDataSet(excelPath As String) As DataSet
+    Public Function ExcelToDataSet(excelPath As String) As DataSet
 
         If excelPath Is Nothing Then
             Return Nothing
@@ -3781,7 +3866,7 @@ Public NotInheritable Class ClipboardHelper
 End Class
 
 <Serializable>
-Public Class SpecialDictionary(Of TKey, TValue)
+Public NotInheritable Class SpecialDictionary(Of TKey, TValue)
     Inherits Dictionary(Of TKey, TValue)
     Implements IDictionary(Of TKey, TValue)
     Public Sub New()

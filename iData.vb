@@ -923,6 +923,53 @@ Public NotInheritable Class ConnectionChangedEventArgs
         Me.NewPassword = NewPassword
     End Sub
 End Class
+Public NotInheritable Class ConnectionTestEventArgs
+    Inherits EventArgs
+    Public ReadOnly Property Response As ResponseEventArgs
+    Public ReadOnly Property Reason As String
+    Public ReadOnly Property OK As Boolean
+    Public Sub New(response As ResponseEventArgs)
+
+        Me.Response = response
+        If response IsNot Nothing Then
+            OK = response.Succeeded
+            If Not OK Then
+                If response.RunError.ErrorType = Errors.Type.Access Then
+                    Dim badConnection As Connection = response.Connection
+#Region " PASSWORD ISSUE "
+                    Select Case response.RunError.Access
+                        Case Errors.AccessResponse.PasswordExpired
+                            Reason = "The password {Password} for {Userid} in {Database} has expired. You must create a new password now.".ToString(InvariantCulture)
+
+                        Case Errors.AccessResponse.PasswordIncorrect
+                            Reason = "The password {Password} for {Userid} in {Database} is incorrect. You must submit another value.".ToString(InvariantCulture)
+
+                        Case Errors.AccessResponse.PasswordMissing
+                            Reason = "The password {Password} for {Userid} in {Database} is missing. You must provide a value.".ToString(InvariantCulture)
+
+                        Case Errors.AccessResponse.Revoked
+                            Reason = "Access for {Userid} in {Database} has been revoked! Submit a request to reinstate your access".ToString(InvariantCulture)
+
+                    End Select
+                    Reason = Replace(Reason, "{Database}", badConnection.DataSource)
+                    Reason = Replace(Reason, "{Userid}", badConnection.UserID)
+                    Reason = Replace(Reason, "{Password}", badConnection.Password)
+#End Region
+                ElseIf response.RunError.ErrorType = Errors.Type.Combatibility Then
+                    'ARCHITECTURE MISMATCH 32 bit vs 64 bit
+                    Reason = "Connection is not currently possible as the ODBC driver is running the incorrect bit version ( 32 / 64)"
+
+                ElseIf response.RunError.ErrorType = Errors.Type.Requirement Then
+                    Reason = "You must run this tool with as administrator. Right-click the .exe, More, Run as administrator"
+
+                Else
+                    Reason = response.Message
+                End If
+            End If
+        End If
+
+    End Sub
+End Class
 <Serializable> Public NotInheritable Class Connection
     Implements IEquatable(Of Connection)
 
@@ -931,6 +978,7 @@ End Class
     Private ReadOnly DB2String As String = "Driver=;DSN=DSNA1;UID=;PWD=;NEWPWD=;Database=;MODE=;DBALIAS=;ASYNCENABLE=;USESCHEMAQUERIES=;Protocol=;HOSTNAME=;PORT=;QueryTimeout=600;Nickname="
 #End Region
     Public Event PasswordChanged(sender As Object, e As ConnectionChangedEventArgs)
+    Public Event TestCompleted(sender As Object, e As ConnectionTestEventArgs)
     Public Sub New(ConnectionString As String)
 
         Dim ConnectionElements As New List(Of String)
@@ -1005,9 +1053,10 @@ End Class
             _Properties("NEWPWD") = value
         End Set
     End Property
+    Private TestFailed As Boolean
     Public ReadOnly Property CanConnect As Boolean
         Get
-            Return Not (_Properties("DSN").Length = 0 Or _Properties("UID").Length = 0 Or _Properties("PWD").Length = 0)
+            Return Not (_Properties("DSN").Length = 0 Or _Properties("UID").Length = 0 Or _Properties("PWD").Length = 0 Or TestFailed)
         End Get
     End Property
     Public ReadOnly Property IsFile As Boolean
@@ -1100,7 +1149,28 @@ End Class
         _Properties("NEWPWD") = String.Empty
         Parent.Save()
     End Sub
+    Public Sub Test()
 
+        If CanConnect Then
+            Dim testSelect As String = If(Language = QueryLanguage.Netezza, "select current_timestamp FROM _v_dual", "SELECT * FROM SYSIBM.SYSDUMMY1")
+            Using testSQL As New SQL(Me, testSelect) With {.NoPrompt = True}
+                With testSQL
+                    AddHandler .Completed, AddressOf Test_Completed
+                    .Execute()
+                End With
+            End Using
+        End If
+
+    End Sub
+    Private Sub Test_Completed(sender As Object, e As ResponseEventArgs)
+
+        With DirectCast(sender, SQL)
+            RemoveHandler .Completed, AddressOf Test_Completed
+            TestFailed = Not .Response.Succeeded
+            RaiseEvent TestCompleted(Me, New ConnectionTestEventArgs(e))
+        End With
+
+    End Sub
     Public Overrides Function GetHashCode() As Integer
         Return DataSource.GetHashCode Xor UserID.GetHashCode Xor Password.GetHashCode
     End Function
@@ -2200,7 +2270,7 @@ End Class
             Handle.Dispose()
             ' Free any other managed objects here.
             _Table.Dispose()
-            If rf IsNot Nothing Then rf.Dispose()
+            If Failure IsNot Nothing Then Failure.Dispose()
         End If
         disposed = True
     End Sub
@@ -2234,7 +2304,8 @@ End Class
     End Property
     Public Property Name As String
     Public Property Tag As Object
-    Private rf As ResponseFailure
+    Public Property NoPrompt As Boolean = False
+    Private Failure As ResponseFailure
     Public Sub New(ConnectionString As String, Instruction As String)
 
         Me.ConnectionString = If(ConnectionString, String.Empty)
@@ -2377,8 +2448,10 @@ End Class
 
     End Sub
     Private Sub Me_Completed(sender As Object, e As ResponseEventArgs) Handles Me.Completed
+
         _Busy = False
-        If Not e.Succeeded Then rf = New ResponseFailure(e)
+        If Not e.Succeeded And Not NoPrompt Then Failure = New ResponseFailure(e)
+
     End Sub
     Public Overrides Function ToString() As String
         Return If(Name Is Nothing, String.Empty, Name & BlackOut) & Join({If(Connection Is Nothing, "DSN=?", Connection.DataSource), If(Response Is Nothing, "Not executed", "Succeeded=" & Response.Succeeded)}, BlackOut)

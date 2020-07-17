@@ -22,9 +22,8 @@ Public Enum ImageComboMode
 End Enum
 Public NotInheritable Class ImageCombo
     Inherits Control
-
     'Fixes:     Screen Scaling of 125, 150 distorts the CopyFromScreen in DropDown.Protected Overrides Sub OnVisibleChanged(e As EventArgs)
-    Private ReadOnly ErrorTip As New ToolTip With {.ToolTipIcon = ToolTipIcon.Error,
+    Private ReadOnly ErrorTip As New ToolTip With {
         .BackColor = Color.GhostWhite,
         .ForeColor = Color.Black,
         .ShowAlways = False}
@@ -122,8 +121,10 @@ Public NotInheritable Class ImageCombo
                 Dim penTangle As Rectangle = ClientRectangle
                 penTangle.Inflate(-2, -2)
                 penTangle.Offset(-1, -1)
-                Using borderPen As New Pen(If(InBounds, Brushes.LimeGreen, Brushes.DarkGray), 3)
-                    e.Graphics.DrawRectangle(borderPen, penTangle)
+                Using borderBrush As New SolidBrush(HighlightColor)
+                    Using borderPen As New Pen(If(InBounds, borderBrush, Brushes.DarkGray), 3)
+                        e.Graphics.DrawRectangle(borderPen, penTangle)
+                    End Using
                 End Using
 #Region " SET BOUNDS "
                 With ImageBounds
@@ -280,7 +281,7 @@ Public NotInheritable Class ImageCombo
                     If PasswordProtected And Not TextIsVisible Then
                         Dim lettersRight As Integer = LetterWidths.Values.Last.Value
                         Using Brush As New HatchBrush(HatchStyle.LightUpwardDiagonal, SystemColors.WindowText, BackColor)
-                            e.Graphics.FillRectangle(Brush, New Rectangle(Image.Width, 0, lettersRight - Image.Width, Height))
+                            e.Graphics.FillRectangle(Brush, New Rectangle(ImageBounds.Width, 0, lettersRight - ImageBounds.Width, Height))
                         End Using
 
                     Else
@@ -314,7 +315,7 @@ Public NotInheritable Class ImageCombo
                         End If
                     End If
                 Else
-                    TextRenderer.DrawText(e.Graphics, HintText, Font, TextBounds, Color.LightGray, TextFormatFlags.VerticalCenter)
+                    TextRenderer.DrawText(e.Graphics, HintText, Font, TextBounds, Color.DarkGray, TextFormatFlags.VerticalCenter)
                 End If
                 If Enabled Then
                     e.Graphics.DrawImage(EyeImage, EyeBounds)
@@ -534,6 +535,7 @@ Public NotInheritable Class ImageCombo
             Return _DropItems
         End Get
     End Property
+    Public Property HighlightColor As Color = Color.LimeGreen
     Public Property HighlightOnFocus As Boolean
     Private _HasFocus As Boolean = False
     Public Property FocusColor As Color = Color.DarkBlue
@@ -922,7 +924,11 @@ Public NotInheritable Class ImageCombo
                 ElseIf e.KeyCode = Keys.C AndAlso Control.ModifierKeys = Keys.Control Then
 #Region " COPY "
                     Clipboard.Clear()
-                    Clipboard.SetText(Selection)
+                    If Selection.Any Then
+                        Clipboard.SetText(Selection)
+                    Else
+                        Clipboard.Clear()
+                    End If
                     RaiseEvent TextCopied(Me, Nothing)
 #End Region
                 ElseIf e.KeyCode = Keys.V AndAlso Control.ModifierKeys = Keys.Control And Not IsReadOnly Then

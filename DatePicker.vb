@@ -58,7 +58,7 @@ Public Class DatePicker
 
             If ValueIsNull Then
                 If HintText IsNot Nothing Then
-                    TextRenderer.DrawText(e.Graphics, HintText, Font, ClientRectangle, Color.LightGray, TextFormatFlags.VerticalCenter)
+                    TextRenderer.DrawText(e.Graphics, HintText, Font, ClientRectangle, Color.DarkGray, TextFormatFlags.VerticalCenter)
                 End If
             Else
                 If Not SelectionPixelStart = SelectionPixelEnd Then
@@ -172,7 +172,7 @@ Public Class DatePicker
             If SelectionPixelEnd = SelectionPixelStart Or _SelectionPixelStart < 0 Or _SelectionPixelEnd < 0 Then
                 Return String.Empty
             Else
-                Return Text.Substring(SelectionStart, SelectionEnd - SelectionStart)
+                Return ValueString.Substring(SelectionStart, SelectionEnd - SelectionStart)
             End If
         End Get
     End Property

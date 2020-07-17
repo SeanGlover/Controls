@@ -2,9 +2,7 @@
 Option Explicit On
 Imports System.Windows.Forms
 Imports System.Drawing
-Imports System.Runtime.InteropServices
 Imports System.Drawing.Drawing2D
-Imports Controls
 Public Enum NodeRegion
     Expander
     Favorite
@@ -237,6 +235,7 @@ Public Class TreeViewer
                 If Nodes.Any Then
                     For Each Node As Node In Nodes.Draw
                         With Node
+                            Dim mouseInTip As Boolean = False
                             If .Separator = Node.SeparatorPosition.Above And Node IsNot Nodes.First Then
                                 Using Pen As New Pen(Color.Blue, 1)
                                     Pen.DashStyle = DashStyle.DashDot
@@ -286,6 +285,7 @@ Public Class TreeViewer
                                         New PointF(.Bounds.Left, .Bounds.Top + triangleHeight)
                                 }
                                 e.Graphics.FillPolygon(Brushes.DarkOrange, trianglePoints.ToArray)
+                                mouseInTip = InTriangle(MousePoint, trianglePoints.ToArray)
                             End If
                             Dim SelectionBounds As New Rectangle(.ImageBounds.Left, .Bounds.Top, .Bounds.Right - { .FavoriteBounds.Left, .ExpandCollapseBounds.Left}.Min, .Bounds.Height)
                             Using Brush As New SolidBrush(If(DragData.DropHighlightNode Is Node, DropHighlightColor, .BackColor))
@@ -295,8 +295,14 @@ Public Class TreeViewer
                             If Not IsNothing(.Image) Then
                                 e.Graphics.DrawImage(.Image, .ImageBounds)
                             End If
-                            TextRenderer.DrawText(e.Graphics, .Text, .Font, .Bounds, .ForeColor, .TextBackColor, TextFormatFlags.LeftAndRightPadding Or TextFormatFlags.NoPadding Or TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
-                            If CurrentMouseNode Is Node Then
+                            TextRenderer.DrawText(e.Graphics,
+                                                  If(mouseInTip, .TipText, .Text),
+                                                  .Font,
+                                                  .Bounds,
+                                                  .ForeColor,
+                                                  .TextBackColor,
+                                                  TextFormatFlags.LeftAndRightPadding Or TextFormatFlags.NoPadding Or TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
+                            If CurrentMouseNode Is Node And .TipText Is Nothing Then
                                 Using SemiTransparentBrush As New SolidBrush(Color.FromArgb(128, Color.Gainsboro))
                                     e.Graphics.FillRectangle(SemiTransparentBrush, .Bounds)
                                 End Using
@@ -335,11 +341,13 @@ Public Class TreeViewer
                         End With
                     Next
                     If RootLines And Nodes.Count > 1 Then
+                        Dim firstNode As Node = Nodes.First
+                        Dim lastNode As Node = Nodes.Last
                         Using Pen As New Pen(LineColor) With {.DashStyle = LineStyle}
-                            Dim LineLeft As Integer = Convert.ToInt32(Nodes.First.ExpandCollapseBounds.Left / 2)
-                            Dim LineTop As Integer = 2 + Nodes.First.ExpandCollapseBounds.Top + Convert.ToInt32(Nodes.First.ExpandCollapseBounds.Height / 2)
+                            Dim LineLeft As Integer = Convert.ToInt32({firstNode.FavoriteBounds.Left, firstNode.ExpandCollapseBounds.Left}.Min / 2)
+                            Dim LineTop As Integer = 2 + firstNode.ExpandCollapseBounds.Top + Convert.ToInt32(firstNode.ExpandCollapseBounds.Height / 2)
                             Dim TopPoint As New Point(LineLeft, {0, LineTop}.Max)
-                            Dim LineBottom As Integer = Nodes.Last.Bounds.Top + Convert.ToInt32(Nodes.Last.Height / 2)
+                            Dim LineBottom As Integer = lastNode.Bounds.Top + Convert.ToInt32(lastNode.Height / 2)
                             Dim BottomPoint As New Point(LineLeft, {LineBottom, Height}.Min)
                             .DrawLine(Pen, TopPoint, BottomPoint)
                         End Using
@@ -790,6 +798,7 @@ Public Class TreeViewer
 #Region " MOUSE EVENTS "
     Private LastMouseNode As Node = Nothing
     Private CurrentMouseNode As Node = Nothing
+    Private MousePoint As Point
     Protected Overrides Sub OnMouseDown(e As MouseEventArgs)
 
         If e IsNot Nothing Then
@@ -856,6 +865,7 @@ Public Class TreeViewer
     End Sub
     Protected Overrides Sub OnMouseMove(e As MouseEventArgs)
 
+        MousePoint = e.Location
         If e IsNot Nothing Then
             If e.Button = MouseButtons.None Then
                 CurrentMouseNode = HitTest(e.Location).Node
@@ -930,15 +940,8 @@ Public Class TreeViewer
     Protected Overrides Sub OnKeyDown(e As KeyEventArgs)
 
         If e IsNot Nothing AndAlso e.Modifiers = Keys.Control AndAlso e.KeyCode = Keys.C Then
-            Dim Nodes2Clipboard As New List(Of Node)
-            If SelectedNodes.Any Then
-                For Each Node In SelectedNodes
-                    Nodes2Clipboard.AddRange(Nodes.All)
-                Next
-            Else
-                Nodes2Clipboard = Nodes.All
-            End If
-            Clipboard.SetText(Join((From AN In Nodes2Clipboard Select AN.TextPath).ToArray, vbNewLine))
+            Dim Nodes2Clipboard As New List(Of String)(From sn In SelectedNodes Select sn.Text)
+            Clipboard.SetText(Join(Nodes2Clipboard.ToArray, vbNewLine))
         End If
         MyBase.OnKeyDown(e)
 

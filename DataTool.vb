@@ -1944,7 +1944,7 @@ Public Class DataTool
 
             ElseIf SeparatorSizing = Sizing.MouseDownPGS Then
                 TLP_PaneGrid.ColumnStyles(1).SizeType = SizeType.Absolute
-                TLP_PaneGrid.ColumnStyles(1).Width = e.X - TLP_PaneGrid.ColumnStyles(0).Width
+                TLP_PaneGrid.ColumnStyles(1).Width = {e.X - TLP_PaneGrid.ColumnStyles(0).Width, 0}.Max
                 RaiseEvent Alert(e.Location, New AlertEventArgs("Move: MouseDownPGS" & PaneGridSeparator.ToString))
 
             Else
