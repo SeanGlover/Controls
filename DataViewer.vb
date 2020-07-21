@@ -1481,7 +1481,7 @@ Public Class DataViewer
                          ExcelPath:=filePath,
                          FormatSheet:=True,
                          ShowFile:=False,
-                         DisplayMessages:=False,
+                         DisplayMessages:=TriState.False,
                          IncludeHeaders:=True,
                          NotifyCreatedFormattedFile:=MessageWhenComplete)
 

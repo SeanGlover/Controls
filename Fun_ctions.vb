@@ -1845,6 +1845,19 @@ Public Module Functions
         Return Objects
 
     End Function
+    Public Function DataColumnToStrings(Column As DataColumn, Optional allowNulls As Boolean = True) As List(Of String)
+
+        Dim Strings As New List(Of String)
+        If Column IsNot Nothing Then
+            If allowNulls Then
+                Strings.AddRange(From r In Column.Table.AsEnumerable Select r(Column).ToString & String.Empty)
+            Else
+                Strings.AddRange(From r In Column.Table.AsEnumerable Select If(IsDBNull(r(Column)) Or IsNothing(r(Column)), String.Empty, r(Column).ToString & String.Empty))
+            End If
+        End If
+        Return Strings
+
+    End Function
 #End Region
 
     Public Function EntitiesToString(html As String) As String
