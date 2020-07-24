@@ -148,17 +148,18 @@ Public NotInheritable Class ImageCombo
                     .Height = Height
                 End With
 #End Region
-                Dim buttonAlignment As StringFormat = New StringFormat With {
+                Using buttonAlignment As StringFormat = New StringFormat With {
                     .LineAlignment = StringAlignment.Center,
                     .Alignment = If(HorizontalAlignment = HorizontalAlignment.Center, StringAlignment.Center, If(HorizontalAlignment = HorizontalAlignment.Left, StringAlignment.Near, StringAlignment.Far))
                 }
-                Dim glossyFore As Color = GlossyForecolor(If(InBounds, ButtonMouseTheme, ButtonTheme))
-                Using glossyBrush As New SolidBrush(glossyFore)
-                    e.Graphics.DrawString(Replace(Text, "&", "&&"),
-                                                                          Font,
-                                                                          glossyBrush,
-                                                                          TextBounds,
-                                                                          buttonAlignment)
+                    Dim glossyFore As Color = GlossyForecolor(If(InBounds, ButtonMouseTheme, ButtonTheme))
+                    Using glossyBrush As New SolidBrush(glossyFore)
+                        e.Graphics.DrawString(Replace(Text, "&", "&&"),
+                                                                              Font,
+                                                                              glossyBrush,
+                                                                              TextBounds,
+                                                                              buttonAlignment)
+                    End Using
                 End Using
 #End Region
             Else

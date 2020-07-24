@@ -1890,6 +1890,7 @@ Public Module Functions
             {"{", "}"},
             {"<table", "</table>"}
         }
+        leftSide = If(leftSide, "(")
         rightSide = If(rightSide, leftRight(leftSide))
         Dim leftPattern As String = String.Empty
         Dim rightPattern As String = String.Empty
@@ -3913,7 +3914,7 @@ Public NotInheritable Class SpecialDictionary(Of TKey, TValue)
         Dim value = Item(key)
         Return KeyExists = TriState.True
     End Function
-    Protected Sub New(serializationInfo As Runtime.Serialization.SerializationInfo, streamingContext As Runtime.Serialization.StreamingContext)
+    Private Sub New(serializationInfo As Runtime.Serialization.SerializationInfo, streamingContext As Runtime.Serialization.StreamingContext)
         Throw New NotImplementedException()
     End Sub
 End Class

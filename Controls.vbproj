@@ -627,6 +627,12 @@
   <ItemGroup>
     <None Include="Resources\okNot.ico" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\eyeOpen.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\eyeClosed.ico" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>

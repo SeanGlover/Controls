@@ -1039,9 +1039,17 @@ End Class
             Return If(_Properties.ContainsKey("PWD"), _Properties("PWD"), String.Empty)
         End Get
         Set(value As String)
+            value = If(value, String.Empty)
             If _Properties.ContainsKey("PWD") Then
-                RaiseEvent PasswordChanged(Me, New ConnectionChangedEventArgs(_Properties("PWD"), value))
-                _Properties("PWD") = value
+                If value <> _Properties("PWD") Then
+                    RaiseEvent PasswordChanged(Me, New ConnectionChangedEventArgs(_Properties("PWD"), value))
+                    _Properties("PWD") = value
+                    TestPassed_ = TriState.UseDefault
+                End If
+            Else
+                If value.Any Then _Properties.Add("PWD", value)
+                RaiseEvent PasswordChanged(Me, New ConnectionChangedEventArgs(String.Empty, value))
+                TestPassed_ = TriState.UseDefault
             End If
         End Set
     End Property
@@ -1053,10 +1061,15 @@ End Class
             _Properties("NEWPWD") = value
         End Set
     End Property
-    Private TestFailed As Boolean
+    Private TestPassed_ As TriState = TriState.UseDefault
+    Public ReadOnly Property TestPassed As TriState
+        Get
+            Return TestPassed_
+        End Get
+    End Property
     Public ReadOnly Property CanConnect As Boolean
         Get
-            Return Not (_Properties("DSN").Length = 0 Or _Properties("UID").Length = 0 Or _Properties("PWD").Length = 0 Or TestFailed)
+            Return TestPassed = TriState.True OrElse TestPassed = TriState.UseDefault And Not MissingUserID And Not MissingPassword
         End Get
     End Property
     Public ReadOnly Property IsFile As Boolean
@@ -1068,12 +1081,12 @@ End Class
     End Property
     Public ReadOnly Property MissingUserID As Boolean
         Get
-            Return If(IsFile, False, UserID.Length = 0)
+            Return Not IsFile AndAlso Not UserID.Any
         End Get
     End Property
     Public ReadOnly Property MissingPassword As Boolean
         Get
-            Return If(IsFile, False, Password.Length = 0)
+            Return Not IsFile AndAlso Not Password.Any
         End Get
     End Property
     Private ReadOnly _Properties As New Dictionary(Of String, String)
@@ -1155,20 +1168,12 @@ End Class
             Dim testSelect As String = If(Language = QueryLanguage.Netezza, "select current_timestamp FROM _v_dual", "SELECT * FROM SYSIBM.SYSDUMMY1")
             Using testSQL As New SQL(Me, testSelect) With {.NoPrompt = True}
                 With testSQL
-                    AddHandler .Completed, AddressOf Test_Completed
-                    .Execute()
+                    .Execute(False)
+                    TestPassed_ = If(.Response.Succeeded, TriState.True, TriState.False)
+                    RaiseEvent TestCompleted(Me, New ConnectionTestEventArgs(.Response))
                 End With
             End Using
         End If
-
-    End Sub
-    Private Sub Test_Completed(sender As Object, e As ResponseEventArgs)
-
-        With DirectCast(sender, SQL)
-            RemoveHandler .Completed, AddressOf Test_Completed
-            TestFailed = Not .Response.Succeeded
-            RaiseEvent TestCompleted(Me, New ConnectionTestEventArgs(e))
-        End With
 
     End Sub
     Public Overrides Function GetHashCode() As Integer

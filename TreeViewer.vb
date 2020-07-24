@@ -865,8 +865,8 @@ Public Class TreeViewer
     End Sub
     Protected Overrides Sub OnMouseMove(e As MouseEventArgs)
 
-        MousePoint = e.Location
         If e IsNot Nothing Then
+            MousePoint = e.Location
             If e.Button = MouseButtons.None Then
                 CurrentMouseNode = HitTest(e.Location).Node
                 If CurrentMouseNode IsNot LastMouseNode Then
@@ -1291,6 +1291,10 @@ Public Class TreeViewer
 
     End Sub
     Private Sub RefreshNodeBounds_Lines(Node As Node, collapseBeforeText As Boolean)
+
+        If collapseBeforeText Then
+        Else
+        End If
 
         Dim Y As Integer = RollingHeight - VScroll.Value
         Dim HorizontalSpacing As Integer = 3

@@ -3149,6 +3149,7 @@ Public Class InvisibleForm
     End Sub
 #End Region
 End Class
+
 Public NotInheritable Class WaitTimer
     Inherits Control
     Private ReadOnly BaseForm As Form
@@ -3288,5 +3289,230 @@ Public NotInheritable Class WaitTimer
         SetSafeControlPropertyValue(TickForm, "Location", HideLocation)
         SetSafeControlPropertyValue(TickForm, "BackgroundImage", Nothing)
 
+    End Sub
+End Class
+
+Public Enum BarZone
+    None
+    Image
+    Text
+    Minimize
+    Maximize
+    Close
+End Enum
+Public Class BarEventArgs
+    Inherits EventArgs
+    Public ReadOnly Property ClickedZone As BarZone
+    Public Sub New(zoneClicked As BarZone)
+        ClickedZone = zoneClicked
+    End Sub
+End Class
+Public Class TopBar
+    Inherits Control
+    Private ReadOnly GlossyDictionary As Dictionary(Of Theme, Image) = GlossyImages
+    Public Property BarStyle As Theme = Theme.Black
+    Public Property MouseStyle As Theme = Theme.Yellow
+    Private TextAlignment_ As HorizontalAlignment = HorizontalAlignment.Left
+    Public Property TextAlignment As HorizontalAlignment
+        Get
+            Return TextAlignment_
+        End Get
+        Set(value As HorizontalAlignment)
+            If value <> TextAlignment_ Then
+                TextAlignment_ = value
+                Invalidate()
+            End If
+        End Set
+    End Property
+    Public Property Image As Image
+    Private ReadOnly Property BoundsClose As Rectangle
+        Get
+            Return New Rectangle(Width - Height, 0, Height, Height)
+        End Get
+    End Property
+    Private ReadOnly Property BoundsMaximize As Rectangle
+        Get
+            Return New Rectangle(BoundsClose.Left - Height, 0, Height, Height)
+        End Get
+    End Property
+    Private ReadOnly Property BoundsMinimize As Rectangle
+        Get
+            Return New Rectangle(BoundsMaximize.Left - Height, 0, Height, Height)
+        End Get
+    End Property
+    Private ReadOnly Property BoundsImage As Rectangle
+        Get
+            Return New Rectangle(0, 0, If(Image Is Nothing, 0, Height), Height)
+        End Get
+    End Property
+    Private ReadOnly Property BoundsText As Rectangle
+        Get
+            Return New Rectangle(BoundsImage.Right, 0, BoundsMinimize.Left - BoundsImage.Right, Height)
+        End Get
+    End Property
+    Private ReadOnly Property MouseZone As BarZone
+    Private ReadOnly Property MousePoint As Point
+    Private ReadOnly Property InBounds As Boolean
+    Private ReadOnly Property IsDragging As Boolean
+
+    Public Event ZoneClicked(sender As Object, e As BarEventArgs)
+    Public Event BarMoved(sender As Object, e As BarEventArgs)
+    Public Event BarReleased(sender As Object, e As BarEventArgs)
+
+    Public Sub New()
+
+        SetStyle(ControlStyles.AllPaintingInWmPaint, True)
+        SetStyle(ControlStyles.ContainerControl, True)
+        SetStyle(ControlStyles.DoubleBuffer, True)
+        SetStyle(ControlStyles.UserPaint, True)
+        SetStyle(ControlStyles.ResizeRedraw, True)
+        SetStyle(ControlStyles.Selectable, True)
+        SetStyle(ControlStyles.Opaque, True)
+        SetStyle(ControlStyles.UserMouse, True)
+        BackColor = SystemColors.Window
+        Dock = DockStyle.Fill
+
+    End Sub
+    Protected Overrides Sub OnPaint(ByVal e As PaintEventArgs)
+
+        If e IsNot Nothing Then
+            If BarStyle = Theme.None Then
+                Using backBrush As New SolidBrush(BackColor)
+                    e.Graphics.FillRectangle(backBrush, Bounds)
+                End Using
+            Else
+                e.Graphics.DrawImage(GlossyDictionary(BarStyle), Bounds)
+            End If
+
+            If Image IsNot Nothing Then
+                Dim imageBounds As New Rectangle(CInt((BoundsImage.Width - Image.Width) / 2), CInt((BoundsImage.Height - Image.Height) / 2), Image.Width, Image.Height)
+                e.Graphics.DrawImage(Image, imageBounds)
+            End If
+
+            Using buttonAlignment As StringFormat = New StringFormat With {
+                    .LineAlignment = StringAlignment.Center,
+                    .Alignment = If(TextAlignment = HorizontalAlignment.Center, StringAlignment.Center, If(TextAlignment = HorizontalAlignment.Left, StringAlignment.Near, StringAlignment.Far))
+                }
+                Dim glossyFore As Color = GlossyForecolor(BarStyle)
+                Using glossyBrush As New SolidBrush(glossyFore)
+                    e.Graphics.DrawString(Replace(Text, "&", "&&"),
+                                                                              Font,
+                                                                              glossyBrush,
+                                                                              BoundsText,
+                                                                              buttonAlignment)
+                End Using
+            End Using
+
+#Region " M I N I M I Z E "
+            Dim bMin As Rectangle = BoundsMinimize
+            bMin.Inflate(-3, -3)
+            Using gPath As GraphicsPath = DrawRoundedRectangle(bMin, 4)
+                e.Graphics.DrawPath(Pens.White, gPath)
+            End Using
+            bMin.Inflate(-8, -8)
+            Using minPen As New Pen(Brushes.White, 3)
+                e.Graphics.DrawLine(minPen, New Point(bMin.Left, bMin.Bottom), New Point(bMin.Right, bMin.Bottom))
+            End Using
+#End Region
+#Region " M A X I M I Z E "
+            Dim bMax As Rectangle = BoundsMaximize
+            bMax.Inflate(-3, -3)
+            Using gPath As GraphicsPath = DrawRoundedRectangle(bMax, 4)
+                e.Graphics.DrawPath(Pens.White, gPath)
+            End Using
+            bMax.Inflate(-8, -8)
+            Using maxPen As New Pen(Brushes.White, 3)
+                e.Graphics.DrawRectangle(maxPen, bMax)
+            End Using
+#End Region
+#Region " C L O S E "
+            Dim closeBackcolor As Color = If(MouseZone = BarZone.Close, Color.Gainsboro, BackColor)
+            Dim closeLinecolor As Color = If(MouseZone = BarZone.Close, Color.Red, If(BarStyle = Theme.None, Color.White, GlossyForecolor(If(MouseZone = BarZone.Close, MouseStyle, BarStyle))))
+            Dim bc As Rectangle = BoundsClose
+            bc.Inflate(-3, -3)
+            Using gPath As GraphicsPath = DrawRoundedRectangle(bc, 4)
+                e.Graphics.DrawPath(Pens.White, gPath)
+            End Using
+            bc.Inflate(-8, -8)
+            Using closePen As New Pen(closeLinecolor, 3)
+                e.Graphics.DrawLine(closePen, New Point(bc.Left, bc.Top), New Point(bc.Right, bc.Bottom))
+                e.Graphics.DrawLine(closePen, New Point(bc.Left, bc.Bottom), New Point(bc.Right, bc.Top))
+            End Using
+#End Region
+            If InBounds Then
+                Dim highlightBounds As Rectangle = If(MouseZone = BarZone.Minimize, BoundsMinimize, If(MouseZone = BarZone.Maximize, BoundsMaximize, If(MouseZone = BarZone.Close, BoundsClose, New Rectangle())))
+                Using highBrush As New SolidBrush(Color.FromArgb(64, Color.Yellow))
+                    e.Graphics.FillRectangle(highBrush, highlightBounds)
+                End Using
+            End If
+        End If
+
+    End Sub
+    Protected Overrides Sub OnMouseEnter(e As EventArgs)
+
+        _InBounds = True
+        Invalidate()
+        MyBase.OnMouseEnter(e)
+
+    End Sub
+    Protected Overrides Sub OnMouseLeave(e As EventArgs)
+
+        _InBounds = False
+        _MouseZone = BarZone.None
+        Invalidate()
+        MyBase.OnMouseLeave(e)
+
+    End Sub
+    Protected Overrides Sub OnMouseMove(ByVal e As MouseEventArgs)
+
+        If e IsNot Nothing Then
+            _IsDragging = False
+            If MousePoint <> e.Location Then
+                Dim lastZone As BarZone = MouseZone
+                If BoundsImage.Contains(e.Location) Then
+                    _MouseZone = BarZone.Image
+
+                ElseIf BoundsText.Contains(e.Location) Then
+                    _MouseZone = BarZone.Text
+                    If e.Button = MouseButtons.Left Then
+                        _IsDragging = True
+                        RaiseEvent BarMoved(Me, New BarEventArgs(MouseZone))
+                    End If
+
+                ElseIf BoundsMinimize.Contains(e.Location) Then
+                    _MouseZone = BarZone.Minimize
+
+                ElseIf BoundsMaximize.Contains(e.Location) Then
+                    _MouseZone = BarZone.Maximize
+
+                ElseIf BoundsClose.Contains(e.Location) Then
+                    _MouseZone = BarZone.Close
+
+                End If
+                Cursor = If(IsDragging, Cursors.NoMove2D, Cursors.Default)
+                _MousePoint = e.Location
+                If lastZone <> MouseZone Then Invalidate()
+            End If
+        End If
+        MyBase.OnMouseMove(e)
+
+    End Sub
+    Protected Overrides Sub OnMouseDown(ByVal e As MouseEventArgs)
+
+        If MouseZone <> BarZone.None Then RaiseEvent ZoneClicked(Me, New BarEventArgs(MouseZone))
+        MyBase.OnMouseDown(e)
+
+    End Sub
+    Protected Overrides Sub OnMouseUp(ByVal e As MouseEventArgs)
+
+        If IsDragging Then RaiseEvent BarReleased(Me, New BarEventArgs(MouseZone))
+        _IsDragging = False
+        Cursor = Cursors.Default
+        MyBase.OnMouseUp(e)
+
+    End Sub
+    Protected Overrides Sub OnTextChanged(ByVal e As EventArgs)
+        Invalidate()
+        MyBase.OnTextChanged(e)
     End Sub
 End Class

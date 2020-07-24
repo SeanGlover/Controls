@@ -2600,17 +2600,17 @@ Public Class DataTool
 #Region " D D L   O r   S Q L "
     Private Sub TypeWorker_Start() Handles TypeWorker.DoWork
 
-        _TextNoComments = StripComments(ActiveText)
+        _TextNoComments = StripComments()
         ActiveType = GetInstructionType(TextNoComments)
 
     End Sub
-    Private Function StripComments(textIn As String) As String
+    Private Function StripComments() As String
 
         REM /// -- EXEMPTS TEXT FROM CONSIDERATION, BUT NOT IF IT IS IN APOSTROPHES (CONSTANTS)
         REM /// 1] SELECT  '----------------------' = CONSTANT
         REM /// 2] --SELECT 'SPG'                   = GREENOUT
 
-        Dim textOut As String = If(IsNothing(textIn), String.Empty, textIn) 'RegEx THROWS AN ERROR FROM A NULL INPUT VALUE...
+        Dim textOut As String = If(IsNothing(ActiveText), String.Empty, ActiveText) 'RegEx THROWS AN ERROR FROM A NULL INPUT VALUE...
 
         Dim GreenOuts As New List(Of StringData)(From M In Regex.Matches(textOut, CommentPattern, RegexOptions.IgnoreCase) Select New StringData(M))
         Dim Constants As New List(Of StringData)(From M In Regex.Matches(textOut, "'[^'\r\n]{0,}'", RegexOptions.IgnoreCase) Select New StringData(M))

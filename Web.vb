@@ -188,7 +188,7 @@ Public NotInheritable Class WebFunctions
                     '    .KeepAlive = True
                     '    .Headers.Set(HttpRequestHeader.Cookie, Cookie)
                     '    .Host = "www.treasury.pncbank.com"
-                    '    .Referer = lockboxURL.ToString
+                    '    .Referer = TokenURL.ToString
                     '    .Headers.Add("Sec-Fetch-Dest", "iframe")
                     '    .Headers.Add("Sec-Fetch-Mode", "navigate")
                     '    .Headers.Add("Sec-Fetch-Site", "same-origin")
@@ -221,6 +221,8 @@ Public NotInheritable Class TokenEventArgs
     End Sub
 End Class
 Public NotInheritable Class Token
+    Implements IEquatable(Of Token)
+
     Public Event Expired(sender As Object, e As TokenEventArgs)
     Public Event Expiring(sender As Object, e As TokenEventArgs)
     Private WithEvents ExpiryTimer As New Timer With {.Interval = 1000}
@@ -276,6 +278,33 @@ Public NotInheritable Class Token
         End If
 
     End Sub
+
+    Public Overrides Function GetHashCode() As Integer
+        Return If(Name, String.Empty).GetHashCode Xor If(Value, String.Empty).GetHashCode Xor Expiry.GetHashCode
+    End Function
+    Public Overloads Function Equals(ByVal other As Token) As Boolean Implements IEquatable(Of Token).Equals
+        Return other IsNot Nothing AndAlso (Name = other.Name And Value = other.Value And Expiry = other.Expiry)
+    End Function
+    Public Shared Operator =(ByVal Object1 As Token, ByVal Object2 As Token) As Boolean
+        If Object1 Is Nothing Then
+            Return Object2 Is Nothing
+        ElseIf Object2 Is Nothing Then
+            Return False
+        Else
+            Return Object1.Equals(Object2)
+        End If
+    End Operator
+    Public Shared Operator <>(ByVal Object1 As Token, ByVal Object2 As Token) As Boolean
+        Return Not Object1 = Object2
+    End Operator
+    Public Overrides Function Equals(ByVal obj As Object) As Boolean
+        If TypeOf obj Is Token Then
+            Return CType(obj, Token) = Me
+        Else
+            Return False
+        End If
+    End Function
+
     Public Overrides Function ToString() As String
         Return Join({Name, Value, DateTimeToString(Expiry)}, Delimiter)
     End Function
