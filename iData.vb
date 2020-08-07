@@ -269,7 +269,7 @@ Friend Class ResponseFailure
 
             Dim SingleRowSize As Size = TextRenderer.MeasureText(PT, Segoe, New Size(300, 600), TextFormatFlags.Left)
             Dim MultiRowSize As Size = TextRenderer.MeasureText(PT, Segoe, New Size(300, 600), TextFormatFlags.WordBreak)
-            Dim MessageLineCount As Integer = Convert.ToInt32(MultiRowSize.Height / SingleRowSize.Height)
+            Dim MessageLineCount As Integer = {Convert.ToInt32(MultiRowSize.Height / {SingleRowSize.Height, 1}.Max), 1}.Max
 
             TLP_IP = New TableLayoutPanel With {.Width = 300, .ColumnCount = 1, .RowCount = If(ShowPasswordBox, 3, 2), .Font = Segoe, .AutoSize = True, .BorderStyle = BorderStyle.None, .CellBorderStyle = TableLayoutPanelCellBorderStyle.None, .Margin = New Padding(0)}
             With TLP_IP

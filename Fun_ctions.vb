@@ -1007,7 +1007,7 @@ Public Module Functions
         If component.Length = 1 Then
             component += component
         End If
-        Return Integer.Parse(component, System.Globalization.NumberStyles.HexNumber, InvariantCulture)
+        Return Integer.Parse(component, NumberStyles.HexNumber, InvariantCulture)
 
     End Function
 #End Region
@@ -2672,17 +2672,15 @@ Public Module Ghost
     End Sub
 #End Region
 End Module
-Friend Module html
+Public Module html
     Friend Event ElementWatched(sender As TimeSpan, e As List(Of HtmlElement))
     Private ReadOnly Property Document As HtmlDocument
     Private ReadOnly Property ElementIdName As String
     Private ReadOnly ElementStopWatch As New Stopwatch
     Private ReadOnly Property StopWatchLimit As Integer
     Private WithEvents ElementTimer As New Timer With {.Interval = 100}
-    Friend TypePattern As String = "(?<= type=" & Chr(34) & ")[-a-z0-9_:.]{1,}(?=" & Chr(34) & ")"
-    Friend idPattern As String = Replace(TypePattern, "type", "id")
-    Friend namePattern As String = Replace(TypePattern, "type", "name")
-    Friend Enum InputType
+    Private Const PatternID As String = "(?<= id="")[^■]{1,}(?="")"
+    Public Enum InputType
         'https://www.w3schools.com/html/html_form_input_types.asp
         '<input type ="button">
         '<input type="checkbox">
@@ -2706,99 +2704,132 @@ Friend Module html
         '<input type="url">
         '<input type="week">
         None
-        Button
-        Checkbox
-        Color
-        Email
-        File
-        Hidden
-        Image
-        Month
-        Password
-        Radio
-        Range
-        Reset
-        Search
-        Submit
-        Tel
-        Text
-        Time
-        Url
-        Week
+        button
+        checkbox
+        color
+        email
+        file
+        hidden
+        image
+        month
+        password
+        radio
+        range
+        reset
+        search
+        submit
+        tel
+        text
+        time
+        url
+        week
     End Enum
-    Friend Enum SubmitType
+    Public Enum SubmitType
+        None
         Click
         Enter
     End Enum
-    Friend Function ElementSubmitType(Element As HtmlElement) As SubmitType
+    Public Function ElementInputSubmitType(Element As HtmlElement) As KeyValuePair(Of InputType, SubmitType)
 
-        Select Case ElementInputType(Element)
-            Case InputType.Button, InputType.Submit
-                Return SubmitType.Click
-            Case InputType.Text, InputType.Password
-                Return SubmitType.Enter
-            Case Else
-                Return SubmitType.Click
-        End Select
+        Dim it As InputType
 
-    End Function
-    Friend Function ElementInputType(Element As HtmlElement) As InputType
+        If Element Is Nothing Then
+            Return New KeyValuePair(Of InputType, SubmitType)(it, SubmitType.None)
 
-        Dim InputMatch As Match = Regex.Match(Element.OuterHtml, TypePattern, RegexOptions.IgnoreCase)
-        If InputMatch.Success Then
-            Return DirectCast([Enum].Parse(GetType(InputType), StrConv(InputMatch.Value, VbStrConv.ProperCase)), InputType)
         Else
-            Return InputType.None
-        End If
-
-    End Function
-    Friend Function ElementByRegex(Document As HtmlDocument, SearchValue As String) As HtmlElement
-
-        Dim Elements As List(Of HtmlElement) = ElementsByRegex(Document, SearchValue)
-        If Elements Is Nothing Then
-            Return Nothing
-        Else
-            Return Elements.First
-        End If
-
-    End Function
-    Friend Function ElementsByRegex(Document As HtmlDocument, SearchValue As String) As List(Of HtmlElement)
-
-        If Document Is Nothing Then
-            Return Nothing
-        Else
-            If Document.Body Is Nothing Then
-                Return Nothing
+            Dim InputMatch As Match = Regex.Match(Element.OuterHtml, "(?<= type="")[^""]{1,}", RegexOptions.IgnoreCase)
+            If InputMatch.Success Then
+                it = ParseEnum(Of InputType)(InputMatch.Value)
             Else
-                Dim OuterHtml As String = Document.Body.OuterHtml
-                Dim ids As New List(Of Match)(From r In Regex.Matches(OuterHtml, idPattern, RegexOptions.IgnoreCase) Select DirectCast(r, Match))
-                Dim names As New List(Of Match)(From r In Regex.Matches(OuterHtml, namePattern, RegexOptions.IgnoreCase) Select DirectCast(r, Match))
-                Dim MatchingIds = From i In ids.Union(names) Where Regex.Match(i.Value, SearchValue, RegexOptions.IgnoreCase).Success
-                If MatchingIds.Any Then
-                    Dim Elements = New List(Of HtmlElement)(From html In MatchingIds Select Document.GetElementById(html.Value))
-                    Return Elements.Distinct.ToList
-                Else
-                    Return Nothing
-                End If
+                InputMatch = Regex.Match(Element.OuterHtml, "onclick=", RegexOptions.IgnoreCase)
+                it = If(InputMatch.Success, InputType.button, InputType.None)
             End If
         End If
 
+        Dim st As SubmitType = If(it = InputType.text Or it = InputType.password, SubmitType.Enter, SubmitType.Click)
+        Return New KeyValuePair(Of InputType, SubmitType)(it, st)
+
     End Function
-    Friend Function ElementsByTag(Document As HtmlDocument) As Dictionary(Of String, List(Of HtmlElement))
+    Public Function ElementByRegex(Document As HtmlDocument, SearchValue As String, Optional searchBy As String = "id", Optional searchTag As String = Nothing) As HtmlElement
+
+        Dim elements As List(Of HtmlElement) = ElementsByRegex(Document, SearchValue, searchBy, searchTag)
+        Return If(elements.Any, elements.First, Nothing)
+
+    End Function
+    Public Function ElementsByRegex(Document As HtmlDocument, searchValue As String, Optional searchBy As String = "id", Optional searchTag As String = Nothing) As List(Of HtmlElement)
+
+        searchValue = If(searchValue, String.Empty)
+        Dim elements As New List(Of HtmlElement)
+
+        If Document IsNot Nothing Then
+            If Document.Body IsNot Nothing Then
+                searchBy = If(searchBy, "id")
+                If searchBy.ToUpperInvariant = "ID" Then
+                    elements.Add(Document.GetElementById(searchValue))
+
+                ElseIf searchBy.ToUpperInvariant = "TEXT" Then
+                    For Each windowFrame As HtmlWindow In Document.Window.Frames
+                        Try
+                            Dim frameDocument As HtmlDocument = windowFrame.Document
+                            For Each frameForm As HtmlElement In frameDocument.Forms
+                                For Each element As HtmlElement In frameForm.All
+                                    If If(element.InnerText, String.Empty).ToUpperInvariant = searchValue.ToUpperInvariant Then
+                                        elements.Add(element)
+                                    End If
+                                Next
+                            Next
+                        Catch ex As UnauthorizedAccessException
+                            If searchValue = "Search" Then Stop
+                        End Try
+                    Next
+                    If searchValue = "Integrated Receivables Output List" And elements.Any Then Stop
+                Else
+                    Dim elementsAll As New Dictionary(Of String, HtmlElement)
+                    For Each element In From e In Document.All Select DirectCast(e, HtmlElement)
+                        Dim formatArray As Object() = {elementsAll.Count, element.TagName}
+                        Dim elementKey As String = String.Format(InvariantCulture, "{0:000} {1:}", formatArray)
+                        elementsAll.Add(elementKey, element)
+                    Next
+                    elements.AddRange(From ea In elementsAll.Values Where ea.TagName = searchBy Select ea)
+                    If elements.Any Then
+                        Dim values As New List(Of HtmlElement)
+                        If searchBy.ToUpperInvariant = "NAME" Then
+                            values.AddRange(From e In elements Where e.Name = searchValue)
+                        Else
+                            'href="View ATL-534151"
+                            values.AddRange(From e In elements Where Regex.Match(If(e.OuterHtml, String.Empty), searchValue, RegexOptions.IgnoreCase).Success)
+                        End If
+                        elements = values
+                    End If
+                End If
+            End If
+        End If
+        If searchTag Is Nothing Then
+            Return elements
+        ElseIf searchTag.Any Then
+            Return elements.Where(Function(e) If(e.TagName, String.Empty).ToUpperInvariant = searchTag.ToUpperInvariant).ToList
+        Else
+            Return elements
+        End If
+
+    End Function
+    Public Function ElementsByTag(Document As HtmlDocument) As Dictionary(Of String, List(Of HtmlElement))
 
         Dim Elements As New Dictionary(Of String, List(Of HtmlElement))
-        Dim OuterHtml As String = Document.Body.OuterHtml
-        Dim Tags = New List(Of String) From {"a", "body", "br", "div", "Form", "h1", "h2", "h3", "h4", "head", "html", "iframe", "img", "input", "li", "link", "meta", "ol", "OptionOn", "p", "script", "select", "span", "style", "table", "th", "td", "textarea", "title", "tr", "ul"}
-        For Each Tag In Tags
-            For Each Element As HtmlElement In Document.GetElementsByTagName(Tag)
-                If Not Elements.ContainsKey(Tag) Then Elements.Add(Tag, New List(Of HtmlElement))
-                Elements(Tag).Add(Element)
+        If Document IsNot Nothing Then
+            Dim OuterHtml As String = Document.Body.OuterHtml
+            Dim Tags = New List(Of String) From {"a", "body", "br", "div", "Form", "h1", "h2", "h3", "h4", "head", "html", "iframe", "img", "input", "li", "link", "meta", "ol", "OptionOn", "p", "script", "select", "span", "style", "table", "th", "td", "textarea", "title", "tr", "ul"}
+            For Each Tag In Tags
+                For Each Element As HtmlElement In Document.GetElementsByTagName(Tag)
+                    If Not Elements.ContainsKey(Tag) Then Elements.Add(Tag, New List(Of HtmlElement))
+                    Elements(Tag).Add(Element)
+                Next
             Next
-        Next
+        End If
         Return Elements
 
     End Function
-    Friend Function ElementsAll(Document As HtmlDocument) As List(Of HtmlElement)
+    Public Function ElementsAll(Document As HtmlDocument) As List(Of HtmlElement)
 
         Dim ElementsDictionary = ElementsByTag(Document)
         Dim AllElements As New List(Of HtmlElement)
@@ -2808,7 +2839,7 @@ Friend Module html
         Return AllElements
 
     End Function
-    Friend Function ElementsByKeyText(Document As HtmlDocument, SearchValue As String) As List(Of HtmlElement)
+    Public Function ElementsByKeyText(Document As HtmlDocument, SearchValue As String) As List(Of HtmlElement)
 
         If Document Is Nothing Then
             Return Nothing
@@ -2823,7 +2854,7 @@ Friend Module html
         End If
 
     End Function
-    Friend Function SubmitForm(Document As HtmlDocument, Element As HtmlElement) As HtmlElement
+    Public Function SubmitForm(Document As HtmlDocument, Element As HtmlElement) As HtmlElement
 
         If Document Is Nothing Or Element Is Nothing Then
             Return Nothing
@@ -2845,7 +2876,7 @@ Friend Module html
         End If
 
     End Function
-    Friend Sub ElementWatch(WebDocument As HtmlDocument, IdName As String, Optional Timeout As Integer = 10)
+    Public Sub ElementWatch(WebDocument As HtmlDocument, IdName As String, Optional Timeout As Integer = 10)
         _Document = WebDocument
         _ElementIdName = IdName
         _StopWatchLimit = Timeout
@@ -3487,15 +3518,6 @@ Public Structure SCROLLINFO
     Public ReadOnly Property NPage As Integer
     Public ReadOnly Property NPos As Integer
     Public ReadOnly Property NTrackPos As Integer
-    Public Overrides Function ToString() As String
-        Return Join({"Size=" + CbSize.ToString(InvariantCulture),
-                    "Mask=" + FMask.ToString(InvariantCulture),
-                    "Min=" + NMin.ToString(InvariantCulture),
-                    "Max=" + NMax.ToString(InvariantCulture),
-                    "Page=" + NPage.ToString(InvariantCulture),
-                    "Pos=" + NPos.ToString(InvariantCulture),
-                    "Track=" + NTrackPos.ToString(InvariantCulture)}, ",")
-    End Function
     Public Overrides Function GetHashCode() As Integer
         Return CbSize.GetHashCode Xor FMask.GetHashCode Xor NMin.GetHashCode Xor NPage.GetHashCode Xor NPos.GetHashCode Xor NTrackPos.GetHashCode
     End Function
@@ -3514,6 +3536,15 @@ Public Structure SCROLLINFO
         Else
             Return False
         End If
+    End Function
+    Public Overrides Function ToString() As String
+        Return Join({"Size=" + CbSize.ToString(InvariantCulture),
+                    "Mask=" + FMask.ToString(InvariantCulture),
+                    "Min=" + NMin.ToString(InvariantCulture),
+                    "Max=" + NMax.ToString(InvariantCulture),
+                    "Page=" + NPage.ToString(InvariantCulture),
+                    "Pos=" + NPos.ToString(InvariantCulture),
+                    "Track=" + NTrackPos.ToString(InvariantCulture)}, ",")
     End Function
 End Structure
 Public NotInheritable Class NativeMethods

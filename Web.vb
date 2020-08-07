@@ -220,6 +220,11 @@ Public NotInheritable Class TokenEventArgs
         Token = eventToken
     End Sub
 End Class
+Public Enum SameSiteValue
+    None
+    Strict
+    Lax
+End Enum
 Public NotInheritable Class Token
     Implements IEquatable(Of Token)
 
@@ -230,18 +235,93 @@ Public NotInheritable Class Token
     End Sub
     Public Sub New(tokenString As String)
 
-        Dim tokenElements() As String = Split(tokenString, Delimiter)
-        If tokenElements.Length = 3 Then
+        tokenString = If(tokenString, String.Empty)
+        CookieString = tokenString
+
+        'https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie
+        'A <cookie-name> can be any US-ASCII characters, except control characters, spaces, or tabs. It also must not contain a separator character like the following: ( ) < > @ , ; : \ " / [ ] ? = { }.
+        'A <cookie-value> can optionally be wrapped in double quotes and include any US-ASCII characters excluding control characters, Whitespace, double quotes, comma, semicolon, and backslash. Encoding: Many implementations perform URL encoding on cookie values, however it is not required per the RFC specification. It does help satisfying the requirements about which characters are allowed for <cookie-value> though.
+
+        'Set-Cookie: <cookie-name>=<cookie-value> 
+        'Set-Cookie: <cookie-name>=<cookie-value>; Expires= <date>
+        'Set-Cookie: <cookie-name>=<cookie-value>; Max-Age=<non-zero-digit>
+        'Set-Cookie: <cookie-name>=<cookie-value>; Domain=<domain-value>
+        'Set-Cookie: <cookie-name>=<cookie-value>; Path=<path-value>
+        'Set-Cookie: <cookie-name>=<cookie-value>; Secure
+        'Set-Cookie: <cookie-name>=<cookie-value>; HttpOnly
+
+        'Set-Cookie: <cookie-name>=<cookie-value>; SameSite=Strict
+        'Set-Cookie: <cookie-name>=<cookie-value>; SameSite=Lax
+        'Set-Cookie: <cookie-name>=<cookie-value>; SameSite=None
+
+        '// Multiple attributes are also possible, for example:
+        'Set-Cookie: <cookie-name>=<cookie-value>; Domain=<domain-value>; Secure; HttpOnly
+
+        Dim tokenElements As New List(Of String)(Split(tokenString, BlackOut))
+        If tokenElements.Count = 3 Then
             Name = tokenElements.First
             Value = tokenElements(1)
             Expiry = StringToDateTime(tokenElements.Last)
         Else
-            ExpiryTimer.Start()
+            If tokenString.Any Then
+                If Regex.Match(tokenString, "Expires|Max-Age|Domain|Path|Secure|HttpOnly|SameSite", RegexOptions.IgnoreCase).Success Then
+                    '_abck=B914B596F4561731D831D13AF5CD8315~-1~YAAQJO/dF4ngLsBzAQAA8YGnwwTKCb34pA93llQL6ZTWjQjhGcR42IWTKHOor4n2mil9aYjOgk3/Cxcb/8YmCm8LlYK8jAthyOrlsGhNtv66Eh1UFuEk8x6vdNRUlq3jhQh/6MsSNwauvgXNths+gnOo07uZXZuT1mJYsaLK1HmBXm33AxeFJyl/ZT3ccc2fO0UI0IADQre9YmYycsJCHX6HT1a8rDGn87PJfrVFh6qGDWa1V3bPEFVYs5+lCLl+9N6kt6GE5Mmf8vApQWsc7SIykLmRzgsl7Giizbuf1e1uswCxwMDv+nUD/5cLGcGry/5xqMUAEho=~0~-1~-1
+                    '; Domain=.pncbank.com
+                    '; Path=/
+                    '; Expires=Fri, 06 Aug 2021 12:03:21 GMT
+                    '; Max-Age=31536000
+                    '; SecureStrict-Transport-Security: max-age=31536000
+                    tokenElements = Regex.Split(tokenString, "; {0,1}", RegexOptions.IgnoreCase).ToList
+
+                    '/// First is always Cookie.Name/Value
+                    Dim nameValue As String() = Split(tokenElements(0), "=")
+                    Name = Trim(nameValue.First) 'Cookie name can not have a space
+                    Value = Regex.Replace(nameValue.Last, """", String.Empty)
+                    tokenElements.RemoveAt(0)
+
+                    '/// Iterate the remaining values ( if any )
+                    tokenElements.ForEach(Sub(te)
+                                              Dim domainMatch = Regex.Match(te, "domain=", RegexOptions.IgnoreCase)
+                                              If domainMatch.Success Then _Domain = Trim(Split(domainMatch.Value, "=").Last)
+
+                                              Dim pathMatch = Regex.Match(te, "path=", RegexOptions.IgnoreCase)
+                                              If pathMatch.Success Then _Path = Trim(Split(pathMatch.Value, "=").Last)
+
+                                              Dim expiresMatch = Regex.Match(te, "(?<=expires=)[^;]{1,}", RegexOptions.IgnoreCase)
+                                              If expiresMatch.Success Then
+                                                  Dim parsedDate = Date.Parse(expiresMatch.Value, New Globalization.CultureInfo("en-US"))
+                                                  Expiry_ = parsedDate
+                                              End If
+
+                                              Dim secureMatch = Regex.Match(te, "(?<=secure)", RegexOptions.IgnoreCase)
+                                              If secureMatch.Success Then _Secure = True
+
+                                              Dim maxAgeMatch = Regex.Match(te, "(?<=Max-Age=)[0-9]{1,}", RegexOptions.IgnoreCase)
+                                              If maxAgeMatch.Success Then _MaxAge = CLng(maxAgeMatch.Value)
+
+                                              Dim httpOnlyMatch = Regex.Match(te, "httponly", RegexOptions.IgnoreCase)
+                                              If httpOnlyMatch.Success Then _HttpOnly = True
+
+                                          End Sub)
+
+                Else
+                    '???
+                End If
+            Else
+                ExpiryTimer.Start()
+            End If
         End If
 
     End Sub
+    Public ReadOnly Property CookieString As String
     Public Property Name As String
     Public Property Value As String
+    Public ReadOnly Property MaxAge As Long 'Max-Age=<number> Optional, Number of seconds until the cookie expires. A zero or negative number will expire the cookie immediately. If both Expires and Max-Age are set, Max-Age has precedence
+    Public ReadOnly Property Domain As String 'Domain=<domain-value> Optional, Host to which the cookie will be sent
+    Public ReadOnly Property Path As String 'Path=<path-value> Optional, A path that must exist in the requested URL, or the browser won't send the Cookie header.
+    Public ReadOnly Property Secure As Boolean  'Secure Optional, A secure cookie is only sent to the server when a request is made with the https: scheme
+    Public ReadOnly Property HttpOnly As Boolean 'Forbids JavaScript from accessing the cookie, for example, through the Document.cookie property
+    Public ReadOnly Property SameSite As SameSiteValue '(Strict|Lax|None) ... Can be follwed with: Strict-Transport-Security: max-age=10886400
     Private Expiry_ As Date
     Public Property Expiry As Date
         Get
@@ -265,7 +345,7 @@ Public NotInheritable Class Token
     End Property
     Public ReadOnly Property Valid As Boolean
         Get
-            Return Now < Expiry
+            Return Now <Expiry
         End Get
     End Property
     Private Sub ExpiryTimer_Tick() Handles ExpiryTimer.Tick
@@ -280,7 +360,7 @@ Public NotInheritable Class Token
     End Sub
 
     Public Overrides Function GetHashCode() As Integer
-        Return If(Name, String.Empty).GetHashCode Xor If(Value, String.Empty).GetHashCode Xor Expiry.GetHashCode
+        Return If(Name, String.Empty).GetHashCode Xor If(Value, String.Empty).GetHashCode Xor Expiry.GetHashCode Xor MaxAge.GetHashCode Xor If(Domain, String.Empty).GetHashCode Xor If(Path, String.Empty).GetHashCode Xor Secure.GetHashCode Xor HttpOnly.GetHashCode Xor SameSite.GetHashCode
     End Function
     Public Overloads Function Equals(ByVal other As Token) As Boolean Implements IEquatable(Of Token).Equals
         Return other IsNot Nothing AndAlso (Name = other.Name And Value = other.Value And Expiry = other.Expiry)
@@ -306,6 +386,6 @@ Public NotInheritable Class Token
     End Function
 
     Public Overrides Function ToString() As String
-        Return Join({Name, Value, DateTimeToString(Expiry)}, Delimiter)
+        Return Join({Name, Value, DateTimeToString(Expiry)}, BlackOut)
     End Function
 End Class

@@ -137,6 +137,10 @@ Public Class Sniffer
                     urlMatches = lookForURL = requestURL
                 Else
                     urlMatches = Regex.Match(request.RequestUri.ToString, .Expression.SearchPattern, .Expression.SearchOptions).Success
+                    'If .Expression.SearchPattern = "https:\/\/www\.treasury\.pncbank\.com\/acweb\/servlet\/ViewEmbeddedObject\?" And request.RequestUri.ToString.Contains("ViewEmbeddedObject") Then
+                    '    StopSniffing()
+                    '    Stop
+                    'End If
                 End If
                 If urlMatches Then
                     For Each requestHeader As HttpHeader In request.Headers
