@@ -1363,6 +1363,10 @@ Public Module Functions
         End If
 
     End Function
+    Public Function LiteralString(value As String) As String
+        Dim sb As New StringBuilder(If(value, String.Empty))
+        Return sb.ToString
+    End Function
 
     Public Function BackColorToForeColor(backColor As Color) As Color
 
@@ -2679,7 +2683,6 @@ Public Module html
     Private ReadOnly ElementStopWatch As New Stopwatch
     Private ReadOnly Property StopWatchLimit As Integer
     Private WithEvents ElementTimer As New Timer With {.Interval = 100}
-    Private Const PatternID As String = "(?<= id="")[^■]{1,}(?="")"
     Public Enum InputType
         'https://www.w3schools.com/html/html_form_input_types.asp
         '<input type ="button">

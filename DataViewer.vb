@@ -5,6 +5,7 @@ Imports System.Drawing
 Imports System.ComponentModel
 Imports System.Drawing.Drawing2D
 Imports System.Reflection
+Imports System.Text
 #Region " STRUCTURES + ENUMERATIONS "
 Public Enum MouseRegion
     Header
@@ -76,6 +77,7 @@ Public Class ViewerEventArgs
 End Class
 Public Class DataViewer
     Inherits Control
+
 #Region " GENERAL DECLARATIONS "
     Private WithEvents BindingSource As New BindingSource
     Private ReadOnly GothicFont As Font = My.Settings.applicationFont
@@ -104,6 +106,20 @@ Public Class DataViewer
     Private WithEvents HeaderDistinctItems As New ImageCombo With {
         .Margin = New Padding(0),
         .Dock = DockStyle.Fill
+    }
+    Private WithEvents HeaderCopy As New ImageCombo With {
+        .Mode = ImageComboMode.Button,
+        .Margin = New Padding(0),
+        .Dock = DockStyle.Fill,
+        .Text = "Copy all",
+        .Image = My.Resources.Clipboard
+    }
+    Private WithEvents HeaderSelect As New ImageCombo With {
+        .Mode = ImageComboMode.Button,
+        .Margin = New Padding(0),
+        .Dock = DockStyle.Fill,
+        .Text = "Select",
+        .Image = My.Resources.okNot.ToBitmap
     }
     Private WithEvents GridBackColor As New ImageCombo With {.Mode = ImageComboMode.ColorPicker,
         .Size = New Size(200, 24)}
@@ -268,11 +284,24 @@ Public Class DataViewer
                 rowIndexInside += 1
             Next
             If viewerRegion = MouseRegion.Header Then
+                Dim tlpAllThis As New TableLayoutPanel With {
+                    .ColumnCount = 2,
+                    .RowCount = 1
+                }
+                With tlpAllThis
+                    .RowStyles.Add(New RowStyle With {.SizeType = SizeType.AutoSize})
+                    .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Percent, .Width = 50})
+                    .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Percent, .Width = 50})
+                    .Controls.Add(HeaderCopy, 0, 0)
+                    .Controls.Add(HeaderSelect, 1, 0)
+                End With
                 With tlpInside
                     .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 26})
                     .Controls.Add(HeaderGridAlignment, 0, rowIndexInside)
                     .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 26})
                     .Controls.Add(HeaderDistinctItems, 0, rowIndexInside + 1)
+                    .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 36})
+                    .Controls.Add(tlpAllThis, 0, rowIndexInside + 2)
                 End With
             End If
             TLP.SetSize(tlpInside)
@@ -1099,10 +1128,18 @@ Public Class DataViewer
                             subButton.Text = If(.Column Is Nothing, "All columns".ToString(InvariantCulture), .Column.Name)
 
                             HeaderGridAlignment.Text = StringFormatToContentAlignString(If(.Column Is Nothing, Columns.HeaderStyle.Alignment, .Column.GridStyle.Alignment))
-                            HeaderGridAlignment.SelectedIndex = HeaderGridAlignment.TextIndex
+                            'HeaderGridAlignment.SelectedIndex = HeaderGridAlignment.TextIndex
 
 #Region " Adhoc pull on Distinct values - too problematic using Columns.ColumnWidth @#$%^ "
+                            HeaderCopy.Tag = .Column
                             If .Column IsNot Nothing Then
+                                If .Column.Selected Then
+                                    HeaderSelect.Text = LiteralString("Selected")
+                                    HeaderSelect.Image = My.Resources.ok.ToBitmap
+                                Else
+                                    HeaderSelect.Text = LiteralString("Select")
+                                    HeaderSelect.Image = My.Resources.okNot.ToBitmap
+                                End If
                                 Dim columnValues As Dictionary(Of String, List(Of Cell)) = DistinctValues(.Column.Name)
                                 If Not columnValues.Any Then 'Get them, otherwise don't
                                     For Each row In Rows
@@ -1361,6 +1398,49 @@ Public Class DataViewer
         End If
 
     End Sub
+    '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ HEADER PROPERTIES INPUT
+    Private Sub HeaderCopy_Clicked() Handles HeaderCopy.Click
+
+        Dim headers As New List(Of String)
+        Columns.ForEach(Sub(c)
+                            headers.Add(c.Name)
+                        End Sub)
+        Clipboard.SetText(Join(headers.ToArray, ", "))
+        HeaderCopy.Text = LiteralString("Copied")
+        HeaderCopy.Image = My.Resources.ok.ToBitmap
+        Dim copyTimer As New Timer With {.Interval = 3000}
+        With copyTimer
+            AddHandler .Tick, AddressOf HeaderCopyTimer_Tick
+            .Start()
+        End With
+
+    End Sub
+    Private Sub HeaderCopyTimer_Tick(sender As Object, e As EventArgs)
+
+        With DirectCast(sender, Timer)
+            RemoveHandler .Tick, AddressOf HeaderCopyTimer_Tick
+            .Stop()
+        End With
+        HeaderCopy.Text = LiteralString("CopyAll")
+        HeaderCopy.Image = My.Resources.Clipboard
+
+    End Sub
+    Private Sub HeaderSelect_Clicked() Handles HeaderSelect.Click
+
+        If HeaderCopy.Tag IsNot Nothing Then
+            Dim headerColumn As Column = DirectCast(HeaderCopy.Tag, Column)
+            Dim headerSelected As Boolean = Not SameImage(My.Resources.ok.ToBitmap, HeaderSelect.Image) 'If OK, change to NotOK
+            Dim cells As New List(Of Cell)
+            HeaderSelect.Image = If(headerSelected, My.Resources.ok.ToBitmap, My.Resources.okNot.ToBitmap)
+            Rows.ForEach(Sub(r)
+                             Dim rowCell As Cell = r.Cells.Item(headerColumn.Name)
+                             rowCell.Selected = headerSelected
+                             cells.Add(rowCell)
+                         End Sub)
+            Invalidate()
+        End If
+
+    End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ GRID PROPERTIES INPUT
     Private Sub Scrolled(sender As Object, e As ScrollEventArgs) Handles VScroll.Scroll, HScroll.Scroll
         Invalidate()
@@ -1460,26 +1540,15 @@ Public Class DataViewer
     '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ T O   F I L E
     Public Sub Export(filePath As String, Optional MessageWhenComplete As Boolean = False)
 
-        'Using ts As New DataSet
-        '    For t = 1 To 5
-        '        ts.Tables.Add(Table.Copy)
-        '    Next
-        '    DataSetToExcel(TableSet:=ts,
-        '                     ExcelPath:=filePath,
-        '                     FormatSheet:=True,
-        '                     ShowFile:=False,
-        '                     DisplayMessages:=False,
-        '                     IncludeHeaders:=True,
-        '                     NotifyCreatedFormattedFile:=True)
-        'End Using
         With GridOptions
             .Tag = Nothing
             .AutoClose = True
             .Hide()
         End With
+        filePath = If(filePath, Desktop & "\NoName.xlsx")
         DataTableToExcel(Table:=Table,
                          ExcelPath:=filePath,
-                         FormatSheet:=True,
+                         FormatSheet:=Not filePath.ToUpperInvariant.EndsWith(".CSV", StringComparison.InvariantCulture),
                          ShowFile:=False,
                          DisplayMessages:=TriState.False,
                          IncludeHeaders:=True,
@@ -1498,7 +1567,7 @@ Public Class DataViewer
                         .Filter = "Excel Files|*.xlsx".ToString(InvariantCulture)
 
                     Case ".csv"
-                        .Filter = "*.csv".ToString(InvariantCulture)
+                        .Filter = "CSV Files (*.csv)|*.csv".ToString(InvariantCulture)
 
                     Case ".txt"
                         .Filter = "TXT Files (*.txt*)|*.txt".ToString(InvariantCulture)
@@ -1516,14 +1585,13 @@ Public Class DataViewer
     Private Sub SaveFileClosed(sender As Object, e As EventArgs) Handles SaveFile.FileOk
 
         Select Case GetFileNameExtension(SaveFile.FileName).Value
-            Case ExtensionNames.Excel
+            Case ExtensionNames.Excel, ExtensionNames.CommaSeparated
                 AddHandler Alerts, AddressOf FileSaved
                 Export(SaveFile.FileName)
 
             Case ExtensionNames.Text
                 DataTableToTextFile(Table, SaveFile.FileName)
 
-            Case ExtensionNames.CommaSeparated
             Case ExtensionNames.SQL
 
         End Select
@@ -1900,6 +1968,23 @@ End Class
     Public ReadOnly Property Parent As ColumnCollection
         Get
             Return Parent_
+        End Get
+    End Property
+    Public ReadOnly Property Selected As Boolean
+        Get
+            If Parent?.Parent?.Rows.Any Then
+                Dim allSelected As Boolean = True
+                For Each row In Parent?.Parent?.Rows
+                    Dim columnCell As Cell = row.Cells.Item(Name)
+                    If Not columnCell.Selected Then
+                        allSelected = False
+                        Exit For
+                    End If
+                Next
+                Return allSelected
+            Else
+                Return False
+            End If
         End Get
     End Property
     Friend _Index As Integer = 0

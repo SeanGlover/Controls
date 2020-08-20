@@ -349,7 +349,7 @@ Friend Class ResponseFailure
             If Password_New.Text = _Connection.Password Then
                 IssuePromptShow()
 
-            ElseIf Not Password_New.Text.any Then
+            ElseIf Not Password_New.Text.Any Then
                 IssuePromptShow()
 
             ElseIf .RunError.Access = Errors.AccessResponse.PasswordExpired Then
@@ -1169,7 +1169,13 @@ End Class
             Using testSQL As New SQL(Me, testSelect) With {.NoPrompt = True}
                 With testSQL
                     .Execute(False)
-                    TestPassed_ = If(.Response.Succeeded, TriState.True, TriState.False)
+                    If .Response.Succeeded Then
+                        TestPassed_ = TriState.True
+                    ElseIf .Response.Message.Contains("ERROR [08001]") Or .Response.Message.Contains("The remote host ""[^""]{1,}") Then
+                        TestPassed_ = TriState.UseDefault
+                    Else
+                        TestPassed_ = TriState.False
+                    End If
                     RaiseEvent TestCompleted(Me, New ConnectionTestEventArgs(.Response))
                 End With
             End Using
@@ -2001,6 +2007,7 @@ Public Class JobCollection
     Public Sub Execute(Optional Sequential As Boolean = False)
 
         _Started = Now
+        _Message = String.Empty
         Responses.Clear()
         If Sequential Then
             For Each Job In Me
@@ -2031,6 +2038,7 @@ Public Class JobCollection
         Dim CurrentJob = DirectCast(sender, Job)
         With CurrentJob
             RemoveHandler .Completed, AddressOf Job_Completed
+            _Message &= .Message & vbNewLine
             RaiseEvent JobEnded(CurrentJob, e)
             Responses.AddRange(.Responses)
             IterateJobs()
@@ -2053,6 +2061,7 @@ Public Class JobCollection
         End Get
     End Property
     Public ReadOnly Property Ended As Date
+    Public ReadOnly Property Message As String
     Private ReadOnly Property AllCompleted As Boolean
         Get
             Dim Done = Where(Function(j) j.Ended > New Date)
@@ -2193,6 +2202,7 @@ End Class
     Public ReadOnly Property Request As Type
     Public Property SourceConnection As Connection
     Public Property Name As String
+    Public ReadOnly Property Message As String
     Public Property Instruction As String
     Public ReadOnly Property Elapsed As TimeSpan
         Get
@@ -2209,6 +2219,7 @@ End Class
     Public Sub Execute()
 
         _Started = Now
+        _Message = String.Empty
         Responses.Clear()
         If Request = Type.DDL Then
             If DDL Is Nothing Then _DDL = New DDL(SourceConnection.ToString, Instruction)
@@ -2233,6 +2244,7 @@ End Class
         If Request = Type.DDL Then
             With DDL
                 _Succeeded = .Response.Succeeded
+                _Message = If(Succeeded, "OK", .Response.Message)
                 Responses.Add(.Response)
                 RaiseEvent Completed(Me, New ResponsesEventArgs(.Response))
             End With
@@ -2240,6 +2252,7 @@ End Class
         ElseIf Request = Type.SQL Then
             With SQL
                 _Succeeded = .Response.Succeeded
+                _Message = If(Succeeded, "OK", .Response.Message)
                 Responses.Add(.Response)
                 RaiseEvent Completed(Me, New ResponsesEventArgs(.Response))
             End With
@@ -2252,11 +2265,15 @@ End Class
         _Ended = Now
         With ETL
             _Succeeded = .Succeeded
+            _Message = .Message
             Responses.AddRange(.Responses)
             RaiseEvent Completed(Me, New ResponsesEventArgs(.Responses))
         End With
 
     End Sub
+    Public Overrides Function ToString() As String
+        Return Join({Request.ToString, BlackOut, If(Request = Type.ETL, "Sources (" & ETL.Sources.Count & ") Destinations (" & ETL.Destinations.Count & ")", If(Request = Type.DDL, DDL.ConnectionString, SQL.ConnectionString))})
+    End Function
 #End Region
 End Class
 '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
@@ -2873,6 +2890,7 @@ Public Class ETL
     End Property
     Public ReadOnly Property Responses As New List(Of ResponseEventArgs)
     Public ReadOnly Property Succeeded As Boolean = False
+    Public ReadOnly Property Message As String
     Public Class SourceCollection
         Inherits List(Of Source)
         Implements IDisposable
@@ -2989,6 +3007,7 @@ Public Class ETL
         End Sub
         Friend Parent As SourceCollection
         Public Property Name As String
+        Public ReadOnly Property Message As String
         Public ReadOnly Property SQL As SQL
         Public ReadOnly Property Started As Date
         Public ReadOnly Property Ended As Date
@@ -3004,6 +3023,7 @@ Public Class ETL
                 'Section for when the Datatable was already provided and does not need retrieval
                 Parent.Data.Tables.Add(Table.Copy)
                 _Ended = Now
+                _Message = Join({"Added", Table.Rows.Count, "OK"})
                 If SQL Is Nothing Then
                     RaiseEvent Retrieved(Me, New ResponseEventArgs(InstructionType.SQL, String.Empty, String.Empty, Table, Ended - Started))
                 Else
@@ -3019,6 +3039,9 @@ Public Class ETL
             If e.Succeeded Then
                 _Table = e.Table
                 Parent.Data.Tables.Add(Table.Copy)
+                _Message = Join({"Retrieved", Table.Rows.Count, "OK"})
+            Else
+                _Message = e.Message
             End If
             _Ended = Now
             RaiseEvent Retrieved(Me, e)
@@ -3159,6 +3182,7 @@ Public Class ETL
         End Sub
         Friend Parent As DestinationCollection
         Public Property Name As String
+        Public ReadOnly Property Message As String
         Public ReadOnly Property DDL As DDL
         Public ReadOnly Property Blocks As New List(Of ResponseEventArgs)
         Public ReadOnly Property Started As Date
@@ -3207,6 +3231,7 @@ Public Class ETL
                     DataTableToExcel(Table, ConnectionString, False, False, TriState.False, True, True)
                 Else
                 End If
+                _Message &= If(File.Exists(ConnectionString), Join({"Wrote file to", ConnectionString}), Join({"Did not write file to", ConnectionString})) & vbNewLine
                 Dim Response = New ResponseEventArgs(InstructionType.DDL, ConnectionString, String.Empty, Table, Now - Started)
                 RaiseEvent Completed(Me, New ResponsesEventArgs(Response))
 
@@ -3545,6 +3570,7 @@ Public Class ETL
                 RaiseEvent BlockInserted(sender, e)
                 Dim Index As Integer = Integer.Parse(Split(.Name, " ").First, InvariantCulture)
                 Dim Count As Integer = Integer.Parse(Split(.Name, " ").Last, InvariantCulture)
+                _Message &= If(e.Succeeded, Join({"Inserted block", .Name, "into", TableName}), e.Message) & vbNewLine
                 If Index = Count Then
                     _Ended = Now
                     RaiseEvent Completed(Me, New ResponsesEventArgs(Blocks))
@@ -3568,6 +3594,9 @@ Public Class ETL
     End Sub
     Private Sub ExportSourceData(sender As Object, e As ResponsesEventArgs) Handles Sources_.Completed
 
+        Sources.ForEach(Sub(s)
+                            _Message &= s.Message & vbNewLine
+                        End Sub)
         For Each Destination In Destinations
             Destination.Fill()
         Next
@@ -3580,6 +3609,9 @@ Public Class ETL
         Dim Failures = Responses.Where(Function(r) Not r.Succeeded)
         _Succeeded = Not Failures.Any
         _Ended = Now
+        Destinations.ForEach(Sub(d)
+                                 _Message &= d.Message & vbNewLine
+                             End Sub)
         RaiseEvent Completed(Me, New ResponsesEventArgs(Responses))
 
     End Sub
@@ -4341,8 +4373,20 @@ Public Module iData
         Dim excelPath As String = Replace(appData.Key, "☻", String.Empty)
         Dim startTime As Date = appData.Value
         Dim failSave As String = String.Empty
+
+        Dim xlFileFormat = Excel.XlFileFormat.xlWorkbookDefault
+        If excelPath.ToUpperInvariant.EndsWith(".XLSM", StringComparison.InvariantCulture) Then xlFileFormat = Excel.XlFileFormat.xlOpenXMLWorkbookMacroEnabled
+        If excelPath.ToUpperInvariant.EndsWith(".XLSB", StringComparison.InvariantCulture) Then xlFileFormat = Excel.XlFileFormat.xlExcel12
+        If excelPath.ToUpperInvariant.EndsWith(".CSV", StringComparison.InvariantCulture) Then xlFileFormat = Excel.XlFileFormat.xlCSVWindows
+        If excelPath.ToUpperInvariant.EndsWith(".TXT", StringComparison.InvariantCulture) Then xlFileFormat = Excel.XlFileFormat.xlTextWindows
+        'xlWorkbookDefault	            51	Workbook default	                *.xlsx
+        'xlOpenXMLWorkbookMacroEnabled	52	Open XML Workbook Macro Enabled	    *.xlsm
+        'xlExcel12	                    50	Excel Binary Workbook	            *.xlsb
+        'xlCSVWindows	                23	Windows CSV	                        *.csv
+        'xlTextWindows	                20	Windows Text	                    *.txt
+
         Try
-            excelBook.SaveAs(excelPath, Excel.XlFileFormat.xlOpenXMLWorkbookMacroEnabled)
+            excelBook.SaveAs(excelPath, xlFileFormat)
             excelBook.Close()
 
         Catch ex As ExternalException
@@ -4350,26 +4394,25 @@ Public Module iData
 
         End Try
 
-        If Not notifyState = TriState.False Then
-            If failSave.Any Then
-                RaiseEvent Alerts(excelBook, New AlertEventArgs(failSave))
-                If notifyState = TriState.UseDefault Then
-                    Using finishedNotice As New Prompt
-                        finishedNotice.TitleBarImage = My.Resources.Excel
-                        finishedNotice.Show("Excel file failed to format", failSave, Prompt.IconOption.OK)
-                    End Using
-                End If
-            Else
-                Dim finishedMessage As String = Join({"Formatted Excel Workbook", excelPath, "in", TimespanToString(startTime, Now)})
-                RaiseEvent Alerts(excelBook, New AlertEventArgs(finishedMessage))
-                If notifyState = TriState.UseDefault Then
-                    Using finishedNotice As New Prompt
-                        finishedNotice.TitleBarImage = My.Resources.Excel
-                        finishedNotice.Show("Excel file formatted", finishedMessage, Prompt.IconOption.OK)
-                    End Using
-                End If
+        If failSave.Any Then
+            RaiseEvent Alerts(excelBook, New AlertEventArgs(failSave))
+            If notifyState = TriState.UseDefault Then
+                Using finishedNotice As New Prompt
+                    finishedNotice.TitleBarImage = My.Resources.Excel
+                    finishedNotice.Show("Excel file failed to format", failSave, Prompt.IconOption.OK)
+                End Using
+            End If
+        Else
+            Dim finishedMessage As String = Join({"Formatted Excel Workbook", excelPath, "in", TimespanToString(startTime, Now)})
+            RaiseEvent Alerts(excelBook, New AlertEventArgs(finishedMessage))
+            If notifyState = TriState.UseDefault Then
+                Using finishedNotice As New Prompt
+                    finishedNotice.TitleBarImage = My.Resources.Excel
+                    finishedNotice.Show("Excel file formatted", finishedMessage, Prompt.IconOption.OK)
+                End Using
             End If
         End If
+
         ReleaseObject(excelBook)
 
         'Release the Application object
