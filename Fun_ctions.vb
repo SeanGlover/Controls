@@ -2114,9 +2114,10 @@ Public Module Functions
                     "M/d/yyyy h:mm",
                     "M/d/yyyy h:mm:ss",
                     "M/d/yyyy h:mm:ss tt",
-                    "yyyy-M-d h:mm:ss tt"} '2019-11-06 12:00:00 AM
-                    'New CultureInfo("en-US")
-                    If Date.TryParseExact(Value, dateFormats, CultureInfo.CurrentCulture, DateTimeStyles.AllowWhiteSpaces, _Date) Then
+                    "yyyy-M-d h:mm:ss tt"
+                    } '2019-11-06 12:00:00 AM
+                    'Date.Parse("2020-01-21T18:25:24Z", New Globalization.CultureInfo("en-US"), Globalization.DateTimeStyles.AdjustToUniversal)
+                    If Date.TryParse(Value, CultureInfo.CurrentCulture, DateTimeStyles.AdjustToUniversal, _Date) Or Date.TryParseExact(Value, dateFormats, CultureInfo.CurrentCulture, DateTimeStyles.AllowWhiteSpaces, _Date) Then
                         If _Date.Date = _Date Then
                             If Test Then Stop
                             Return _Date.GetType

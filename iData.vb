@@ -4395,15 +4395,15 @@ Public Module iData
         End Try
 
         If failSave.Any Then
-            RaiseEvent Alerts(excelBook, New AlertEventArgs(failSave))
+            RaiseEvent Alerts(excelBook, New AlertEventArgs("There was an error writing the Excel file with the message: " & failSave))
             If notifyState = TriState.UseDefault Then
                 Using finishedNotice As New Prompt
                     finishedNotice.TitleBarImage = My.Resources.Excel
-                    finishedNotice.Show("Excel file failed to format", failSave, Prompt.IconOption.OK)
+                    finishedNotice.Show("There was an error writing the Excel file with the message:", failSave, Prompt.IconOption.OK)
                 End Using
             End If
         Else
-            Dim finishedMessage As String = Join({"Formatted Excel Workbook", excelPath, "in", TimespanToString(startTime, Now)})
+            Dim finishedMessage As String = Join({"Excel Workbook ready at", excelPath, "Total time:", TimespanToString(startTime, Now)})
             RaiseEvent Alerts(excelBook, New AlertEventArgs(finishedMessage))
             If notifyState = TriState.UseDefault Then
                 Using finishedNotice As New Prompt

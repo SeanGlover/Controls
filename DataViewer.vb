@@ -1189,16 +1189,19 @@ Public Class DataViewer
                             .CurrentAction = MouseInfo.Action.None
                         Else
                             .CurrentAction = MouseInfo.Action.CellClicked
-                            .Row.Selected = Not .Row.Selected  'Row.Selected may not take the value if Me.FullRowSelect=False
-                            Dim cellSelectedCounter As Integer
-                            Rows.ForEach(Function(row) As Row
-                                             For Each cell In row.Cells.Values.Except({ .Cell}).Where(Function(c) c.Selected)
-                                                 cell.Selected = False
-                                                 cellSelectedCounter += 1
-                                             Next
-                                             Return Nothing
-                                         End Function)
-                            .Cell.Selected = cellSelectedCounter <> 0 OrElse Not .Cell.Selected
+                            If Not ControlKeyDown Then
+                                .Row.Selected = Not .Row.Selected  'Row.Selected may not take the value if Me.FullRowSelect=False
+                                If Rows.SingleSelect Then
+                                    Dim cellSelectedCounter As Integer
+                                    Rows.ForEach(Sub(row)
+                                                     For Each cell In row.Cells.Values.Except({ .Cell}).Where(Function(c) c.Selected)
+                                                         cell.Selected = False
+                                                         cellSelectedCounter += 1
+                                                     Next
+                                                 End Sub)
+                                    .Cell.Selected = cellSelectedCounter <> 0 OrElse Not .Cell.Selected
+                                End If
+                            End If
                             RaiseEvent CellClicked(Me, New ViewerEventArgs(MouseData))
                         End If
 #End Region
