@@ -4408,7 +4408,7 @@ Public Module iData
             If notifyState = TriState.UseDefault Then
                 Using finishedNotice As New Prompt
                     finishedNotice.TitleBarImage = My.Resources.Excel
-                    finishedNotice.Show("Excel file formatted", finishedMessage, Prompt.IconOption.OK)
+                    finishedNotice.Show("Successfully created file", finishedMessage, Prompt.IconOption.OK)
                 End Using
             End If
         End If

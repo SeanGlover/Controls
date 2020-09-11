@@ -1948,10 +1948,14 @@ Public Module Functions
 
 #Region " ENCRYPTION "
     Public Function Krypt(TextIn As String) As String
-        Return Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(TextIn))
+        Return Convert.ToBase64String(Encoding.Unicode.GetBytes(TextIn))
     End Function
     Public Function DeKrypt(TextIn As String) As String
-        Return System.Text.Encoding.Unicode.GetString(Convert.FromBase64String(TextIn))
+        Try
+            Return Encoding.Unicode.GetString(Convert.FromBase64String(TextIn))
+        Catch ex As FormatException
+            Return Nothing
+        End Try
     End Function
 #End Region
 #Region " VALUE TYPES "
