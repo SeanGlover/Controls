@@ -6,7 +6,6 @@ Imports System.Net
 Imports System.IO
 
 Public NotInheritable Class WebFunctions
-    Private Const ErrorFlag As String = "≠"
     Public Shared Sub SetPayload(parameters As Dictionary(Of String, Object), request As HttpWebRequest)
 
         If parameters IsNot Nothing And request IsNot Nothing Then
@@ -35,7 +34,7 @@ Public NotInheritable Class WebFunctions
                 End Using
 
             Catch ex As WebException
-                responseText = ErrorFlag & ex.Message
+                responseText = Delimiter & ex.Message
 
             End Try
             Return New KeyValuePair(Of HttpWebResponse, String)(response, responseText)

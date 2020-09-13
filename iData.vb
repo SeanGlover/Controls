@@ -892,19 +892,8 @@ Public NotInheritable Class ConnectionCollection
             SW.Write(ToString)
         End Using
     End Sub
-    Public Function ToStringArray() As String()
-        Return (From m In Me Select m.ToString & String.Empty).ToArray
-    End Function
     Public Overrides Function ToString() As String
-        Return Strings.Join(ToStringArray, vbNewLine)
-    End Function
-    Public Function ToStringList() As List(Of String)
-        Return ToStringArray.ToList
-    End Function
-    Public Function ToStringCollection() As Specialized.StringCollection
-        Dim SSC As New Specialized.StringCollection()
-        SSC.AddRange(ToStringArray)
-        Return SSC
+        Return Strings.Join((From m In Me Select m.ToString & String.Empty).ToArray, vbNewLine)
     End Function
 #End Region
 End Class
@@ -1010,7 +999,6 @@ End Class
                     If _Properties.ContainsKey(Key) Then _Properties(Key) = Value
                 End If
             Next
-            If ConnectionString = "DB2B1" Then Stop
         End If
 
     End Sub
