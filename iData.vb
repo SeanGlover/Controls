@@ -21,87 +21,67 @@ End Enum
 #Region " RESPONSE EVENTS "
 Public Structure Errors
     Implements IEquatable(Of Errors)
-    Public Enum Type
+    Public Enum Item
         None
-        Combatibility
-        Requirement
-        Access
-        RunTime
-    End Enum
-    Public Enum BitVersion
-        OK
         ArchitectureMismatch
-    End Enum
-    Public Enum WindowsPermission
-        OK
         NotRunningAsAdministrator
-    End Enum
-    Public Enum AccessResponse
-        OK
-        Revoked
+        AccessRevoked
         PasswordMissing
         PasswordExpired
         PasswordIncorrect
-    End Enum
-    Public Enum ErrorSource
-        None
         Timeout
-        Script
+        ScriptError
     End Enum
-    Public ReadOnly Property ErrorType As Type
-    Public ReadOnly Property Compatibility As BitVersion
-    Public ReadOnly Property Requirement As WindowsPermission
-    Public ReadOnly Property Access As AccessResponse
-    Public ReadOnly Property RunTime As ErrorSource
+    Public ReadOnly Property Type As Item
+    Public ReadOnly Property Statement As String
     Public Sub New(ExceptionMessage As String)
 
         If ExceptionMessage IsNot Nothing Then
             If ExceptionMessage.ToUpperInvariant.Contains("PASSWORD") Or ExceptionMessage.Contains("LDAP authentication failed For user") Then
-#Region " ACCESS "
-                _ErrorType = Type.Access
                 If ExceptionMessage.ToUpperInvariant.Contains("EXPIRED") Then
-                    _Access = AccessResponse.PasswordExpired
+                    _Type = Item.PasswordExpired
+                    _Statement = "Your password {password} for {database} has expired. You must create a new password now."
 
                 ElseIf ExceptionMessage.ToUpperInvariant.Contains("MISSING") Then
-                    _Access = AccessResponse.PasswordMissing
+                    _Type = Item.PasswordMissing
+                    _Statement = "Your password {password} for {database} is missing. You must provide a value."
 
                 ElseIf ExceptionMessage.ToUpperInvariant.Contains("PASSWORD INVALID") Or ExceptionMessage.Contains("LDAP authentication failed For user") Then
                     '[IBM][CLI DRIVER] SQL30082N  SECURITY PROCESSING FAILED WITH REASON "24" ("USERNAME AND/OR PASSWORD INVALID").  SQLSTATE=08001
-                    _Access = AccessResponse.PasswordIncorrect
+                    _Type = Item.PasswordIncorrect
+                    _Statement = "Your password {password} for {database} is incorrect. You must submit another value."
 
                 ElseIf ExceptionMessage.ToUpperInvariant.Contains("REVOKED") Then
-                    _Access = AccessResponse.Revoked
+                    _Type = Item.AccessRevoked
+                    _Statement = "Your access to {database} has been revoked! Submit a request to reinstate your access"
 
                 End If
-#End Region
             ElseIf ExceptionMessage.ToUpperInvariant.Contains("ARCHITECTURE") Then
-#Region " COMPATIBILITY "
-                _ErrorType = Type.Combatibility
-                _Compatibility = BitVersion.ArchitectureMismatch
-#End Region
+                _Type = Item.ArchitectureMismatch
+                _Statement = "Connection to {database} is currently not possible. Wrong bit version is in use"
+
             ElseIf ExceptionMessage.Contains("SQLAllocHandle") Then
-#Region " REQUIREMENT "
-                ErrorType = Type.Requirement
-                _Requirement = WindowsPermission.NotRunningAsAdministrator
-#End Region
+                _Type = Item.NotRunningAsAdministrator
+                _Statement = "Connection to {database} is currently not possible. Reopen the application and run as administrator"
+
             Else
-#Region " RUNTIME "
-                ErrorType = Type.RunTime
                 If Regex.Match(ExceptionMessage, "time[d]{0,1}[ ]{0,1}out", RegexOptions.IgnoreCase).Success Then
-                    _RunTime = ErrorSource.Timeout
+                    _Type = Item.Timeout
+                    _Statement = "Operation took too long. " & ExceptionMessage
                 Else
-                    _RunTime = ErrorSource.Script
+                    _Type = Item.ScriptError
+                    _Statement = ExceptionMessage
+
                 End If
-#End Region
             End If
         End If
 
     End Sub
     Public Overrides Function GetHashCode() As Integer
-        Return ErrorType.GetHashCode Xor Compatibility.GetHashCode Xor Requirement.GetHashCode Xor Access.GetHashCode Xor RunTime.GetHashCode
+        Return Type.GetHashCode Xor Statement.GetHashCode
     End Function
     Public Overloads Function Equals(ByVal other As Errors) As Boolean Implements IEquatable(Of Errors).Equals
-        Return ErrorType = other.ErrorType AndAlso Compatibility = other.Compatibility
+        Return Type = other.Type And If(Statement, String.Empty) = other.Statement
     End Function
     Public Shared Operator =(ByVal value1 As Errors, ByVal value2 As Errors) As Boolean
         Return value1.Equals(value2)
@@ -220,107 +200,76 @@ Friend Class ResponseFailure
     Private Sub Query_Procedure_Failed(e As ResponseEventArgs)
 
         Dim errorConnection As New Connection(e.ConnectionString)
-        Dim errorDatasource As String = errorConnection.DataSource
 
-        If e.RunError.ErrorType = Errors.Type.Access Then
+        With e.RunError
+            Dim errorStatement As String = Replace(.Statement, "{database}", errorConnection.DataSource)
+            errorStatement = Replace(errorStatement, "{password}", errorConnection.Password)
 
-#Region " PASSWORD ISSUE "
-            Dim TLP_IP As TableLayoutPanel
-            Dim PT As String = String.Empty
-            Dim ShowPasswordBox As Boolean = True
+            Select Case .Type
+                Case Errors.Item.ArchitectureMismatch
+                    Message.Show("Architecture Mismatch", errorStatement, Prompt.IconOption.TimedMessage, Prompt.StyleOption.Earth)
 
-            Password_New.Tag = e
+                Case Errors.Item.NotRunningAsAdministrator
+                    Message.Show("Administrator error.", errorStatement, Prompt.IconOption.TimedMessage, Prompt.StyleOption.Earth)
 
-            Select Case e.RunError.Access
-                Case Errors.AccessResponse.PasswordExpired
+                Case Errors.Item.ScriptError
+                    Message.Show("Script error", e.Message, Prompt.IconOption.TimedMessage, Prompt.StyleOption.Earth)
+
+                Case Errors.Item.Timeout
+                    Message.Show("Operation took too long", e.Message, Prompt.IconOption.TimedMessage, Prompt.StyleOption.Earth)
+
+                Case Else
+                    'A C C E S S  === AccessRevoked | PasswordExpired | PasswordIncorrect | PasswordMissing
+                    Dim headerElements = RegexSplit(.Type.ToString, "(?=[A-Z])", RegexOptions.None)
+                    Dim ShowPasswordBox As Boolean = Not .Type = Errors.Item.AccessRevoked
+                    Password_New.Tag = e
                     With IssueClose
-                        .Text = "Password expired!".ToString(InvariantCulture)
-                        .BackColor = Color.Yellow
-                        .ForeColor = Color.Black
+                        .ForeColor = If(e.RunError.Type = Errors.Item.PasswordExpired, Color.Black, Color.White)
+                        .BackColor = If(e.RunError.Type = Errors.Item.PasswordExpired, Color.Yellow, If(e.RunError.Type = Errors.Item.AccessRevoked, Color.Red, Color.OrangeRed))
+                        .Text = Join({headerElements(1), LCase(headerElements(2).ToUpperInvariant)}) & "!"
                     End With
-                    PT = "Your password {Password} for {Database} has expired. You must create a new password now.".ToString(InvariantCulture)
 
-                Case Errors.AccessResponse.PasswordIncorrect
-                    With IssueClose
-                        .Text = "Password incorrect!".ToString(InvariantCulture)
-                        .BackColor = Color.Orange
-                        .ForeColor = Color.White
-                    End With
-                    PT = "Your password {Password} for {Database} is incorrect. You must submit another value.".ToString(InvariantCulture)
+                    Dim SingleRowSize As Size = TextRenderer.MeasureText(errorStatement, Segoe, New Size(300, 600), TextFormatFlags.Left)
+                    Dim MultiRowSize As Size = TextRenderer.MeasureText(errorStatement, Segoe, New Size(300, 600), TextFormatFlags.WordBreak)
+                    Dim MessageLineCount As Integer = {Convert.ToInt32(MultiRowSize.Height / {SingleRowSize.Height, 1}.Max), 1}.Max
 
-                Case Errors.AccessResponse.PasswordMissing
-                    With IssueClose
-                        .Text = "Password missing!".ToString(InvariantCulture)
-                        .BackColor = Color.Orange
-                        .ForeColor = Color.White
-                    End With
-                    PT = "Your password {Password} for {Database} is missing. You must provide a value.".ToString(InvariantCulture)
+                    Dim TLP_IP As New TableLayoutPanel With {
+                        .Width = 300,
+                        .ColumnCount = 1,
+                        .RowCount = If(ShowPasswordBox, 3, 2),
+                        .Font = Segoe, .AutoSize = True,
+                        .BorderStyle = BorderStyle.None,
+                        .CellBorderStyle = TableLayoutPanelCellBorderStyle.None,
+                        .Margin = New Padding(0)
+                    }
+                    With TLP_IP
+                        .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = TLP_IP.Width})
+                        REM /// CLOSE PROMPT ROW
+                        .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 36})
+                        REM /// MESSAGE ROW
+                        .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 36 * MessageLineCount})
 
-                Case Errors.AccessResponse.Revoked
-                    With IssueClose
-                        .Text = "Access revoked!".ToString(InvariantCulture)
-                        .BackColor = Color.Red
-                        .ForeColor = Color.White
+                        .Controls.Add(IssueClose, 0, 0)
+                        .Controls.Add(IssueMessage, 0, 1)
+
+                        If ShowPasswordBox Then
+                            .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 36})
+                            .Controls.Add(Password_New, 0, 2)
+                        End If
+                        TLP.SetSize(TLP_IP)
                     End With
-                    PT = "Your access to {Database} has been revoked! Submit a request to reinstate your access".ToString(InvariantCulture)
-                    ShowPasswordBox = False
+
+                    With IssuePrompt
+                        .Items.Clear()
+                        .Items.Add(New ToolStripControlHost(TLP_IP))
+                    End With
+
+                    IssueMessage.Text = errorStatement
+                    IssuePromptShow()
 
             End Select
+        End With
 
-            Dim SingleRowSize As Size = TextRenderer.MeasureText(PT, Segoe, New Size(300, 600), TextFormatFlags.Left)
-            Dim MultiRowSize As Size = TextRenderer.MeasureText(PT, Segoe, New Size(300, 600), TextFormatFlags.WordBreak)
-            Dim MessageLineCount As Integer = {Convert.ToInt32(MultiRowSize.Height / {SingleRowSize.Height, 1}.Max), 1}.Max
-
-            TLP_IP = New TableLayoutPanel With {.Width = 300, .ColumnCount = 1, .RowCount = If(ShowPasswordBox, 3, 2), .Font = Segoe, .AutoSize = True, .BorderStyle = BorderStyle.None, .CellBorderStyle = TableLayoutPanelCellBorderStyle.None, .Margin = New Padding(0)}
-            With TLP_IP
-                .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = TLP_IP.Width})
-                REM /// CLOSE PROMPT ROW
-                .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 36})
-                REM /// MESSAGE ROW
-                .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 36 * MessageLineCount})
-
-                .Controls.Add(IssueClose, 0, 0)
-                .Controls.Add(IssueMessage, 0, 1)
-
-                If ShowPasswordBox Then
-                    .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 36})
-                    .Controls.Add(Password_New, 0, 2)
-                End If
-                TLP.SetSize(TLP_IP)
-            End With
-
-            With IssuePrompt
-                .Items.Clear()
-                .Items.Add(New ToolStripControlHost(TLP_IP))
-            End With
-
-            With e.Connection
-                If e.Connection IsNot Nothing Then
-                    IssueMessage.Text = Replace(PT, "{Database}", .DataSource)
-                    IssueMessage.Text = Replace(IssueMessage.Text, "{Password}", .Password)
-                    IssuePromptShow()
-                End If
-            End With
-
-#End Region
-        ElseIf e.RunError.ErrorType = Errors.Type.Combatibility Then
-#Region " ARCHITECTURE MISMATCH 32 bit vs 64 bit "
-
-            Message.Show("Connection to " & errorDatasource & " is not currently possible", "Architecture Mismatch", Prompt.IconOption.TimedMessage, Prompt.StyleOption.Earth)
-#End Region
-        ElseIf e.RunError.ErrorType = Errors.Type.Requirement Then
-#Region " NOT RUNNING AS ADMINISTRATOR "
-            Message.Show("Connection to " & errorDatasource & " is not currently possible", "Administrator error. Reopen application running as administrator", Prompt.IconOption.TimedMessage, Prompt.StyleOption.Earth)
-#End Region
-        ElseIf e.RunError.ErrorType = Errors.Type.RunTime Then
-#Region " RUNTIME (SCRIPT ERROR) "
-
-#End Region
-        Else
-#Region " UNDEFINED "
-            Message.Show("Undefined error", "Undefined error", Prompt.IconOption.TimedMessage, Prompt.StyleOption.Earth)
-#End Region
-        End If
 
     End Sub
     Private Sub IssuePromptShow()
@@ -352,7 +301,7 @@ Friend Class ResponseFailure
             ElseIf Not Password_New.Text.Any Then
                 IssuePromptShow()
 
-            ElseIf .RunError.Access = Errors.AccessResponse.PasswordExpired Then
+            ElseIf .RunError.Type = Errors.Item.PasswordExpired Then
                 With _Connection
                     .NewPassword = Password_New.Text
                     RetrieveData(.ToString, "SELECT * FROM SYSIBM.SYSDUMMY1")
@@ -362,7 +311,7 @@ Friend Class ResponseFailure
                     IssuePromptHide()
                 End With
 
-            ElseIf .RunError.Access = Errors.AccessResponse.PasswordIncorrect Then
+            ElseIf .RunError.Type = Errors.Item.PasswordIncorrect Then
                 With _Connection
                     .Password = Password_New.Text
                     .Save()
@@ -915,46 +864,14 @@ End Class
 Public NotInheritable Class ConnectionTestEventArgs
     Inherits EventArgs
     Public ReadOnly Property Response As ResponseEventArgs
-    Public ReadOnly Property Reason As String
+    Public ReadOnly Property ResponseType As Errors.Item
     Public ReadOnly Property OK As Boolean
     Public Sub New(response As ResponseEventArgs)
 
         Me.Response = response
         If response IsNot Nothing Then
             OK = response.Succeeded
-            If Not OK Then
-                If response.RunError.ErrorType = Errors.Type.Access Then
-                    Dim badConnection As Connection = response.Connection
-#Region " PASSWORD ISSUE "
-                    Select Case response.RunError.Access
-                        Case Errors.AccessResponse.PasswordExpired
-                            Reason = "The password {Password} for {Userid} in {Database} has expired. You must create a new password now.".ToString(InvariantCulture)
-
-                        Case Errors.AccessResponse.PasswordIncorrect
-                            Reason = "The password {Password} for {Userid} in {Database} is incorrect. You must submit another value.".ToString(InvariantCulture)
-
-                        Case Errors.AccessResponse.PasswordMissing
-                            Reason = "The password {Password} for {Userid} in {Database} is missing. You must provide a value.".ToString(InvariantCulture)
-
-                        Case Errors.AccessResponse.Revoked
-                            Reason = "Access for {Userid} in {Database} has been revoked! Submit a request to reinstate your access".ToString(InvariantCulture)
-
-                    End Select
-                    Reason = Replace(Reason, "{Database}", badConnection.DataSource)
-                    Reason = Replace(Reason, "{Userid}", badConnection.UserID)
-                    Reason = Replace(Reason, "{Password}", badConnection.Password)
-#End Region
-                ElseIf response.RunError.ErrorType = Errors.Type.Combatibility Then
-                    'ARCHITECTURE MISMATCH 32 bit vs 64 bit
-                    Reason = "Connection is not currently possible as the ODBC driver is running the incorrect bit version ( 32 / 64)"
-
-                ElseIf response.RunError.ErrorType = Errors.Type.Requirement Then
-                    Reason = "You must run this tool with as administrator. Right-click the .exe, More, Run as administrator"
-
-                Else
-                    Reason = response.Message
-                End If
-            End If
+            ResponseType = If(OK, Errors.Item.None, response.RunError.Type)
         End If
 
     End Sub
@@ -1159,10 +1076,15 @@ End Class
                     .Execute(False)
                     If .Response.Succeeded Then
                         TestPassed_ = TriState.True
+
                     ElseIf .Response.Message.Contains("ERROR [08001]") Or .Response.Message.Contains("The remote host ""[^""]{1,}") Then
                         TestPassed_ = TriState.UseDefault
+                        Dim ddd = .Response.RunError
+
+
                     Else
                         TestPassed_ = TriState.False
+
                     End If
                     RaiseEvent TestCompleted(Me, New ConnectionTestEventArgs(.Response))
                 End With
