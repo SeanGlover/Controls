@@ -1126,15 +1126,21 @@ Public NotInheritable Class ImageCombo
         MyBase.OnParentVisibleChanged(e)
     End Sub
     Protected Overrides Sub OnTextChanged(e As EventArgs)
+
         If Text Is Nothing Then Text = String.Empty
-        If ErrorTip IsNot Nothing Then
-            If ValueError Then
-                ErrorTip.Show(ErrorText.ToString(InvariantCulture), Me, New Point(Width, 0))
-            Else
-                ErrorTip.Hide(Me)
+        Try
+            If ErrorTip IsNot Nothing Then
+                If ValueError Then
+                    ErrorTip.Show(ErrorText.ToString(InvariantCulture), Me, New Point(Width, 0))
+                Else
+                    ErrorTip.Hide(Me)
+                End If
             End If
-        End If
+        Catch ex As ObjectDisposedException
+
+        End Try
         MyBase.OnTextChanged(e)
+
     End Sub
 #End Region
 

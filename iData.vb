@@ -207,16 +207,16 @@ Friend Class ResponseFailure
 
             Select Case .Type
                 Case Errors.Item.ArchitectureMismatch
-                    Message.Show("Architecture Mismatch", errorStatement, Prompt.IconOption.TimedMessage, Prompt.StyleOption.Earth)
+                    'Message.Show("Architecture Mismatch", errorStatement, Prompt.IconOption.TimedMessage, Prompt.StyleOption.Earth)
 
                 Case Errors.Item.NotRunningAsAdministrator
-                    Message.Show("Administrator error.", errorStatement, Prompt.IconOption.TimedMessage, Prompt.StyleOption.Earth)
+                    'Message.Show("Administrator error.", errorStatement, Prompt.IconOption.TimedMessage, Prompt.StyleOption.Earth)
 
                 Case Errors.Item.ScriptError
-                    Message.Show("Script error", e.Message, Prompt.IconOption.TimedMessage, Prompt.StyleOption.Earth)
+                    'Message.Show("Script error", e.Message, Prompt.IconOption.TimedMessage, Prompt.StyleOption.Earth)
 
                 Case Errors.Item.Timeout
-                    Message.Show("Operation took too long", e.Message, Prompt.IconOption.TimedMessage, Prompt.StyleOption.Earth)
+                    'Message.Show("Operation took too long", e.Message, Prompt.IconOption.TimedMessage, Prompt.StyleOption.Earth)
 
                 Case Else
                     'A C C E S S  === AccessRevoked | PasswordExpired | PasswordIncorrect | PasswordMissing

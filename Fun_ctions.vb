@@ -271,7 +271,7 @@ Public Module Functions
                 Dim totalWidth = CInt(.VisibleClipBounds.Width)
                 Dim totalHeight = CInt(.VisibleClipBounds.Height)
                 Dim margin_all As Integer = 2
-                Dim band_width = CInt((totalWidth * 0.1887))
+                Dim band_width = CInt(totalWidth * 0.1887)
                 Dim workspaceWidth As Integer = totalWidth - (margin_all * 2)
                 Dim workspaceHeight As Integer = totalHeight - (margin_all * 2)
                 Dim workspaceSize = New Size(workspaceWidth, workspaceHeight)
@@ -287,13 +287,15 @@ Public Module Functions
                     Dim measureString As SizeF = .MeasureString(format, progressFont)
                     Dim textPoint = New PointF(upperLeftInnerEllipsePoint.X + ((innerEllipseSize.Width - measureString.Width) / 2), upperLeftInnerEllipsePoint.Y + ((innerEllipseSize.Height - measureString.Height) / 2))
                     .Clear(Color.Transparent)
-                    Using borderPen As New Pen(Brushes.LightSlateGray, 2)
-                        Using fillBrush As New SolidBrush(fillBrushColor)
-                            .DrawEllipse(borderPen, outerEllipseRectangle)
-                            .FillPie(fillBrush, outerEllipseRectangle, 0, sweepAngle)
-                            .FillEllipse(New SolidBrush(Color.GhostWhite), innerEllipseRectangle)
-                            .DrawEllipse(borderPen, innerEllipseRectangle)
-                            .DrawString(format, progressFont, Brushes.Black, textPoint)
+                    Using borderBrush As New SolidBrush(Color.Black)
+                        Using borderPen As New Pen(borderBrush, 2)
+                            Using fillBrush As New SolidBrush(fillBrushColor)
+                                .DrawEllipse(borderPen, outerEllipseRectangle)
+                                .FillPie(fillBrush, outerEllipseRectangle, 0, sweepAngle)
+                                .FillEllipse(New SolidBrush(Color.GhostWhite), innerEllipseRectangle)
+                                .DrawEllipse(borderPen, innerEllipseRectangle)
+                                .DrawString(format, progressFont, Brushes.Black, textPoint)
+                            End Using
                         End Using
                     End Using
                 End Using
@@ -3332,13 +3334,25 @@ Public NotInheritable Class CustomRenderer
     'https://docs.microsoft.com/en-us/dotnet/api/system.windows.forms.toolstripprofessionalrenderer?view=netcore-3.1#events
     Public Enum ColorTheme
         Brown
+        Black
         Green
         Blue
         Red
         Gray
         Yellow
+        Purple
     End Enum
+    Private ReadOnly Property ThemeColor As Color = Color.Black
     Public Property Theme As ColorTheme
+    Private Const UnderlineAlpha As Byte = 128
+    Public Sub New()
+        Select Case Theme
+            Case ColorTheme.Purple
+                ThemeColor = Color.FromArgb(103, 71, 205)
+            Case ColorTheme.Yellow
+                ThemeColor = Color.Yellow
+        End Select
+    End Sub
     Protected Overrides Sub OnRenderToolStripBackground(e As ToolStripRenderEventArgs)
         'Entire Toolstrip
         If e IsNot Nothing Then
@@ -3384,7 +3398,7 @@ Public NotInheritable Class CustomRenderer
                     'Dim deltaWidth As Integer = CInt({e.Item.ContentRectangle.Width - wh, 0}.Max / 2)
                     'Dim imageBounds As New Rectangle(deltaWidth, deltaHeight, wh, wh)
                     Dim underlineBounds As New Rectangle(e.Item.ContentRectangle.X, e.Item.ContentRectangle.Height - 6, e.Item.ContentRectangle.Width, 6)
-                    Using backBrush As New SolidBrush(Color.FromArgb(64, Color.WhiteSmoke))
+                    Using backBrush As New SolidBrush(Color.FromArgb(UnderlineAlpha, ThemeColor))
                         e.Graphics.FillRectangle(backBrush, underlineBounds)
                     End Using
                 End If
@@ -3399,12 +3413,12 @@ Public NotInheritable Class CustomRenderer
         If e IsNot Nothing Then
             If e.Item.Selected Then
                 If e.Item.Image Is Nothing Then
-                    Using backBrush As New SolidBrush(Color.FromArgb(64, Color.WhiteSmoke))
+                    Using backBrush As New SolidBrush(Color.FromArgb(UnderlineAlpha, Color.WhiteSmoke))
                         e.Graphics.FillRectangle(backBrush, e.Item.ContentRectangle)
                     End Using
                 Else
                     Dim underlineBounds As New Rectangle(e.Item.ContentRectangle.X, e.Item.ContentRectangle.Height - 6, e.Item.ContentRectangle.Width, 6)
-                    Using backBrush As New SolidBrush(Color.FromArgb(64, Color.WhiteSmoke))
+                    Using backBrush As New SolidBrush(Color.FromArgb(UnderlineAlpha, ThemeColor))
                         e.Graphics.FillRectangle(backBrush, underlineBounds)
                     End Using
                 End If
