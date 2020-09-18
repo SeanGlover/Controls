@@ -3342,16 +3342,19 @@ Public NotInheritable Class CustomRenderer
         Yellow
         Purple
     End Enum
-    Private ReadOnly Property ThemeColor As Color = Color.Black
+    Private ReadOnly Property ThemeColor As Color
     Public Property Theme As ColorTheme
     Private Const UnderlineAlpha As Byte = 128
     Public Sub New()
+
+        ThemeColor = Color.FromArgb(103, 71, 205)
         Select Case Theme
             Case ColorTheme.Purple
                 ThemeColor = Color.FromArgb(103, 71, 205)
             Case ColorTheme.Yellow
                 ThemeColor = Color.Yellow
         End Select
+
     End Sub
     Protected Overrides Sub OnRenderToolStripBackground(e As ToolStripRenderEventArgs)
         'Entire Toolstrip
@@ -3364,9 +3367,8 @@ Public NotInheritable Class CustomRenderer
         MyBase.OnRenderImageMargin(e)
         If e IsNot Nothing Then
             Dim MarginWidth As Integer = e.AffectedBounds.Width
-            e.ToolStrip.Items.OfType(Of ToolStripControlHost)().ToList().ForEach(Function(Item) As ToolStripControlHost
-                                                                                     If IsNothing(Item.Image) Then
-                                                                                     Else
+            e.ToolStrip.Items.OfType(Of ToolStripControlHost)().ToList().ForEach(Sub(Item As ToolStripControlHost)
+                                                                                     If Item.Image IsNot Nothing Then
                                                                                          Dim Size = Item.GetCurrentParent().ImageScalingSize
                                                                                          Dim Location = Item.Bounds.Location
                                                                                          Dim OffsetX As Integer = Convert.ToInt32((MarginWidth - Item.Image.Width) / 2)
@@ -3378,8 +3380,7 @@ Public NotInheritable Class CustomRenderer
                                                                                                               New Rectangle(Point.Empty, Item.Image.Size),
                                                                                                               GraphicsUnit.Pixel)
                                                                                      End If
-                                                                                     Return Nothing
-                                                                                 End Function)
+                                                                                 End Sub)
         End If
 
     End Sub
@@ -3391,19 +3392,11 @@ Public NotInheritable Class CustomRenderer
                     Using backBrush As New SolidBrush(Color.FromArgb(64, Color.WhiteSmoke))
                         e.Graphics.FillRectangle(backBrush, e.Item.ContentRectangle)
                     End Using
-                Else
-                    'Dim imageArea As Integer = e.Item.Image.Width * e.Item.Image.Height
-                    'Dim wh As Integer = CInt(Math.Sqrt(imageArea))
-                    'Dim deltaHeight As Integer = CInt({e.Item.ContentRectangle.Height - wh, 0}.Max / 2)
-                    'Dim deltaWidth As Integer = CInt({e.Item.ContentRectangle.Width - wh, 0}.Max / 2)
-                    'Dim imageBounds As New Rectangle(deltaWidth, deltaHeight, wh, wh)
-                    Dim underlineBounds As New Rectangle(e.Item.ContentRectangle.X, e.Item.ContentRectangle.Height - 6, e.Item.ContentRectangle.Width, 6)
-                    Using backBrush As New SolidBrush(Color.FromArgb(UnderlineAlpha, ThemeColor))
-                        e.Graphics.FillRectangle(backBrush, underlineBounds)
-                    End Using
                 End If
-            Else
-
+                Dim underlineBounds As New Rectangle(e.Item.ContentRectangle.X, e.Item.ContentRectangle.Height - 6, e.Item.ContentRectangle.Width, 6)
+                Using backBrush As New SolidBrush(Color.FromArgb(UnderlineAlpha, ThemeColor))
+                    e.Graphics.FillRectangle(backBrush, underlineBounds)
+                End Using
             End If
         End If
 
@@ -3416,14 +3409,11 @@ Public NotInheritable Class CustomRenderer
                     Using backBrush As New SolidBrush(Color.FromArgb(UnderlineAlpha, Color.WhiteSmoke))
                         e.Graphics.FillRectangle(backBrush, e.Item.ContentRectangle)
                     End Using
-                Else
-                    Dim underlineBounds As New Rectangle(e.Item.ContentRectangle.X, e.Item.ContentRectangle.Height - 6, e.Item.ContentRectangle.Width, 6)
-                    Using backBrush As New SolidBrush(Color.FromArgb(UnderlineAlpha, ThemeColor))
-                        e.Graphics.FillRectangle(backBrush, underlineBounds)
-                    End Using
                 End If
-            Else
-
+                Dim underlineBounds As New Rectangle(e.Item.ContentRectangle.X, e.Item.ContentRectangle.Height - 6, e.Item.ContentRectangle.Width, 6)
+                Using backBrush As New SolidBrush(Color.FromArgb(UnderlineAlpha, ThemeColor))
+                    e.Graphics.FillRectangle(backBrush, underlineBounds)
+                End Using
             End If
         End If
 
@@ -3464,6 +3454,31 @@ Public Module ThreadHelperClass
                     Dim d As SetPropertyCallback = New SetPropertyCallback(AddressOf SetSafeControlPropertyValue)
                     Try
                         Item.Invoke(d, New Object() {Item, PropertyName, PropertyValue})
+                    Catch ex As TargetInvocationException
+                    End Try
+
+                Else
+                    Dim pi As PropertyInfo = t.GetProperty(PropertyName)
+                    Try
+                        pi.SetValue(Item, PropertyValue)
+                    Catch ex As TargetInvocationException
+                    End Try
+                End If
+            Catch ex As ObjectDisposedException
+
+            End Try
+        End If
+
+    End Sub
+    Public Sub SetSafeControlPropertyValue(ByVal Item As ToolStripItem, ByVal PropertyName As String, PropertyValue As Object)
+
+        If Item IsNot Nothing Then
+            Try
+                Dim t As Type = Item.GetType
+                If Item.Owner.InvokeRequired Then
+                    Dim d As SetPropertyCallback = New SetPropertyCallback(AddressOf SetSafeControlPropertyValue)
+                    Try
+                        Item.Owner.Invoke(d, New Object() {Item.Owner, PropertyName, PropertyValue})
                     Catch ex As TargetInvocationException
                     End Try
 
