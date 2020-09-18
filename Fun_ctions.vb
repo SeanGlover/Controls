@@ -3443,6 +3443,7 @@ Public NotInheritable Class CustomRenderer
     End Sub
 End Class
 Public Module ThreadHelperClass
+    Delegate Sub SetToolPropertyCallback(ByVal tsi As ToolStripItem, ByVal n As String, v As Object)
     Delegate Sub SetPropertyCallback(ByVal c As Control, ByVal n As String, v As Object)
     Delegate Sub GetPropertyCallback(ByVal c As Control, ByVal n As String)
     Public Sub SetSafeControlPropertyValue(ByVal Item As Control, ByVal PropertyName As String, PropertyValue As Object)
@@ -3470,15 +3471,15 @@ Public Module ThreadHelperClass
         End If
 
     End Sub
-    Public Sub SetSafeControlPropertyValue(ByVal Item As ToolStripItem, ByVal PropertyName As String, PropertyValue As Object)
+    Public Sub SetSafeToolStripItemPropertyValue(ByVal Item As ToolStripItem, ByVal PropertyName As String, PropertyValue As Object)
 
         If Item IsNot Nothing Then
             Try
                 Dim t As Type = Item.GetType
                 If Item.Owner.InvokeRequired Then
-                    Dim d As SetPropertyCallback = New SetPropertyCallback(AddressOf SetSafeControlPropertyValue)
+                    Dim d As SetToolPropertyCallback = New SetToolPropertyCallback(AddressOf SetSafeToolStripItemPropertyValue)
                     Try
-                        Item.Owner.Invoke(d, New Object() {Item.Owner, PropertyName, PropertyValue})
+                        Item.Owner.Invoke(d, New Object() {Item, PropertyName, PropertyValue})
                     Catch ex As TargetInvocationException
                     End Try
 
