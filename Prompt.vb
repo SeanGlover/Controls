@@ -85,7 +85,7 @@ Public Class Prompt
     Public Property BodyMessage As String
     Public Property TitleBarImageLeftSide As Boolean = True
     Public Property TitleBarImage As Image = My.Resources.Info_White
-    Public Property BorderColor As Color = Color.Black
+    Public Property BorderColor As Color = Color.Transparent
     Public Property BorderForeColor As Color = Color.White
     Private Icon_ As Icon = Nothing
     Public Overloads Property Icon As Icon
@@ -424,7 +424,7 @@ Public Class Prompt
                 ForeColor = Color.White
                 _ShadeColor = Color.DarkKhaki
                 _AccentColor = Color.DarkGoldenrod
-                BorderColor = Color.Black
+                BorderColor = If(BorderColor = Color.Transparent, Color.Black, BorderColor)
 
             Case StyleOption.Blue
                 _AlternatingRowColor = Color.LightSkyBlue
@@ -433,7 +433,7 @@ Public Class Prompt
                 ForeColor = Color.Black
                 _ShadeColor = Color.DarkBlue
                 _AccentColor = Color.DarkSlateBlue
-                BorderColor = Color.RoyalBlue
+                BorderColor = If(BorderColor = Color.Transparent, Color.RoyalBlue, BorderColor)
 
             Case StyleOption.Bright
                 _AlternatingRowColor = Color.Gold
@@ -442,7 +442,7 @@ Public Class Prompt
                 ForeColor = Color.White
                 _ShadeColor = Color.Fuchsia
                 _AccentColor = Color.DarkOrchid
-                BorderColor = Color.DarkMagenta
+                BorderColor = If(BorderColor = Color.Transparent, Color.DarkMagenta, BorderColor)
 
             Case StyleOption.Grey
                 _AlternatingRowColor = Color.DarkGray
@@ -451,7 +451,7 @@ Public Class Prompt
                 ForeColor = Color.Black
                 _ShadeColor = Color.Silver
                 _AccentColor = Color.Gray
-                BorderColor = Color.Black
+                BorderColor = If(BorderColor = Color.Transparent, Color.Black, BorderColor)
 
             Case StyleOption.Earth
                 _AlternatingRowColor = Color.Beige
@@ -460,7 +460,7 @@ Public Class Prompt
                 ForeColor = Color.White
                 _ShadeColor = Color.DarkGreen
                 _AccentColor = Color.DarkOliveGreen
-                BorderColor = Color.Maroon
+                BorderColor = If(BorderColor = Color.Transparent, Color.Maroon, BorderColor)
 
             Case StyleOption.Psychedelic
                 _AlternatingRowColor = Color.Lavender
@@ -470,7 +470,7 @@ Public Class Prompt
                 ForeColor = Color.White
                 _ShadeColor = Color.Gainsboro
                 _AccentColor = Color.DarkOrange
-                BorderColor = Color.YellowGreen
+                BorderColor = If(BorderColor = Color.Transparent, Color.YellowGreen, BorderColor)
 
             Case StyleOption.Plain
                 _AlternatingRowColor = Color.Gainsboro
@@ -479,7 +479,7 @@ Public Class Prompt
                 ForeColor = Color.Black
                 _ShadeColor = Color.DarkGray
                 _AccentColor = Color.Gainsboro
-                BorderColor = Color.Silver
+                BorderColor = If(BorderColor = Color.Transparent, Color.Silver, BorderColor)
 
             Case StyleOption.RedBrown
                 _AlternatingRowColor = Color.Chocolate
@@ -488,7 +488,7 @@ Public Class Prompt
                 ForeColor = Color.White
                 _ShadeColor = Color.Crimson
                 _AccentColor = Color.Peru
-                BorderColor = Color.SaddleBrown
+                BorderColor = If(BorderColor = Color.Transparent, Color.SaddleBrown, BorderColor)
 
             Case StyleOption.Custom
 
