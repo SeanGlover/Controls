@@ -13,6 +13,8 @@ Imports System.Runtime.InteropServices
 Imports System.Reflection
 Imports System.Globalization
 Imports ExcelDataReader
+Imports SQLitePCL
+
 Public Module Functions
 #Region " GENERAL DECLARATIONS "
     Public ReadOnly Segoe As New Font("Segoe UI", 9)
@@ -196,7 +198,7 @@ Public Module Functions
         If image Is Nothing Then
             Return String.Empty
         Else
-            If ImageFormat Is Nothing Then ImageFormat = Imaging.ImageFormat.Bmp
+            If ImageFormat Is Nothing Then ImageFormat = ImageFormat.Bmp
             Dim base64String As String
             Using ms As New MemoryStream()
                 image.Save(ms, ImageFormat)
@@ -2505,20 +2507,19 @@ Public NotInheritable Class SafeWalk
     Public Shared Function EnumerateFiles(Path As String, SearchPattern As String, SearchOpt As SearchOption) As IEnumerable(Of String)
 
         Try
-            Dim DirectoryFiles = Enumerable.Empty(Of String)()
-            If SearchOpt = SearchOption.AllDirectories Then
-                Try
-                    DirectoryFiles = Directory.EnumerateDirectories(Path).SelectMany(Function(x) EnumerateFiles(x, SearchPattern, SearchOpt))
-                    Return DirectoryFiles.Concat(Directory.EnumerateFiles(Path, SearchPattern))
+            'Dim Path As String = Desktop
+            'Dim searchPattern As String = "*.txt"
+            Try
+                Dim di As DirectoryInfo = New DirectoryInfo(Path)
+                Dim directories As DirectoryInfo() = di.GetDirectories(SearchPattern, SearchOption.TopDirectoryOnly)
+                Dim files As FileInfo() = di.GetFiles(SearchPattern, SearchOption.TopDirectoryOnly)
+                Return files.Select(Function(f) f.FullName)
 
-                Catch ex As DirectoryNotFoundException
-                    Return Enumerable.Empty(Of String)()
-
-                End Try
-            Else
+            Catch ex As DirectoryNotFoundException
                 Return Enumerable.Empty(Of String)()
 
-            End If
+            End Try
+
         Catch ex As UnauthorizedAccessException
             Return Enumerable.Empty(Of String)()
         End Try
