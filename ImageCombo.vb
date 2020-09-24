@@ -1131,9 +1131,9 @@ Public NotInheritable Class ImageCombo
         Try
             If ErrorTip IsNot Nothing Then
                 If ValueError Then
-                    ErrorTip.Show(ErrorText.ToString(InvariantCulture), Me, New Point(Width, 0))
+                    'ErrorTip.Show(ErrorText.ToString(InvariantCulture), Me, New Point(Width, 0))
                 Else
-                    ErrorTip.Hide(Me)
+                    'ErrorTip.Hide(Me)
                 End If
             End If
         Catch ex As ObjectDisposedException

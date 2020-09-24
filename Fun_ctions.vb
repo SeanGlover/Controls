@@ -317,6 +317,29 @@ Public Module Functions
                         If(kvp = ExtensionNames.Text, My.Resources.txt, My.Resources.Folder)))))
 
     End Function
+    Public Function RotateImage(b As Bitmap, angle As Single) As Bitmap
+
+        'create a New empty bitmap to hold rotated image
+        Dim returnBitmap As Bitmap = New Bitmap(b.Width, b.Height)
+        'make a graphics object from the empty bitmap
+        Using g As Graphics = Graphics.FromImage(returnBitmap)
+            'move rotation point to center of image
+            Dim dx As Single = CSng(b.Width / 2)
+            Dim dy As Single = CSng(b.Height / 2)
+            g.TranslateTransform(dx, dy)
+
+            'rotate
+            g.RotateTransform(angle)
+
+            'move image back
+            g.TranslateTransform(-dx, -dy)
+
+            'draw passed in image onto graphics object
+            g.DrawImage(b, New Point(0, 0))
+        End Using
+        Return returnBitmap
+
+    End Function
 #Region " RANDOM NUMBERS "
     Private ReadOnly Rnd As New Random()
     Public Function RandomNumber(ByVal Low As Integer, ByVal High As Integer) As Integer
@@ -3098,7 +3121,7 @@ Public Class VerticalScrollBar
     Friend WithEvents Timer As New Timer With {.Interval = 250}
     Friend Alpha As Byte = 128, UpAlpha As Byte, DownAlpha As Byte
     Private Const Width As Integer = 12, ArrowsHeight As Integer = Width + 2, ShadowDepth As Integer = 8
-#Region " Constructor "
+
     Public Sub New(Control As Control)
 
         Me.Control = Control
@@ -3111,7 +3134,7 @@ Public Class VerticalScrollBar
         End If
 
     End Sub
-#End Region
+
 #Region " Properties and Fields"
     Private mScrolling As Boolean
     Friend ReadOnly Property Scrolling As Boolean

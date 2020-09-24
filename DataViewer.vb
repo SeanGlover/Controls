@@ -529,7 +529,7 @@ Public Class DataViewer
                                                     End If
                                                 Else
                                                     Using textBrush As New SolidBrush(cellStyle.ForeColor)
-                                                        e.Graphics.DrawString(.Text,
+                                                        e.Graphics.DrawString(cellText,
                                                                               If(MouseOverRow, New Font(cellStyle.Font, FontStyle.Underline), cellStyle.Font),
                                                                               textBrush,
                                                                               CellBounds,
@@ -1609,19 +1609,16 @@ End Class
 Public Class ColumnCollection
     Inherits List(Of Column)
     Implements IDisposable
+    Private WithEvents AddRemoveTimer As New Timer With {.Interval = 100}
+    Private WithEvents ColumnsWorker As New BackgroundWorker With {.WorkerReportsProgress = True, .WorkerSupportsCancellation = True}
+
     Friend Event CollectionSizingStart(sender As Object, e As EventArgs)
     Friend Event CollectionSizingEnd(sender As Object, e As EventArgs)
     Friend Event ColumnSized(sender As Object, e As EventArgs)
-    Private IsBusy_ As Boolean = False
-    Friend ReadOnly Property IsBusy As Boolean
-        Get
-            IsBusy_ = ColumnsWorker.IsBusy Or IsBusy_
-            Return IsBusy_
-        End Get
-    End Property
-    Private WithEvents AddRemoveTimer As New Timer With {.Interval = 100}
-    Private WithEvents ReOrderTimer As New Timer With {.Interval = 100}
-    Private ReadOnly MoveColumns As New Dictionary(Of Column, Integer)
+
+    Private ReadOnly Await_Insert As New Dictionary(Of Column, Integer)
+    Private ReadOnly Await_Add As New List(Of Column)
+    Private ReadOnly Await_Remove As New List(Of Column)
     Public Sub New(Viewer As DataViewer)
         Parent = Viewer
     End Sub
@@ -1658,48 +1655,72 @@ Public Class ColumnCollection
         End Get
     End Property
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Public Shadows Function Add(ByVal AddColumn As Column) As Column
+    Public Shadows Function Add(ByVal addColumn As Column) As Column
 
-        If AddColumn IsNot Nothing Then
-            With AddColumn
+        If addColumn IsNot Nothing Then
+            With addColumn
                 .Parent_ = Me
                 .HeaderStyle = HeaderStyle
-                ._Index = Count
-                ColumnsXH()
+                If ColumnsWorker.IsBusy Then
+                    Await_Add.Add(addColumn)
+                Else
+                    AddRemoveTimer.Start()
+                    ._Index = Count
+                    MyBase.Add(addColumn)
+                End If
             End With
-            MyBase.Add(AddColumn)
         End If
-        Return AddColumn
+        Return addColumn
 
     End Function
-    Public Shadows Function Insert(MoveIndex As Integer, ByVal MoveColumn As Column) As Column
+    Public Shadows Function AddRange(ByVal addColumns As Column()) As Column()
 
-        If MoveColumn IsNot Nothing Then
-            With MoveColumn
+        If addColumns Is Nothing Then
+            Return Nothing
+        Else
+            For Each addColumn In addColumns
+                Add(addColumn)
+            Next
+            Return addColumns
+        End If
+
+    End Function
+    Public Shadows Function Insert(position As Integer, ByVal insertColumn As Column) As Column
+
+        If insertColumn IsNot Nothing Then
+            With insertColumn
                 .Parent_ = Me
-                If MoveIndex >= 0 And MoveIndex < Count Then
-                    ._Index = MoveIndex
-                    ColumnsXH()
-                    MyBase.Insert(MoveIndex, MoveColumn)
+                If position >= 0 And position < Count Then
+                    If ColumnsWorker.IsBusy Then
+                        Await_Insert.Add(insertColumn, position)
+                    Else
+                        ._Index = position
+                        ColumnsXH()
+                        MyBase.Insert(position, insertColumn)
+                    End If
                 Else
                     'Do nothing ... would like to Throw an Exception so the error is caught by the end-user
                 End If
             End With
         End If
-        Return MoveColumn
+        Return insertColumn
 
     End Function
-    Public Shadows Function Remove(ByVal RemoveColumn As Column) As Column
+    Public Shadows Function Remove(ByVal dropColumn As Column) As Column
 
-        If RemoveColumn IsNot Nothing Then
-            AddRemoveTimer.Start()
-            With RemoveColumn
-                .Parent_ = Nothing
-                ._Index = -1
+        If dropColumn IsNot Nothing Then
+            With dropColumn
+                If ColumnsWorker.IsBusy Then
+                    Await_Remove.Add(dropColumn)
+                Else
+                    AddRemoveTimer.Start()
+                    .Parent_ = Nothing
+                    ._Index = -1
+                    MyBase.Remove(dropColumn)
+                End If
             End With
-            MyBase.Remove(RemoveColumn)
         End If
-        Return RemoveColumn
+        Return dropColumn
 
     End Function
     Public Shadows Function Remove(columnName As String) As Column
@@ -1716,10 +1737,18 @@ Public Class ColumnCollection
         End If
 
     End Function
-    Private Sub AddRemoveTimer_Tick() Handles AddRemoveTimer.Tick
-        If Not IsBusy Then AddRemoveTimer.Stop()
-        ColumnsXH()
-    End Sub
+    Public Shadows Function RemoveRange(ByVal dropColumns As Column()) As Column()
+
+        If dropColumns Is Nothing Then
+            Return Nothing
+        Else
+            For Each dropColumn In dropColumns
+                Remove(dropColumn)
+            Next
+            Return dropColumns
+        End If
+
+    End Function
     Public Shadows Function Contains(ByVal ColumnName As String) As Boolean
         Return Item(ColumnName) IsNot Nothing
     End Function
@@ -1739,6 +1768,30 @@ Public Class ColumnCollection
         MyBase.Clear()
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+    Private Sub Await_Modify(sender As Object, e As EventArgs) Handles Me.CollectionSizingEnd
+
+        For Each Column In Await_Insert
+            Remove(Column.Key)
+            Insert(Column.Value, Column.Key)
+        Next
+        Await_Add.ForEach(Sub(c)
+                              Add(c)
+                          End Sub)
+        Await_Remove.ForEach(Sub(c)
+                                 Remove(c)
+                             End Sub)
+        Await_Insert.Clear()
+        Await_Add.Clear()
+        Await_Remove.Clear()
+
+    End Sub
+    Private Sub AddRemoveTimer_Tick() Handles AddRemoveTimer.Tick
+
+        'Looped Adds or Removals are done quickly- each request starts/resets the Timer so that ColumnsXH is only called once the loop is completed
+        AddRemoveTimer.Stop()
+        ColumnsXH()
+
+    End Sub
     Friend Sub ColumnsXH()
 
         Dim columnHeight As Integer = 0
@@ -1761,30 +1814,7 @@ Public Class ColumnCollection
         End Try
 
     End Sub
-    Friend Sub Reorder(Column As Column, ViewIndex As Integer)
 
-        If Not MoveColumns.ContainsKey(Column) Then MoveColumns.Add(Column, ViewIndex)
-        If IsBusy Then
-            AddHandler CollectionSizingEnd, AddressOf CanReorder
-        Else
-            CanReorder(Nothing, Nothing)
-        End If
-
-    End Sub
-    Private Sub CanReorder(sender As Object, e As EventArgs)
-
-        RemoveHandler CollectionSizingEnd, AddressOf CanReorder
-        IsBusy_ = True
-        For Each Column In MoveColumns
-            Remove(Column.Key)
-            Insert(Column.Value, Column.Key)
-        Next
-        MoveColumns.Clear()
-        IsBusy_ = False
-        ColumnsXH()
-
-    End Sub
-    Private WithEvents ColumnsWorker As New BackgroundWorker With {.WorkerReportsProgress = True, .WorkerSupportsCancellation = True}
     Friend Sub FormatSize()             ' I N I T I A L  F O R M A T + S I Z I N G
         RaiseEvent CollectionSizingStart(Me, Nothing)
         If Not ColumnsWorker.IsBusy Then ColumnsWorker.RunWorkerAsync()
@@ -1913,7 +1943,6 @@ Public Class ColumnCollection
                 ' TODO: dispose managed state (managed objects).
                 ColumnsWorker.Dispose()
                 HeaderStyle_.Dispose()
-                ReOrderTimer.Dispose()
                 AddRemoveTimer.Dispose()
             End If
             ' TODO: free unmanaged resources (unmanaged objects) and override Finalize() below.
@@ -2005,7 +2034,7 @@ End Class
             End If
         End Get
         Set(value As Integer)
-            Parent?.Reorder(Me, value)
+            Parent?.Insert(value, Me)
         End Set
     End Property
     Private _Name As String

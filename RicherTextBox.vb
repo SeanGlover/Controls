@@ -204,7 +204,6 @@ Public NotInheritable Class RicherTextBox
             Return (Size.Height - ClientSize.Height) > InnerSizeHeight
         End Get
     End Property
-    Public ReadOnly Property VerticalScrollLocation As Point
     Public ReadOnly Property HasText As Boolean
         Get
             If IsNothing(Text) Then
@@ -313,6 +312,7 @@ Public NotInheritable Class RicherTextBox
             If AutoSize Then Size = New Size(IdealWidth, IdealHeight)
         End Set
     End Property
+    Public ReadOnly Property VerticalScrollLocation As Point
     Private Sub VerticalScrolled() Handles Me.VScroll
 
         If VScrollBounds.Contains(Cursor.Position) Then

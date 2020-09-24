@@ -884,7 +884,7 @@ Public Class TreeViewer
             ElseIf e.Button = MouseButtons.Left Then
                 With DragData
                     If Not .MousePoints.Contains(e.Location) Then .MousePoints.Add(e.Location)
-                    .IsDragging = If(.DragNode Is Nothing, False, .MousePoints.Count >= 5 And Not .DragNode.Bounds.Contains(.MousePoints.Last))
+                    .IsDragging = .DragNode IsNot Nothing AndAlso (.MousePoints.Count >= 5 And Not .DragNode.Bounds.Contains(.MousePoints.Last))
                     If .IsDragging Then
                         OnDragStart()
                         Dim Data As New DataObject
