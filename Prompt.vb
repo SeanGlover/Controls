@@ -1202,14 +1202,16 @@ Public Class TopBar
                 End Using
             End Using
 
+            Dim penThin As Pen = If(BarStyle = Theme.White, Pens.Black, Pens.White)
+
 #Region " M I N I M I Z E "
             Dim bMin As Rectangle = BoundsMinimize
             bMin.Inflate(-3, -3)
             Using gPath As GraphicsPath = DrawRoundedRectangle(bMin, 4)
-                e.Graphics.DrawPath(Pens.White, gPath)
+                e.Graphics.DrawPath(penThin, gPath)
             End Using
             bMin.Inflate(-8, -8)
-            Using minPen As New Pen(Brushes.White, 3)
+            Using minPen As New Pen(If(BarStyle = Theme.White, Brushes.Black, Brushes.White), 3)
                 e.Graphics.DrawLine(minPen, New Point(bMin.Left, bMin.Bottom), New Point(bMin.Right, bMin.Bottom))
             End Using
 #End Region
@@ -1217,10 +1219,10 @@ Public Class TopBar
             Dim bMax As Rectangle = BoundsMaximize
             bMax.Inflate(-3, -3)
             Using gPath As GraphicsPath = DrawRoundedRectangle(bMax, 4)
-                e.Graphics.DrawPath(Pens.White, gPath)
+                e.Graphics.DrawPath(penThin, gPath)
             End Using
             bMax.Inflate(-8, -8)
-            Using maxPen As New Pen(Brushes.White, 3)
+            Using maxPen As New Pen(If(BarStyle = Theme.White, Brushes.Black, Brushes.White), 3)
                 e.Graphics.DrawRectangle(maxPen, bMax)
             End Using
 #End Region
@@ -1230,7 +1232,7 @@ Public Class TopBar
             Dim bc As Rectangle = BoundsClose
             bc.Inflate(-3, -3)
             Using gPath As GraphicsPath = DrawRoundedRectangle(bc, 4)
-                e.Graphics.DrawPath(Pens.White, gPath)
+                e.Graphics.DrawPath(penThin, gPath)
             End Using
             bc.Inflate(-8, -8)
             Using closePen As New Pen(closeLinecolor, 3)

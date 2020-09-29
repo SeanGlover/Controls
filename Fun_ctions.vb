@@ -89,6 +89,7 @@ Public Module Functions
 #End Region
     Public Enum Theme
         None
+        White
         MediumBlue
         Blue
         DarkBlue
@@ -113,6 +114,7 @@ Public Module Functions
         Return MyImages()("glossy" & colorTheme.ToString)
     End Function
     Friend ReadOnly GlossyImages As New Dictionary(Of Theme, Image) From {
+        {Theme.White, My.Resources.glossyWhite},
         {Theme.Black, My.Resources.glossyBlack},
         {Theme.Blue, My.Resources.glossyBlue},
         {Theme.MediumBlue, My.Resources.IBM},
@@ -141,6 +143,8 @@ Public Module Functions
                 Return Color.Black
             Case Theme.MediumGray
                 Return Color.White
+            Case Theme.White
+                Return Color.Black
             Case Else
                 Dim glossyColor As Color = Color.FromName(glossyTheme.ToString)
                 Return BackColorToForeColor(glossyColor)
@@ -3693,7 +3697,7 @@ Public NotInheritable Class NativeMethods
     <DllImport("user32.dll")>
     Friend Shared Function SetScrollPos(ByVal hWnd As IntPtr, ByVal nBar As Integer, ByVal nPos As Integer, ByVal bRedraw As Boolean) As Integer
     End Function
-    Public Declare Function PostMessageA Lib "user32.dll" (
+    Friend Declare Function PostMessageA Lib "user32.dll" (
         ByVal hwnd As IntPtr,
         ByVal wMsg As Integer,
         ByVal wParam As Integer,
