@@ -75,6 +75,10 @@ Public NotInheritable Class RicherTextBox
     Private Const SIF_PAGE As Integer = &H2
     Private Const SIF_POS As Integer = &H4
     Private Const SB_HORZ As Integer = &H0
+    Private Const SB_VERT As Integer = &H1
+    Private Const WM_VSCROLL = &H115
+    Private Const WM_HSCROLL = &H114
+    Private Const SB_THUMBPOSITION = 4
     ''' <summary>
     ''' Gets and Sets the Horizontal Scroll position of the control.
     ''' </summary>
@@ -86,8 +90,6 @@ Public NotInheritable Class RicherTextBox
             Dim result = NativeMethods.SetScrollPos(Handle, SB_HORZ, value, True)
         End Set
     End Property
-    Private Const SB_VERT As Integer = &H1
-
     Protected Overrides Sub OnMouseMove(e As MouseEventArgs)
 
         If e IsNot Nothing Then
@@ -154,6 +156,7 @@ Public NotInheritable Class RicherTextBox
         End Get
         Set(ByVal value As Integer)
             Dim result = NativeMethods.SetScrollPos(Handle, SB_VERT, value, True)
+            NativeMethods.PostMessageA(Handle, WM_VSCROLL, SB_THUMBPOSITION + &H10000 * value, Nothing)
         End Set
     End Property
     Public ReadOnly Property ScrollData As SCROLLINFO

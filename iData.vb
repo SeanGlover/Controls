@@ -1067,29 +1067,39 @@ End Class
         _Properties("NEWPWD") = String.Empty
         Parent.Save()
     End Sub
-    Public Sub Test()
+    Public Sub Test(Optional async As Boolean = False)
 
         If CanConnect Then
             Dim testSelect As String = If(Language = QueryLanguage.Netezza, "select current_timestamp FROM _v_dual", "SELECT * FROM SYSIBM.SYSDUMMY1")
             Using testSQL As New SQL(Me, testSelect) With {.NoPrompt = True}
                 With testSQL
-                    .Execute(False)
-                    If .Response.Succeeded Then
-                        TestPassed_ = TriState.True
-
-                    ElseIf .Response.Message.Contains("ERROR [08001]") Or .Response.Message.Contains("The remote host ""[^""]{1,}") Then
-                        TestPassed_ = TriState.UseDefault
-                        Dim ddd = .Response.RunError
-
-
+                    If async Then
+                        AddHandler .Completed, AddressOf TestResults
+                        .Execute()
                     Else
-                        TestPassed_ = TriState.False
-
+                        .Execute(False)
+                        TestResults(Me, .Response)
                     End If
-                    RaiseEvent TestCompleted(Me, New ConnectionTestEventArgs(.Response))
                 End With
             End Using
         End If
+
+    End Sub
+    Private Sub TestResults(sender As Object, testResponse As ResponseEventArgs)
+
+        With testResponse
+            If .Succeeded Then
+                TestPassed_ = TriState.True
+
+            ElseIf .Message.Contains("ERROR [08001]") Or .Message.Contains("The remote host ""[^""]{1,}") Then
+                TestPassed_ = TriState.UseDefault
+
+            Else
+                TestPassed_ = TriState.False
+
+            End If
+            RaiseEvent TestCompleted(Me, New ConnectionTestEventArgs(testResponse))
+        End With
 
     End Sub
     Public Overrides Function GetHashCode() As Integer

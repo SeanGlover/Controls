@@ -1097,8 +1097,12 @@ End Enum
 Public Class BarEventArgs
     Inherits EventArgs
     Public ReadOnly Property ClickedZone As BarZone
+    Public ReadOnly Property DeltaLocation As Point
     Public Sub New(zoneClicked As BarZone)
         ClickedZone = zoneClicked
+    End Sub
+    Public Sub New(delta As Point)
+        DeltaLocation = delta
     End Sub
 End Class
 Public Class TopBar
@@ -1164,7 +1168,8 @@ Public Class TopBar
         SetStyle(ControlStyles.Opaque, True)
         SetStyle(ControlStyles.UserMouse, True)
         BackColor = SystemColors.Window
-        Dock = DockStyle.Fill
+        Dock = DockStyle.Top
+        Height = 36
 
     End Sub
     Protected Overrides Sub OnPaint(ByVal e As PaintEventArgs)
@@ -1261,7 +1266,7 @@ Public Class TopBar
 
         If e IsNot Nothing Then
             _IsDragging = False
-            If MousePoint <> e.Location Then
+            If MousePoint <> Cursor.Position Then
                 Dim lastZone As BarZone = MouseZone
                 If BoundsImage.Contains(e.Location) Then
                     _MouseZone = BarZone.Image
@@ -1270,7 +1275,17 @@ Public Class TopBar
                     _MouseZone = BarZone.Text
                     If e.Button = MouseButtons.Left Then
                         _IsDragging = True
-                        RaiseEvent BarMoved(Me, New BarEventArgs(MouseZone))
+                        Dim deltaPoint As New Point(Cursor.Position.X - MousePoint.X, Cursor.Position.Y - MousePoint.Y)
+                        Dim topControl As Control = Me
+                        Do While topControl.Parent IsNot Nothing
+                            topControl = topControl.Parent
+                        Loop
+                        If topControl IsNot Nothing Then
+                            Dim parentPoint As Point = topControl.Location
+                            parentPoint.Offset(deltaPoint)
+                            topControl.Location = parentPoint
+                        End If
+                        RaiseEvent BarMoved(Me, New BarEventArgs(deltaPoint))
                     End If
 
                 ElseIf BoundsMinimize.Contains(e.Location) Then
@@ -1284,7 +1299,7 @@ Public Class TopBar
 
                 End If
                 Cursor = If(IsDragging, Cursors.NoMove2D, Cursors.Default)
-                _MousePoint = e.Location
+                _MousePoint = Cursor.Position
                 If lastZone <> MouseZone Then Invalidate()
             End If
         End If
@@ -1309,4 +1324,11 @@ Public Class TopBar
         Invalidate()
         MyBase.OnTextChanged(e)
     End Sub
+    Protected Overloads Overrides ReadOnly Property CreateParams() As CreateParams
+        Get
+            Dim cp As CreateParams = MyBase.CreateParams
+            cp.ExStyle = cp.ExStyle Or 33554432
+            Return cp
+        End Get
+    End Property
 End Class

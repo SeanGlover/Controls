@@ -1460,7 +1460,7 @@ Public Class ImageComboDropDown
                     VScrollOffset.Offset(0, VScroll.Value)
                     Dim Checked As New List(Of ComboItem)(From CI In VisibleComboItems Where CI.CheckBounds.Contains(VScrollOffset))
                     If Checked.Any Then
-                        Checked.First._Checked = Not (Checked.First.Checked)
+                        Checked.First.Checked = Not Checked.First.Checked
                         .OnItemChecked(Checked.First)
                         Invalidate()
                     Else
@@ -1471,7 +1471,7 @@ Public Class ImageComboDropDown
                                 'If LastSelected.Any Then LastSelected.First._Selected = False
                             End If
                             Selected.First._Selected = Not (Selected.First.Selected)
-                            If ImageCombo.CheckOnSelect Then Selected.First._Checked = Not (Selected.First.Checked)
+                            If ImageCombo.CheckOnSelect Then Selected.First.Checked = Not (Selected.First.Checked)
                             .OnItemSelected(Selected.First, Control.ModifierKeys = Keys.Shift)
                         End If
                     End If
@@ -1770,12 +1770,7 @@ REM ////////////////////////////////////////////////////////////////////////////
             Return _Index
         End Get
     End Property
-    Friend _Checked As Boolean
-    Public ReadOnly Property Checked As Boolean
-        Get
-            Return _Checked
-        End Get
-    End Property
+    Public Property Checked As Boolean
     Friend _Selected As Boolean
     Public ReadOnly Property Selected As Boolean
         Get

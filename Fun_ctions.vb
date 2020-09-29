@@ -319,25 +319,29 @@ Public Module Functions
     End Function
     Public Function RotateImage(b As Bitmap, angle As Single) As Bitmap
 
-        'create a New empty bitmap to hold rotated image
-        Dim returnBitmap As Bitmap = New Bitmap(b.Width, b.Height)
-        'make a graphics object from the empty bitmap
-        Using g As Graphics = Graphics.FromImage(returnBitmap)
-            'move rotation point to center of image
-            Dim dx As Single = CSng(b.Width / 2)
-            Dim dy As Single = CSng(b.Height / 2)
-            g.TranslateTransform(dx, dy)
+        If b Is Nothing Then
+            Return b
+        Else
+            'create a New empty bitmap to hold rotated image
+            Dim returnBitmap As Bitmap = New Bitmap(b.Width, b.Height)
+            'make a graphics object from the empty bitmap
+            Using g As Graphics = Graphics.FromImage(returnBitmap)
+                'move rotation point to center of image
+                Dim dx As Single = CSng(b.Width / 2)
+                Dim dy As Single = CSng(b.Height / 2)
+                g.TranslateTransform(dx, dy)
 
-            'rotate
-            g.RotateTransform(angle)
+                'rotate
+                g.RotateTransform(angle)
 
-            'move image back
-            g.TranslateTransform(-dx, -dy)
+                'move image back
+                g.TranslateTransform(-dx, -dy)
 
-            'draw passed in image onto graphics object
-            g.DrawImage(b, New Point(0, 0))
-        End Using
-        Return returnBitmap
+                'draw passed in image onto graphics object
+                g.DrawImage(b, New Point(0, 0))
+            End Using
+            Return returnBitmap
+        End If
 
     End Function
 #Region " RANDOM NUMBERS "
@@ -3381,30 +3385,42 @@ Public NotInheritable Class CustomRenderer
 
     End Sub
     Protected Overrides Sub OnRenderToolStripBackground(e As ToolStripRenderEventArgs)
+
         'Entire Toolstrip
         If e IsNot Nothing Then
-            'e.Graphics.FillRectangle(Brushes.LimeGreen, e.AffectedBounds)
+            'e.ToolStrip.Items.OfType(Of ToolStripItem).ToList().ForEach(Sub(Item As ToolStripItem)
+            '                                                                If Item.Image Is Nothing Then
+            '                                                                    Using backBrush As New SolidBrush(Color.FromArgb(UnderlineAlpha, Color.WhiteSmoke))
+            '                                                                        e.Graphics.FillRectangle(backBrush, Item.ContentRectangle)
+            '                                                                    End Using
+            '                                                                End If
+            '                                                                Dim underlineBounds As New Rectangle(Item.ContentRectangle.X, Item.ContentRectangle.Height - 6, Item.ContentRectangle.Width, 6)
+            '                                                                Using backBrush As New SolidBrush(Color.FromArgb(UnderlineAlpha, ThemeColor))
+            '                                                                    e.Graphics.FillRectangle(backBrush, underlineBounds)
+            '                                                                End Using
+            '                                                            End Sub)
         End If
+
     End Sub
     Protected Overrides Sub OnRenderImageMargin(ByVal e As ToolStripRenderEventArgs)
 
         MyBase.OnRenderImageMargin(e)
         If e IsNot Nothing Then
             Dim MarginWidth As Integer = e.AffectedBounds.Width
-            e.ToolStrip.Items.OfType(Of ToolStripControlHost)().ToList().ForEach(Sub(Item As ToolStripControlHost)
-                                                                                     If Item.Image IsNot Nothing Then
-                                                                                         Dim Size = Item.GetCurrentParent().ImageScalingSize
-                                                                                         Dim Location = Item.Bounds.Location
-                                                                                         Dim OffsetX As Integer = Convert.ToInt32((MarginWidth - Item.Image.Width) / 2)
-                                                                                         Dim OffsetY As Integer = Convert.ToInt32((Item.Height - Item.Image.Height) / 2)
-                                                                                         Location = New Point(OffsetX, Location.Y + OffsetY)
-                                                                                         Dim ImageRectangle = New Rectangle(Location, Size)
-                                                                                         e.Graphics.DrawImage(Item.Image,
+            e.ToolStrip.Items.OfType(Of ToolStripControlHost).ToList().ForEach(Sub(Item As ToolStripControlHost)
+                                                                                   If Item.Image IsNot Nothing Then
+                                                                                       Dim Size = Item.GetCurrentParent().ImageScalingSize
+                                                                                       Dim Location = Item.Bounds.Location
+                                                                                       Dim OffsetX As Integer = Convert.ToInt32((MarginWidth - Item.Image.Width) / 2)
+                                                                                       Dim OffsetY As Integer = Convert.ToInt32((Item.Height - Item.Image.Height) / 2)
+                                                                                       Location = New Point(OffsetX, Location.Y + OffsetY)
+                                                                                       Dim ImageRectangle = New Rectangle(Location, Size)
+                                                                                       e.Graphics.DrawImage(Item.Image,
                                                                                                               ImageRectangle,
                                                                                                               New Rectangle(Point.Empty, Item.Image.Size),
                                                                                                               GraphicsUnit.Pixel)
-                                                                                     End If
-                                                                                 End Sub)
+                                                                                   End If
+                                                                               End Sub)
         End If
 
     End Sub
@@ -3412,6 +3428,7 @@ Public NotInheritable Class CustomRenderer
 
         If e IsNot Nothing Then
             If e.Item.Selected Then
+                '/// Left Mouse Down
                 If e.Item.Image Is Nothing Then
                     Using backBrush As New SolidBrush(Color.FromArgb(64, Color.WhiteSmoke))
                         e.Graphics.FillRectangle(backBrush, e.Item.ContentRectangle)
@@ -3421,11 +3438,44 @@ Public NotInheritable Class CustomRenderer
                 Using backBrush As New SolidBrush(Color.FromArgb(UnderlineAlpha, ThemeColor))
                     e.Graphics.FillRectangle(backBrush, underlineBounds)
                 End Using
+            Else
+                'If e.Item.Image Is Nothing Then
+                '    Using backBrush As New SolidBrush(Color.FromArgb(64, Color.WhiteSmoke))
+                '        e.Graphics.FillRectangle(backBrush, e.Item.ContentRectangle)
+                '    End Using
+                'End If
+                'Dim underlineBounds As New Rectangle(e.Item.ContentRectangle.X, e.Item.ContentRectangle.Height - 6, e.Item.ContentRectangle.Width, 6)
+                'Using backBrush As New SolidBrush(Color.FromArgb(UnderlineAlpha, ThemeColor))
+                '    e.Graphics.FillRectangle(backBrush, underlineBounds)
+                'End Using
             End If
         End If
 
     End Sub
     Protected Overrides Sub OnRenderDropDownButtonBackground(e As ToolStripItemRenderEventArgs)
+
+        If e IsNot Nothing Then
+            If e.Item.Selected Then
+                '/// Left Mouse Down
+                If e.Item.Image Is Nothing Then
+                    Using backBrush As New SolidBrush(Color.FromArgb(UnderlineAlpha, Color.WhiteSmoke))
+                        e.Graphics.FillRectangle(backBrush, e.Item.ContentRectangle)
+                    End Using
+                End If
+                Dim underlineBounds As New Rectangle(e.Item.ContentRectangle.X, e.Item.ContentRectangle.Height - 6, e.Item.ContentRectangle.Width, 6)
+                Using backBrush As New SolidBrush(Color.FromArgb(UnderlineAlpha, ThemeColor))
+                    e.Graphics.FillRectangle(backBrush, underlineBounds)
+                End Using
+            Else
+
+            End If
+        End If
+
+    End Sub
+    Protected Overrides Sub OnRenderItemBackground(e As ToolStripItemRenderEventArgs)
+        MyBase.OnRenderItemBackground(e)
+    End Sub
+    Protected Overrides Sub OnRenderMenuItemBackground(ByVal e As ToolStripItemRenderEventArgs)
 
         If e IsNot Nothing Then
             If e.Item.Selected Then
@@ -3438,25 +3488,17 @@ Public NotInheritable Class CustomRenderer
                 Using backBrush As New SolidBrush(Color.FromArgb(UnderlineAlpha, ThemeColor))
                     e.Graphics.FillRectangle(backBrush, underlineBounds)
                 End Using
-            End If
-        End If
-
-    End Sub
-    Protected Overrides Sub OnRenderMenuItemBackground(ByVal e As ToolStripItemRenderEventArgs)
-
-        If e IsNot Nothing Then
-            If e.Item.Selected Then
-                Using Brush As New Drawing2D.LinearGradientBrush(e.Item.ContentRectangle, Color.FromArgb(255, 227, 224, 215), Color.White, Drawing2D.LinearGradientMode.Vertical)
-                    e.Graphics.FillRectangle(Brush, e.Item.ContentRectangle)
-                End Using
-                Dim RoundRectangle As Rectangle = e.Item.ContentRectangle
-                RoundRectangle.Inflate(-2, -2)
-                RoundRectangle.Offset(0, -2)
-                Using GP As Drawing2D.GraphicsPath = DrawRoundedRectangle(e.Item.ContentRectangle)
-                    Using PathPen As New Pen(Color.Peru, 1)
-                        e.Graphics.DrawPath(PathPen, GP)
-                    End Using
-                End Using
+                'Using Brush As New Drawing2D.LinearGradientBrush(e.Item.ContentRectangle, Color.FromArgb(255, 227, 224, 215), Color.White, Drawing2D.LinearGradientMode.Vertical)
+                '    e.Graphics.FillRectangle(Brush, e.Item.ContentRectangle)
+                'End Using
+                'Dim RoundRectangle As Rectangle = e.Item.ContentRectangle
+                'RoundRectangle.Inflate(-2, -2)
+                'RoundRectangle.Offset(0, -2)
+                'Using GP As Drawing2D.GraphicsPath = DrawRoundedRectangle(e.Item.ContentRectangle)
+                '    Using PathPen As New Pen(Color.Peru, 1)
+                '        e.Graphics.DrawPath(PathPen, GP)
+                '    End Using
+                'End Using
             Else
                 Using Brush As New SolidBrush(Color.FromArgb(255, 227, 224, 215))
                     e.Graphics.FillRectangle(Brush, e.Item.ContentRectangle)
@@ -3638,6 +3680,7 @@ Public NotInheritable Class NativeMethods
     Public Shared Sub WindowHide(hwnd As IntPtr)
         ShowWindow(hwnd, 0)
     End Sub
+
     Private Sub New()
     End Sub
     Friend Declare Function SetProcessDPIAware Lib "user32.dll" () As Boolean
@@ -3650,6 +3693,11 @@ Public NotInheritable Class NativeMethods
     <DllImport("user32.dll")>
     Friend Shared Function SetScrollPos(ByVal hWnd As IntPtr, ByVal nBar As Integer, ByVal nPos As Integer, ByVal bRedraw As Boolean) As Integer
     End Function
+    Public Declare Function PostMessageA Lib "user32.dll" (
+        ByVal hwnd As IntPtr,
+        ByVal wMsg As Integer,
+        ByVal wParam As Integer,
+        ByVal lParam As Integer) As Boolean
     <DllImport("user32.dll")>
     Friend Shared Function GetCursorPos(ByRef lpPoint As Point) As Boolean
     End Function
@@ -3708,6 +3756,34 @@ Public NotInheritable Class NativeMethods
     Friend Declare Function IsWindowVisible Lib "user32.dll" (ByVal HWND As Long) As Boolean
     Friend Declare Function SendMessage Lib "User32" Alias "SendMessageA" (ByVal HWND As Long, ByVal wMsg As Long, ByVal wParam As Long, lParam As Long) As Long
     Friend Declare Sub Mouse_Event Lib "user32.dll" Alias "mouse_event" (ByVal dwFlags As Integer, ByVal dx As Integer, ByVal dy As Integer, ByVal cButtons As Integer, ByVal dwExtraInfo As Integer)
+#Region " S T A R T  /  S T O P   D R A W I N G "
+    Private Const WM_SETREDRAW As Integer = &HB
+    Private Const WM_USER As Integer = &H400
+    Private Const EM_GETEVENTMASK As Integer = WM_USER + 59
+    Private Const EM_SETEVENTMASK As Integer = WM_USER + 69
+    Private Shared EventMask As IntPtr
+    <DllImport("user32", CharSet:=CharSet.Auto)> Private Shared Function SendMessage(ByVal hWnd As IntPtr, ByVal msg As Integer, ByVal wParam As Integer, ByVal lParam As IntPtr) As IntPtr
+    End Function
+    Public Shared Sub StopDrawing(drawControl As Control)
+
+        If drawControl IsNot Nothing Then
+            SendMessage(drawControl.Handle, WM_SETREDRAW, 0, IntPtr.Zero)
+            'Stop sending of events
+            EventMask = SendMessage(drawControl.Handle, EM_GETEVENTMASK, 0, IntPtr.Zero)
+        End If
+
+    End Sub
+    Public Shared Sub StartDrawing(drawControl As Control, Optional refresh As Boolean = True)
+
+        If drawControl IsNot Nothing Then
+            SendMessage(drawControl.Handle, EM_SETEVENTMASK, 0, EventMask)
+            'turn on redrawing
+            SendMessage(drawControl.Handle, WM_SETREDRAW, 1, IntPtr.Zero)
+            If refresh Then drawControl.Invalidate()
+        End If
+
+    End Sub
+#End Region
     Friend Structure WindowPlacement
         Dim Length As Integer
         Dim Flags As Integer
