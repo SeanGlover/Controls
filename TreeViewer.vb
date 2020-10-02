@@ -63,10 +63,6 @@ Public Class TreeViewer
     Private WithEvents Karen As New Hooker
     Public WithEvents VScroll As New VScrollBar
     Public WithEvents HScroll As New HScrollBar
-    'Private WithEvents NodeTimer As New Threading.Timer(New Threading.TimerCallback(AddressOf NodeTimer_Tick),
-    'Nothing,
-    '1000,
-    '1000)
     Private WithEvents NodeTimer As New Timer With {.Interval = 200}
     Private WithEvents CursorTimer As New Timer With {.Interval = 300}
     Private WithEvents ScrollTimer As New Timer With {.Interval = 50}
