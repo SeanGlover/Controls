@@ -1683,7 +1683,7 @@ Public Class ColumnCollection
                 .Parent_ = Me
                 If position >= 0 And position < Count Then
                     If ColumnsWorker.IsBusy Then
-                        Await_Insert.Add(insertColumn, position)
+                        If Not Await_Insert.ContainsKey(insertColumn) Then Await_Insert.Add(insertColumn, position)
                     Else
                         ._Index = position
                         ColumnsXH()
@@ -1761,16 +1761,28 @@ Public Class ColumnCollection
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Private Sub Await_Modify(sender As Object, e As EventArgs) Handles Me.CollectionSizingEnd
 
-        For Each Column In Await_Insert
-            Remove(Column.Key)
-            Insert(Column.Value, Column.Key)
-        Next
-        Await_Add.ForEach(Sub(c)
-                              Add(c)
-                          End Sub)
-        Await_Remove.ForEach(Sub(c)
-                                 Remove(c)
-                             End Sub)
+        Try
+            For Each Column In Await_Insert
+                Remove(Column.Key)
+                Insert(Column.Value, Column.Key)
+            Next
+        Catch ex As InvalidOperationException
+        End Try
+
+        Try
+            Await_Add.ForEach(Sub(c)
+                                  Add(c)
+                              End Sub)
+        Catch ex As InvalidOperationException
+        End Try
+
+        Try
+            Await_Remove.ForEach(Sub(c)
+                                     Remove(c)
+                                 End Sub)
+        Catch ex As InvalidOperationException
+        End Try
+
         Await_Insert.Clear()
         Await_Add.Clear()
         Await_Remove.Clear()
