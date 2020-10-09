@@ -142,7 +142,7 @@ Public Class TreeViewer
             With TSMI_NodeEditing
                 .DisplayStyle = ToolStripItemDisplayStyle.ImageAndText
                 .ImageScaling = ToolStripItemImageScaling.None
-                .Image = Base64ToImage(Edit_String)
+                .Image = Base64ToImage(EditString)
                 With TLP_NodePermissions
                     .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 200})
                     .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 28})
@@ -154,11 +154,11 @@ Public Class TreeViewer
                 End With
                 TLP.SetSize(TLP_NodePermissions)
                 .DropDownItems.Add(New ToolStripControlHost(TLP_NodePermissions))
-                IC_NodeEdit.Image = Base64ToImage(Edit_String)
+                IC_NodeEdit.Image = Base64ToImage(EditString)
                 IC_NodeEdit.DropDown.SelectionColor = Color.Transparent
-                IC_NodeAdd.Image = Base64ToImage(Add_String)
+                IC_NodeAdd.Image = Base64ToImage(AddString)
                 IC_NodeAdd.DropDown.SelectionColor = Color.Transparent
-                IC_NodeRemove.Image = Base64ToImage(Remove_String)
+                IC_NodeRemove.Image = Base64ToImage(RemoveString)
             End With
             .Items.Add(TSMI_NodeEditing)
 #End Region

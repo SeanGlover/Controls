@@ -49,9 +49,9 @@ Public Module Functions
     Public Const ClearTextString As String = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAZdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjAuMjHxIGmVAAAB5ElEQVQ4T41TTUtVURRdzyLNSU1MCSppEChkkKbkrK9JOJBAhCai9u45R1DoD/T+QrOgQTl2IkiI75xzuzpIkSQcaCmlDSoJHEhBBEW91vnQR0+eumDDvXvttde+Z58L9E0cw5A+i4GsDkfFSNaEvL1K7Qkgb65B6DeQ5jkScyqWVMewbmHdIoTZRqJvAcregLQ/mPjNeHJAkxyEbYXUKzT7y+dPeGAuAclUPSd45JtI84sNnkIWz0RRGcq2sW4+iM0mJ7+NQqEmkO77k3SQ5E+Sf+jyAoPTDYEkkqyD4657sTRbdO9EoRTFuyhkx0mOkfzmmwg9jmHbCDFzhdO9Dc52HeplO6tzQVSJ0elaOrlJdsIkRjOW2aDE9zWotLs8djW4tSp9j8LvXuiD36xmW4BSFedKJOY6Hd+XG/BMRNYc2UMgTQ/jY3ReZXyOjV7786gOjifsHRZ+obtb1ZJ3lcWbbLLFcBt4BWUuRkEFRHqXBR+8m7ALyOvLPu8OTdle5jbiVLyFXON/kOl9El+D2CxgJL0QmYASp3PrE3b3XN5xWx2BTMx5ildJurXNQc2cC8Q+sIm79ntTPsPD+ZO8hZOnmXzMxHi42wcih3yxi6bux+v3l8/D/Q/JUn14OQKcsxcD/wAb8/HwyOWubQAAAABJRU5ErkJggg=="
     Public Const DropString As String = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAZdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjAuMjHxIGmVAAAA3klEQVQ4T2MYBVCQvkeLIWNvLEP9fhaoCH4Qv18AyoKC9N0PGDL2/AfSyxlCVzFDRTEBSC5j9wyI2j11UFEgSN+zFCwIwQsZ6uuZoDIIELqKDah5NULd3ulQGSDI3cYOFNyKkNwzi4HhPyNUloGh8Bgninz67m0MaWe4oLJQEL+fA+iS3UiKpoDFk47wAtkH4OIZe1YCNbOC5TAAyNT0PUiK904GOvsEnJ++Zy7eMAKDpA28QMXHEIbANU9C8RZekLabH6jhFELz7laoDAkgcZsoUPMSIC6AigxPwMAAABk/eh6Y0kgKAAAAAElFTkSuQmCC"
 
-    Public Const Edit_String As String = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABl0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMC4yMfEgaZUAAAFvSURBVDhPlZMrSARRFIbXRREfaFBUENuIsDM7D5YZ1uIUgwYtilksJvMiIgajoBg0iGnTBsFiEKNBRCzCVmERTMLCGlaDr+/oWVD0jvrDx73n3P+c+xgm9R85jtPved627/txLpdr0fTfFQTBFA2eoQYlmvTq0u9i12XXdVcpnIcT4gco63KyKIigDo9QgQLFkzScUItZHLObgnM4oKCPwnXmNcYjWVObWZjnKKyDIzFjhxwdjvP5fNu7yaQoirpocIV5TVPykNPEVYg1ZRamLShnMpkBTTXR8JJTbMr8I2UQhXi9O3Zc0lSauADXMKg5szDtw5llWa0SZ7PZEeJbWCFMS84ouR/Ge3Yf1ZQ03NDrdGrqZ8Vx3Iz5Ap4oKIZh2MNc7lOl4ZjakoX5lOJXgbkc+4b5Id+9XS3JomCn0UB54eUDXf4qFmZ4oNkGHNOCRYrkp6kwlmBc7d+FaRfD3idiGKbxgm3bQ8m/bSr1BlLvcgz+uCnlAAAAAElFTkSuQmCC"
-    Public Const Add_String As String = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABl0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMC4yMfEgaZUAAAF+SURBVDhPY8AFzMQ3lWqq1c3XUe6ebyFwTBcqTDwwFd20S0u9/r+ucvd/a8FTnlBh4oGp2OadMANsBU54Q4WJB2ZiW3bAXSBwyhcqTDwwE9u8HWJA138rgdP+UGHiAdAFW0EG6AANsOE/EwAVxgQWorvjzIR3zDQT3TnLXHTnbCCeayayc56R5LLHYANU2/6biW09YCa6fYmp6LZlQHo5EK8wF92x0kJkuxGDplrDfC31hv+YuJ4g1tCo9WbQVmmcr63W/B+MVVsQWK0JqrAByG8FuwSC2//rqECxars3gx3vVS8bnstltryXS+x4rxTZ8F4stOO9nG8muvkSyACQQhuBU3NseS6l2/NcTLXluZhix3shyZb3YoK90AkZaEhgAlPRLeshBnT8t+G7GAkVJh4AA24tzABbvkvRUGHigZnYtjVwF/BeiIUKEw/MRbevgoUB0L/xUGHigZnotpXwQOS9lAgVJh6Yi+1wBWbnTG2V1kw7nrOaUGE0wMAAABm0uZSULDJ3AAAAAElFTkSuQmCC"
-    Public Const Remove_String As String = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABl0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMC4yMfEgaZUAAAHUSURBVDhPY4CBcsEz/EkM13mhXJwgg/uCWC7DNnYoFwJCGf4zn5SJXX1eNnJ3DMM/bqgwBkjnvCl9W8Hj0kbxqkaoEANDL98OodOysWv+acr//68p9/+afMDGmTwzRaDScLBavEP7gZLDDZCaXxoq/w/I5NTXM1xhY6jn3CV1X9HpFkgChP9oKP65KBu+F9kluZwXZR4qOd34qyn/D6bunGz4mniG+xxgBfX8h5UeKdmf+6upAFdwVS5gE8glyDaD8C8N5T9XFAI3ZzI8FARrhoGFIj1qjxQd7sAUglxyTjZsP7rNV+QDN7XzL0XVDAPYXALDIJuvAjXHM7wXgCrHDtBdAsN4bUYGID8/VHK8iW7ANXk/cJhAlWEHoNAGBRiyn2H4t4biX2DI7w1leMkDVY4KIDY7oYT2VYWALehhck3ef+NC3oXCUG0QAEph6DaDAgzkZ1CYPMCIHSSX1HNuk7mn6HoVpgAcz2ihDYkdBxSXnJOLXJnGcIaLoVT4CO9RmYSNMAlQIsEW2sgu+auh+H+HRAkwKe9nAUt6MPxjPy0bveSCXOh6jBSGBEAuuangfWSneHEDA8N/RqgwBHSL7+SuBzmJAKjnXy+QxjCTFcJjYAAACcw1wQVwmDAAAAAASUVORK5CYII="
+    Public Const EditString As String = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABl0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMC4yMfEgaZUAAAFvSURBVDhPlZMrSARRFIbXRREfaFBUENuIsDM7D5YZ1uIUgwYtilksJvMiIgajoBg0iGnTBsFiEKNBRCzCVmERTMLCGlaDr+/oWVD0jvrDx73n3P+c+xgm9R85jtPved627/txLpdr0fTfFQTBFA2eoQYlmvTq0u9i12XXdVcpnIcT4gco63KyKIigDo9QgQLFkzScUItZHLObgnM4oKCPwnXmNcYjWVObWZjnKKyDIzFjhxwdjvP5fNu7yaQoirpocIV5TVPykNPEVYg1ZRamLShnMpkBTTXR8JJTbMr8I2UQhXi9O3Zc0lSauADXMKg5szDtw5llWa0SZ7PZEeJbWCFMS84ouR/Ge3Yf1ZQ03NDrdGrqZ8Vx3Iz5Ap4oKIZh2MNc7lOl4ZjakoX5lOJXgbkc+4b5Id+9XS3JomCn0UB54eUDXf4qFmZ4oNkGHNOCRYrkp6kwlmBc7d+FaRfD3idiGKbxgm3bQ8m/bSr1BlLvcgz+uCnlAAAAAElFTkSuQmCC"
+    Public Const AddString As String = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABl0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMC4yMfEgaZUAAAF+SURBVDhPY8AFzMQ3lWqq1c3XUe6ebyFwTBcqTDwwFd20S0u9/r+ucvd/a8FTnlBh4oGp2OadMANsBU54Q4WJB2ZiW3bAXSBwyhcqTDwwE9u8HWJA138rgdP+UGHiAdAFW0EG6AANsOE/EwAVxgQWorvjzIR3zDQT3TnLXHTnbCCeayayc56R5LLHYANU2/6biW09YCa6fYmp6LZlQHo5EK8wF92x0kJkuxGDplrDfC31hv+YuJ4g1tCo9WbQVmmcr63W/B+MVVsQWK0JqrAByG8FuwSC2//rqECxars3gx3vVS8bnstltryXS+x4rxTZ8F4stOO9nG8muvkSyACQQhuBU3NseS6l2/NcTLXluZhix3shyZb3YoK90AkZaEhgAlPRLeshBnT8t+G7GAkVJh4AA24tzABbvkvRUGHigZnYtjVwF/BeiIUKEw/MRbevgoUB0L/xUGHigZnotpXwQOS9lAgVJh6Yi+1wBWbnTG2V1kw7nrOaUGE0wMAAABm0uZSULDJ3AAAAAElFTkSuQmCC"
+    Public Const RemoveString As String = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABl0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMC4yMfEgaZUAAAHUSURBVDhPY4CBcsEz/EkM13mhXJwgg/uCWC7DNnYoFwJCGf4zn5SJXX1eNnJ3DMM/bqgwBkjnvCl9W8Hj0kbxqkaoEANDL98OodOysWv+acr//68p9/+afMDGmTwzRaDScLBavEP7gZLDDZCaXxoq/w/I5NTXM1xhY6jn3CV1X9HpFkgChP9oKP65KBu+F9kluZwXZR4qOd34qyn/D6bunGz4mniG+xxgBfX8h5UeKdmf+6upAFdwVS5gE8glyDaD8C8N5T9XFAI3ZzI8FARrhoGFIj1qjxQd7sAUglxyTjZsP7rNV+QDN7XzL0XVDAPYXALDIJuvAjXHM7wXgCrHDtBdAsN4bUYGID8/VHK8iW7ANXk/cJhAlWEHoNAGBRiyn2H4t4biX2DI7w1leMkDVY4KIDY7oYT2VYWALehhck3ef+NC3oXCUG0QAEph6DaDAgzkZ1CYPMCIHSSX1HNuk7mn6HoVpgAcz2ihDYkdBxSXnJOLXJnGcIaLoVT4CO9RmYSNMAlQIsEW2sgu+auh+H+HRAkwKe9nAUt6MPxjPy0bveSCXOh6jBSGBEAuuangfWSneHEDA8N/RqgwBHSL7+SuBzmJAKjnXy+QxjCTFcJjYAAACcw1wQVwmDAAAAAASUVORK5CYII="
 
     Public Const SortString As String = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAZdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjAuMjHxIGmVAAABRklEQVQ4T+2TsUrDUBSGm9ykMUSJEGJAhDhkimDRLAUtwVcQUix0EJw6+AwZ3Vyd1cWH8AUsODi6CBYfQLqooNb/h3tqokPr7vAluec/5z8nyb2NsizNoiiUkCSJk+e59TMWhuFiEARLURR5Vb3BCwPEdd1VwzBOLMvaTdO0yVgcxwumaR4hfgEuwSny1sRkauA4zjrEa/AGhrZtt7Iss9kV63Mw0TxC26oZ6M4sftdJn+CWnbQBu1cNtqcGHBUjDiDcAxZK4gM4m2kgrwCTPsRXScT6kB/vLwZdiFWDHqf7N0ibvu8vY30lcfCEjdae2wDPsrnEgL96BJMd1s00wLibWN+BD609QzvmmahNoJTah/iik2jQpQG3M7p1ELsBYxbzu/x6Bc/zViAegD7v3N6MEz3JBprsyWmsGQjsJlTjghR9U6gvKYe7gZJsyxAAAAAASUVORK5CYII="
     Public Const CheckedString As String = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAZdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjAuMjHxIGmVAAAB1klEQVQ4T2OgK/j37x/7nqMnDi/fubUIKkQauPb09vSZOlf+z1a78X/pro1VUGEIcHBwyHN0dIzChWfMnrGx2H7K/07xXf97RPf/79A/8H3pmaUiUO0MDPb29hFQJgb4//+/yMLJu95uYPrzfyPj3/8dErv+Rzm3F0KlIQCXAUDNzBt279u1iPfl/01AHsgAH8+kHQz/GRihSiAAlwEXHl3um6F1GawZhPuVTr0Gqg2FSiNAampq3snHZ+YAQ1oKKsTw7sdHv+lRh+Ca5wk/+pdaX+OHYcCbf2/4ctPrrkxVuvx/894Da0BiQKdzzO3d8QbkZJDmtSw//pfmTpscGhrKjGIAUCFTQ+Ginc0ym8EKZ0nc+RNfUxnR1Du7eAn3G7jtzUHrL4MMxTAABKo7J9dVaiyGK14g9vj/TOXrf2H8KUZnvs07tkQXpBarASCQm1m5ZoHIE7ghMLxA9Mn/aauXZUOV4TYAmFjiJk5ZuGaW0K3/y9negvESjhf/G6tm7nV3d5e0tbUFYycnJ2msBtjZ2akCU6N9y/TOBXXaa/5PE7jwvzS5946bm5sjSBwZ29jYiEK1YQJgQDHOWLWiqdF/3bcNV7cZQoVJB/ff31eAMvEABgYAPDoU9wQut5cAAAAASUVORK5CYII="
@@ -1510,6 +1510,64 @@ Public Module Functions
         Return Graphix
 
     End Function
+    Public Function GetRoundedLine(ByVal points As PointF(), ByVal cornerRadius As Single) As Drawing2D.GraphicsPath
+
+        If points Is Nothing Then
+            Return Nothing
+        Else
+            Dim path As Drawing2D.GraphicsPath = New Drawing2D.GraphicsPath
+            Dim previousEndPoint As PointF = PointF.Empty
+            For i As Integer = 1 To points.Length - 1
+                Dim startPoint As PointF = points(i - 1)
+                Dim endPoint As PointF = points(i)
+
+                If i > 1 Then
+                    Dim cornerPoint As PointF = startPoint
+                    LengthenLine(endPoint, startPoint, -cornerRadius)
+                    Dim controlPoint1 As PointF = cornerPoint
+                    Dim controlPoint2 As PointF = cornerPoint
+                    LengthenLine(previousEndPoint, controlPoint1, -cornerRadius / 2)
+                    LengthenLine(startPoint, controlPoint2, -cornerRadius / 2)
+                    path.AddBezier(previousEndPoint, controlPoint1, controlPoint2, startPoint)
+                End If
+
+                If i + 1 < points.Length Then LengthenLine(startPoint, endPoint, -cornerRadius)
+                path.AddLine(startPoint, endPoint)
+                previousEndPoint = endPoint
+            Next
+            Return path
+        End If
+
+    End Function
+    Public Sub LengthenLine(ByVal startPoint As PointF, ByRef endPoint As PointF, ByVal pixelCount As Single)
+
+        If startPoint.Equals(endPoint) Then Return
+
+        Dim dx As Double = endPoint.X - startPoint.X
+        Dim dy As Double = endPoint.Y - startPoint.Y
+
+        If dx = 0 Then
+            If endPoint.Y < startPoint.Y Then
+                endPoint.Y -= pixelCount
+            Else
+                endPoint.Y += pixelCount
+            End If
+        ElseIf dy = 0 Then
+            If endPoint.X < startPoint.X Then
+                endPoint.X -= pixelCount
+            Else
+                endPoint.X += pixelCount
+            End If
+        Else
+            Dim length As Double = Math.Sqrt(dx * dx + dy * dy)
+            Dim scale As Double = (length + pixelCount) / length
+            dx *= scale
+            dy *= scale
+            endPoint.X = startPoint.X + Convert.ToSingle(dx)
+            endPoint.Y = startPoint.Y + Convert.ToSingle(dy)
+        End If
+
+    End Sub
     Public Function DrawSpeechBubble(ByVal Rect As Rectangle) As Drawing2D.GraphicsPath
 
         Dim corner As Single = 22
@@ -4051,36 +4109,53 @@ Public NotInheritable Class ClipboardHelper
     End Function
 End Class
 
+Public NotInheritable Class DictionaryEventArgs
+    Inherits EventArgs
+    Public ReadOnly Property Key As Object
+    Public ReadOnly Property Value As Object
+    Public ReadOnly Property LastValue As Object
+    Public Sub New(key As Object, oldValue As Object, newValue As Object)
+
+        Me.Key = key
+        LastValue = oldValue
+        Value = newValue
+
+    End Sub
+End Class
 <Serializable>
 Public NotInheritable Class SpecialDictionary(Of TKey, TValue)
     Inherits Dictionary(Of TKey, TValue)
     Implements IDictionary(Of TKey, TValue)
+    Public Event PropertyChanged(sender As Object, e As DictionaryEventArgs)
     Public Sub New()
         MyBase.New()
     End Sub
-    Public Shadows Function Item(key As TKey) As TValue
-
-        KeyExists = TriState.UseDefault
-        If key.GetType Is GetType(String) Then
-            Dim matchingKey As TKey = Nothing
-            For Each keyItem As TKey In Keys
-                If keyItem.ToString.ToUpperInvariant = key.ToString.ToUpperInvariant Then
-                    matchingKey = keyItem
-                    Exit For
+    Default Public Overloads Property Item(key As TKey) As TValue
+        Get
+            KeyExists = TriState.UseDefault
+            If key.GetType Is GetType(String) Then
+                Dim matchingKey As TKey = Nothing
+                For Each keyItem As TKey In Keys
+                    If keyItem.ToString.ToUpperInvariant = key.ToString.ToUpperInvariant Then
+                        matchingKey = keyItem
+                        Exit For
+                    End If
+                Next
+                If matchingKey Is Nothing Then
+                    KeyExists = TriState.False
+                    Return Nothing
+                Else
+                    KeyExists = TriState.True
+                    Return MyBase.Item(matchingKey)
                 End If
-            Next
-            If matchingKey Is Nothing Then
-                KeyExists = TriState.False
-                Return Nothing
             Else
-                KeyExists = TriState.True
-                Return MyBase.Item(matchingKey)
+                Return MyBase.Item(key)
             End If
-        Else
-            Return MyBase.Item(key)
-        End If
-
-    End Function
+        End Get
+        Set(value As TValue)
+            RaiseEvent PropertyChanged(Me, New DictionaryEventArgs(key, Me(key), value))
+        End Set
+    End Property
     Private KeyExists As TriState
     Public Shadows Function ContainsKey(key As TKey) As Boolean
         Dim value = Item(key)
