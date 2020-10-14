@@ -7,18 +7,30 @@ Imports System.ComponentModel
 
 Public Class DatePicker
     Inherits Control
+    Private Enum MouseRegion
+        None
+        Operand
+        Drop
+        Clear
+        Text
+        WeekDay
+        Month
+        Day
+        Year
+    End Enum
+    Private MouseOver As New MouseRegion
     Friend Toolstrip As New ToolStripDropDown With {.AutoClose = False, .AutoSize = False, .Padding = New Padding(0), .DropShadowEnabled = False, .BackColor = Color.Transparent, .Visible = False}
+
+    Private OperandBounds As New Rectangle
 
     Private ReadOnly ClearTextImage As Image = Base64ToImage(ClearTextString)
     Private ClearTextBounds As New Rectangle
     Private ClearTextDrawBounds As New Rectangle
-    Private ClearRegion As Boolean
 
     Private ReadOnly DropImage As Image = Base64ToImage(DropString)
     Private DropBounds As New Rectangle
     Private DropDrawBounds As New Rectangle
     Private DropRectangle As Rectangle, Points() As Point
-    Private DropRegion As Boolean
 
     Private Field As Integer = 0
     Private ReadOnly SB As New System.Text.StringBuilder With {.Capacity = 2}
@@ -55,10 +67,15 @@ Public Class DatePicker
             Using Pen As New Pen(Brushes.Silver)
                 e.Graphics.DrawLines(Pen, Points)
             End Using
-
+            If HasOperands Then
+                Dim operandImage As Image = OperandDictionary(OperandItem)
+                OperandBounds = New Rectangle(2, Convert.ToInt32((Height - operandImage.Height) / 2), operandImage.Width, operandImage.Height)
+                e.Graphics.DrawImage(OperandDictionary(OperandItem), operandBounds)
+            End If
             If ValueIsNull Then
                 If HintText IsNot Nothing Then
-                    TextRenderer.DrawText(e.Graphics, HintText, Font, ClientRectangle, Color.DarkGray, TextFormatFlags.VerticalCenter)
+                    Dim hintBounds As Rectangle = If(HasOperands, New Rectangle(HOffset, 0, ClientRectangle.Width - VOffset, ClientRectangle.Height), ClientRectangle)
+                    TextRenderer.DrawText(e.Graphics, HintText, Font, hintBounds, Color.DarkGray, TextFormatFlags.VerticalCenter)
                 End If
             Else
                 If Not SelectionPixelStart = SelectionPixelEnd Then
@@ -70,8 +87,8 @@ Public Class DatePicker
                 End If
                 TextRenderer.DrawText(e.Graphics, Microsoft.VisualBasic.Format(_Value, _Format), Font, New Point(HOffset, VOffset), ForeColor, TextFormatFlags.NoPadding)
             End If
-            If DropRegion Or ClearRegion Then
-                Dim regionBounds As Rectangle = If(DropRegion, DropDrawBounds, ClearTextDrawBounds)
+            If MouseOver = MouseRegion.Operand Or MouseOver = MouseRegion.Drop Or MouseOver = MouseRegion.Clear Then
+                Dim regionBounds As Rectangle = If(MouseOver = MouseRegion.Operand, OperandBounds, If(MouseOver = MouseRegion.Drop, DropDrawBounds, ClearTextDrawBounds))
                 Using Brush As New Drawing2D.LinearGradientBrush(regionBounds, Color.FromArgb(60, Color.AliceBlue), Color.FromArgb(60, Color.LightSkyBlue), linearGradientMode:=Drawing2D.LinearGradientMode.Vertical)
                     e.Graphics.FillRectangle(Brush, regionBounds)
                 End Using
@@ -109,18 +126,8 @@ Public Class DatePicker
             End If
         End Set
     End Property
-    Private _HOffset As Integer
     Private ReadOnly Property HOffset As Integer
-        Get
-            Return _HOffset
-        End Get
-    End Property
-    Private _VOffset As Integer
     Private ReadOnly Property VOffset As Integer
-        Get
-            Return _VOffset
-        End Get
-    End Property
     Private ReadOnly Property ValueIsNull As Boolean
         Get
             Return Value = Date.MinValue
@@ -150,6 +157,69 @@ Public Class DatePicker
         End Set
     End Property
     Public Property HintText As String
+    Private HasOperands_ As Boolean = False
+    Public Property HasOperands As Boolean
+        Get
+            Return HasOperands_
+        End Get
+        Set(value As Boolean)
+            If value <> HasOperands_ Then
+                HasOperands_ = value
+                If value Then
+                    OperandDictionary.Clear()
+                    For Each item In Operands
+                        Dim bmpOperand As Bitmap = New Bitmap(20, 20)
+                        Using g As Graphics = Graphics.FromImage(bmpOperand)
+                            With g
+                                Using backBrush As New SolidBrush(Color.Transparent)
+                                    Dim bmpBounds As New Rectangle(0, 0, bmpOperand.Width, bmpOperand.Height)
+                                    g.FillRectangle(backBrush, bmpBounds)
+                                    Using sf As New StringFormat With {
+                                        .Alignment = StringAlignment.Center,
+                                        .LineAlignment = StringAlignment.Center
+                                        }
+                                        g.DrawString(item.Key, New Font("IBM Plex Mono Medium", 16), Brushes.Black, bmpBounds, sf)
+                                    End Using
+                                End Using
+                            End With
+                        End Using
+                        OperandDictionary.Add(item.Value, bmpOperand)
+                    Next
+                    _OperandItem = OperandSign.Equals
+                End If
+            End If
+        End Set
+    End Property
+    Private ReadOnly OperandDictionary As New Dictionary(Of OperandSign, Bitmap)
+    Private ReadOnly Operands As New Dictionary(Of String, OperandSign) From
+                    {
+            {"≥", OperandSign.GreaterThan},
+            {"≤", OperandSign.LessThan},
+            {"=", OperandSign.Equals},
+            {"≠", OperandSign.NotEquals}
+            }
+    Public ReadOnly Property OperandItem As OperandSign
+    Public ReadOnly Property OperandString As String
+        Get
+            Select Case OperandItem
+                Case OperandSign.Equals
+                    Return "="
+                Case OperandSign.NotEquals
+                    Return "¬="
+                Case OperandSign.GreaterThan
+                    Return ">="
+                Case OperandSign.LessThan
+                    Return "<="
+                Case Else
+                    Return Nothing
+            End Select
+        End Get
+    End Property
+    Private ReadOnly Property Image As Image
+        Get
+            Return If(HasOperands, OperandDictionary(OperandItem), Nothing)
+        End Get
+    End Property
     Private ReadOnly Property ValueString As String
         Get
             Return Microsoft.VisualBasic.Format(Value, Format)
@@ -346,13 +416,37 @@ Public Class DatePicker
     Protected Overrides Sub OnMouseMove(e As MouseEventArgs)
 
         If e IsNot Nothing Then
-            Dim onDrop As Boolean = DropDrawBounds.Contains(e.Location)
-            Dim onClear As Boolean = ClearTextDrawBounds.Contains(e.Location)
-            If onDrop <> DropRegion Or onClear <> ClearRegion Then
-                DropRegion = onDrop
-                ClearRegion = onClear
-                Invalidate()
+            Dim lastRegion = MouseOver
+            If OperandBounds.Contains(e.Location) Then
+                MouseOver = MouseRegion.Operand
+
+            ElseIf DropDrawBounds.Contains(e.Location) Then
+                MouseOver = MouseRegion.Drop
+
+            ElseIf ClearTextDrawBounds.Contains(e.Location) Then
+                MouseOver = MouseRegion.Clear
+
+            Else
+                If e.X >= _PixelList.First And e.X <= _PixelList.Last Then
+                    If Not ValueIsNull Then
+                        Dim Position As Integer = (From I In _PixelList Where e.X <= I).First
+                        Try
+                            Dim mouseMatch = Regex.Match(ValueString(_PixelList.Skip(1).ToList.IndexOf(Position)), "[^A-Za-z0-9]+")
+                            If mouseMatch.Length = 0 Then
+                                Field = Regex.Replace(ValueString.Substring(0, _PixelList.IndexOf(Position)), "[A-Za-z0-9]|[ ]", String.Empty).Length
+                                MouseOver = If(Field = 0, MouseRegion.WeekDay, If(Field = 1, MouseRegion.Month, If(Field = 2, MouseRegion.Day, MouseRegion.Year)))
+                                ResizeMe()
+                            Else
+                                MouseOver = MouseRegion.None
+                            End If
+                        Catch ex As IndexOutOfRangeException
+                            MouseOver = MouseRegion.None
+                        End Try
+                    End If
+                End If
+
             End If
+            If lastRegion <> MouseOver Then Invalidate()
             MyBase.OnMouseMove(e)
         End If
 
@@ -370,16 +464,22 @@ Public Class DatePicker
                 End If
             Else
                 'Toggle DropDown --- even if not on DropBounds
-                If ClearRegion Then
+                If MouseOver = MouseRegion.Clear Then
                     Value = Date.MinValue
 
-                ElseIf DropRegion Then
+                ElseIf MouseOver = MouseRegion.Drop Then
                     If Not DropDown.Visible Then
                         Dim Coordinates As Point
                         Coordinates = PointToScreen(New Point(0, 0))
                         Toolstrip.Show(Coordinates.X + Width - DropDown.Width, If(Coordinates.Y + DropDown.Height > My.Computer.Screen.WorkingArea.Height, Coordinates.Y - DropDown.Height, Coordinates.Y + Height))
                     End If
                     DropDown.Visible = Not DropDown.Visible
+
+                ElseIf MouseOver = MouseRegion.Operand Then
+                    Dim currentIndex As Integer = Operands.Values.ToList.IndexOf(OperandItem)
+                    Dim nextIndex As Integer = (currentIndex + 1) Mod 3
+                    _OperandItem = Operands.Values.ToList(nextIndex)
+
                 End If
             End If
             SB.Clear()
@@ -416,17 +516,18 @@ Public Class DatePicker
         ElseIf HorizontalAlignment = HorizontalAlignment.Right Then
             TextHoriOffset = Convert.ToInt32(Width - TextSize.Width)
         End If
-        _HOffset = 3 + TextHoriOffset
+        _HOffset = 3 + TextHoriOffset + If(HasOperands, 20, 0)
         _VOffset = 1 + Convert.ToInt32((Height - TextSize.Height) / 2)
         _PixelList = {HOffset}.Union(Enumerable.Range(1, ValueString.Length).Select(Function(i) TextLength(ValueString.Substring(0, i)))).ToList
         Dim Index As Integer = 0, Start As Integer = 0
         Dim Separator As Boolean
         For Each Letter As String In ValueString
-            If Letter.Intersect("abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray).Count = 1 And Separator Then
+            Dim letterIntersect As New List(Of Char)(Letter.Intersect("abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray))
+            If letterIntersect.Count = 1 And Separator Then
                 Index += 1
                 Separator = False
             End If
-            If Not Letter.Intersect("abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray).Any Then
+            If Not letterIntersect.Any Then
                 Separator = True
             End If
             If Index = Field Then Exit For
@@ -460,7 +561,6 @@ Public Class DatePicker
             ClearTextDrawBounds.X = ClearTextBounds.X : ClearTextDrawBounds.Y = 0 : ClearTextDrawBounds.Width = ClearTextBounds.Width : ClearTextDrawBounds.Height = Height
         End If
 #End Region
-
         Invalidate()
 
     End Sub

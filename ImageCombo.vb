@@ -19,6 +19,13 @@ Public Enum ImageComboMode
     ColorPicker
     FontPicker
     RegEx
+    Searchbox
+End Enum
+Public Enum OperandSign
+    GreaterThan
+    LessThan
+    Equals
+    NotEquals
 End Enum
 Public NotInheritable Class ImageCombo
     Inherits Control
@@ -390,6 +397,31 @@ Public NotInheritable Class ImageCombo
             Invalidate()
         End Set
     End Property
+    Private ReadOnly OperandDictionary As New Dictionary(Of OperandSign, Bitmap)
+    Private ReadOnly Operands As New Dictionary(Of String, OperandSign) From
+                    {
+            {"≥", OperandSign.GreaterThan},
+            {"≤", OperandSign.LessThan},
+            {"=", OperandSign.Equals},
+            {"≠", OperandSign.NotEquals}
+            }
+    Public ReadOnly Property OperandItem As OperandSign
+    Public ReadOnly Property OperandString As String
+        Get
+            Select Case OperandItem
+                Case OperandSign.Equals
+                    Return "="
+                Case OperandSign.NotEquals
+                    Return "¬="
+                Case OperandSign.GreaterThan
+                    Return ">="
+                Case OperandSign.LessThan
+                    Return "<="
+                Case Else
+                    Return Nothing
+            End Select
+        End Get
+    End Property
     Public ReadOnly Property ErrorText As String
         Get
             If ValueError Then
@@ -510,14 +542,38 @@ Public NotInheritable Class ImageCombo
                         Dim item As ComboItem = Items.Add(colorItem.Key.Name, colorItem.Value)
                         item.Tag = colorItem.Key
                     Next
+
                 ElseIf value = ImageComboMode.FontPicker Then
                     CheckBoxes = False
                     For Each fontItem In FontImages()
                         Dim item As ComboItem = Items.Add(fontItem.Key.Name, fontItem.Value)
                         item.Tag = fontItem.Key
                     Next
+
                 ElseIf value = ImageComboMode.Button Then
                     HighlightOnFocus = True
+
+                ElseIf value = ImageComboMode.Searchbox Then
+                    OperandDictionary.Clear()
+                    For Each item In Operands
+                        Dim bmpOperand As Bitmap = New Bitmap(20, 20)
+                        Using g As Graphics = Graphics.FromImage(bmpOperand)
+                            With g
+                                Using backBrush As New SolidBrush(Color.Transparent)
+                                    Dim bmpBounds As New Rectangle(0, 0, bmpOperand.Width, bmpOperand.Height)
+                                    g.FillRectangle(backBrush, bmpBounds)
+                                    Using sf As New StringFormat With {
+                                        .Alignment = StringAlignment.Center,
+                                        .LineAlignment = StringAlignment.Center
+                                        }
+                                        g.DrawString(item.Key, New Font("IBM Plex Mono Medium", 16), Brushes.Black, bmpBounds, sf)
+                                    End Using
+                                End Using
+                            End With
+                        End Using
+                        OperandDictionary.Add(item.Value, bmpOperand)
+                    Next
+                    _OperandItem = OperandSign.Equals
                 End If
                 Mode_ = value
                 Invalidate()
@@ -568,7 +624,7 @@ Public NotInheritable Class ImageCombo
     Public Property Image As Image
         Get
             Dim overrideImage As Image = If(ErrorImage, ComboItemImage)
-            Return If(overrideImage, _Image)
+            Return If(overrideImage, If(Mode = ImageComboMode.Searchbox, OperandDictionary(OperandItem), _Image))
         End Get
         Set(value As Image)
             _Image = value
@@ -1045,6 +1101,11 @@ Public NotInheritable Class ImageCombo
                     Invalidate()
                 Else
                     RaiseEvent ImageClicked(Me, New ImageComboEventArgs)
+                    If Mode = ImageComboMode.Searchbox Then
+                        Dim currentIndex As Integer = Operands.Values.ToList.IndexOf(OperandItem)
+                        Dim nextIndex As Integer = (currentIndex + 1) Mod 3
+                        _OperandItem = Operands.Values.ToList(nextIndex)
+                    End If
                 End If
 
             ElseIf Mouse_Region = MouseRegion.ClearText Then
@@ -1143,7 +1204,6 @@ Public NotInheritable Class ImageCombo
 
     End Sub
 #End Region
-
 #End Region
 #Region " FUNCTIONS + METHODS "
     Private Sub DropDownItemSelected() Handles Me.ItemSelected
