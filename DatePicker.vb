@@ -454,33 +454,22 @@ Public Class DatePicker
     Protected Overrides Sub OnMouseDown(ByVal e As MouseEventArgs)
 
         If e IsNot Nothing Then
-            If e.X >= _PixelList.First And e.X <= _PixelList.Last Then
-                If Not ValueIsNull Then
-                    Dim Position As Integer = (From I In _PixelList Where e.X <= I).First
-                    If Regex.Match(ValueString(_PixelList.Skip(1).ToList.IndexOf(Position)), "[^A-Za-z0-9]+").Length = 0 Then
-                        Field = Regex.Replace(ValueString.Substring(0, _PixelList.IndexOf(Position)), "[A-Za-z0-9]|[ ]", String.Empty).Length
-                        ResizeMe()
-                    End If
+            If MouseOver = MouseRegion.Clear Then
+                Value = Date.MinValue
+
+            ElseIf MouseOver = MouseRegion.Drop Then
+                If Not DropDown.Visible Then
+                    Dim Coordinates As Point
+                    Coordinates = PointToScreen(New Point(0, 0))
+                    Toolstrip.Show(Coordinates.X + Width - DropDown.Width, If(Coordinates.Y + DropDown.Height > My.Computer.Screen.WorkingArea.Height, Coordinates.Y - DropDown.Height, Coordinates.Y + Height))
                 End If
-            Else
-                'Toggle DropDown --- even if not on DropBounds
-                If MouseOver = MouseRegion.Clear Then
-                    Value = Date.MinValue
+                DropDown.Visible = Not DropDown.Visible
 
-                ElseIf MouseOver = MouseRegion.Drop Then
-                    If Not DropDown.Visible Then
-                        Dim Coordinates As Point
-                        Coordinates = PointToScreen(New Point(0, 0))
-                        Toolstrip.Show(Coordinates.X + Width - DropDown.Width, If(Coordinates.Y + DropDown.Height > My.Computer.Screen.WorkingArea.Height, Coordinates.Y - DropDown.Height, Coordinates.Y + Height))
-                    End If
-                    DropDown.Visible = Not DropDown.Visible
+            ElseIf MouseOver = MouseRegion.Operand Then
+                Dim currentIndex As Integer = Operands.Values.ToList.IndexOf(OperandItem)
+                Dim nextIndex As Integer = (currentIndex + 1) Mod 3
+                _OperandItem = Operands.Values.ToList(nextIndex)
 
-                ElseIf MouseOver = MouseRegion.Operand Then
-                    Dim currentIndex As Integer = Operands.Values.ToList.IndexOf(OperandItem)
-                    Dim nextIndex As Integer = (currentIndex + 1) Mod 3
-                    _OperandItem = Operands.Values.ToList(nextIndex)
-
-                End If
             End If
             SB.Clear()
             Invalidate()
