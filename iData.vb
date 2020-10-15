@@ -2211,7 +2211,7 @@ End Class
         If disposing Then
             Handle.Dispose()
             ' Free any other managed objects here.
-            _Table.Dispose()
+            Table.Dispose()
             Failure?.Dispose()
             Ticker?.Dispose()
         End If
@@ -2260,7 +2260,7 @@ End Class
     End Sub
     Public Sub New(sqlConnection As Connection, sqlInstruction As String)
 
-        ConnectionString = If(sqlConnection Is Nothing, String.Empty, Connection.ToString)
+        ConnectionString = If(sqlConnection Is Nothing, String.Empty, sqlConnection.ToString)
         Instruction = If(sqlInstruction, String.Empty)
         Connection = sqlConnection
 
@@ -2418,7 +2418,8 @@ Public Class DDL
         If disposing Then
             Handle.Dispose()
             ' Free any other managed objects here.
-            If rf IsNot Nothing Then rf.Dispose()
+            rf?.Dispose()
+            Ticker?.Dispose()
         End If
         disposed = True
     End Sub
@@ -2441,6 +2442,7 @@ Public Class DDL
     End Property
     Public ReadOnly Property Ended As Date
     Public ReadOnly Property Response As ResponseEventArgs
+    Public ReadOnly Property Connection As Connection
     Public ReadOnly Property Status As TriState
         Get
             If Response Is Nothing Then
@@ -2456,6 +2458,7 @@ Public Class DDL
     End Property
     Public Property Name As String
     Public Property Tag As Object
+    Public Property Ticker As WaitTimer
     Public ReadOnly Property Procedures As List(Of Procedure)
         Get
             If Regex.Match(Instruction, "(CREATE|ALTER|DROP)(\s{1,}OR REPLACE){0,1}\s{1,}(FUNCTION|PROCEDURE|TRIGGER)[\s]{1,}", RegexOptions.IgnoreCase).Success Then
@@ -2468,13 +2471,14 @@ Public Class DDL
     End Property
     Public ReadOnly Property ProceduresOK As New List(Of Procedure)
     Private rf As ResponseFailure
-    Public Sub New(ConnectionString As String, Instruction As String, Optional PromptForInput As Boolean = False, Optional GetRowCount As Boolean = False)
+    Public Sub New(ddlConnection As Connection, ddlInstruction As String, Optional PromptForInput As Boolean = False, Optional getCount As Boolean = False)
 
-        If ConnectionString IsNot Nothing Then
-            Me.ConnectionString = ConnectionString
-            Me.Instruction = Instruction
+        Connection = ddlConnection
+        If ddlConnection IsNot Nothing Then
+            ConnectionString = ddlConnection.ToString
+            Instruction = ddlInstruction
             RequiresInput = PromptForInput
-            Me.GetRowCount = GetRowCount
+            GetRowCount = getCount
             If RequiresInput Then
                 GetInput()
             Else
@@ -2483,13 +2487,14 @@ Public Class DDL
         End If
 
     End Sub
-    Public Sub New(Connection As Connection, Instruction As String, Optional PromptForInput As Boolean = False, Optional GetRowCount As Boolean = False)
+    Public Sub New(ddlConnectionString As String, ddlInstruction As String, Optional PromptForInput As Boolean = False, Optional getCount As Boolean = False)
 
-        If Connection IsNot Nothing Then
-            ConnectionString = Connection.ToString
-            Me.Instruction = Instruction
+        If ConnectionString IsNot Nothing Then
+            ConnectionString = ddlConnectionString
+            Connection = New Connection(ddlConnectionString)
+            Instruction = ddlInstruction
             RequiresInput = PromptForInput
-            Me.GetRowCount = GetRowCount
+            GetRowCount = getCount
             If RequiresInput Then
                 GetInput()
             Else
@@ -2547,6 +2552,7 @@ Public Class DDL
     Public Sub Execute(Optional RunInBackground As Boolean = False)
 
         If ProceduresOK.Any Then
+            Ticker?.StartTicking()
             If RunInBackground Then
                 With New BackgroundWorker
                     AddHandler .DoWork, AddressOf Execute
@@ -2628,6 +2634,7 @@ Public Class DDL
     Private Sub Executed(sender As Object, e As RunWorkerCompletedEventArgs)
 
         If sender IsNot Nothing Then RemoveHandler DirectCast(sender, BackgroundWorker).RunWorkerCompleted, AddressOf Executed
+        Ticker?.StopTicking()
         RaiseEvent Completed(Me, Response)
 
     End Sub
