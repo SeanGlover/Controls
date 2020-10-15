@@ -2212,7 +2212,8 @@ End Class
             Handle.Dispose()
             ' Free any other managed objects here.
             _Table.Dispose()
-            If Failure IsNot Nothing Then Failure.Dispose()
+            Failure?.Dispose()
+            Ticker?.Dispose()
         End If
         disposed = True
     End Sub
@@ -2247,25 +2248,28 @@ End Class
     Public Property Name As String
     Public Property Tag As Object
     Public Property NoPrompt As Boolean = False
-    Private Failure As ResponseFailure
-    Public Sub New(ConnectionString As String, Instruction As String)
+    Public Property Ticker As WaitTimer
 
-        Me.ConnectionString = If(ConnectionString, String.Empty)
-        Me.Instruction = If(Instruction, String.Empty)
-        Connection = New Connection(ConnectionString)
+    Private Failure As ResponseFailure
+    Public Sub New(sqlConnectionString As String, sqlInstruction As String)
+
+        ConnectionString = If(sqlConnectionString, String.Empty)
+        Connection = New Connection(sqlConnectionString)
+        Instruction = If(sqlInstruction, String.Empty)
 
     End Sub
-    Public Sub New(Connection As Connection, Instruction As String)
+    Public Sub New(sqlConnection As Connection, sqlInstruction As String)
 
-        ConnectionString = If(Connection Is Nothing, String.Empty, Connection.ToString)
-        Me.Instruction = If(Instruction, String.Empty)
-        Connection = New Connection(ConnectionString)
+        ConnectionString = If(sqlConnection Is Nothing, String.Empty, Connection.ToString)
+        Instruction = If(sqlInstruction, String.Empty)
+        Connection = sqlConnection
 
     End Sub
     Public Sub Execute(Optional RunInBackground As Boolean = True)
 
         _Started = Now
         _Busy = True
+        Ticker?.StartTicking()
         If RunInBackground Then
             With New BackgroundWorker
                 AddHandler .DoWork, AddressOf Execute
@@ -2386,6 +2390,7 @@ End Class
 
         If sender IsNot Nothing Then RemoveHandler DirectCast(sender, BackgroundWorker).RunWorkerCompleted, AddressOf Executed
         _Busy = False
+        Ticker?.StopTicking()
         RaiseEvent Completed(Me, Response)
 
     End Sub

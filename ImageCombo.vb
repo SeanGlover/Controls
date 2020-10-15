@@ -992,11 +992,15 @@ Public NotInheritable Class ImageCombo
 #Region " PASTE "
                     S = SelectionStart
                     Text = Text.Remove(SelectionStart, SelectionLength)
-                    Dim ClipboardText As String = Clipboard.GetText
-                    Text = Text.Insert(S, ClipboardText)
-                    CursorIndex = S + ClipboardText.Length
-                    SelectionIndex = CursorIndex
-                    RaiseEvent TextPasted(Me, Nothing)
+                    Dim ClipboardText As String = Nothing
+                    Try
+                        ClipboardText = Clipboard.GetText()
+                        Text = Text.Insert(S, ClipboardText)
+                        CursorIndex = S + ClipboardText.Length
+                        SelectionIndex = CursorIndex
+                        RaiseEvent TextPasted(Me, Nothing)
+                    Catch ex As RunTime.InteropServices.ExternalException
+                    End Try
 #End Region
                 ElseIf e.KeyCode = Keys.Enter Then
 #Region " SUBMIT "
