@@ -9,7 +9,7 @@ Public Class DatePicker
     Inherits Control
     Private Enum MouseRegion
         None
-        Operand
+        Search
         Drop
         Clear
         Text
@@ -21,7 +21,11 @@ Public Class DatePicker
     Private MouseOver As New MouseRegion
     Friend Toolstrip As New ToolStripDropDown With {.AutoClose = False, .AutoSize = False, .Padding = New Padding(0), .DropShadowEnabled = False, .BackColor = Color.Transparent, .Visible = False}
 
-    Private OperandBounds As New Rectangle
+    Private ReadOnly Property SearchBounds As Rectangle
+        Get
+            Return New Rectangle(2, 0, If(HasSearch, 16, 0), Height)
+        End Get
+    End Property
 
     Private ReadOnly ClearTextImage As Image = Base64ToImage(ClearTextString)
     Private ClearTextBounds As New Rectangle
@@ -67,14 +71,23 @@ Public Class DatePicker
             Using Pen As New Pen(Brushes.Silver)
                 e.Graphics.DrawLines(Pen, Points)
             End Using
-            If HasOperands Then
-                Dim operandImage As Image = OperandDictionary(OperandItem)
-                OperandBounds = New Rectangle(2, Convert.ToInt32((Height - operandImage.Height) / 2), operandImage.Width, operandImage.Height)
-                e.Graphics.DrawImage(OperandDictionary(OperandItem), operandBounds)
+            If HasSearch Then
+                Dim searchBounds = New Rectangle(2, 0, 16, Height)
+                Using searchBrush As New SolidBrush(Color.Transparent)
+                    e.Graphics.FillRectangle(searchBrush, searchBounds)
+                    Using sf As New StringFormat With {
+                                                .Alignment = StringAlignment.Center,
+                                                .LineAlignment = StringAlignment.Center
+                                                }
+                        Using searchFont As New Font("Tahoma", 16)
+                            e.Graphics.DrawString(SearchDrawString, searchFont, Brushes.Black, searchBounds, sf)
+                        End Using
+                    End Using
+                End Using
             End If
             If ValueIsNull Then
                 If HintText IsNot Nothing Then
-                    Dim hintBounds As Rectangle = If(HasOperands, New Rectangle(HOffset, 0, ClientRectangle.Width - VOffset, ClientRectangle.Height), ClientRectangle)
+                    Dim hintBounds As Rectangle = If(HasSearch, New Rectangle(HOffset, 0, ClientRectangle.Width - VOffset, ClientRectangle.Height), ClientRectangle)
                     TextRenderer.DrawText(e.Graphics, HintText, Font, hintBounds, Color.DarkGray, TextFormatFlags.VerticalCenter)
                 End If
             Else
@@ -87,8 +100,8 @@ Public Class DatePicker
                 End If
                 TextRenderer.DrawText(e.Graphics, Microsoft.VisualBasic.Format(_Value, _Format), Font, New Point(HOffset, VOffset), ForeColor, TextFormatFlags.NoPadding)
             End If
-            If MouseOver = MouseRegion.Operand Or MouseOver = MouseRegion.Drop Or MouseOver = MouseRegion.Clear Then
-                Dim regionBounds As Rectangle = If(MouseOver = MouseRegion.Operand, OperandBounds, If(MouseOver = MouseRegion.Drop, DropDrawBounds, ClearTextDrawBounds))
+            If MouseOver = MouseRegion.Search Or MouseOver = MouseRegion.Drop Or MouseOver = MouseRegion.Clear Then
+                Dim regionBounds As Rectangle = If(MouseOver = MouseRegion.Search, SearchBounds, If(MouseOver = MouseRegion.Drop, DropDrawBounds, ClearTextDrawBounds))
                 Using Brush As New Drawing2D.LinearGradientBrush(regionBounds, Color.FromArgb(60, Color.AliceBlue), Color.FromArgb(60, Color.LightSkyBlue), linearGradientMode:=Drawing2D.LinearGradientMode.Vertical)
                     e.Graphics.FillRectangle(Brush, regionBounds)
                 End Using
@@ -157,67 +170,34 @@ Public Class DatePicker
         End Set
     End Property
     Public Property HintText As String
-    Private HasOperands_ As Boolean = False
-    Public Property HasOperands As Boolean
+    Private HasSearch_ As Boolean = False
+    Public Property HasSearch As Boolean
         Get
-            Return HasOperands_
+            Return HasSearch_
         End Get
         Set(value As Boolean)
-            If value <> HasOperands_ Then
-                HasOperands_ = value
-                If value Then
-                    OperandDictionary.Clear()
-                    For Each item In Operands
-                        Dim bmpOperand As Bitmap = New Bitmap(20, 20)
-                        Using g As Graphics = Graphics.FromImage(bmpOperand)
-                            With g
-                                Using backBrush As New SolidBrush(Color.Transparent)
-                                    Dim bmpBounds As New Rectangle(0, 0, bmpOperand.Width, bmpOperand.Height)
-                                    g.FillRectangle(backBrush, bmpBounds)
-                                    Using sf As New StringFormat With {
-                                        .Alignment = StringAlignment.Center,
-                                        .LineAlignment = StringAlignment.Center
-                                        }
-                                        g.DrawString(item.Key, New Font("IBM Plex Mono Medium", 16), Brushes.Black, bmpBounds, sf)
-                                    End Using
-                                End Using
-                            End With
-                        End Using
-                        OperandDictionary.Add(item.Value, bmpOperand)
-                    Next
-                    _OperandItem = OperandSign.Equals
-                End If
+            If value <> HasSearch_ Then
+                HasSearch_ = value
+                _SearchItem = MathSymbol.Equals
             End If
         End Set
     End Property
-    Private ReadOnly OperandDictionary As New Dictionary(Of OperandSign, Bitmap)
-    Private ReadOnly Operands As New Dictionary(Of String, OperandSign) From
+    Private ReadOnly MathSymbols As New Dictionary(Of MathSymbol, String()) From
                     {
-            {"≥", OperandSign.GreaterThan},
-            {"≤", OperandSign.LessThan},
-            {"=", OperandSign.Equals},
-            {"≠", OperandSign.NotEquals}
+            {MathSymbol.Equals, {"=", "="}},
+            {MathSymbol.GreaterThan, {"≥", ">="}},
+            {MathSymbol.LessThan, {"≤", "<="}},
+            {MathSymbol.NotEquals, {"≠", "<>"}}
             }
-    Public ReadOnly Property OperandItem As OperandSign
-    Public ReadOnly Property OperandString As String
+    Public ReadOnly Property SearchItem As MathSymbol
+    Private ReadOnly Property SearchDrawString As String
         Get
-            Select Case OperandItem
-                Case OperandSign.Equals
-                    Return "="
-                Case OperandSign.NotEquals
-                    Return "¬="
-                Case OperandSign.GreaterThan
-                    Return ">="
-                Case OperandSign.LessThan
-                    Return "<="
-                Case Else
-                    Return Nothing
-            End Select
+            Return MathSymbols(SearchItem).First
         End Get
     End Property
-    Private ReadOnly Property Image As Image
+    Public ReadOnly Property SearchString As String
         Get
-            Return If(HasOperands, OperandDictionary(OperandItem), Nothing)
+            Return MathSymbols(SearchItem).Last
         End Get
     End Property
     Private ReadOnly Property ValueString As String
@@ -417,8 +397,8 @@ Public Class DatePicker
 
         If e IsNot Nothing Then
             Dim lastRegion = MouseOver
-            If OperandBounds.Contains(e.Location) Then
-                MouseOver = MouseRegion.Operand
+            If SearchBounds.Contains(e.Location) Then
+                MouseOver = MouseRegion.Search
 
             ElseIf DropDrawBounds.Contains(e.Location) Then
                 MouseOver = MouseRegion.Drop
@@ -465,10 +445,12 @@ Public Class DatePicker
                 End If
                 DropDown.Visible = Not DropDown.Visible
 
-            ElseIf MouseOver = MouseRegion.Operand Then
-                Dim currentIndex As Integer = Operands.Values.ToList.IndexOf(OperandItem)
-                Dim nextIndex As Integer = (currentIndex + 1) Mod 3
-                _OperandItem = Operands.Values.ToList(nextIndex)
+            ElseIf MouseOver = MouseRegion.Search Then
+                '= > < ≠
+                '0 1 2 3
+                Dim nextIndex As Integer = MathSymbols.Keys.ToList.IndexOf(SearchItem)
+                nextIndex = If(nextIndex + 1 = MathSymbols.Count, 0, nextIndex + 1)
+                _SearchItem = MathSymbols.Keys.ToList(nextIndex)
 
             End If
             SB.Clear()
@@ -505,7 +487,7 @@ Public Class DatePicker
         ElseIf HorizontalAlignment = HorizontalAlignment.Right Then
             TextHoriOffset = Convert.ToInt32(Width - TextSize.Width)
         End If
-        _HOffset = 3 + TextHoriOffset + If(HasOperands, 20, 0)
+        _HOffset = 3 + TextHoriOffset + If(HasSearch, 20, 0)
         _VOffset = 1 + Convert.ToInt32((Height - TextSize.Height) / 2)
         _PixelList = {HOffset}.Union(Enumerable.Range(1, ValueString.Length).Select(Function(i) TextLength(ValueString.Substring(0, i)))).ToList
         Dim Index As Integer = 0, Start As Integer = 0

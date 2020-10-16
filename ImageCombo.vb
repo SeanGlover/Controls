@@ -20,33 +20,39 @@ Public Enum ImageComboMode
     FontPicker
     RegEx
     Searchbox
-End Enum
-Public Enum OperandSign
+End Enum 'Leave Public since other controls need access
+Public Enum MathSymbol
     GreaterThan
     LessThan
     Equals
     NotEquals
-End Enum
+End Enum 'Leave Public since DatePicker also uses
 Public NotInheritable Class ImageCombo
     Inherits Control
     'Fixes:     Screen Scaling of 125, 150 distorts the CopyFromScreen in DropDown.Protected Overrides Sub OnVisibleChanged(e As EventArgs)
     Private ReadOnly ErrorTip As New ToolTip With {
         .BackColor = Color.GhostWhite,
         .ForeColor = Color.Black,
-        .ShowAlways = False}
+        .ShowAlways = False
+    }
     Friend Toolstrip As New ToolStripDropDown With {.AutoClose = False, .AutoSize = False, .Padding = New Padding(0), .DropShadowEnabled = False, .BackColor = Color.Transparent}
     Friend Mouse_Region As New MouseRegion
+    '[0 Image]       [1 Search]      [2 Text]     [3 Eye]       [4 Clear]       [5 DropDown]
     Private ImageBounds As New Rectangle
+    Private ImageClickBounds As New Rectangle 'Full height
+    Private SearchBounds As New Rectangle
     Friend TextBounds As New Rectangle
+    Private TextMouseBounds As New Rectangle
     Private ReadOnly EyeImage As Image
     Private EyeBounds As New Rectangle
-    Private EyeDrawBounds As New Rectangle
+    Private EyeClickBounds As New Rectangle 'Full height
     Private ReadOnly ClearTextImage As Image
     Private ClearTextBounds As New Rectangle
-    Private ClearTextDrawBounds As New Rectangle
+    Private ClearTextClickBounds As New Rectangle 'Full height
     Private ReadOnly DropImage As Image
     Private DropBounds As New Rectangle
-    Private DropDrawBounds As New Rectangle
+    Private DropClickBounds As New Rectangle 'Full height
+    Private HighlightBounds As New Rectangle
     Private CursorBounds As New Rectangle
     Private SelectionBounds As New Rectangle
     Private WithEvents CursorBlinkTimer As New Timer With {.Interval = 600}
@@ -55,23 +61,26 @@ Public NotInheritable Class ImageCombo
     Private InBounds As Boolean
     Private TextIsVisible As Boolean = True
     Private Const Spacing As Byte = 2
+    Private KeyedValue As String
+    Private LastValue As String
     Private ReadOnly GlossyDictionary As Dictionary(Of Theme, Image) = GlossyImages
-#Region " STRUCTURES + ENUMS "
-    Enum MouseRegion
+
+    Friend Enum MouseRegion
         None
         Image
+        Search
         Text
         Eye
         ClearText
         DropDown
     End Enum
-    <Flags> Enum ValueTypes
+    <Flags> Public Enum ValueTypes
         Any
         Integers
         Decimals
     End Enum
-#End Region
-#Region " INITIALIZE "
+
+    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
     Public Sub New()
 
         SetStyle(ControlStyles.AllPaintingInWmPaint, True)
@@ -101,7 +110,8 @@ Public NotInheritable Class ImageCombo
         MyBase.InitLayout()
 
     End Sub
-#End Region
+    '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+
     Private Sub CursorBlinkTimer_Tick() Handles CursorBlinkTimer.Tick
 
         CursorShouldBeVisible = Not CursorShouldBeVisible
@@ -120,10 +130,8 @@ Public NotInheritable Class ImageCombo
         If e IsNot Nothing Then
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
 
-            Dim hasImage As Boolean = Image IsNot Nothing
-
             If Mode = ImageComboMode.Button Then
-#Region " BUTTON STYLE - ADD COLORS "
+#Region " BUTTON PROPERTIES "
                 e.Graphics.DrawImage(If(InBounds, GlossyDictionary(If(ButtonMouseTheme = Theme.None, Theme.Gray, ButtonMouseTheme)), GlossyDictionary(If(ButtonTheme = Theme.None, Theme.Gray, ButtonTheme))), ClientRectangle)
                 Dim penTangle As Rectangle = ClientRectangle
                 penTangle.Inflate(-2, -2)
@@ -133,28 +141,6 @@ Public NotInheritable Class ImageCombo
                         e.Graphics.DrawRectangle(borderPen, penTangle)
                     End Using
                 End Using
-#Region " SET BOUNDS "
-                With ImageBounds
-                    If hasImage Then
-                        Dim Padding As Integer = {0, Convert.ToInt32((Height - Image.Height) / 2)}.Max     'Might be negative if Image.Height > Height
-                        .X = Spacing
-                        .Y = Padding
-                        .Width = Image.Width
-                        .Height = {Height, Image.Height}.Min
-                    Else
-                        .X = Spacing
-                        .Y = 0
-                        .Width = 0
-                        .Height = Height
-                    End If
-                End With
-                With TextBounds
-                    .X = ImageBounds.Right + Spacing          'LOOKS BETTER OFFSET BY A FEW PIXELS
-                    .Y = 0
-                    .Width = Width - ({ImageBounds.Width, DropBounds.Width, ClearTextBounds.Width, EyeBounds.Width}.Sum + Spacing + Spacing + Spacing)
-                    .Height = Height
-                End With
-#End Region
                 Using buttonAlignment As StringFormat = New StringFormat With {
                     .LineAlignment = StringAlignment.Center,
                     .Alignment = If(HorizontalAlignment = HorizontalAlignment.Center, StringAlignment.Center, If(HorizontalAlignment = HorizontalAlignment.Left, StringAlignment.Near, StringAlignment.Far))
@@ -174,117 +160,6 @@ Public NotInheritable Class ImageCombo
                 Using backBrush As New SolidBrush(BackColor)
                     e.Graphics.FillRectangle(backBrush, ClientRectangle)
                 End Using
-#Region " SET BOUNDS "
-                Dim hasText As Boolean = Text.Any
-                Dim hasDrop As Boolean = Not Mode = ImageComboMode.Button And Items.Any
-                Dim hasClear As Boolean = Not Mode = ImageComboMode.Button And hasText
-                Dim hasEye As Boolean = PasswordProtected And hasClear
-                '===========================
-                If AutoSize Then
-                    Dim textSize As Size = If(hasText, MeasureText(Text, Font), New Size)
-                    Dim imageSize As Size = If(hasImage, Image.Size, New Size)
-                    Dim dropSize As Size = If(hasDrop, DropImage.Size, New Size)
-                    Dim clearSize As Size = If(hasClear, ClearTextImage.Size, New Size)
-                    Dim eyeSize As Size = If(hasEye, EyeImage.Size, New Size)
-                    '===========================
-                    Dim sizes As New List(Of Size) From {textSize, imageSize, dropSize, clearSize, eyeSize}
-                    Dim widths As New List(Of Integer)(From s In sizes Where Not s.Width = 0 Select s.Width)
-                    Dim heights As New List(Of Integer)(From s In sizes Where Not s.Height = 0 Select s.Height)
-                    '===========================
-                    Dim minSize As Size = If(MinimumSize.IsEmpty, New Size(60, 24), MinimumSize)
-                    Dim maxSize As Size = If(MaximumSize.IsEmpty, WorkingArea.Size, MaximumSize)
-                    Dim minmaxWidth As Integer = {{If(widths.Any, widths.Sum + Spacing * (widths.Count + 1), minSize.Width), minSize.Width}.Max, maxSize.Width}.Min
-                    Dim minmaxHeight As Integer = {{If(heights.Any, Spacing + heights.Max + Spacing, minSize.Height), minSize.Height}.Max, maxSize.Height}.Min
-                    Dim newSize As New Size(minmaxWidth, minmaxHeight)
-                    Size = newSize
-                End If
-                If Not hasText Then
-                    CursorIndex = 0
-                    SelectionIndex = 0
-                End If
-                With ImageBounds
-                    If hasImage Then
-                        Dim Padding As Integer = {0, Convert.ToInt32((Height - Image.Height) / 2)}.Max     'Might be negative if Image.Height > Height
-                        .X = Spacing
-                        .Y = Padding
-                        .Width = Image.Width
-                        .Height = {Height, Image.Height}.Min
-                    Else
-                        .X = Spacing
-                        .Y = 0
-                        .Width = 0
-                        .Height = Height
-                    End If
-                End With
-                With DropBounds
-                    If hasDrop Then
-                        'V LOOKS BETTER WHEN NOT RESIZED
-                        Dim Padding As Integer = {0, Convert.ToInt32((Height - DropImage.Height) / 2)}.Max     'Might be negative if DropImage.Height > Height
-                        .X = Width - (DropImage.Width + Spacing)
-                        .Y = Padding
-                        .Width = DropImage.Width
-                        .Height = {Height, DropImage.Height}.Min
-                        DropDrawBounds.X = .X : DropDrawBounds.Y = 0 : DropDrawBounds.Width = .Width : DropDrawBounds.Height = Height
-                    Else
-                        .X = Width
-                        .Y = 0
-                        .Width = 0
-                        .Height = Height
-                        DropDrawBounds = DropBounds
-                    End If
-                End With
-                With ClearTextBounds
-                    If hasClear Then
-                        'X LOOKS BETTER WHEN NOT RESIZED
-                        Dim Padding As Integer = {0, Convert.ToInt32((Height - ClearTextImage.Height) / 2)}.Max     'Might be negative if ClearTextImage.Height > Height
-                        .X = Width - ({DropBounds.Width, ClearTextImage.Width}.Sum + Spacing)
-                        .Y = Padding
-                        .Width = ClearTextImage.Width
-                        .Height = {Height, ClearTextImage.Height}.Min
-                        ClearTextDrawBounds.X = .X : ClearTextDrawBounds.Y = 0 : ClearTextDrawBounds.Width = .Width : ClearTextDrawBounds.Height = Height
-                    Else
-                        .X = DropBounds.Left
-                        .Y = 0
-                        .Width = 0
-                        .Height = Height
-                        ClearTextDrawBounds = ClearTextBounds
-                    End If
-                End With
-                With EyeBounds
-                    If hasEye Then
-                        Dim Padding As Integer = {0, Convert.ToInt32((Height - EyeImage.Height) / 2)}.Max     'Might be negative if EyeImage.Height > Height
-                        .X = Width - ({DropBounds.Width, ClearTextBounds.Width, EyeImage.Width}.Sum + Spacing)
-                        .Y = Padding
-                        .Width = EyeImage.Width
-                        .Height = {Height, EyeImage.Height}.Min
-                        EyeDrawBounds.X = .X : EyeDrawBounds.Y = 0 : EyeDrawBounds.Width = .Width : EyeDrawBounds.Height = Height
-                    Else
-                        .X = ClearTextBounds.Left
-                        .Y = 0
-                        .Width = 0
-                        .Height = Height
-                        EyeDrawBounds = EyeBounds
-                    End If
-                End With
-                With TextBounds
-                    .X = ImageBounds.Right + Spacing          'LOOKS BETTER OFFSET BY A FEW PIXELS
-                    .Y = 0
-                    .Width = Width - ({ImageBounds.Width, DropBounds.Width, ClearTextBounds.Width, EyeBounds.Width}.Sum + Spacing + Spacing + Spacing)
-                    .Height = Height
-                End With
-                With CursorBounds
-                    .X = {Spacing, GetxPos(CursorIndex)}.Max
-                    .Y = Spacing
-                    .Width = 1
-                    .Height = Height - Spacing * 2
-                End With
-                With SelectionBounds
-                    .X = {GetxPos(SelectionIndex), CursorBounds.X}.Min
-                    .Y = spacing
-                    .Width = Math.Abs(GetxPos(CursorIndex) - GetxPos(SelectionIndex))
-                    .Height = CursorBounds.Height
-                End With
-#End Region
                 If Text.Any Then
                     If PasswordProtected And Not TextIsVisible Then
                         Dim lettersRight As Integer = LetterWidths.Values.Last.Value
@@ -326,16 +201,24 @@ Public NotInheritable Class ImageCombo
                     TextRenderer.DrawText(e.Graphics, HintText, Font, TextBounds, Color.DarkGray, TextFormatFlags.VerticalCenter)
                 End If
                 If Enabled Then
+                    If Mode = ImageComboMode.Searchbox Then
+                        Using searchBrush As New SolidBrush(Color.Transparent)
+                            e.Graphics.FillRectangle(searchBrush, SearchBounds)
+                            Using sf As New StringFormat With {
+                                                .Alignment = StringAlignment.Center,
+                                                .LineAlignment = StringAlignment.Center
+                                                }
+                                Using searchFont As New Font("Tahoma", 16)
+                                    e.Graphics.DrawString(SearchDrawString, searchFont, Brushes.Black, SearchBounds, sf)
+                                End Using
+                            End Using
+                        End Using
+                    End If
                     e.Graphics.DrawImage(EyeImage, EyeBounds)
                     e.Graphics.DrawImage(ClearTextImage, ClearTextBounds)
                     e.Graphics.DrawImage(DropImage, DropBounds)
-                    Dim HighlightRectangle As Rectangle = Nothing
-                    If Mouse_Region = MouseRegion.Image Then HighlightRectangle = New Rectangle(ImageBounds.X, 0, ImageBounds.Width, Height)
-                    If Mouse_Region = MouseRegion.Eye Then HighlightRectangle = EyeDrawBounds
-                    If Mouse_Region = MouseRegion.ClearText Then HighlightRectangle = ClearTextDrawBounds
-                    If Mouse_Region = MouseRegion.DropDown Then HighlightRectangle = DropDrawBounds
                     Using mouseOverBrush As New SolidBrush(Color.FromArgb(60, SelectionColor))
-                        e.Graphics.FillRectangle(mouseOverBrush, HighlightRectangle)
+                        e.Graphics.FillRectangle(mouseOverBrush, HighlightBounds)
                     End Using
                     If _HasFocus And CursorShouldBeVisible Then
                         Using Pen As New Pen(SelectionColor)
@@ -358,6 +241,150 @@ Public NotInheritable Class ImageCombo
         End If
 
     End Sub
+    Private Sub Bounds_Set()
+
+        Dim hasImage As Boolean = Image IsNot Nothing
+        If Mode = ImageComboMode.Button Then
+            With ImageBounds
+                If hasImage Then
+                    Dim Padding As Integer = {0, Convert.ToInt32((Height - Image.Height) / 2)}.Max     'Might be negative if Image.Height > Height
+                    .X = Spacing
+                    .Y = Padding
+                    .Width = Image.Width
+                    .Height = {Height, Image.Height}.Min
+                Else
+                    .X = Spacing
+                    .Y = 0
+                    .Width = 0
+                    .Height = Height
+                End If
+                ImageClickBounds.X = .X : ImageClickBounds.Y = 0 : ImageClickBounds.Width = .Width : ImageClickBounds.Height = Height
+            End With
+            With TextBounds
+                .X = ImageBounds.Right + Spacing          'LOOKS BETTER OFFSET BY A FEW PIXELS
+                .Y = 0
+                .Width = Width - ({ImageBounds.Width, DropBounds.Width, ClearTextBounds.Width, EyeBounds.Width}.Sum + Spacing + Spacing + Spacing)
+                .Height = Height
+                TextMouseBounds.X = .X : TextMouseBounds.Y = 0 : TextMouseBounds.Width = .Width : TextMouseBounds.Height = Height
+            End With
+        Else
+            Dim hasText As Boolean = Text.Any
+            Dim hasDrop As Boolean = Not Mode = ImageComboMode.Button And Items.Any
+            Dim hasClear As Boolean = Not Mode = ImageComboMode.Button And hasText
+            Dim hasEye As Boolean = PasswordProtected And hasClear
+            '===========================
+            If AutoSize Then
+                Dim imageSize As Size = If(hasImage, Image.Size, New Size)
+                Dim mathSize As Size = If(Mode = ImageComboMode.Searchbox, New Size(16, 16), New Size)
+                Dim dropSize As Size = If(hasDrop, DropImage.Size, New Size)
+                Dim clearSize As Size = If(hasClear, ClearTextImage.Size, New Size)
+                Dim eyeSize As Size = If(hasEye, EyeImage.Size, New Size)
+                '===========================
+                Dim sizes As New List(Of Size) From {imageSize, mathSize, TextSize, dropSize, clearSize, eyeSize}
+                Dim widths As New List(Of Integer)(From s In sizes Where Not s.Width = 0 Select s.Width)
+                Dim heights As New List(Of Integer)(From s In sizes Where Not s.Height = 0 Select s.Height)
+                '===========================
+                Dim minSize As Size = If(MinimumSize.IsEmpty, New Size(60, 24), MinimumSize)
+                Dim maxSize As Size = If(MaximumSize.IsEmpty, WorkingArea.Size, MaximumSize)
+                Dim minmaxWidth As Integer = {{If(widths.Any, widths.Sum + Spacing * (widths.Count + 1), minSize.Width), minSize.Width}.Max, maxSize.Width}.Min
+                Dim minmaxHeight As Integer = {{If(heights.Any, Spacing + heights.Max + Spacing, minSize.Height), minSize.Height}.Max, maxSize.Height}.Min
+                Dim newSize As New Size(minmaxWidth, minmaxHeight)
+                If newSize <> Size Then Size = newSize
+            End If
+            With ImageBounds
+                If hasImage Then
+                    Dim Padding As Integer = {0, Convert.ToInt32((Height - Image.Height) / 2)}.Max     'Might be negative if Image.Height > Height
+                    .X = Spacing
+                    .Y = Padding
+                    .Width = Image.Width
+                    .Height = {Height, Image.Height}.Min
+                Else
+                    .X = Spacing
+                    .Y = 0
+                    .Width = 0
+                    .Height = Height
+                End If
+                ImageClickBounds.X = .X : ImageClickBounds.Y = 0 : ImageClickBounds.Width = .Width : ImageClickBounds.Height = Height
+            End With
+            With SearchBounds
+                .X = ImageBounds.Right
+                .Y = 0
+                .Width = If(Mode = ImageComboMode.Searchbox, 16, 0)
+                .Height = Height
+            End With
+            With DropBounds
+                If hasDrop Then
+                    'V LOOKS BETTER WHEN NOT RESIZED
+                    Dim Padding As Integer = {0, Convert.ToInt32((Height - DropImage.Height) / 2)}.Max     'Might be negative if DropImage.Height > Height
+                    .X = Width - (DropImage.Width + Spacing)
+                    .Y = Padding
+                    .Width = DropImage.Width
+                    .Height = {Height, DropImage.Height}.Min
+                    DropClickBounds.X = .X : DropClickBounds.Y = 0 : DropClickBounds.Width = .Width : DropClickBounds.Height = Height
+                Else
+                    .X = Width
+                    .Y = 0
+                    .Width = 0
+                    .Height = Height
+                    DropClickBounds = DropBounds
+                End If
+            End With
+            With ClearTextBounds
+                If hasClear Then
+                    'X LOOKS BETTER WHEN NOT RESIZED
+                    Dim Padding As Integer = {0, Convert.ToInt32((Height - ClearTextImage.Height) / 2)}.Max     'Might be negative if ClearTextImage.Height > Height
+                    .X = Width - ({DropBounds.Width, ClearTextImage.Width}.Sum + Spacing)
+                    .Y = Padding
+                    .Width = ClearTextImage.Width
+                    .Height = {Height, ClearTextImage.Height}.Min
+                    ClearTextClickBounds.X = .X : ClearTextClickBounds.Y = 0 : ClearTextClickBounds.Width = .Width : ClearTextClickBounds.Height = Height
+                Else
+                    .X = DropBounds.Left
+                    .Y = 0
+                    .Width = 0
+                    .Height = Height
+                    ClearTextClickBounds = ClearTextBounds
+                End If
+            End With
+            With EyeBounds
+                If hasEye Then
+                    Dim Padding As Integer = {0, Convert.ToInt32((Height - EyeImage.Height) / 2)}.Max     'Might be negative if EyeImage.Height > Height
+                    .X = Width - ({DropBounds.Width, ClearTextBounds.Width, EyeImage.Width}.Sum + Spacing)
+                    .Y = Padding
+                    .Width = EyeImage.Width
+                    .Height = {Height, EyeImage.Height}.Min
+                    EyeClickBounds.X = .X : EyeClickBounds.Y = 0 : EyeClickBounds.Width = .Width : EyeClickBounds.Height = Height
+                Else
+                    .X = ClearTextBounds.Left
+                    .Y = 0
+                    .Width = 0
+                    .Height = Height
+                    EyeClickBounds = EyeBounds
+                End If
+            End With
+            With TextBounds
+                .X = SearchBounds.Right + Spacing          'LOOKS BETTER OFFSET BY A FEW PIXELS
+                .Y = 0
+                .Width = Width - ({ImageBounds.Width, SearchBounds.Width, DropBounds.Width, ClearTextBounds.Width, EyeBounds.Width}.Sum + Spacing + Spacing + Spacing)
+                .Height = Height
+                TextMouseBounds.X = .X : TextMouseBounds.Y = 0 : TextMouseBounds.Width = .Width : TextMouseBounds.Height = Height
+            End With
+            With CursorBounds
+                .X = {Spacing, GetxPos(CursorIndex)}.Max
+                .Y = Spacing
+                .Width = 1
+                .Height = Height - Spacing * 2
+            End With
+            With SelectionBounds
+                .X = {GetxPos(SelectionIndex), CursorBounds.X}.Min
+                .Y = Spacing
+                .Width = Math.Abs(GetxPos(CursorIndex) - GetxPos(SelectionIndex))
+                .Height = CursorBounds.Height
+            End With
+        End If
+
+    End Sub
+
 #End Region
 #Region " PROPERTIES "
     Public Property CheckBoxes As Boolean = True
@@ -397,29 +424,22 @@ Public NotInheritable Class ImageCombo
             Invalidate()
         End Set
     End Property
-    Private ReadOnly OperandDictionary As New Dictionary(Of OperandSign, Bitmap)
-    Private ReadOnly Operands As New Dictionary(Of String, OperandSign) From
+    Private ReadOnly Property MathSymbols As New Dictionary(Of MathSymbol, String()) From
                     {
-            {"≥", OperandSign.GreaterThan},
-            {"≤", OperandSign.LessThan},
-            {"=", OperandSign.Equals},
-            {"≠", OperandSign.NotEquals}
+            {MathSymbol.Equals, {"=", "="}},
+            {MathSymbol.GreaterThan, {"≥", ">="}},
+            {MathSymbol.LessThan, {"≤", "<="}},
+            {MathSymbol.NotEquals, {"≠", "<>"}}
             }
-    Public ReadOnly Property OperandItem As OperandSign
-    Public ReadOnly Property OperandString As String
+    Public ReadOnly Property SearchItem As MathSymbol
+    Private ReadOnly Property SearchDrawString As String
         Get
-            Select Case OperandItem
-                Case OperandSign.Equals
-                    Return "="
-                Case OperandSign.NotEquals
-                    Return "¬="
-                Case OperandSign.GreaterThan
-                    Return ">="
-                Case OperandSign.LessThan
-                    Return "<="
-                Case Else
-                    Return Nothing
-            End Select
+            Return MathSymbols(SearchItem).First
+        End Get
+    End Property
+    Public ReadOnly Property SearchString As String
+        Get
+            Return MathSymbols(SearchItem).Last
         End Get
     End Property
     Public ReadOnly Property ErrorText As String
@@ -510,7 +530,6 @@ Public NotInheritable Class ImageCombo
     Public Overrides Function ToString() As String
         Return "ImageCombo.Text=""" & Text & """"
     End Function
-    Private KeyedValue As String, LastValue As String
     Private ReadOnly BindingSource As New BindingSource
     Private _DataSource As Object
     Public Property DataSource As Object
@@ -554,26 +573,8 @@ Public NotInheritable Class ImageCombo
                     HighlightOnFocus = True
 
                 ElseIf value = ImageComboMode.Searchbox Then
-                    OperandDictionary.Clear()
-                    For Each item In Operands
-                        Dim bmpOperand As Bitmap = New Bitmap(20, 20)
-                        Using g As Graphics = Graphics.FromImage(bmpOperand)
-                            With g
-                                Using backBrush As New SolidBrush(Color.Transparent)
-                                    Dim bmpBounds As New Rectangle(0, 0, bmpOperand.Width, bmpOperand.Height)
-                                    g.FillRectangle(backBrush, bmpBounds)
-                                    Using sf As New StringFormat With {
-                                        .Alignment = StringAlignment.Center,
-                                        .LineAlignment = StringAlignment.Center
-                                        }
-                                        g.DrawString(item.Key, New Font("IBM Plex Mono Medium", 16), Brushes.Black, bmpBounds, sf)
-                                    End Using
-                                End Using
-                            End With
-                        End Using
-                        OperandDictionary.Add(item.Value, bmpOperand)
-                    Next
-                    _OperandItem = OperandSign.Equals
+                    _SearchItem = MathSymbol.Equals
+
                 End If
                 Mode_ = value
                 Invalidate()
@@ -624,7 +625,7 @@ Public NotInheritable Class ImageCombo
     Public Property Image As Image
         Get
             Dim overrideImage As Image = If(ErrorImage, ComboItemImage)
-            Return If(overrideImage, If(Mode = ImageComboMode.Searchbox, OperandDictionary(OperandItem), _Image))
+            Return If(overrideImage, _Image)
         End Get
         Set(value As Image)
             _Image = value
@@ -760,6 +761,7 @@ Public NotInheritable Class ImageCombo
         End Get
     End Property
     Public Property BorderStyle As Border3DStyle = Border3DStyle.Adjust
+    Public ReadOnly Property TextSize As Size
 #End Region
 #Region " EVENTS "
     Private Sub BindingSourceChanged(sender As Object, e As EventArgs)
@@ -999,7 +1001,7 @@ Public NotInheritable Class ImageCombo
                         CursorIndex = S + ClipboardText.Length
                         SelectionIndex = CursorIndex
                         RaiseEvent TextPasted(Me, Nothing)
-                    Catch ex As RunTime.InteropServices.ExternalException
+                    Catch ex As Runtime.InteropServices.ExternalException
                     End Try
 #End Region
                 ElseIf e.KeyCode = Keys.Enter Then
@@ -1066,6 +1068,73 @@ Public NotInheritable Class ImageCombo
     Friend Sub DelegateKeyPress(e As KeyPressEventArgs)
         OnKeyPress(e)
     End Sub
+    Protected Overrides Sub OnMouseMove(ByVal e As MouseEventArgs)
+
+        If e IsNot Nothing Then
+            Bounds_Set()
+            Dim xy As Point = e.Location
+            Dim lastMouseRegion As MouseRegion = Mouse_Region
+            Mouse_Region = If(ImageClickBounds.Contains(xy), MouseRegion.Image, If(SearchBounds.Contains(xy), MouseRegion.Search, If(TextMouseBounds.Contains(xy), MouseRegion.Text, If(EyeClickBounds.Contains(xy), MouseRegion.Eye, If(ClearTextClickBounds.Contains(xy), MouseRegion.ClearText, If(DropClickBounds.Contains(xy), MouseRegion.DropDown, MouseRegion.None))))))
+            If lastMouseRegion <> Mouse_Region Then
+                HighlightBounds = If(Mouse_Region = MouseRegion.Image, ImageClickBounds, If(Mouse_Region = MouseRegion.Search, SearchBounds, If(Mouse_Region = MouseRegion.Eye, EyeBounds, If(Mouse_Region = MouseRegion.ClearText, ClearTextBounds, If(Mouse_Region = MouseRegion.DropDown, DropClickBounds, New Rectangle)))))
+                Invalidate()
+            End If
+        End If
+        MyBase.OnMouseMove(e)
+
+    End Sub
+    Protected Overrides Sub OnMouseDown(ByVal e As MouseEventArgs)
+
+        If e IsNot Nothing Then
+            If Mouse_Region = MouseRegion.Image Then
+                If ValueError Then
+                    Text = String.Empty
+                    SelectedIndex = -1
+                    RaiseEvent ImageClicked(Me, New ImageComboEventArgs)
+                End If
+
+            ElseIf Mouse_Region = MouseRegion.Search Then
+                '= > < ≠
+                '0 1 2 3
+                Dim nextIndex As Integer = MathSymbols.Keys.ToList.IndexOf(SearchItem)
+                nextIndex = If(nextIndex + 1 = MathSymbols.Count, 0, nextIndex + 1)
+                _SearchItem = MathSymbols.Keys.ToList(nextIndex)
+
+            ElseIf Mouse_Region = MouseRegion.Text Then
+                CursorShouldBeVisible = True
+                CursorBlinkTimer.Start()
+                CursorIndex = GetLetterIndex(e.X)
+                SelectionIndex = CursorIndex
+
+            ElseIf Mouse_Region = MouseRegion.Eye Then
+                TextIsVisible = Not TextIsVisible
+
+            ElseIf Mouse_Region = MouseRegion.ClearText Then
+                RaiseEvent ClearTextClicked(Me, New ImageComboEventArgs)
+                If IsReadOnly Then Exit Sub
+                Text = String.Empty
+                SelectedIndex = -1
+
+            ElseIf Mouse_Region = MouseRegion.DropDown Then
+                _DropItems = Items
+                If Not DropDown.Visible Then
+                    DropDown.ResizeMe()
+                    Dim Coordinates As Point
+                    Coordinates = PointToScreen(New Point(0, 0))
+                    Toolstrip.Show(Coordinates.X, If(Coordinates.Y + DropDown.Height > My.Computer.Screen.WorkingArea.Height, Coordinates.Y - DropDown.Height, Coordinates.Y + Height))
+                End If
+                DropDown.Visible = Not DropDown.Visible
+                If DropDown.Visible Then
+                    RaiseEvent DropDownOpened(Me, e)
+                Else
+                    RaiseEvent DropDownClosed(Me, e)
+                End If
+            End If
+            Invalidate()
+        End If
+        MyBase.OnMouseDown(e)
+
+    End Sub
     Protected Overrides Sub OnMouseDoubleClick(e As MouseEventArgs)
 
         If IsReadOnly Then Exit Sub
@@ -1092,89 +1161,6 @@ Public NotInheritable Class ImageCombo
         MyBase.OnMouseDoubleClick(e)
 
     End Sub
-    Protected Overrides Sub OnMouseDown(ByVal e As MouseEventArgs)
-
-        If e IsNot Nothing Then
-            If Mouse_Region = MouseRegion.Eye Then
-                TextIsVisible = Not (TextIsVisible)
-
-            ElseIf Mouse_Region = MouseRegion.Image Then
-                If ValueError Then
-                    Text = String.Empty
-                    SelectedIndex = -1
-                    Invalidate()
-                Else
-                    RaiseEvent ImageClicked(Me, New ImageComboEventArgs)
-                    If Mode = ImageComboMode.Searchbox Then
-                        Dim currentIndex As Integer = Operands.Values.ToList.IndexOf(OperandItem)
-                        Dim nextIndex As Integer = (currentIndex + 1) Mod 3
-                        _OperandItem = Operands.Values.ToList(nextIndex)
-                    End If
-                End If
-
-            ElseIf Mouse_Region = MouseRegion.ClearText Then
-                RaiseEvent ClearTextClicked(Me, New ImageComboEventArgs)
-                If IsReadOnly Then Exit Sub
-                Text = String.Empty
-                SelectedIndex = -1
-                Invalidate()
-
-            ElseIf Mouse_Region = MouseRegion.DropDown Then
-                _DropItems = Items
-                If Not DropDown.Visible Then
-                    DropDown.ResizeMe()
-                    Dim Coordinates As Point
-                    Coordinates = PointToScreen(New Point(0, 0))
-                    Toolstrip.Show(Coordinates.X, If(Coordinates.Y + DropDown.Height > My.Computer.Screen.WorkingArea.Height, Coordinates.Y - DropDown.Height, Coordinates.Y + Height))
-                End If
-                DropDown.Visible = Not (DropDown.Visible)
-                If DropDown.Visible Then
-                    RaiseEvent DropDownOpened(Me, e)
-                Else
-                    RaiseEvent DropDownClosed(Me, e)
-                End If
-
-            Else
-                REM Add
-                Mouse_Region = MouseRegion.Text
-                CursorShouldBeVisible = True
-                CursorBlinkTimer.Start()
-                CursorIndex = GetLetterIndex(e.X)
-                SelectionIndex = CursorIndex
-
-            End If
-            Invalidate()
-        End If
-        MyBase.OnMouseDown(e)
-
-    End Sub
-    Protected Overrides Sub OnMouseMove(ByVal e As MouseEventArgs)
-
-        If e IsNot Nothing Then
-            If EyeBounds.Width > 0 And e.X > EyeBounds.Left And e.X < EyeBounds.Right Then
-                Mouse_Region = MouseRegion.Eye
-
-            ElseIf ClearTextBounds.Width > 0 And e.X > ClearTextBounds.Left And e.X < ClearTextBounds.Right Then
-                Mouse_Region = MouseRegion.ClearText
-
-            ElseIf Items.Any And e.X >= DropBounds.Left Then
-                Mouse_Region = MouseRegion.DropDown
-
-            ElseIf e.X < ImageBounds.Width Then
-                Mouse_Region = MouseRegion.Image
-
-            Else
-                Mouse_Region = MouseRegion.None
-
-            End If
-            If e.Button = MouseButtons.Left Then
-                SelectionIndex = GetLetterIndex(e.X)
-            End If
-            Invalidate()
-        End If
-        MyBase.OnMouseMove(e)
-
-    End Sub
     Protected Overrides Sub OnVisibleChanged(e As EventArgs)
 
         If Items.Any Then
@@ -1193,6 +1179,12 @@ Public NotInheritable Class ImageCombo
     Protected Overrides Sub OnTextChanged(e As EventArgs)
 
         If Text Is Nothing Then Text = String.Empty
+        _TextSize = TextRenderer.MeasureText(Text, Font) 'MeasureText(Text, Font)
+        If Not Text.Any Then
+            CursorIndex = 0
+            SelectionIndex = 0
+        End If
+        Bounds_Set()
         Try
             If ErrorTip IsNot Nothing Then
                 If ValueError Then
@@ -1202,10 +1194,17 @@ Public NotInheritable Class ImageCombo
                 End If
             End If
         Catch ex As ObjectDisposedException
-
         End Try
         MyBase.OnTextChanged(e)
 
+    End Sub
+    Protected Overrides Sub OnSizeChanged(e As EventArgs)
+        Bounds_Set()
+        MyBase.OnSizeChanged(e)
+    End Sub
+    Protected Overrides Sub OnFontChanged(e As EventArgs)
+        Bounds_Set()
+        MyBase.OnFontChanged(e)
     End Sub
 #End Region
 #End Region

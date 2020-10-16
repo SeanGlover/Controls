@@ -79,17 +79,7 @@ Public NotInheritable Class RicherTextBox
     Private Const WM_VSCROLL = &H115
     Private Const WM_HSCROLL = &H114
     Private Const SB_THUMBPOSITION = 4
-    ''' <summary>
-    ''' Gets and Sets the Horizontal Scroll position of the control.
-    ''' </summary>
-    Public Property HScrollPos() As Integer
-        Get
-            Return NativeMethods.GetScrollPos(Handle, SB_HORZ)
-        End Get
-        Set(ByVal value As Integer)
-            Dim result = NativeMethods.SetScrollPos(Handle, SB_HORZ, value, True)
-        End Set
-    End Property
+
     Protected Overrides Sub OnMouseMove(e As MouseEventArgs)
 
         If e IsNot Nothing Then
@@ -150,6 +140,9 @@ Public NotInheritable Class RicherTextBox
         MyBase.OnMouseUp(e)
     End Sub
     Public ReadOnly Property MouseWord As MouseData
+    ''' <summary>
+    ''' Gets and Sets the Vertical Scroll position of the control.
+    ''' </summary>
     Public Property VScrollPos() As Integer
         Get
             Return NativeMethods.GetScrollPos(Handle, SB_VERT)
@@ -157,6 +150,18 @@ Public NotInheritable Class RicherTextBox
         Set(ByVal value As Integer)
             Dim result = NativeMethods.SetScrollPos(Handle, SB_VERT, value, True)
             NativeMethods.PostMessageA(Handle, WM_VSCROLL, SB_THUMBPOSITION + &H10000 * value, Nothing)
+        End Set
+    End Property
+    ''' <summary>
+    ''' Gets and Sets the Horizontal Scroll position of the control.
+    ''' </summary>
+    Public Property HScrollPos() As Integer
+        Get
+            Return NativeMethods.GetScrollPos(Handle, SB_HORZ)
+        End Get
+        Set(ByVal value As Integer)
+            Dim result = NativeMethods.SetScrollPos(Handle, SB_HORZ, value, True)
+            NativeMethods.PostMessageA(Handle, WM_HSCROLL, SB_THUMBPOSITION + &H10000 * value, Nothing)
         End Set
     End Property
     Public ReadOnly Property ScrollData As SCROLLINFO
