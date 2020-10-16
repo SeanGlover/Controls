@@ -487,7 +487,7 @@ Public Class DatePicker
         ElseIf HorizontalAlignment = HorizontalAlignment.Right Then
             TextHoriOffset = Convert.ToInt32(Width - TextSize.Width)
         End If
-        _HOffset = 3 + TextHoriOffset + If(HasSearch, 20, 0)
+        _HOffset = 3 + TextHoriOffset + SearchBounds.Width
         _VOffset = 1 + Convert.ToInt32((Height - TextSize.Height) / 2)
         _PixelList = {HOffset}.Union(Enumerable.Range(1, ValueString.Length).Select(Function(i) TextLength(ValueString.Substring(0, i)))).ToList
         Dim Index As Integer = 0, Start As Integer = 0
