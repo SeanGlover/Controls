@@ -4130,6 +4130,14 @@ Public NotInheritable Class SpecialDictionary(Of TKey, TValue)
     Public Sub New()
         MyBase.New()
     End Sub
+    Private Sub New(serializationInfo As Runtime.Serialization.SerializationInfo, streamingContext As Runtime.Serialization.StreamingContext)
+        Throw New NotImplementedException()
+    End Sub
+    Private KeyExists As TriState
+    Public Shadows Function ContainsKey(key As TKey) As Boolean
+        Dim value = Item(key)
+        Return KeyExists = TriState.True
+    End Function
     Default Public Overloads Property Item(key As TKey) As TValue
         Get
             KeyExists = TriState.UseDefault
@@ -4156,12 +4164,7 @@ Public NotInheritable Class SpecialDictionary(Of TKey, TValue)
             RaiseEvent PropertyChanged(Me, New DictionaryEventArgs(key, Me(key), value))
         End Set
     End Property
-    Private KeyExists As TriState
-    Public Shadows Function ContainsKey(key As TKey) As Boolean
-        Dim value = Item(key)
-        Return KeyExists = TriState.True
-    End Function
-    Private Sub New(serializationInfo As Runtime.Serialization.SerializationInfo, streamingContext As Runtime.Serialization.StreamingContext)
-        Throw New NotImplementedException()
-    End Sub
+    'Public Function Sort()
+
+    'End Function
 End Class
