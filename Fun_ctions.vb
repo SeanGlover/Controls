@@ -4164,7 +4164,110 @@ Public NotInheritable Class SpecialDictionary(Of TKey, TValue)
             RaiseEvent PropertyChanged(Me, New DictionaryEventArgs(key, Me(key), value))
         End Set
     End Property
-    'Public Function Sort()
+    Public Sub SortByKeys(Optional ascending As Boolean = True)
 
-    'End Function
+        Dim kvpList As New List(Of KeyValuePair(Of TKey, TValue))
+        For Each kvp In Me
+            kvpList.Add(New KeyValuePair(Of TKey, TValue)(kvp.Key, kvp.Value))
+        Next
+        If ascending Then
+            kvpList.Sort(Function(x, y)
+                             Select Case GetType(TValue)
+                                 Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)
+                                     Return CLng(x.Key.ToString).CompareTo(CLng(y.Key.ToString))
+
+                                 Case GetType(Boolean)
+                                     Return CBool(x.Key.ToString).CompareTo(CBool(y.Key.ToString))
+
+                                 Case GetType(Date)
+                                     Return CDate(x.Key.ToString).CompareTo(CDate(y.Key.ToString))
+
+                                 Case GetType(String)
+                                     Return String.Compare(x.Key.ToString, y.Key.ToString, True, InvariantCulture)
+
+                                 Case Else
+                                     Return String.Compare(x.Key.ToString, y.Key.ToString, True, InvariantCulture)
+
+                             End Select
+                         End Function)
+        Else
+            kvpList.Sort(Function(y, x)
+                             Select Case GetType(TValue)
+                                 Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)
+                                     Return CLng(x.Key.ToString).CompareTo(CLng(y.Key.ToString))
+
+                                 Case GetType(Boolean)
+                                     Return CBool(x.Key.ToString).CompareTo(CBool(y.Key.ToString))
+
+                                 Case GetType(Date)
+                                     Return CDate(x.Key.ToString).CompareTo(CDate(y.Key.ToString))
+
+                                 Case GetType(String)
+                                     Return String.Compare(x.Key.ToString, y.Key.ToString, True, InvariantCulture)
+
+                                 Case Else
+                                     Return String.Compare(x.Key.ToString, y.Key.ToString, True, InvariantCulture)
+
+                             End Select
+                         End Function)
+        End If
+        Clear()
+        kvpList.ForEach(Sub(kvp)
+                            Add(kvp.Key, kvp.Value)
+                        End Sub)
+
+    End Sub
+    Public Sub SortByValues(Optional ascending As Boolean = True)
+
+        Dim kvpList As New List(Of KeyValuePair(Of TKey, TValue))
+        For Each kvp In Me
+            kvpList.Add(New KeyValuePair(Of TKey, TValue)(kvp.Key, kvp.Value))
+        Next
+        If ascending Then
+            kvpList.Sort(Function(x, y)
+                             Select Case GetType(TValue)
+                                 Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)
+                                     Return CLng(x.Value.ToString).CompareTo(CLng(y.Value.ToString))
+
+                                 Case GetType(Boolean)
+                                     Return CBool(x.Value.ToString).CompareTo(CBool(y.Value.ToString))
+
+                                 Case GetType(Date)
+                                     Return CDate(x.Value.ToString).CompareTo(CDate(y.Value.ToString))
+
+                                 Case GetType(String)
+                                     Return String.Compare(x.Value.ToString, y.Value.ToString, True, InvariantCulture)
+
+                                 Case Else
+                                     Return String.Compare(x.Value.ToString, y.Value.ToString, True, InvariantCulture)
+
+                             End Select
+                         End Function)
+        Else
+            kvpList.Sort(Function(y, x)
+                             Select Case GetType(TValue)
+                                 Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)
+                                     Return CLng(x.Value.ToString).CompareTo(CLng(y.Value.ToString))
+
+                                 Case GetType(Boolean)
+                                     Return CBool(x.Value.ToString).CompareTo(CBool(y.Value.ToString))
+
+                                 Case GetType(Date)
+                                     Return CDate(x.Value.ToString).CompareTo(CDate(y.Value.ToString))
+
+                                 Case GetType(String)
+                                     Return String.Compare(x.Value.ToString, y.Value.ToString, True, InvariantCulture)
+
+                                 Case Else
+                                     Return String.Compare(x.Value.ToString, y.Value.ToString, True, InvariantCulture)
+
+                             End Select
+                         End Function)
+        End If
+        Clear()
+        kvpList.ForEach(Sub(kvp)
+                            Add(kvp.Key, kvp.Value)
+                        End Sub)
+
+    End Sub
 End Class
