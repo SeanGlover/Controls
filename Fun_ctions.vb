@@ -4133,7 +4133,26 @@ Public NotInheritable Class SpecialDictionary(Of TKey, TValue)
     Private Sub New(serializationInfo As Runtime.Serialization.SerializationInfo, streamingContext As Runtime.Serialization.StreamingContext)
         Throw New NotImplementedException()
     End Sub
+    Public Property Tag As Object
     Private KeyExists As TriState
+    Public Sub AddRange(dict As Dictionary(Of TKey, TValue))
+
+        If dict IsNot Nothing Then
+            For Each kvp In dict
+                Add(kvp.Key, kvp.Value)
+            Next
+        End If
+
+    End Sub
+    Public Sub AddRange(dict As SpecialDictionary(Of TKey, TValue))
+
+        If dict IsNot Nothing Then
+            For Each kvp In dict
+                Add(kvp.Key, kvp.Value)
+            Next
+        End If
+
+    End Sub
     Public Shadows Function ContainsKey(key As TKey) As Boolean
         Dim value = Item(key)
         Return KeyExists = TriState.True
@@ -4157,7 +4176,13 @@ Public NotInheritable Class SpecialDictionary(Of TKey, TValue)
                     Return MyBase.Item(matchingKey)
                 End If
             Else
-                Return MyBase.Item(key)
+                If MyBase.ContainsKey(key) Then
+                    KeyExists = TriState.True
+                    Return MyBase.Item(key)
+                Else
+                    KeyExists = TriState.False
+                    Return Nothing
+                End If
             End If
         End Get
         Set(value As TValue)
