@@ -3674,13 +3674,12 @@ Public Module iData
 #Region " DataTable <===> .txt "
     Public Sub DataTableToTextFile(DataTable As DataTable, FilePath As String)
 
-        If DataTable IsNot Nothing Then
+        If DataTable IsNot Nothing And FilePath IsNot Nothing Then
             Dim Headers As New List(Of String)(From C In DataTable.Columns Select DirectCast(C, DataColumn).ColumnName)
             Dim Rows As New List(Of DataRow)(From R In DataTable.Rows Select DirectCast(R, DataRow))
-
             If Rows.Any Then
                 Dim TextData As New List(Of String)(From R In Rows Select Join((From C In R.ItemArray Select If(IsDBNull(C), String.Empty, C.ToString)).ToArray, Delimiter))
-
+                PathEnsureExists(FilePath)
                 Using SR As New StreamWriter(FilePath)
                     SR.WriteLine(Join(Headers.ToArray, Delimiter))
                     For Each Row In TextData.Take(TextData.Count - 1)

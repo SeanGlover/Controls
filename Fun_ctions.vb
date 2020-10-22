@@ -1696,13 +1696,46 @@ Public Module Functions
         End If
 
     End Function
+    Public Function FileSize(info As FileInfo) As KeyValuePair(Of Double, String)
+
+        If info Is Nothing Then
+            Return Nothing
+        Else
+            Return (FileSize(info.Length))
+        End If
+
+    End Function
+    Public Function FileSize(fileLength As Double) As KeyValuePair(Of Double, String)
+
+        Dim sizes As String() = {"B", "KB", "MB", "GB", "TB"}
+        Dim order As Integer = 0
+        Do While fileLength >= 1024 And order < sizes.Length - 1
+            order += 1
+            fileLength /= 1024
+        Loop
+        Return New KeyValuePair(Of Double, String)(Math.Round(fileLength, 1), sizes(order))
+
+    End Function
+    Public Function ReadFilesInfo(FolderName As String) As Dictionary(Of FileInfo, String)
+
+        If FolderName Is Nothing Then
+            Return Nothing
+        Else
+            If Directory.Exists(FolderName) Then
+                Return GetFiles(FolderName, ".txt").ToDictionary(Function(k) New FileInfo(k), Function(v) ReadText(v))
+            Else
+                Return Nothing
+            End If
+        End If
+
+    End Function
     Public Function ReadFiles(FolderName As String) As Dictionary(Of String, String)
 
         If FolderName Is Nothing Then
             Return Nothing
         Else
             If Directory.Exists(FolderName) Then
-                Return (From f In GetFiles(FolderName, ".txt") Select New With {.location = f, .content = ReadText(f)}).ToDictionary(Function(k) k.location, Function(v) v.content)
+                GetFiles(FolderName, ".txt").ToDictionary(Function(k) k, Function(v) ReadText(v))
             Else
                 Return Nothing
             End If
@@ -1796,6 +1829,37 @@ Public Module Functions
         Return Resources.ToDictionary(Function(x) x.Key.ToString, Function(y) DirectCast(y.Value, Icon))
 
     End Function
+    Public Function PathEnsureExists(filePath As String) As Boolean
+
+        If filePath Is Nothing Then
+            Return False
+        Else
+            If File.Exists(filePath) Then
+                Return True
+            Else
+                Dim levels As New List(Of String)
+                'C:\Users\SeanGlover\Desktop\PSRR\txts\FL\082020\
+                Dim levelPath As String = String.Empty
+                Dim fileLevels As New List(Of String)(Split(filePath, "\"))
+                fileLevels.Remove(fileLevels.Last)
+                fileLevels.ForEach(Sub(level)
+                                       levelPath &= level & "\"
+                                       Try
+                                           If Not Directory.Exists(levelPath) Then Directory.CreateDirectory(levelPath)
+                                           Do While Not Directory.Exists(levelPath)
+                                           Loop
+                                       Catch ex As UnauthorizedAccessException 'Fires on special folders - they can't be created
+                                           levels.Add(level & "_" & ex.Message)
+                                       Catch ex1 As IOException
+                                           levels.Add(level & "_" & ex1.Message)
+                                       End Try
+                                   End Sub)
+                If levels.Any Then Stop
+                Return Not levels.Any
+            End If
+        End If
+
+    End Function
     Public Function GetFiles(Path As String, Optional Extension As String = ".txt") As List(Of String)
 
         Return SafeWalk.EnumerateFiles(Path, "*" & Extension, SearchOption.AllDirectories).ToList
@@ -1806,7 +1870,7 @@ Public Module Functions
         If Folder Is Nothing Then
             Return Nothing
         Else
-            Return SafeWalk.EnumerateFiles(Folder.FullName, "*" & Extension, SearchOption.AllDirectories).ToList
+            Return GetFiles(Folder.FullName, Extension)
         End If
 
     End Function
@@ -2599,8 +2663,8 @@ Public NotInheritable Class SafeWalk
             'Dim searchPattern As String = "*.txt"
             Try
                 Dim di As DirectoryInfo = New DirectoryInfo(Path)
-                Dim directories As DirectoryInfo() = di.GetDirectories(SearchPattern, SearchOption.TopDirectoryOnly)
-                Dim files As FileInfo() = di.GetFiles(SearchPattern, SearchOption.TopDirectoryOnly)
+                Dim directories As DirectoryInfo() = di.GetDirectories(SearchPattern, SearchOpt)
+                Dim files As FileInfo() = di.GetFiles(SearchPattern, SearchOpt)
                 Return files.Select(Function(f) f.FullName)
 
             Catch ex As DirectoryNotFoundException
