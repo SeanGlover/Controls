@@ -2211,7 +2211,7 @@ End Class
         If disposing Then
             Handle.Dispose()
             ' Free any other managed objects here.
-            Table.Dispose()
+            _Table.Dispose()
             Failure?.Dispose()
             Ticker?.Dispose()
         End If

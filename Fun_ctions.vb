@@ -470,6 +470,89 @@ Public Module Functions
     Public Function CursorOverControl(ControlItem As Control) As Boolean
         Return CursorToControlPosition(ControlItem) = RelativeCursor.Inside
     End Function
+    Public Function OrderedMatch(inString As String, inList As List(Of String), Optional ignoreCase As Boolean = True) As List(Of String)
+
+        If inString Is Nothing Or inList Is Nothing Then
+            Return Nothing
+
+        ElseIf inString.Any And inList.Any Then
+            Dim listMatches As New List(Of String)
+            inList.ForEach(Sub(item)
+                               'inString=Agt
+                               'item=August
+                               If item IsNot Nothing Then
+                                   Dim letterIndexes As New List(Of Integer)
+                                   Dim addItem As String = item
+                                   For s = 0 To inString.Length - 1
+                                       Dim letterString As String = inString.Substring(s, 1)
+                                       For l = 0 To item.Length - 1
+                                           Dim letterList As String = item.Substring(l, 1)
+                                           If String.Compare(letterString, letterList, ignoreCase, InvariantCulture) = 0 Then
+                                               letterIndexes.Add(l)
+                                               item = item.Remove(l, 1)
+                                               item = item.Insert(l, BlackOut)
+                                               Exit For
+                                           End If
+                                       Next
+                                   Next
+                                   If letterIndexes.Count = inString.Length Then
+                                       'All input letters are found in the item, but also must be in the same order!
+                                       Dim saveIndexes As New List(Of Integer)(letterIndexes)
+                                       letterIndexes.Sort()
+                                       If saveIndexes.SequenceEqual(letterIndexes) Then listMatches.Add(addItem)
+                                   End If
+                               End If
+                           End Sub)
+            Return listMatches
+        Else
+            Return Nothing
+        End If
+
+    End Function
+    Public Function OrderedMonths(findMonth As String) As String
+
+        If findMonth Is Nothing Then
+            Return String.Empty
+
+        ElseIf findMonth.Any Then
+            Dim Months As New List(Of String)(Enumerable.Range(1, 12).Select(Function(m) MonthName(m)))
+            Dim ignoreCase As Boolean = True
+            Dim monthMatch As String = String.Empty
+            Months.ForEach(Sub(item)
+                               'findMonth=Agt
+                               'item=August
+                               If item IsNot Nothing Then
+                                   Dim letterIndexes As New List(Of Integer)
+                                   Dim addItem As String = item
+                                   For s = 0 To findMonth.Length - 1
+                                       Dim letterString As String = findMonth.Substring(s, 1)
+                                       For l = 0 To item.Length - 1
+                                           Dim letterList As String = item.Substring(l, 1)
+                                           If String.Compare(letterString, letterList, ignoreCase, InvariantCulture) = 0 Then
+                                               letterIndexes.Add(l)
+                                               item = item.Remove(l, 1)
+                                               item = item.Insert(l, BlackOut)
+                                               Exit For
+                                           End If
+                                       Next
+                                   Next
+                                   If letterIndexes.Count = findMonth.Length Then
+                                       'All input letters are found in the item, but also must be in the same order!
+                                       Dim saveIndexes As New List(Of Integer)(letterIndexes)
+                                       letterIndexes.Sort()
+                                       If saveIndexes.SequenceEqual(letterIndexes) Then
+                                           monthMatch = If(findMonth.Length = 3, addItem.Substring(0, 3), addItem)
+                                           Exit Sub
+                                       End If
+                                   End If
+                               End If
+                           End Sub)
+            Return monthMatch
+        Else
+            Return String.Empty
+        End If
+
+    End Function
     Public Function DateTimeToString(DateValue As Date) As String
         Return Format(DateValue, "M/d/yyyy HH:mm:ss.fff")
     End Function
@@ -1735,7 +1818,7 @@ Public Module Functions
             Return Nothing
         Else
             If Directory.Exists(FolderName) Then
-                GetFiles(FolderName, ".txt").ToDictionary(Function(k) k, Function(v) ReadText(v))
+                Return GetFiles(FolderName, ".txt").ToDictionary(Function(k) k, Function(v) ReadText(v))
             Else
                 Return Nothing
             End If
