@@ -2258,23 +2258,11 @@ End Class
                     End With
                 End If
             End If
-            Select Case value
-                Case GetType(Boolean), GetType(Byte), GetType(Short), GetType(Integer), GetType(Long), GetType(Date), GetType(DateAndTime), GetType(Image), GetType(Bitmap), GetType(Icon)
-                    GridStyle_.Alignment = New StringFormat With {
-        .Alignment = StringAlignment.Center,
+            Dim valueAlignment As HorizontalAlignment = DataTypeToAlignment(value)
+            GridStyle_.Alignment = New StringFormat With {
+        .Alignment = If(valueAlignment = HorizontalAlignment.Left, StringAlignment.Near, If(valueAlignment = HorizontalAlignment.Center, StringAlignment.Center, StringAlignment.Far)),
         .LineAlignment = StringAlignment.Center}
 
-                Case GetType(Decimal), GetType(Double)
-                    GridStyle_.Alignment = New StringFormat With {
-        .Alignment = StringAlignment.Far,
-        .LineAlignment = StringAlignment.Center}
-
-                Case Else
-                    GridStyle_.Alignment = New StringFormat With {
-        .Alignment = StringAlignment.Near,
-        .LineAlignment = StringAlignment.Center}
-
-            End Select
         End Set
     End Property
     Friend Shared Function Get_kvpFormat(DataType As Type) As KeyValuePair(Of TypeGroup, String)

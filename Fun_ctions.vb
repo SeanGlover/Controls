@@ -1451,6 +1451,21 @@ Public Module Functions
     End Function
 #End Region
 
+    Public Function DataTypeToAlignment(valueType As Type) As HorizontalAlignment
+
+        Select Case valueType
+            Case GetType(Boolean), GetType(Byte), GetType(Short), GetType(Integer), GetType(Long), GetType(Date), GetType(DateAndTime), GetType(Image), GetType(Bitmap), GetType(Icon)
+                Return HorizontalAlignment.Center
+
+            Case GetType(Decimal), GetType(Double)
+                Return HorizontalAlignment.Right
+
+            Case Else
+                Return HorizontalAlignment.Left
+
+        End Select
+
+    End Function
     Public Function ContentAlignToStringFormat(alignString As String) As StringFormat
 
         Dim alignElements As New List(Of String)(Regex.Split(alignString, "(?=[A-Z])", System.Text.RegularExpressions.RegexOptions.None).Skip(1))

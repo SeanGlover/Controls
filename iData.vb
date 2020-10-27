@@ -3930,15 +3930,57 @@ Public Module iData
 
         Dim HTML As String = String.Empty
         If DataTable IsNot Nothing Then
-            Dim Columns = From C In DataTable.Columns Select DirectCast(C, DataColumn)
-            Using TableFont As New Drawing.Font("Calibri", 9)
-                Dim ColumnsValuesAsStrings = From C In Columns Select New With {.Name = C.ColumnName, .Values = From R In DataTable.AsEnumerable Select Trim(If(C.DataType Is GetType(Date) And Not IsDBNull(R(C.ColumnName)), If(DirectCast(R(C.ColumnName), Date).TimeOfDay.Ticks = 0, DirectCast(R(C.ColumnName), Date).ToShortDateString, DirectCast(R(C.ColumnName), Date).ToString("M/d/yyyy h:mm tt", InvariantCulture)), R(C.ColumnName).ToString))}
-                Dim ColumnWidths = From CV In ColumnsValuesAsStrings Select New With {.Name = CV.Name.ToString(InvariantCulture), .Width = 18 + {TextRenderer.MeasureText(CV.Name, TableFont).Width, (From V In CV.Values Select TextRenderer.MeasureText(V, TableFont).Width).Max}.Max}
+            Dim Columns As New List(Of DataColumn)(From C In DataTable.Columns Select DirectCast(C, DataColumn))
+            Dim Rows As New Dictionary(Of DataRow, List(Of String))
+
+            Using TableFont As New Font("Calibri", 9)
+                Dim columnStrings As New Dictionary(Of String, Dictionary(Of Integer, String))
+                Dim columnWidths As New Dictionary(Of String, Integer)
+                Dim columnAlignments As New Dictionary(Of String, String)
+                Dim columnIndex As Integer = 1
+                Columns.ForEach(Sub(column)
+                                    Dim columnName As String = column.ColumnName
+                                    Dim strings As New Dictionary(Of Integer, String)
+                                    Dim rowIndex As Integer = 0
+                                    Dim rowArray As New List(Of String)
+                                    For Each row As DataRow In DataTable.AsEnumerable
+                                        Dim rowCell As Object = row(column)
+                                        Dim cellString As String
+                                        If IsDBNull(rowCell) Or rowCell Is Nothing Then
+                                            cellString = String.Empty
+                                        Else
+                                            If column.DataType Is GetType(Date) Then
+                                                Dim cellDate As Date = DirectCast(rowCell, Date)
+                                                If cellDate.TimeOfDay.Ticks = 0 Then
+                                                    cellString = cellDate.ToShortDateString
+                                                Else
+                                                    cellString = cellDate.ToString("M/d/yyyy h:mm tt", InvariantCulture)
+                                                End If
+                                            Else
+                                                cellString = rowCell.ToString
+                                            End If
+                                        End If
+                                        strings.Add(rowIndex, cellString)
+                                        If Not Rows.ContainsKey(row) Then Rows.Add(row, New List(Of String))
+                                        Rows(row).Add(cellString)
+                                        rowIndex += 1
+                                    Next
+                                    columnStrings.Add(columnName, strings)
+                                    Dim columnHeadWidth As Integer = TextRenderer.MeasureText(columnName, TableFont).Width
+                                    Dim columnMaxContentWidth As Integer = strings.Values.Select(Function(c) TextRenderer.MeasureText(c, TableFont).Width).Max
+                                    Dim columnWidth As Integer = 18 + {columnHeadWidth, columnMaxContentWidth}.Max
+                                    columnWidths.Add(columnName, columnWidth)
+                                    'tr td:nth-child(2) {text-align: right;}
+                                    Dim columnAlignment As String = $"tr td:nth-child({columnIndex})" & " {text-align: " & DataTypeToAlignment(column.DataType).ToString.ToUpperInvariant & ";}"
+                                    columnAlignments.Add(columnName, columnAlignment)
+                                    columnIndex += 1
+                                End Sub)
                 Dim Top As New List(Of String)
                 If HeaderBackColor.IsEmpty Then HeaderBackColor = Color.DarkGray
                 If HeaderForeColor.IsEmpty Then HeaderForeColor = Color.White
                 Dim HBS As String = ColorToHtmlHex(HeaderBackColor)
                 Dim HFS As String = ColorToHtmlHex(HeaderForeColor)
+
 #Region " CSS Table Properties "
                 Top.Clear()
                 Top.Add("<!DOCTYPE html>")
@@ -3949,20 +3991,18 @@ Public Module iData
                 Top.Add("table {border-collapse:collapse; border: 1px solid #778db3;}") ' width: 100%;
                 Top.Add("th {background-color:" & HBS & "; color:" & HFS & "; text-align:center; font-weight:bold; font-size:0." & TableFont.Size & "em; border: 1px solid #778db3; white-space: nowrap;}")
                 Top.Add("td {text-align:left; font-size:0." & (TableFont.Size - 1) & "em; border: 1px #696969; white-space: nowrap;}")
-                'Top.Add("tr:nth-child(even) {background-color: #F5F5DC;}")     DOESN'T WORK!
+                Top.Add(Join(columnAlignments.Values.ToArray, vbNewLine))
                 Top.Add("</style>")
                 Top.Add("</head>")
                 Top.Add("<body>")
                 If Not IsNothing(Script) Then Top.Add("<p>" & Script & "</p>")
                 Top.Add("<table>")
-                Top.Add("<tr>" & Join((From C In ColumnWidths Select "<th width=" & C.Width & ";>" & C.Name & "</th>").ToArray, "") & "</tr>")
+                Top.Add("<tr>" & Join((From C In columnWidths Select "<th width=" & C.Value & ";>" & C.Key & "</th>").ToArray, "") & "</tr>")
 #End Region
                 '#F5F5F5, #F5F5DC
                 Dim Middle As New List(Of String)
-                Dim Rows As New List(Of DataRow)(From R In DataTable.Rows Select DirectCast(R, DataRow))
                 For Each Row In Rows
-                    Dim ItemArray As New List(Of String)(From CV In ColumnsValuesAsStrings Select CV.Values(Rows.IndexOf(Row)))
-                    Middle.Add("<tr style=background-color:" & IIf(Middle.Count Mod 2 = 0, "#F5F5F5", "#FFFFFF").ToString & ";>" + Join((From IA In ItemArray Select "<td>" + IA + "</td>").ToArray, "") + "</tr>")
+                    Middle.Add("<tr style=background-color:" & IIf(Middle.Count Mod 2 = 0, "#F5F5F5", "#FFFFFF").ToString & ";>" + Join((From IA In Row.Value Select "<td>" + IA + "</td>").ToArray, "") + "</tr>")
                 Next
 
                 Dim Bottom As New List(Of String) From {
