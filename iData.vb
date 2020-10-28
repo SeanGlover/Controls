@@ -3956,6 +3956,14 @@ Public Module iData
                                                 Else
                                                     cellString = cellDate.ToString("M/d/yyyy h:mm tt", InvariantCulture)
                                                 End If
+
+                                            ElseIf column.DataType Is GetType(Double) Or column.DataType Is GetType(Decimal) Then
+                                                Dim nfi As NumberFormatInfo = New CultureInfo("en-US", False).NumberFormat
+                                                'Displays a value with the default separator (".")
+                                                Dim doubleValue As Double = 0
+                                                Dim testDouble As Boolean = Double.TryParse(rowCell.ToString, doubleValue)
+                                                cellString = doubleValue.ToString("N", nfi)
+
                                             Else
                                                 cellString = rowCell.ToString
                                             End If

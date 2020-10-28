@@ -1466,6 +1466,27 @@ Public Module Functions
         End Select
 
     End Function
+    Public Function DataTypeToFormat(valueType As Type) As String
+
+        Select Case valueType
+
+            Case GetType(Date)
+                Dim CultureInfo = Threading.Thread.CurrentThread.CurrentCulture
+                Return CultureInfo.DateTimeFormat.ShortDatePattern
+
+            Case GetType(DateAndTime)
+                Dim CultureInfo = Threading.Thread.CurrentThread.CurrentCulture
+                Return CultureInfo.DateTimeFormat.FullDateTimePattern
+
+            Case GetType(Decimal), GetType(Double)
+                Return "C2"
+
+            Case Else 'GetType(String), GetType(Byte), GetType(Short), GetType(Integer), GetType(Long), GetType(Boolean)
+                Return String.Empty
+
+        End Select
+
+    End Function
     Public Function ContentAlignToStringFormat(alignString As String) As StringFormat
 
         Dim alignElements As New List(Of String)(Regex.Split(alignString, "(?=[A-Z])", System.Text.RegularExpressions.RegexOptions.None).Skip(1))
