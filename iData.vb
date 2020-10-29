@@ -3975,7 +3975,7 @@ Public Module iData
                                     Next
                                     columnStrings.Add(columnName, strings)
                                     Dim columnHeadWidth As Integer = TextRenderer.MeasureText(columnName, TableFont).Width
-                                    Dim columnMaxContentWidth As Integer = strings.Values.Select(Function(c) TextRenderer.MeasureText(c, TableFont).Width).Max
+                                    Dim columnMaxContentWidth As Integer = If(strings.Values.Any, strings.Values.Select(Function(c) TextRenderer.MeasureText(c, TableFont).Width).Max, 0)
                                     Dim columnWidth As Integer = 18 + {columnHeadWidth, columnMaxContentWidth}.Max
                                     columnWidths.Add(columnName, columnWidth)
                                     'tr td:nth-child(2) {text-align: right;}
