@@ -1096,7 +1096,46 @@ Public Module Functions
         End If
 
     End Function
+    Public Function CamelFormat(words As String(), Optional CapFirst As Boolean = False) As String
 
+        If words Is Nothing Then
+            Return Nothing
+        Else
+            If words.Any Then
+                Dim newWord As String = String.Empty
+                Dim wordIndex As Integer = 0
+                For Each word In words
+                    If wordIndex = 0 Then
+                        newWord &= StrConv(word, If(CapFirst, vbProperCase, vbLowerCase))
+                    Else
+                        newWord &= StrConv(word, vbProperCase)
+                    End If
+                    wordIndex += 1
+                Next
+                Return newWord
+            Else
+                Return String.Empty
+            End If
+        End If
+
+    End Function
+    Public Function CamelFormatSplit(word As String) As String()
+
+        'Could be camelFormat or CamelFormat
+        If word Is Nothing Then
+            Return Nothing
+        Else
+            If word.Any Then
+                Dim words As New List(Of String)
+                Dim firstLetter As String = word.Substring(0, 1)
+                words.AddRange(Regex.Split(word, "(?=[A-Z])", RegexOptions.None).Skip(If(firstLetter.ToUpperInvariant = firstLetter, 1, 0)))
+                Return words.ToArray
+            Else
+                Return Nothing
+            End If
+        End If
+
+    End Function
 #Region " COLOR "
     Function ColorToHtmlHex(ByVal color As Color) As String
         Return String.Format(InvariantCulture, "#{0:X2}{1:X2}{2:X2}", color.R, color.G, color.B)

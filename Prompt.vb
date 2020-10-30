@@ -971,6 +971,8 @@ Public NotInheritable Class WaitTimer
 
     End Sub
 
+    Public Event TimerStopped(sender As Object, e As EventArgs)
+
     Private Picture_ As ImageType = ImageType.Circle
     Public Property Picture As ImageType
         Get
@@ -986,6 +988,7 @@ Public NotInheritable Class WaitTimer
         End Set
     End Property
     Public Property TickColor As Color
+    Public Property StopOnClick As Boolean
     Public Property Offset As New Point(0, 0)
     Private FormText_ As String
     Public Property FormText As String
@@ -1083,6 +1086,13 @@ Public NotInheritable Class WaitTimer
         SetSafeControlPropertyValue(TickForm, "Location", HideLocation)
         SetSafeControlPropertyValue(TickForm, "BackgroundImage", Nothing)
 
+    End Sub
+    Protected Overrides Sub OnMouseDown(ByVal e As MouseEventArgs)
+        If StopOnClick Then
+            TickTimer.Stop()
+            RaiseEvent TimerStopped(Me, New EventArgs())
+        End If
+        MyBase.OnMouseDown(e)
     End Sub
 End Class
 
