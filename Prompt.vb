@@ -950,7 +950,7 @@ Public NotInheritable Class WaitTimer
     Private ReadOnly BaseControl As Control
     Private ReadOnly HideLocation As New Point(-500, -500)
     Private WithEvents TickTimer As New Timer With {.Interval = 100}
-    Private ReadOnly TickForm As New InvisibleForm With {
+    Private WithEvents TickForm As New InvisibleForm With {
         .Size = New Size(150, 150),
         .Location = HideLocation
     }
@@ -971,7 +971,7 @@ Public NotInheritable Class WaitTimer
 
     End Sub
 
-    Public Event TimerStopped(sender As Object, e As EventArgs)
+    Public Event Stopped(sender As Object, e As EventArgs)
 
     Private Picture_ As ImageType = ImageType.Circle
     Public Property Picture As ImageType
@@ -1087,12 +1087,13 @@ Public NotInheritable Class WaitTimer
         SetSafeControlPropertyValue(TickForm, "BackgroundImage", Nothing)
 
     End Sub
-    Protected Overrides Sub OnMouseDown(ByVal e As MouseEventArgs)
+    Private Sub Clicked() Handles TickForm.Click
+
         If StopOnClick Then
-            TickTimer.Stop()
-            RaiseEvent TimerStopped(Me, New EventArgs())
+            StopTicking()
+            RaiseEvent Stopped(Me, New EventArgs())
         End If
-        MyBase.OnMouseDown(e)
+
     End Sub
 End Class
 
