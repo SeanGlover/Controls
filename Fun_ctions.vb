@@ -1475,7 +1475,11 @@ Public Module Functions
 
     End Function
     Public Function EnumNames(EnumType As Type) As List(Of String)
-        Return [Enum].GetNames(EnumType).ToList
+        Try
+            Return [Enum].GetNames(EnumType).ToList
+        Catch ex As ArgumentException
+            Return Nothing
+        End Try
     End Function
     Public Function ParseEnum(Of T)(ByVal value As String) As T
 
