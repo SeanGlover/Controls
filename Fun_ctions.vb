@@ -4361,6 +4361,13 @@ Public NotInheritable Class SpecialDictionary(Of TKey, TValue)
     End Sub
     Public Property Tag As Object
     Private KeyExists As TriState
+    Public Overloads Function Add(kvp As KeyValuePair(Of TKey, TValue)) As KeyValuePair(Of TKey, TValue)
+        Return Add(kvp.Key, kvp.Value)
+    End Function
+    Public Overloads Function Add(key As TKey, value As TValue) As KeyValuePair(Of TKey, TValue)
+        MyBase.Add(key, value)
+        Return New KeyValuePair(Of TKey, TValue)(key, value)
+    End Function
     Public Sub AddRange(dict As Dictionary(Of TKey, TValue))
 
         If dict IsNot Nothing Then
