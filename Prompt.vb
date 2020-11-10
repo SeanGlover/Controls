@@ -16,6 +16,12 @@ Public Class Prompt
     Private WithEvents NO As New Button With {.Text = "No", .Font = PreferredFont, .Margin = New Padding(0), .Size = New Size(100, ButtonBarHeight - 6), .ImageAlign = ContentAlignment.MiddleLeft, .Image = My.Resources.ButtonNo, .BackColor = Color.GhostWhite, .ForeColor = Color.Black, .FlatStyle = FlatStyle.Popup}
     Private WithEvents PromptTimer As New Timer With {.Interval = 5000}
     Private ReadOnly ParentControl As Control
+    Public Enum LinkBrowser
+        Edge
+        Chrome
+        Firefox
+        Explorer
+    End Enum
     Public Enum IconOption
         Critical
         OK
@@ -74,6 +80,7 @@ Public Class Prompt
             Return _DataSource
         End Get
     End Property
+    Public Property Browser As LinkBrowser = LinkBrowser.Firefox
     Public Property ColorStyle As StyleOption = StyleOption.Plain
     Private ReadOnly Property AlternatingRowColor As Color
     Private ReadOnly Property BackgroundColor As Color
@@ -345,12 +352,34 @@ Public Class Prompt
         End If
 
     End Sub
+    Private ReadOnly BrowserPaths As New Dictionary(Of LinkBrowser, String) From {
+        {LinkBrowser.Chrome, "C:\Program Files\Google\Chrome\Application\Chrome.exe"},
+        {LinkBrowser.Edge, "C:\Program Files (x86)\Microsoft\Edge\msedge.exe"},
+        {LinkBrowser.Explorer, "C:\Program Files\Internet Explorer\iexplore.exe"},
+        {LinkBrowser.Firefox, "C:\Program Files\Mozilla Firefox\firefox.exe"}
+    }
+    Private ReadOnly Property BrowserPath As String
+        Get
+            Dim pathBrowser As String = BrowserPaths(Browser)
+            If IO.File.Exists(pathBrowser) Then
+                Return pathBrowser
+            Else
+                For Each path As String In BrowserPaths.Values
+                    If IO.File.Exists(path) Then
+                        Return path
+                    End If
+                    Stop
+                    Return Nothing
+                Next
+            End If
+            Return BrowserPaths(Browser)
+        End Get
+    End Property
     Private Sub MouseClicked(sender As Object, e As MouseEventArgs) Handles Me.MouseClick
 
         If LastBounds.Contains(e.Location) Then
-            'Dim Programs = GetFiles("C:\Program Files", ".exe")
-            'Stop
-            Process.Start("C:\Program Files\Internet Explorer\IExplore.exe", AddressBounds(LastBounds))
+            Dim pathBrowser As String = BrowserPath
+            If pathBrowser IsNot Nothing Then Process.Start(pathBrowser, AddressBounds(LastBounds))
         End If
 
     End Sub

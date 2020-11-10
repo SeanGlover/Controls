@@ -674,13 +674,15 @@ Public Class DataTool
         .Margin = New Padding(0),
         .MouseOverExpandsNode = False,
         .Font = GothicFont,
-        .FavoritesFirst = True}
+        .FavoritesFirst = True
+    }
     Private WithEvents SaveAs As New ImageCombo With {.Margin = New Padding(0),
         .Image = My.Resources.Save,
-        .Size = New Size(2 + .Image.Width + 2, 2 + .Image.Width + 2),
+        .Size = New Size(2 + My.Resources.Save.Width + 2, 2 + .Image.Height + 2),
         .Font = GothicFont,
         .MinimumSize = .Size,
-        .AutoSize = True}
+        .AutoSize = True
+    }
     Private WithEvents FilesButton As New ToolStripDropDownButton With {
         .Margin = New Padding(0),
         .Image = My.Resources.Folder,
@@ -1837,34 +1839,47 @@ Public Class DataTool
     '===============================================================================
     Private Sub SaveAs_MouseEnter(sender As Object, e As EventArgs) Handles SaveAs.MouseEnter
 
-        SaveAs.MaximumSize = Nothing
-        If ActiveScript() IsNot Nothing Then
+        With SaveAs
+            .MinimumSize = New Size(2 + My.Resources.Save.Width + 2, SaveAs.Height)
+            .MaximumSize = New Size(600, SaveAs.Height)
             If ActiveScript() IsNot Nothing Then
-                SaveAs.Text = ActiveScript.Name
-                SaveAs.Image = If(ActiveScript.FileTextMatchesText, My.Resources.saved, My.Resources.savedNot)
+                If ActiveScript() IsNot Nothing Then
+                    .Text = ActiveScript.Name
+                    .Image = If(ActiveScript.FileTextMatchesText, My.Resources.saved, My.Resources.savedNot)
+                End If
             End If
-        End If
-        SaveAs.AutoSize = True
+            .AutoSize = True
+        End With
 
     End Sub
     Private Sub SaveAs_MouseLeave(sender As Object, e As EventArgs) Handles SaveAs.MouseLeave
 
-        SaveAs.AutoSize = True
-        SaveAs.Text = String.Empty
-        SaveAs.MaximumSize = New Size(My.Resources.Save.Width + 2, My.Resources.Save.Width + 2)
+        With SaveAs
+            .MinimumSize = New Size(2 + My.Resources.Save.Width + 2, SaveAs.Height)
+            .AutoSize = True
+            .Text = String.Empty
+        End With
 
     End Sub
     Private Sub SaveAs_TextChanged(sender As Object, e As EventArgs)
 
-        If If(SaveAs.Text, String.Empty).Any Then
-            SaveAs.AutoSize = True
-            RemoveHandler SaveAs.TextChanged, AddressOf SaveAs_TextChanged
-        End If
+        With SaveAs
+            If If(.Text, String.Empty).Any Then
+                .MinimumSize = New Size(100, .Height)
+                .AutoSize = True
+                RemoveHandler .TextChanged, AddressOf SaveAs_TextChanged
+            End If
+        End With
 
     End Sub
     Private Sub SaveAs_ClearTextClicked(sender As Object, e As EventArgs) Handles SaveAs.ClearTextClicked
-        SaveAs.AutoSize = False
-        AddHandler SaveAs.TextChanged, AddressOf SaveAs_TextChanged
+
+        With SaveAs
+            .AutoSize = True
+            .MinimumSize = New Size(.Width, .Height)
+            AddHandler .TextChanged, AddressOf SaveAs_TextChanged
+        End With
+
     End Sub
     Private Sub SaveAs_ImageClicked() Handles SaveAs.ImageClicked, SaveAs.ValueSubmitted
 
