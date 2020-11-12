@@ -1090,8 +1090,8 @@ Public NotInheritable Class ImageCombo
                 If ValueError Then
                     Text = String.Empty
                     SelectedIndex = -1
-                    RaiseEvent ImageClicked(Me, New ImageComboEventArgs)
                 End If
+                RaiseEvent ImageClicked(Me, New ImageComboEventArgs)
 
             ElseIf Mouse_Region = MouseRegion.Search Then
                 '= > < ≠
