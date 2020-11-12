@@ -995,7 +995,7 @@ Public NotInheritable Class WaitTimer
             TickColor = Color.Red
             Me.BaseControl = baseControl
             Me.BaseForm = baseForm
-            If baseForm IsNot Nothing Then TickForm.Show(baseForm)
+            If baseForm IsNot Nothing Then baseForm.Location = HideLocation
         End If
 
     End Sub
@@ -1064,6 +1064,10 @@ Public NotInheritable Class WaitTimer
     End Property
     Public Sub StartTicking(Optional tickColor As Color = Nothing)
 
+        Try
+            TickForm.Show(BaseForm)
+        Catch ex As System.InvalidOperationException
+        End Try
         If Not tickColor.IsEmpty Then Me.TickColor = tickColor
         TimerTicks = 0
         If Limit = 0 Then TickTimer.Start()
