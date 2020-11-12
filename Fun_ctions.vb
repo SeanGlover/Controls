@@ -4386,6 +4386,24 @@ Public NotInheritable Class SpecialDictionary(Of TKey, TValue)
         End If
 
     End Sub
+    Public Sub AddRange(kvpEnumerable As IEnumerable(Of KeyValuePair(Of TKey, TValue)))
+
+        If kvpEnumerable IsNot Nothing Then
+            For Each kvp In kvpEnumerable
+                Add(kvp.Key, kvp.Value)
+            Next
+        End If
+
+    End Sub
+    Public Sub AddRange(kvpList As List(Of KeyValuePair(Of TKey, TValue)))
+
+        If kvpList IsNot Nothing Then
+            kvpList.ForEach(Sub(kvp)
+                                Add(kvp.Key, kvp.Value)
+                            End Sub)
+        End If
+
+    End Sub
     Public Shadows Function ContainsKey(key As TKey) As Boolean
         Dim value = Item(key)
         Return KeyExists = TriState.True
