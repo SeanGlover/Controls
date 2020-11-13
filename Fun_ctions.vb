@@ -848,12 +848,18 @@ Public Module Functions
         End If
 
     End Function
-    Public Function RegexMatches(InputString As String, Pattern As String, Options As RegexOptions) As List(Of Match)
+    Public Function RegexMatches(InputString As String, Pattern As String, Options As RegexOptions, Optional ascendingIndex As Boolean = True) As List(Of Match)
 
         If InputString Is Nothing Or Pattern Is Nothing Then
             Return Nothing
         Else
-            Return (From m In Regex.Matches(InputString, Pattern, Options) Select DirectCast(m, Match)).ToList
+            Dim matches As New List(Of Match)(From m In Regex.Matches(InputString, Pattern, Options) Select DirectCast(m, Match))
+            If Not ascendingIndex Then
+                matches.Sort(Function(y, x)
+                                 Return x.Index.CompareTo(y.Index)
+                             End Function)
+            End If
+            Return matches
         End If
 
     End Function
@@ -4355,6 +4361,18 @@ Public NotInheritable Class SpecialDictionary(Of TKey, TValue)
     Public Event PropertyChanged(sender As Object, e As DictionaryEventArgs)
     Public Sub New()
         MyBase.New()
+    End Sub
+    Public Sub New(kvpEnumerable As IEnumerable(Of KeyValuePair(Of TKey, TValue)))
+        AddRange(kvpEnumerable)
+    End Sub
+    Public Sub New(kvpList As List(Of KeyValuePair(Of TKey, TValue)))
+        AddRange(kvpList)
+    End Sub
+    Public Sub New(dict As Dictionary(Of TKey, TValue))
+        AddRange(dict)
+    End Sub
+    Public Sub New(dict As SpecialDictionary(Of TKey, TValue))
+        AddRange(dict)
     End Sub
     Private Sub New(serializationInfo As Runtime.Serialization.SerializationInfo, streamingContext As Runtime.Serialization.StreamingContext)
         Throw New NotImplementedException()
