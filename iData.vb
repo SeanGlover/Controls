@@ -24,6 +24,7 @@ Public Structure Errors
     Public Enum Item
         None
         ArchitectureMismatch
+        ConnectionFailed
         NotRunningAsAdministrator
         AccessRevoked
         PasswordMissing
@@ -56,6 +57,12 @@ Public Structure Errors
                     _Statement = "Your access to {database} has been revoked! Submit a request to reinstate your access"
 
                 End If
+
+            ElseIf ExceptionMessage.ToUpperInvariant.Contains("SQLSTATE=08001") Then
+                'ERROR [08001] [IBM][CLI Driver] SQL1336N  The remote host "sbrysb1.somers.hqregion.ibm.com" was not found.  SQLSTATE=08001
+                _Type = Item.ConnectionFailed
+                _Statement = "Connection to {host} failed. Check the network connection or if the URL is accurate"
+
             ElseIf ExceptionMessage.ToUpperInvariant.Contains("ARCHITECTURE") Then
                 _Type = Item.ArchitectureMismatch
                 _Statement = "Connection to {database} is currently not possible. Wrong bit version is in use"
@@ -204,6 +211,7 @@ Friend Class ResponseFailure
         With e.RunError
             Dim errorStatement As String = Replace(.Statement, "{database}", errorConnection.DataSource)
             errorStatement = Replace(errorStatement, "{password}", errorConnection.Password)
+            If errorConnection.Properties.ContainsKey("hostname") Then errorStatement = Replace(errorStatement, "{host}", errorConnection.Properties("hostname"))
 
             Select Case .Type
                 Case Errors.Item.ArchitectureMismatch
@@ -879,43 +887,41 @@ End Class
 <Serializable> Public NotInheritable Class Connection
     Implements IEquatable(Of Connection)
 
-#Region " DECLARATIONS "
-    Private ReadOnly NetezzaString As String = "Driver=;DSN=;UID=;PWD=;NEWPWD=;Database=;Servername=;SchemaName=;Port=;ReadOnly=;SQLBitOneZero=;FastSelect=;LegacySQLTables=;NumericAsChar=;ShowSystemTables=;LoginTimeout=;QueryTimeout=0;DateFormat=;SecurityLevel=;CaCertFile=;Nickname="
-    Private ReadOnly DB2String As String = "Driver=;DSN=DSNA1;UID=;PWD=;NEWPWD=;Database=;MODE=;DBALIAS=;ASYNCENABLE=;USESCHEMAQUERIES=;Protocol=;HOSTNAME=;PORT=;QueryTimeout=600;Nickname="
-#End Region
     Public Event PasswordChanged(sender As Object, e As ConnectionChangedEventArgs)
     Public Event TestCompleted(sender As Object, e As ConnectionTestEventArgs)
     Public Sub New(ConnectionString As String)
 
-        Dim ConnectionElements As New List(Of String)
-        IsFile = Regex.Match(ConnectionString, FilePattern, RegexOptions.IgnoreCase).Success
-        If IsFile Then
-            _Properties.Add(ConnectionString, ConnectionString)
-        Else
-            PropertyIndices = New Dictionary(Of String, Integer)
-            Language = If(Regex.Match(ConnectionString, "DRIVER=\{(Netezza|NZ)SQL\}", RegexOptions.IgnoreCase).Success, QueryLanguage.Netezza, QueryLanguage.Db2)
-            If Language = QueryLanguage.Netezza Then
-                '********** CANNOT BE FIRST PROPERTY!!! ===> DRIVER={NZSQL}
-                ConnectionElements.AddRange(Split(NetezzaString.ToUpperInvariant, ";"))
+        If ConnectionString IsNot Nothing Then
+            IsFile = Regex.Match(ConnectionString, FilePattern, RegexOptions.IgnoreCase).Success
+            If IsFile Then
+                _Properties.Add(ConnectionString, ConnectionString)
             Else
-                ConnectionElements.AddRange(Split(DB2String.ToUpperInvariant, ";"))
+                Dim elementsStandard As New List(Of String)
+                PropertyIndices = New SpecialDictionary(Of String, Integer)
+                Language = If(Regex.Match(ConnectionString, "DRIVER=\{(Netezza|NZ)SQL\}", RegexOptions.IgnoreCase).Success, QueryLanguage.Netezza, QueryLanguage.Db2)
+                Dim stringOptions As String = If(Language = QueryLanguage.Db2,
+                    "Driver=;DSN=DSNA1;UID=;PWD=;NEWPWD=;Database=;MODE=;DBALIAS=;ASYNCENABLE=;USESCHEMAQUERIES=;Protocol=;HOSTNAME=;PORT=;QueryTimeout=600;Nickname=",
+                    "Driver=;DSN=;UID=;PWD=;NEWPWD=;Database=;Servername=;SchemaName=;Port=;ReadOnly=;SQLBitOneZero=;FastSelect=;LegacySQLTables=;NumericAsChar=;ShowSystemTables=;LoginTimeout=;QueryTimeout=0;DateFormat=;SecurityLevel=;CaCertFile=;Nickname="
+                )
+                elementsStandard.AddRange(Split(stringOptions.ToUpperInvariant, ";"))
+                'NB ******* Netezza Connection won't accept DRIVER={NZSQL} as the 1st Property 
+                'DRIVER={IBM DB2 ODBC DRIVER};DSN=MWNCDSNB;UID=glover;PWD=PEANUT12;MODE=SHARE;ASYNCENABLE=0;USESCHEMAQUERIES=1;
+                'DRIVER={IBM DB2 ODBC DRIVER};DSN=DB2B1;UID=Q085365;PWD=i0i0i0i0;DATABASE=DB2B1;PROTOCOL=TCPIP;HOSTNAME=sbrysb1.somers.hqregion.ibm.com;PORT=446;QUERYTIMEOUT=600
+                elementsStandard.ForEach(Sub(element)
+                                             Dim kvp As String() = Split(element, "=")
+                                             If Not _Properties.ContainsKey(kvp.First) Then _Properties.Add(kvp.First, kvp.Last)
+                                             PropertyIndices.Add(kvp.First, PropertyIndices.Count)
+                                         End Sub)
+                Dim elementsProvided As New List(Of String)(Split(ConnectionString, ";"))
+                elementsProvided.ForEach(Sub(element)
+                                             Dim kvp As String() = Split(element, "=")
+                                             If kvp.Length = 2 Then
+                                                 Dim Key As String = Trim(kvp.First).ToUpperInvariant
+                                                 Dim Value As String = Trim(kvp.Last)
+                                                 If _Properties.ContainsKey(Key) Then _Properties(Key) = Value
+                                             End If
+                                         End Sub)
             End If
-            REM *** SOME CONNECTIONSTRINGS MAY COME THROUGH WITH ONLY A DSN+UID...GET THE PASSWORD FROM PARENT
-            'DRIVER={IBM DB2 ODBC DRIVER};DSN=MWNCDSNB;UID=glover;PWD=PEANUT12;MODE=SHARE;ASYNCENABLE=0;USESCHEMAQUERIES=1;
-            For Each Element In ConnectionElements
-                Dim PropertyName As String = Split(Element, "=").First
-                Dim PropertyValue As String = Split(Element, "=").Last
-                If Not _Properties.ContainsKey(PropertyName) Then _Properties.Add(PropertyName, PropertyValue)
-                PropertyIndices.Add(PropertyName, PropertyIndices.Count)
-            Next
-            For Each ProvidedElement In Split(ConnectionString, ";")
-                Dim KeyValuePair() = Split(ProvidedElement, "=")
-                If KeyValuePair.Count = 2 Then
-                    Dim Key As String = Trim(KeyValuePair.First).ToUpperInvariant
-                    Dim Value As String = Trim(KeyValuePair.Last)
-                    If _Properties.ContainsKey(Key) Then _Properties(Key) = Value
-                End If
-            Next
         End If
 
     End Sub
@@ -994,7 +1000,7 @@ End Class
             Return Not IsFile AndAlso Not Password.Any
         End Get
     End Property
-    Private ReadOnly _Properties As New Dictionary(Of String, String)
+    Private ReadOnly _Properties As New SpecialDictionary(Of String, String)
     Public ReadOnly Property Properties As Dictionary(Of String, String)
         Get
             Return _Properties.Where(Function(x) x.Value.Any).ToDictionary(Function(x) x.Key, Function(y) y.Value)
@@ -1008,7 +1014,7 @@ End Class
             Return _Properties.Keys.Except(Properties.Keys).ToList
         End Get
     End Property
-    Public ReadOnly Property PropertyIndices As Dictionary(Of String, Integer)
+    Public ReadOnly Property PropertyIndices As SpecialDictionary(Of String, Integer)
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Public ReadOnly Property Index As Integer
         Get
@@ -1019,7 +1025,9 @@ End Class
             End If
         End Get
     End Property
-    Private ReadOnly ConnectionBackColors As New List(Of Color) From {
+    Public ReadOnly Property BackColor As Color
+        Get
+            Dim colorsBack As New List(Of Color) From {
                     Color.LightBlue,
                     Color.LimeGreen,
                     Color.Peru,
@@ -1031,7 +1039,12 @@ End Class
                     Color.Green,
                     Color.IndianRed,
                     Color.Silver}
-    Private ReadOnly ConnectionForeColors As New List(Of Color) From {
+            Return colorsBack({Index Mod colorsBack.Count, 0}.Max)
+        End Get
+    End Property
+    Public ReadOnly Property ForeColor As Color
+        Get
+            Dim colorsFore As New List(Of Color) From {
                     Color.DarkBlue,
                     Color.DarkGreen,
                     Color.White,
@@ -1043,14 +1056,7 @@ End Class
                     Color.White,
                     Color.White,
                     Color.Black}
-    Public ReadOnly Property BackColor As Color
-        Get
-            Return ConnectionBackColors({Index Mod ConnectionBackColors.Count, 0}.Max)
-        End Get
-    End Property
-    Public ReadOnly Property ForeColor As Color
-        Get
-            Return ConnectionForeColors({Index Mod ConnectionForeColors.Count, 0}.Max)
+            Return colorsFore({Index Mod colorsFore.Count, 0}.Max)
         End Get
     End Property
     Public Shared Function FromString(Value As String) As Connection

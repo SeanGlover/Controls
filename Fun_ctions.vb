@@ -4456,6 +4456,7 @@ Public NotInheritable Class SpecialDictionary(Of TKey, TValue)
         End Get
         Set(value As TValue)
             RaiseEvent PropertyChanged(Me, New DictionaryEventArgs(key, Me(key), value))
+            MyBase.Item(key) = value
         End Set
     End Property
     Public Sub SortByKeys(Optional ascending As Boolean = True)
