@@ -4101,16 +4101,46 @@ End Class
 Public NotInheritable Class CustomToolTip
     Inherits ToolTip
     Public Sub New()
-        MyBase.New
+
+        Active = True
+        AutomaticDelay = 100
+        AutoPopDelay = 1000000
+        InitialDelay = 100
         OwnerDraw = True
-        IsBalloon = True
-        AddHandler Popup, AddressOf OnPopup
-        AddHandler Draw, AddressOf OnDraw
+        ReshowDelay = 100
+        ShowAlways = False
+        StripAmpersands = False
+        UseAnimation = True
+        UseFading = True
+
+        IsBalloon = False   'Draw Event won't work for IsBalloon=True!
+        AutoPopDelay = 5000
+        InitialDelay = 500
+        ReshowDelay = 10
+        OwnerDraw = True
+
     End Sub
-    Private Sub OnPopup(ByVal sender As Object, ByVal e As PopupEventArgs)
-        e.ToolTipSize = New Size(200, 100)
+    Private ReadOnly Property TipSize As Size
+    Private ReadOnly Property TipText As String
+    Private Sub Tip_PopUp(sender As Object, e As PopupEventArgs) Handles Me.Popup
+
+        e.ToolTipSize = New Size(300, 200)
+        _TipSize = e.ToolTipSize
+        _TipText = GetToolTip(e.AssociatedControl)
+        Using f As New Font("Tahoma", 9)
+            'e.ToolTipSize = TextRenderer.MeasureText(TipText, f)
+        End Using
+
     End Sub
-    Private Sub OnDraw(ByVal sender As Object, ByVal e As DrawToolTipEventArgs)
+    Public Overloads Sub Show(tipText As String, parent As IWin32Window, location As Point)
+
+        If tipText IsNot Nothing Then
+            Dim x = TipSize
+            MyBase.Show(tipText, parent, location)
+        End If
+
+    End Sub
+    Private Sub Tip_Draw(sender As Object, e As DrawToolTipEventArgs) Handles Me.Draw
 
         Using g As Graphics = e.Graphics
             Using b As Drawing2D.LinearGradientBrush = New Drawing2D.LinearGradientBrush(e.Bounds, Color.GreenYellow, Color.MintCream, 45.0!)

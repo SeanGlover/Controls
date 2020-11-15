@@ -24,7 +24,7 @@ Public Structure Errors
     Public Enum Item
         None
         ArchitectureMismatch
-        ConnectionFailed
+        ConnectionFailure
         NotRunningAsAdministrator
         AccessRevoked
         PasswordMissing
@@ -35,49 +35,53 @@ Public Structure Errors
     End Enum
     Public ReadOnly Property Type As Item
     Public ReadOnly Property Statement As String
-    Public Sub New(ExceptionMessage As String)
+    Public Sub New(errorConnection As Connection, errorMessage As String)
 
-        If ExceptionMessage IsNot Nothing Then
-            If ExceptionMessage.ToUpperInvariant.Contains("PASSWORD") Or ExceptionMessage.Contains("LDAP authentication failed For user") Then
-                If ExceptionMessage.ToUpperInvariant.Contains("EXPIRED") Then
+        If errorMessage IsNot Nothing Then
+            Dim errorPWD As String = If(errorConnection Is Nothing, String.Empty, errorConnection.Password)
+            Dim errorSource As String = If(errorConnection Is Nothing, String.Empty, errorConnection.DataSource)
+            Dim errorHost As String = If(errorConnection Is Nothing, String.Empty, errorConnection.Host)
+
+            If errorMessage.ToUpperInvariant.Contains("PASSWORD") Or errorMessage.Contains("LDAP authentication failed For user") Then
+                If errorMessage.ToUpperInvariant.Contains("EXPIRED") Then
                     _Type = Item.PasswordExpired
-                    _Statement = "Your password {password} for {database} has expired. You must create a new password now."
+                    _Statement = $"Your password errorPWD for errorSource has expired. You must create a new password now."
 
-                ElseIf ExceptionMessage.ToUpperInvariant.Contains("MISSING") Then
+                ElseIf errorMessage.ToUpperInvariant.Contains("MISSING") Then
                     _Type = Item.PasswordMissing
-                    _Statement = "Your password {password} for {database} is missing. You must provide a value."
+                    _Statement = $"Your password errorPWD for errorSource is missing. You must provide a value."
 
-                ElseIf ExceptionMessage.ToUpperInvariant.Contains("PASSWORD INVALID") Or ExceptionMessage.Contains("LDAP authentication failed For user") Then
+                ElseIf errorMessage.ToUpperInvariant.Contains("PASSWORD INVALID") Or errorMessage.Contains("LDAP authentication failed For user") Then
                     '[IBM][CLI DRIVER] SQL30082N  SECURITY PROCESSING FAILED WITH REASON "24" ("USERNAME AND/OR PASSWORD INVALID").  SQLSTATE=08001
                     _Type = Item.PasswordIncorrect
-                    _Statement = "Your password {password} for {database} is incorrect. You must submit another value."
+                    _Statement = $"Your password errorPWD for errorSource is incorrect. You must submit another value."
 
-                ElseIf ExceptionMessage.ToUpperInvariant.Contains("REVOKED") Then
+                ElseIf errorMessage.ToUpperInvariant.Contains("REVOKED") Then
                     _Type = Item.AccessRevoked
-                    _Statement = "Your access to {database} has been revoked! Submit a request to reinstate your access"
+                    _Statement = $"Your access to errorSource has been revoked! Submit a request to reinstate your access"
 
                 End If
 
-            ElseIf ExceptionMessage.ToUpperInvariant.Contains("SQLSTATE=08001") Then
+            ElseIf errorMessage.ToUpperInvariant.Contains("SQLSTATE=08001") Then
                 'ERROR [08001] [IBM][CLI Driver] SQL1336N  The remote host "sbrysb1.somers.hqregion.ibm.com" was not found.  SQLSTATE=08001
-                _Type = Item.ConnectionFailed
-                _Statement = "Connection to {host} failed. Check the network connection or if the URL is accurate"
+                _Type = Item.ConnectionFailure
+                _Statement = $"Connection to {errorHost} failed. Check the network connection or if the URL is accurate"
 
-            ElseIf ExceptionMessage.ToUpperInvariant.Contains("ARCHITECTURE") Then
+            ElseIf errorMessage.ToUpperInvariant.Contains("ARCHITECTURE") Then
                 _Type = Item.ArchitectureMismatch
-                _Statement = "Connection to {database} is currently not possible. Wrong bit version is in use"
+                _Statement = $"Connection to errorSource is currently not possible. Wrong bit version is in use"
 
-            ElseIf ExceptionMessage.Contains("SQLAllocHandle") Then
+            ElseIf errorMessage.Contains("SQLAllocHandle") Then
                 _Type = Item.NotRunningAsAdministrator
-                _Statement = "Connection to {database} is currently not possible. Reopen the application and run as administrator"
+                _Statement = $"Connection to errorSource is currently not possible. Reopen the application and run as administrator"
 
             Else
-                If Regex.Match(ExceptionMessage, "time[d]{0,1}[ ]{0,1}out", RegexOptions.IgnoreCase).Success Then
+                If Regex.Match(errorMessage, "time[d]{0,1}[ ]{0,1}out", RegexOptions.IgnoreCase).Success Then
                     _Type = Item.Timeout
-                    _Statement = "Operation took too long. " & ExceptionMessage
+                    _Statement = $"Operation took too long. " & errorMessage
                 Else
                     _Type = Item.ScriptError
-                    _Statement = ExceptionMessage
+                    _Statement = errorMessage
 
                 End If
             End If
@@ -102,6 +106,12 @@ Public Structure Errors
         Else
             Return False
         End If
+    End Function
+    Public Overrides Function ToString() As String
+
+        Dim camelFormat As String() = CamelFormatSplit(Type.ToString)
+        Return Join(camelFormat) & If(Statement Is Nothing, String.Empty, " : " & Statement)
+
     End Function
 End Structure
 Public NotInheritable Class ResponsesEventArgs
@@ -207,11 +217,8 @@ Friend Class ResponseFailure
     Private Sub Query_Procedure_Failed(e As ResponseEventArgs)
 
         Dim errorConnection As New Connection(e.ConnectionString)
-
         With e.RunError
-            Dim errorStatement As String = Replace(.Statement, "{database}", errorConnection.DataSource)
-            errorStatement = Replace(errorStatement, "{password}", errorConnection.Password)
-            If errorConnection.Properties.ContainsKey("hostname") Then errorStatement = Replace(errorStatement, "{host}", errorConnection.Properties("hostname"))
+            Dim errorStatement As String = .Statement
 
             Select Case .Type
                 Case Errors.Item.ArchitectureMismatch
@@ -972,6 +979,15 @@ End Class
             _Properties("NEWPWD") = value
         End Set
     End Property
+    Public Property Host As String
+        Get
+            Return If(_Properties.ContainsKey("hostname"), _Properties("hostname"), String.Empty)
+        End Get
+        Set(value As String)
+            value = If(value, String.Empty)
+            If _Properties.ContainsKey("hostname") Then Properties("hostname") = value
+        End Set
+    End Property
     Private TestPassed_ As TriState = TriState.UseDefault
     Public ReadOnly Property TestPassed As TriState
         Get
@@ -1097,7 +1113,7 @@ End Class
             If .Succeeded Then
                 TestPassed_ = TriState.True
 
-            ElseIf .Message.Contains("ERROR [08001]") Or .Message.Contains("The remote host ""[^""]{1,}") Then
+            ElseIf .RunError.Type = Errors.Item.ConnectionFailure Then
                 TestPassed_ = TriState.UseDefault
 
             Else
@@ -2328,14 +2344,14 @@ End Class
                                     End Using
                                 Catch ex As OleDbException
                                     _Ended = Now
-                                    _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, ex.Message, New Errors(ex.Message))
+                                    _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, ex.Message, New Errors(Connection, ex.Message))
 
                                 End Try
                             End Using
 
                         Catch ex As OleDbException
                             _Ended = Now
-                            _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, ex.Message, New Errors(ex.Message))
+                            _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, ex.Message, New Errors(Connection, ex.Message))
 
                         End Try
 #End Region
@@ -2346,17 +2362,17 @@ End Class
 #End Region
             Else
 #Region " DATABASE "
-                Using Connection As New OdbcConnection(ConnectionString)
+                Using Connection_DB As New OdbcConnection(ConnectionString)
                     Try
-                        Connection.Open()
+                        Connection_DB.Open()
                         Try
                             'Using someCommand As New SqlCommand()
                             '    someCommand.Parameters.Add("@username", SqlDbType.NChar).Value = Name
                             'End Using
-                            Using Adapter As New OdbcDataAdapter(Instruction, Connection)
+                            Using Adapter As New OdbcDataAdapter(Instruction, Connection_DB)
                                 _Table = New DataTable
                                 Adapter.Fill(Table)
-                                Connection.Close()
+                                Connection_DB.Close()
                                 _Ended = Now
                                 Table.Locale = CultureInfo.InvariantCulture
                                 Table.Namespace = "<DB2>"
@@ -2364,16 +2380,16 @@ End Class
 
                             End Using
                         Catch odbcException As OdbcException
-                            Connection.Close()
+                            Connection_DB.Close()
                             _Ended = Now
-                            _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, odbcException.Message, New Errors(odbcException.Message))
+                            _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, odbcException.Message, New Errors(Connection, odbcException.Message))
 
                         End Try
 
                     Catch odbcOpenException As OdbcException
-                        Connection.Close()
+                        Connection_DB.Close()
                         _Ended = Now
-                        _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, odbcOpenException.Message, New Errors(odbcOpenException.Message))
+                        _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, odbcOpenException.Message, New Errors(Connection, odbcOpenException.Message))
 
                     End Try
                 End Using
@@ -2388,7 +2404,7 @@ End Class
             Else
                 MissingMessage.Append("Missing instruction")
             End If
-            _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, MissingMessage.ToString, New Errors(MissingMessage.ToString))
+            _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, MissingMessage.ToString, New Errors(Connection, MissingMessage.ToString))
         End If
 
     End Sub
@@ -2596,24 +2612,24 @@ Public Class DDL
 
                     Catch ex As OleDbException
                         _Ended = Now
-                        _Response = New ResponseEventArgs(InstructionType.DDL, ConnectionString, Instruction, ex.Message, New Errors(ex.Message))
+                        _Response = New ResponseEventArgs(InstructionType.DDL, ConnectionString, Instruction, ex.Message, New Errors(Connection, ex.Message))
 
                     End Try
                 End Using
 
             Catch ex As OleDbException
                 _Ended = Now
-                _Response = New ResponseEventArgs(InstructionType.DDL, ConnectionString, Instruction, ex.Message, New Errors(ex.Message))
+                _Response = New ResponseEventArgs(InstructionType.DDL, ConnectionString, Instruction, ex.Message, New Errors(Connection, ex.Message))
 
             End Try
         Else
             _Started = Now
             Using New CursorBusy
-                Using _Connection As New OdbcConnection(ConnectionString)
+                Using Connection_DB As New OdbcConnection(ConnectionString)
                     Dim DDL_Instruction As String = Join((From ok In ProceduresOK Select ok.Instruction).ToArray, ";")
                     Try
-                        _Connection.Open()
-                        Using Command As New OdbcCommand(DDL_Instruction, _Connection)
+                        Connection_DB.Open()
+                        Using Command As New OdbcCommand(DDL_Instruction, Connection_DB)
                             'Command.Parameters.AddWithValue("@instruction", DDL_Instruction)
                             Try
                                 Command.ExecuteNonQuery()
@@ -2622,14 +2638,14 @@ Public Class DDL
 
                             Catch ProcedureError As OdbcException
                                 _Ended = Now
-                                _Response = New ResponseEventArgs(InstructionType.DDL, ConnectionString, DDL_Instruction, ProcedureError.Message, New Errors(ProcedureError.Message))
+                                _Response = New ResponseEventArgs(InstructionType.DDL, ConnectionString, DDL_Instruction, ProcedureError.Message, New Errors(Connection, ProcedureError.Message))
 
                             End Try
                         End Using
 
                     Catch ODBC_RunError As OdbcException
                         _Ended = Now
-                        _Response = New ResponseEventArgs(InstructionType.DDL, ConnectionString, DDL_Instruction, ODBC_RunError.Message, New Errors(ODBC_RunError.Message))
+                        _Response = New ResponseEventArgs(InstructionType.DDL, ConnectionString, DDL_Instruction, ODBC_RunError.Message, New Errors(Connection, ODBC_RunError.Message))
 
                     End Try
                 End Using
