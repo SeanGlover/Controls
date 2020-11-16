@@ -912,8 +912,8 @@ End Class
                 )
                 elementsStandard.AddRange(Split(stringOptions.ToUpperInvariant, ";"))
                 'NB ******* Netezza Connection won't accept DRIVER={NZSQL} as the 1st Property 
-                'DRIVER={IBM DB2 ODBC DRIVER};DSN=MWNCDSNB;UID=glover;PWD=PEANUT12;MODE=SHARE;ASYNCENABLE=0;USESCHEMAQUERIES=1;
-                'DRIVER={IBM DB2 ODBC DRIVER};DSN=DB2B1;UID=Q085365;PWD=i0i0i0i0;DATABASE=DB2B1;PROTOCOL=TCPIP;HOSTNAME=sbrysb1.somers.hqregion.ibm.com;PORT=446;QUERYTIMEOUT=600
+                'DRIVER={IBM DB2 ODBC DRIVER};DSN=MWNCDSNB;UID=;PWD=;MODE=SHARE;ASYNCENABLE=0;USESCHEMAQUERIES=1;
+                'DRIVER={IBM DB2 ODBC DRIVER};DSN=DB2B1;UID=;PWD=;DATABASE=DB2B1;PROTOCOL=TCPIP;HOSTNAME=sbrysb1.somers.hqregion.ibm.com;PORT=446;QUERYTIMEOUT=600
                 elementsStandard.ForEach(Sub(element)
                                              Dim kvp As String() = Split(element, "=")
                                              If Not _Properties.ContainsKey(kvp.First) Then _Properties.Add(kvp.First, kvp.Last)
