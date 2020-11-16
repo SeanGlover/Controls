@@ -1765,9 +1765,26 @@ Public NotInheritable Class ItemCollection
 End Class
 REM ////////////////////////////////////////////////////////////////////////////////////////////////////////// DROPDOWN COMBO ITEM
 <Serializable> <TypeConverter(GetType(PropertyConverter))> Public Class ComboItem
+    Implements IDisposable
+#Region " DISPOSE "
+    Dim disposed As Boolean = False
+    Public Sub Dispose() Implements IDisposable.Dispose
+        Dispose(True)
+        GC.SuppressFinalize(Me)
+    End Sub
+    Protected Overridable Sub Dispose(disposing As Boolean)
+        If disposed Then Return
+        If disposing Then
+            ' Free any other managed objects here.
+            _Image?.Dispose()
+        End If
+        disposed = True
+    End Sub
+#End Region
+
     Public Sub New()
     End Sub
-#Region " Properties & Fields "
+
     Public ReadOnly Property ImageCombo As ImageCombo
         Get
             If IsNothing(_ItemCollection) Then
@@ -1842,8 +1859,8 @@ REM ////////////////////////////////////////////////////////////////////////////
     End Property
     Public Property Separator As Boolean
     Public Property TipText As String
+
     Public Overrides Function ToString() As String
         Return Join({Text, Index}, BlackOut)
     End Function
-#End Region
 End Class

@@ -680,6 +680,7 @@ Public Class Prompt
                 wordBoundsLeft += wordSize.Value.Width
             Next
             If pastIcon Then
+                'NOTHING IS BEING DONE WITH THE iconAdjust AND textAdjust ????
                 Dim relativeSizing = TextIconSizing(rowHeight)
                 Dim iconAdjust As Integer = relativeSizing.Key
                 Dim textAdjust As Integer = relativeSizing.Value

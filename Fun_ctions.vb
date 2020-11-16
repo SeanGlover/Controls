@@ -1142,6 +1142,159 @@ Public Module Functions
         End If
 
     End Function
+
+    Private Enum CharacterType
+        None
+        Space
+        NotSpace
+    End Enum
+    Public Function WordRectangles(stringIn As String, fontText As Font, Optional iconBounds As Rectangle = Nothing) As KeyValuePair(Of Size, SpecialDictionary(Of Integer, SpecialDictionary(Of Rectangle, String)))
+
+        If If(stringIn, String.Empty).Any AndAlso fontText IsNot Nothing Then
+
+            Dim offsetH As Integer = 3
+            Dim offsetV As Integer = 3
+            '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ G E T   W O R D   S I Z E S
+            Dim characterGroups As New Dictionary(Of Integer, String)
+            Dim firstLetter As Char = stringIn.First
+            Dim lastType As CharacterType = If(TrimReturn(firstLetter).Any, CharacterType.NotSpace, CharacterType.Space)
+            Dim typeString As String = String.Empty
+            For Each letter As Char In stringIn
+                Dim currentType As CharacterType = If(TrimReturn(letter).Any, CharacterType.NotSpace, CharacterType.Space)
+                If lastType <> currentType Then
+                    characterGroups.Add(characterGroups.Count, typeString)
+                    lastType = currentType
+                    typeString = String.Empty
+                End If
+                typeString &= letter
+            Next
+            characterGroups.Add(characterGroups.Count, typeString)
+            Dim wordSizes As New Dictionary(Of Integer, Size)
+            For Each group In characterGroups
+                wordSizes.Add(group.Key, MeasureText(group.Value, fontText))
+            Next
+            Dim rowHeight As Integer = wordSizes.Values.Max(Function(w) w.Height)
+            Dim largestWord As Integer = wordSizes.Values.Max(Function(w) w.Width)
+
+            '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ G E T   W I D T H  +  H E I G H T
+            'a) Width & Height as a Rectangle based on total area...if there are long words wider than the Rectangle, it will need expanding
+            Dim TextSize As Size = MeasureText(stringIn, fontText)
+            Dim TextArea As Integer = TextSize.Width * TextSize.Height
+            Dim width2height_Ratio As Double = 3 'Prompt box looks good when width is 3 times the height
+            'Area = Width * Height                       ex Area = 10,000 ( x * y )
+            '∵ Width = 3*Height                         ex x = 3y
+            'Area = Width (3*Height) * Height            ex Area = 3y * y
+            'Area = 3*Height * Height                    ex y² * 3 = 10,000
+            'Area = Height² * 3                          ex y² = 10,000 / 3
+            'Height = √Area/3                            ex y = √3,333.33   57.73
+            'Width = Height * 3                          ex x = 57.73 * 3 = 173.21   ... 57.73 * 173.21 = 10,000
+            'Area of 10,000 should have a width of 173.21 and a height of 57.73
+
+            Dim proposedTextHeight As Double = Math.Sqrt(TextArea / width2height_Ratio)
+            Dim proposedTextWidth As Double = proposedTextHeight * width2height_Ratio
+            Dim proposedTextSize As New Size(Convert.ToInt32({proposedTextWidth, largestWord}.Max), Convert.ToInt32(proposedTextHeight))
+
+            '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ G E T   W I D T H  +  H E I G H T
+            Dim TextBounds As New SpecialDictionary(Of Rectangle, String)
+            Dim BoundsText As New SpecialDictionary(Of Integer, SpecialDictionary(Of Rectangle, String))
+            Dim lines As New Dictionary(Of Integer, List(Of String))
+            Dim lineIndex As Integer = 0
+            Dim leftBuffer As Integer = 6
+            Dim wordBoundsLeft As Integer = iconBounds.Right + leftBuffer
+            Dim paddingIcon As Integer = 3
+            Dim pastIcon As Boolean = False
+            Dim widthMax As Integer = 0
+            Dim heightMax As Integer = 0
+
+            For Each wordSize In wordSizes 'Indexed words and spaces
+                Dim isReturn As Boolean = {vbNewLine, vbCrLf, vbCr}.Contains(characterGroups(wordSize.Key))
+                If isReturn Or wordBoundsLeft + wordSize.Value.Width > proposedTextWidth Then
+                    'Image.Width + Word.Width > Content.Width ... new line
+                    pastIcon = rowHeight * lines.Count > iconBounds.Bottom
+                    wordBoundsLeft = If(pastIcon, leftBuffer, iconBounds.Right + leftBuffer)
+                    lineIndex += 1
+                End If
+                If Not BoundsText.ContainsKey(lineIndex) Then BoundsText.Add(lineIndex, New SpecialDictionary(Of Rectangle, String))
+                If Not lines.ContainsKey(lineIndex) Then lines.Add(lineIndex, New List(Of String))
+                lines(lineIndex).Add(characterGroups(wordSize.Key))
+                Dim boundsWord As New Rectangle(offsetH + wordBoundsLeft, offsetV + paddingIcon + (lineIndex * rowHeight), wordSize.Value.Width, rowHeight)
+                Dim stringWord As String = characterGroups(wordSize.Key)
+                TextBounds.Add(boundsWord, stringWord)
+                BoundsText(lineIndex).Add(boundsWord, stringWord)
+                wordBoundsLeft += wordSize.Value.Width
+                If widthMax < boundsWord.Right Then widthMax = boundsWord.Right
+                If heightMax < boundsWord.Bottom Then heightMax = boundsWord.Bottom
+            Next
+
+            If pastIcon Then
+#Region " CALCULATE BEST FIT - NOTHING IS BEING DONE WITH THIS!!! "
+                Dim iconAdjust As Integer = 0
+                Dim textAdjust As Integer = 0
+                '/// Key = Icon.Height delta, Value=Text.Height delta ... both must grow only as shrinking the Icon or Text height not ideal
+                '/// 4 possible outcomes: a) Neither change, b) Text grows, c) Icon grows or d) both grow
+                Dim iconHeight As Integer = iconBounds.Height
+
+                Dim qr = QuotientRemainder(iconHeight, rowHeight) 'renders ==> (#Rows of text, #Pixels total remaining)
+                Dim rows As Byte = CByte(qr.Key)
+                Dim pixels As Byte = CByte(qr.Value)
+                '(48, 17)=(2, 14) meaning 2 rows with 14 pixels to split between the 2 rows ( 7 each - too high ) ... additional row is just past the Icon bottom
+                '(48, 23)=(2, 2)  meaning 2 rows with 2 pixels to split between the 2 rows ( 1 each - OK ) ... text line height is just short of the icon bottom
+                '/// ∴ Low remainder = grow Text while high remainder = grow Icon
+
+                Dim textPixelsGrow = QuotientRemainder(pixels, rows) 'Determines how to distribute pixels...(#Pixels, #Rows) ==> (14 pixels, 2 rows) ==> ( 7 pixels, 0 remainder)
+
+                If textPixelsGrow.Key <= 4 Then
+                    'OK to use a hard value of 4 since padding 2 above text and 2 below text is ok, more than that is noticeable
+                    iconAdjust = Convert.ToInt32(textPixelsGrow.Value)
+                    textAdjust = Convert.ToInt32(textPixelsGrow.Key)
+
+                Else
+                    Dim iconDelta As Integer = rowHeight - pixels 'If textHeight=17 and pixels=14 then only 3 change
+                    'Try evenly splitting pixels among the Icon and Rows
+                    Dim pixelSplit = QuotientRemainder(iconDelta, rows + 1) '...say 4 delta amoung 2 rows and Icon
+                    Dim textGrowMax As Long = {pixelSplit.Key, 4}.Max
+                    Dim iconGrowValue As Long = textGrowMax - pixelSplit.Key
+                    iconAdjust = Convert.ToInt32(iconGrowValue)
+                    textAdjust = Convert.ToInt32(textGrowMax)
+
+                End If
+#End Region
+            Else
+                Dim textHeight As Integer = lines.Count * rowHeight
+                Dim extraSpace As Integer = CInt(QuotientRound(iconBounds.Height - textHeight, 2))
+                If extraSpace > 0 Then
+                    Dim newBounds As New Dictionary(Of Rectangle, String)
+                    For Each textBound In TextBounds
+                        With textBound.Key
+                            newBounds.Add(New Rectangle(.Left, .Top + extraSpace, .Width, .Height), textBound.Value)
+                        End With
+                    Next
+                    TextBounds.AddRange(newBounds)
+                End If
+            End If
+            Dim widthRound As Integer = CInt(10 * Math.Ceiling((3 + widthMax + 3) / 10)) 'Pad on either side
+            Dim heightRound As Integer = CInt(10 * Math.Ceiling((3 + heightMax + 3) / 10)) 'Pad on either side
+            Return New KeyValuePair(Of Size, SpecialDictionary(Of Integer, SpecialDictionary(Of Rectangle, String)))(New Size(widthRound, heightRound), BoundsText)
+
+        Else
+            Return Nothing
+        End If
+
+    End Function
+    Public Function DisplayScale() As Single
+
+        Dim VERTRES As Integer = 10
+        Dim DESKTOPVERTRES As Integer = 117
+
+        Dim g As Graphics = Graphics.FromHwnd(IntPtr.Zero)
+        Dim desktop As IntPtr = g.GetHdc()
+        Dim LogicalScreenHeight As Integer = NativeMethods.GetDeviceCaps(desktop, VERTRES)
+        Dim PhysicalScreenHeight As Integer = NativeMethods.GetDeviceCaps(desktop, DESKTOPVERTRES)
+        Dim ScreenScalingFactor As Single = CSng(PhysicalScreenHeight / LogicalScreenHeight)
+        Return ScreenScalingFactor
+
+    End Function
+
 #Region " COLOR "
     Function ColorToHtmlHex(ByVal color As Color) As String
         Return String.Format(InvariantCulture, "#{0:X2}{1:X2}{2:X2}", color.R, color.G, color.B)
@@ -4024,8 +4177,9 @@ Public NotInheritable Class NativeMethods
     <DllImport("gdi32.dll")>
     Friend Shared Function DeleteObject(ByVal hObject As IntPtr) As Boolean
     End Function
-    <DllImport("gdi32.dll")>
-    Friend Shared Function GetDeviceCaps(ByVal hdc As IntPtr, ByVal nIndex As Integer) As Integer
+    <DllImport("gdi32.dll")> Friend Shared Function GetDeviceCaps(ByVal hdc As IntPtr, ByVal nIndex As Integer) As Integer
+    End Function
+    <DllImport("user32.dll")> Private Shared Function GetDC(ByVal hWnd As IntPtr) As IntPtr
     End Function
     Friend Declare Auto Function GetSystemMetrics Lib "user32.dll" (ByVal smIndex As Integer) As Integer
     Friend Declare Function GetKeyState Lib "user32.dll" (ByVal nVirtKey As Integer) As Short
@@ -4119,49 +4273,154 @@ Public NotInheritable Class CustomToolTip
         ReshowDelay = 10
         OwnerDraw = True
 
+        _BoundsImage = If(TipImage Is Nothing, Nothing, New Rectangle(2, 2, TipImage.Width, TipImage.Height))
+
+        ' NB Popup fires 1st, then Draw
+
     End Sub
+
     Private ReadOnly Property TipSize As Size
     Private ReadOnly Property TipText As String
+    Private ReadOnly Property BackgroundImage As Image
+    Public ReadOnly Property Parent As Control
+    Private ReadOnly Property ParentLocation As Point
+    Public ReadOnly Property Bounds As Rectangle
+    Public ReadOnly Property BoundsImage As Rectangle
+    Private ReadOnly Property PointOffset As Point
+    Public ReadOnly Property Words As SpecialDictionary(Of Integer, SpecialDictionary(Of Rectangle, String))
+    Public ReadOnly Property DisplayFactor As Single
+
+    Private Font_ As New Font("IBM Plex Mono", 10)
+    Public Property TipFont As Font
+        Get
+            Return Font_
+        End Get
+        Set(value As Font)
+            If value IsNot Nothing Then
+                Font_ = value
+            End If
+        End Set
+    End Property
+    Public Property TipImage As Image
     Private Sub Tip_PopUp(sender As Object, e As PopupEventArgs) Handles Me.Popup
 
-        e.ToolTipSize = New Size(300, 200)
-        _TipSize = e.ToolTipSize
+        '/// This Sub is called BEFORE Draw. Need to calculate best location and sizes + can only set the e.ToolTipSize here
+        _DisplayFactor = DisplayScale()
+
+        _Parent = e.AssociatedControl
         _TipText = GetToolTip(e.AssociatedControl)
-        Using f As New Font("Tahoma", 9)
-            'e.ToolTipSize = TextRenderer.MeasureText(TipText, f)
+
+        _BoundsImage = If(TipImage Is Nothing, Nothing, New Rectangle(2, 2, TipImage.Width, TipImage.Height))
+        Dim boundsWords = WordRectangles(TipText, TipFont, BoundsImage)
+        _Words = boundsWords.Value
+        Dim sizeOfMe As Size = boundsWords.Key
+
+        _TipSize = boundsWords.Key
+        e.ToolTipSize = TipSize
+
+        '/// Determine best fit
+        _ParentLocation = e.AssociatedControl.PointToScreen(New Point(0, 0))
+
+        _Bounds = New Rectangle(
+            ParentLocation.X - sizeOfMe.Width,
+            ParentLocation.Y - sizeOfMe.Height,
+            sizeOfMe.Width,
+            sizeOfMe.Height
+                                )
+        Dim boundsScale As New Rectangle(
+            ParentLocation.X - sizeOfMe.Width,
+            ParentLocation.Y - sizeOfMe.Height,
+            CInt(sizeOfMe.Width * DisplayFactor),
+            CInt(sizeOfMe.Height * DisplayFactor)
+        )
+
+        Dim bmpCapture As Bitmap = New Bitmap(boundsScale.Width, boundsScale.Height)
+        Using g As Graphics = Graphics.FromImage(bmpCapture)
+            g.CopyFromScreen(CInt(boundsScale.X * DisplayFactor),
+                     CInt(boundsScale.Y * DisplayFactor),
+                     0,
+                     0,
+                     boundsScale.Size,
+                     CopyPixelOperation.SourceCopy)
         End Using
+        _BackgroundImage = bmpCapture
+        bmpCapture.Save(Desktop & "\parent.png")
 
-    End Sub
-    Public Overloads Sub Show(tipText As String, parent As IWin32Window, location As Point)
-
-        If tipText IsNot Nothing Then
-            Dim x = TipSize
-            MyBase.Show(tipText, parent, location)
-        End If
+        Exit Sub
+        Dim screenBounds As Rectangle = Screen.PrimaryScreen.Bounds
+        Dim bmpScreenCapture As Bitmap = New Bitmap(screenBounds.Width, screenBounds.Height)
+        Using g As Graphics = Graphics.FromImage(bmpScreenCapture)
+            g.CopyFromScreen(0,
+                     0,
+                     0,
+                     0,
+                     bmpScreenCapture.Size,
+                     CopyPixelOperation.SourceCopy)
+        End Using
+        bmpScreenCapture.Save(Desktop & "\screen.png")
+#Region " HANDY CODE "
+        Dim myBitmap As Bitmap = DirectCast(bmpScreenCapture, Bitmap)
+        Dim cloneRect As RectangleF = New RectangleF(Bounds.X,
+                                                     Bounds.Y,
+                                                     Bounds.Width,
+                                                     Bounds.Height)
+        Dim formatPixel As PixelFormat = myBitmap.PixelFormat
+        Dim cloneBitmap As Bitmap = myBitmap.Clone(cloneRect, formatPixel)
+        cloneBitmap.Save(Desktop & "\clone.png")
+#End Region
+        bmpScreenCapture.Dispose()
 
     End Sub
     Private Sub Tip_Draw(sender As Object, e As DrawToolTipEventArgs) Handles Me.Draw
 
+        _PointOffset = New Point(Bounds.X - e.Bounds.X, Bounds.Y - e.Bounds.Y)
+
         Using g As Graphics = e.Graphics
-            Using b As Drawing2D.LinearGradientBrush = New Drawing2D.LinearGradientBrush(e.Bounds, Color.GreenYellow, Color.MintCream, 45.0!)
-                g.FillRectangle(Brushes.Transparent, e.Bounds)
+            g.SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
 
-                Dim point1 As PointF = New PointF(0.0F, 100.0F)
-                Dim point2 As PointF = New PointF(200.0F, 50.0F)
-                Dim point3 As PointF = New PointF(250.0F, 200.0F)
-                Dim point4 As PointF = New PointF(50.0F, 150.0F)
-                Dim points() = {point1, point2, point3, point4}
-                g.FillClosedCurve(b, points)
+            'Using backBrush As New SolidBrush(Color.WhiteSmoke)
+            '    g.FillRectangle(backBrush, Bounds)
+            'End Using
 
-                Using Pen1 As New Pen(Brushes.Red, 1)
-                    g.DrawRectangle(Pen1, New Rectangle(e.Bounds.X, e.Bounds.Y, e.Bounds.Width - 1, e.Bounds.Height - 1))
-                End Using
-                g.DrawString(e.ToolTipText, e.Font, Brushes.Silver, New PointF(e.Bounds.X + 6, e.Bounds.Y + 6))
-                ' shadow layer
-                g.DrawString(e.ToolTipText, e.Font, Brushes.Black, New PointF(e.Bounds.X + 5, e.Bounds.Y + 5))
-                ' top layer
+            Dim boundsTangle As New Rectangle(0, 0, Bounds.Width, Bounds.Height)
+
+            g.DrawImage(BackgroundImage, boundsTangle)
+
+            Using Pen1 As New Pen(Brushes.Red, 1)
+                g.DrawRectangle(Pen1, boundsTangle)
             End Using
+
+            If TipImage IsNot Nothing Then g.DrawImage(TipImage, BoundsImage)
+
+            Dim wordList As New SpecialDictionary(Of Rectangle, String)
+            For Each row In Words
+                For Each word In row.Value
+                    wordList.Add(word)
+                Next
+            Next
+            For Each word In wordList
+                Using sf As New StringFormat(StringFormatFlags.FitBlackBox) With {.Alignment = StringAlignment.Center, .LineAlignment = StringAlignment.Center}
+                    g.DrawString(
+        word.Value,
+        TipFont,
+        Brushes.Black,
+        word.Key,
+        sf
+    )
+                End Using
+            Next
+
         End Using
+
+    End Sub
+    Public Overloads Sub Show(textShow As String, windowShow As IWin32Window)
+
+        _TipText = textShow
+        Dim boundsWords = WordRectangles(TipText, TipFont, BoundsImage)
+        _Words = boundsWords.Value
+        Dim sizeOfMe As New Size(CInt(boundsWords.Key.Width), CInt(boundsWords.Key.Height))
+        Stop
+        Show(textShow, windowShow, New Point(-370, -170))
 
     End Sub
 End Class
