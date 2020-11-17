@@ -4139,11 +4139,7 @@ Public NotInheritable Class NativeMethods
     <DllImport("user32.dll")>
     Friend Shared Function SetScrollPos(ByVal hWnd As IntPtr, ByVal nBar As Integer, ByVal nPos As Integer, ByVal bRedraw As Boolean) As Integer
     End Function
-    Friend Declare Function PostMessageA Lib "user32.dll" (
-        ByVal hwnd As IntPtr,
-        ByVal wMsg As Integer,
-        ByVal wParam As Integer,
-        ByVal lParam As Integer) As Boolean
+    Friend Declare Function PostMessageA Lib "user32.dll" (hwnd As IntPtr, wMsg As Integer, wParam As Integer, lParam As Integer) As Boolean
     <DllImport("user32.dll")>
     Friend Shared Function GetCursorPos(ByRef lpPoint As Point) As Boolean
     End Function
@@ -4203,6 +4199,10 @@ Public NotInheritable Class NativeMethods
     Friend Declare Function IsWindowVisible Lib "user32.dll" (ByVal HWND As Long) As Boolean
     Friend Declare Function SendMessage Lib "User32" Alias "SendMessageA" (ByVal HWND As Long, ByVal wMsg As Long, ByVal wParam As Long, lParam As Long) As Long
     Friend Declare Sub Mouse_Event Lib "user32.dll" Alias "mouse_event" (ByVal dwFlags As Integer, ByVal dx As Integer, ByVal dy As Integer, ByVal cButtons As Integer, ByVal dwExtraInfo As Integer)
+    <DllImport("user32.dll", EntryPoint:="GetClassLong")> Public Shared Function GetClassLong(ByVal hWnd As IntPtr, ByVal nIndex As Integer) As Integer
+    End Function
+    <DllImport("user32.dll", EntryPoint:="SetClassLong")> Public Shared Function SetClassLong(ByVal hWnd As IntPtr, ByVal nIndex As Integer, ByVal dwNewLong As Integer) As Integer
+    End Function
 #Region " S T A R T  /  S T O P   D R A W I N G "
     Private Const WM_SETREDRAW As Integer = &HB
     Private Const WM_USER As Integer = &H400
@@ -4254,14 +4254,21 @@ End Class
 
 Public NotInheritable Class CustomToolTip
     Inherits ToolTip
+    Public Enum ShowPosition
+        Above
+        AboveLeft
+        AboveRight
+        Below
+        BelowLeft
+        BelowRight
+        Left
+        Right
+    End Enum
     Public Sub New()
 
         Active = True
         AutomaticDelay = 100
-        AutoPopDelay = 1000000
         InitialDelay = 100
-        OwnerDraw = True
-        ReshowDelay = 100
         ShowAlways = False
         StripAmpersands = False
         UseAnimation = True
@@ -4269,16 +4276,15 @@ Public NotInheritable Class CustomToolTip
 
         IsBalloon = False   'Draw Event won't work for IsBalloon=True!
         AutoPopDelay = 5000
-        InitialDelay = 500
         ReshowDelay = 10
         OwnerDraw = True
 
         _BoundsImage = If(TipImage Is Nothing, Nothing, New Rectangle(2, 2, TipImage.Width, TipImage.Height))
 
-        ' NB Popup fires 1st, then Draw
+        ' NB Show Sub 1st, then Popup fires, then Draw
 
     End Sub
-
+    Public Property PreferredPosition As ShowPosition = ShowPosition.AboveLeft
     Private ReadOnly Property TipSize As Size
     Private ReadOnly Property TipText As String
     Private ReadOnly Property BackgroundImage As Image
@@ -4286,7 +4292,6 @@ Public NotInheritable Class CustomToolTip
     Private ReadOnly Property ParentLocation As Point
     Public ReadOnly Property Bounds As Rectangle
     Public ReadOnly Property BoundsImage As Rectangle
-    Private ReadOnly Property PointOffset As Point
     Public ReadOnly Property Words As SpecialDictionary(Of Integer, SpecialDictionary(Of Rectangle, String))
     Public ReadOnly Property DisplayFactor As Single
 
@@ -4302,10 +4307,24 @@ Public NotInheritable Class CustomToolTip
         End Set
     End Property
     Public Property TipImage As Image
+    Public Property BorderColor As Color = Color.White
+    Public Property CaptionColor As Color = Color.WhiteSmoke
     Private Sub Tip_PopUp(sender As Object, e As PopupEventArgs) Handles Me.Popup
 
         '/// This Sub is called BEFORE Draw. Need to calculate best location and sizes + can only set the e.ToolTipSize here
         _DisplayFactor = DisplayScale()
+
+#Region " KILL THE SHADOW "
+        Dim GCL_STYLE As Integer = -26
+        Dim CS_DROPSHADOW As Integer = &H20000
+        Dim hwnd = CType(GetType(ToolTip).GetProperty("Handle", BindingFlags.NonPublic Or BindingFlags.Instance).GetValue(Me), IntPtr)
+        Dim cs = NativeMethods.GetClassLong(hwnd, GCL_STYLE)
+
+        If (cs And CS_DROPSHADOW) = CS_DROPSHADOW Then
+            cs = cs And Not CS_DROPSHADOW
+            Dim result = NativeMethods.SetClassLong(hwnd, GCL_STYLE, cs)
+        End If
+#End Region
 
         _Parent = e.AssociatedControl
         _TipText = GetToolTip(e.AssociatedControl)
@@ -4333,7 +4352,6 @@ Public NotInheritable Class CustomToolTip
             CInt(sizeOfMe.Width * DisplayFactor),
             CInt(sizeOfMe.Height * DisplayFactor)
         )
-
         Dim bmpCapture As Bitmap = New Bitmap(boundsScale.Width, boundsScale.Height)
         Using g As Graphics = Graphics.FromImage(bmpCapture)
             g.CopyFromScreen(CInt(boundsScale.X * DisplayFactor),
@@ -4373,24 +4391,39 @@ Public NotInheritable Class CustomToolTip
     End Sub
     Private Sub Tip_Draw(sender As Object, e As DrawToolTipEventArgs) Handles Me.Draw
 
-        _PointOffset = New Point(Bounds.X - e.Bounds.X, Bounds.Y - e.Bounds.Y)
-
         Using g As Graphics = e.Graphics
             g.SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
 
-            'Using backBrush As New SolidBrush(Color.WhiteSmoke)
-            '    g.FillRectangle(backBrush, Bounds)
-            'End Using
-
             Dim boundsTangle As New Rectangle(0, 0, Bounds.Width, Bounds.Height)
+            g.DrawImage(BackgroundImage, boundsTangle) 'Draw "Transparent background"
 
-            g.DrawImage(BackgroundImage, boundsTangle)
-
-            Using Pen1 As New Pen(Brushes.Red, 1)
-                g.DrawRectangle(Pen1, boundsTangle)
+            boundsTangle.Inflate(-2, -2)
+            Using pathBack As Drawing2D.GraphicsPath = DrawRoundedRectangle(boundsTangle, 30)
+                Using backBrush As New SolidBrush(BorderColor)
+                    g.FillPath(backBrush, pathBack)
+                End Using
+            End Using
+            boundsTangle.Inflate(-2, -2)
+            Using pathBack As Drawing2D.GraphicsPath = DrawRoundedRectangle(boundsTangle, 28)
+                Using backBrush As New SolidBrush(CaptionColor)
+                    g.FillPath(backBrush, pathBack)
+                End Using
             End Using
 
-            If TipImage IsNot Nothing Then g.DrawImage(TipImage, BoundsImage)
+            If TipImage IsNot Nothing And Words.Any Then
+                Dim offsetImageY As Integer = 0
+                Dim wordFirstRow = Words.First
+                Dim wordFirstBounds = wordFirstRow.Value.First.Key
+                Dim rowsPastImage = Words.Where(Function(w) w.Value.Where(Function(r) r.Key.Left < TipImage.Width).Any)
+                If rowsPastImage.Any Then
+                    Dim rowPastImageFirst = rowsPastImage.First
+                    Dim wordPastImageFirst = rowPastImageFirst.Value.First
+                    offsetImageY = 4 + CInt((wordPastImageFirst.Key.Top - TipImage.Height) / 2) '4 <== boundsTangle.Inflate(-2, -2) Twice
+                End If
+                Dim offsetImageX As Integer = 4 + CInt((wordFirstBounds.Left - TipImage.Width) / 2) '4 <== boundsTangle.Inflate(-2, -2) Twice
+                Dim boundsImageOffset As New Rectangle(offsetImageX, offsetImageY, TipImage.Width, TipImage.Height)
+                g.DrawImage(TipImage, boundsImageOffset)
+            End If
 
             Dim wordList As New SpecialDictionary(Of Rectangle, String)
             For Each row In Words
@@ -4399,28 +4432,52 @@ Public NotInheritable Class CustomToolTip
                 Next
             Next
             For Each word In wordList
-                Using sf As New StringFormat(StringFormatFlags.FitBlackBox) With {.Alignment = StringAlignment.Center, .LineAlignment = StringAlignment.Center}
-                    g.DrawString(
-        word.Value,
-        TipFont,
-        Brushes.Black,
-        word.Key,
-        sf
+                Using brushFore As New SolidBrush(ForeColor)
+                    Using sf As New StringFormat(StringFormatFlags.FitBlackBox) With {.Alignment = StringAlignment.Center, .LineAlignment = StringAlignment.Center}
+                        g.DrawString(
+    word.Value,
+    TipFont,
+    brushFore,
+    word.Key,
+    sf
     )
+                    End Using
                 End Using
             Next
-
         End Using
 
     End Sub
-    Public Overloads Sub Show(textShow As String, windowShow As IWin32Window)
+    Public Shadows Sub Show(textShow As String, windowShow As IWin32Window)
+
+        '/// Regular ToolTip has the below Methods to Show
+        '1] Text+Window, 2] Text+Window+Duration, 3] Text+Window+Point, 4] Text+Window+x+y, 5] Text+Window+Point+Duration 6] Text+Window++x+y+Duration
 
         _TipText = textShow
+
+        _BoundsImage = If(TipImage Is Nothing, Nothing, New Rectangle(2, 2, TipImage.Width, TipImage.Height))
         Dim boundsWords = WordRectangles(TipText, TipFont, BoundsImage)
         _Words = boundsWords.Value
-        Dim sizeOfMe As New Size(CInt(boundsWords.Key.Width), CInt(boundsWords.Key.Height))
+
+        Dim sizeOfMe As New Size(boundsWords.Key.Width, boundsWords.Key.Height)
+        'Determine the position - then if it makes sense
+        Dim potentialBounds As New Dictionary(Of ShowPosition, Point)
+        For Each position In [Enum].GetNames(GetType(ShowPosition)).ToList
+            potentialBounds.Add(ParseEnum(Of ShowPosition)(position), New Point())
+        Next
+        '┌───┐       ┌───┐       ┌───┐
+        '│A.L│       │ABV│       │A.R│
+        '└───┘┐      └─┬─┘      ┌└───┘
+        '      \       │       /
+        '┌───┐  ┌─────────────┐  ┌───┐
+        '│LFT├──┤ASSOC.CONTROL├──┤RGT│
+        '└───┘  └──────┬──────┘  └───┘
+        '      /       │       \
+        '┌───┐┘      ┌─┴─┐      └┌───┐
+        '│B.L│       │BLW│       │B.R│
+        '└───┘       └───┘       └───┘
+
         Stop
-        Show(textShow, windowShow, New Point(-370, -170))
+        MyBase.Show(textShow, windowShow, New Point(-sizeOfMe.Width, -sizeOfMe.Height)) '<== Point is an OFFSET value to the Associated Control's location - NOT the screen position
 
     End Sub
 End Class
