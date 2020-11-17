@@ -1078,7 +1078,7 @@ Public Module Functions
         End If
 
     End Function
-    Public Function InLine(ByVal checkPoint As Point, ByVal pointA As Point, ByVal pointB As Point) As Boolean
+    Public Function InLine(checkPoint As Point, pointA As Point, pointB As Point) As Boolean
 
         If checkPoint = pointA Or checkPoint = pointB Then
             Return True
@@ -4289,10 +4289,21 @@ Public NotInheritable Class CustomToolTip
     Private ReadOnly Property TipText As String
     Private ReadOnly Property BackgroundImage As Image
     Public ReadOnly Property Parent As Control
-    Private ReadOnly Property ParentLocation As Point
     Public ReadOnly Property Bounds As Rectangle
-    Public ReadOnly Property BoundsImage As Rectangle
+        Get
+            Return BoundsTip(PreferredPosition)
+        End Get
+    End Property
+    Private ReadOnly Property BoundsParent As Rectangle
+    Private ReadOnly Property BoundsText As New SpecialDictionary(Of ShowPosition, Rectangle)
+    Private ReadOnly Property BoundsConnector As New SpecialDictionary(Of ShowPosition, Rectangle)
+    Private ReadOnly Property BoundsTip As New SpecialDictionary(Of ShowPosition, Rectangle)
+    Private ReadOnly Property BoundsImage As Rectangle
+    Private ReadOnly Property PointsParent As New SpecialDictionary(Of ShowPosition, Point)
+    Private ReadOnly Property PointsConnector As New SpecialDictionary(Of ShowPosition, Point())
+    Private ReadOnly Property OffsetShow As Point
     Public ReadOnly Property Words As SpecialDictionary(Of Integer, SpecialDictionary(Of Rectangle, String))
+    Public ReadOnly Property WordList As New SpecialDictionary(Of Rectangle, String)
     Public ReadOnly Property DisplayFactor As Single
 
     Private Font_ As New Font("IBM Plex Mono", 10)
@@ -4326,67 +4337,22 @@ Public NotInheritable Class CustomToolTip
         End If
 #End Region
 
-        _Parent = e.AssociatedControl
-        _TipText = GetToolTip(e.AssociatedControl)
-
-        _BoundsImage = If(TipImage Is Nothing, Nothing, New Rectangle(2, 2, TipImage.Width, TipImage.Height))
-        Dim boundsWords = WordRectangles(TipText, TipFont, BoundsImage)
-        _Words = boundsWords.Value
-        Dim sizeOfMe As Size = boundsWords.Key
-
-        _TipSize = boundsWords.Key
+        If Not BoundsTip.Any Then Properties_Fill(GetToolTip(e.AssociatedControl), e.AssociatedControl)
+        _TipSize = Bounds.Size
         e.ToolTipSize = TipSize
 
-        '/// Determine best fit
-        _ParentLocation = e.AssociatedControl.PointToScreen(New Point(0, 0))
-
-        _Bounds = New Rectangle(
-            ParentLocation.X - sizeOfMe.Width,
-            ParentLocation.Y - sizeOfMe.Height,
-            sizeOfMe.Width,
-            sizeOfMe.Height
-                                )
-        Dim boundsScale As New Rectangle(
-            ParentLocation.X - sizeOfMe.Width,
-            ParentLocation.Y - sizeOfMe.Height,
-            CInt(sizeOfMe.Width * DisplayFactor),
-            CInt(sizeOfMe.Height * DisplayFactor)
-        )
+        Dim boundsScale As Rectangle = Bounds
         Dim bmpCapture As Bitmap = New Bitmap(boundsScale.Width, boundsScale.Height)
         Using g As Graphics = Graphics.FromImage(bmpCapture)
             g.CopyFromScreen(CInt(boundsScale.X * DisplayFactor),
-                     CInt(boundsScale.Y * DisplayFactor),
-                     0,
-                     0,
-                     boundsScale.Size,
-                     CopyPixelOperation.SourceCopy)
+                 CInt(boundsScale.Y * DisplayFactor),
+                 0,
+                 0,
+                 boundsScale.Size,
+                 CopyPixelOperation.SourceCopy)
         End Using
         _BackgroundImage = bmpCapture
         bmpCapture.Save(Desktop & "\parent.png")
-
-        Exit Sub
-        Dim screenBounds As Rectangle = Screen.PrimaryScreen.Bounds
-        Dim bmpScreenCapture As Bitmap = New Bitmap(screenBounds.Width, screenBounds.Height)
-        Using g As Graphics = Graphics.FromImage(bmpScreenCapture)
-            g.CopyFromScreen(0,
-                     0,
-                     0,
-                     0,
-                     bmpScreenCapture.Size,
-                     CopyPixelOperation.SourceCopy)
-        End Using
-        bmpScreenCapture.Save(Desktop & "\screen.png")
-#Region " HANDY CODE "
-        Dim myBitmap As Bitmap = DirectCast(bmpScreenCapture, Bitmap)
-        Dim cloneRect As RectangleF = New RectangleF(Bounds.X,
-                                                     Bounds.Y,
-                                                     Bounds.Width,
-                                                     Bounds.Height)
-        Dim formatPixel As PixelFormat = myBitmap.PixelFormat
-        Dim cloneBitmap As Bitmap = myBitmap.Clone(cloneRect, formatPixel)
-        cloneBitmap.Save(Desktop & "\clone.png")
-#End Region
-        bmpScreenCapture.Dispose()
 
     End Sub
     Private Sub Tip_Draw(sender As Object, e As DrawToolTipEventArgs) Handles Me.Draw
@@ -4394,21 +4360,52 @@ Public NotInheritable Class CustomToolTip
         Using g As Graphics = e.Graphics
             g.SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
 
-            Dim boundsTangle As New Rectangle(0, 0, Bounds.Width, Bounds.Height)
-            g.DrawImage(BackgroundImage, boundsTangle) 'Draw "Transparent background"
-
-            boundsTangle.Inflate(-2, -2)
-            Using pathBack As Drawing2D.GraphicsPath = DrawRoundedRectangle(boundsTangle, 30)
+#Region " DRAW 'TRANSPARENT' BACKGROUND "
+            Dim boundsRelative As New Rectangle(0, 0, Bounds.Width, Bounds.Height)
+            g.DrawImage(BackgroundImage, boundsRelative)
+            Using penBorder As New Pen(Brushes.Red, 2)
+                'g.DrawRectangle(Pens.Red, New Rectangle(0, 0, CInt(boundsRelative.Width - penBorder.Width), CInt(boundsRelative.Height - penBorder.Width)))
+            End Using
+#End Region
+#Region " DRAW CONNECTORS BETWEEN THE TIPTEXT TO THE PARENT CONTROL "
+            Using penConnector As New Pen(Brushes.Silver, 3)
+                penConnector.StartCap = Drawing2D.LineCap.RoundAnchor
+                penConnector.EndCap = Drawing2D.LineCap.RoundAnchor
+                Dim pointsConnect = PointsConnector(PreferredPosition)
+                Dim pointParent As New Point(pointsConnect.First.X - Bounds.X, pointsConnect.First.Y - Bounds.Y)
+                Dim pointTip As Point = New Point(pointsConnect.Last.X - Bounds.X, pointsConnect.Last.Y - Bounds.Y)
+                pointTip.Offset(pointTip.X - pointParent.X, pointTip.Y - pointParent.Y)
+                Dim pointA As Point = pointParent
+                Dim pointB As Point = pointTip
+                Dim xMin As Integer = {pointA.X, pointB.X}.Min
+                Dim xMax As Integer = {pointA.X, pointB.X}.Max
+                Dim yMin As Integer = {pointA.Y, pointB.Y}.Min
+                Dim yMax As Integer = {pointA.Y, pointB.Y}.Max
+                Dim slope As Double = (pointA.Y - pointB.Y) / (pointA.X - pointB.X)
+                Dim points As New List(Of Point)(From p In Enumerable.Range(yMin, yMax - yMin) Select New Point(p, CInt(p * slope)))
+                Dim newPoint As Point = pointA : newPoint.Offset(-points(3).X, -points(3).Y)
+                g.DrawLine(penConnector, newPoint, pointTip)
+            End Using
+#End Region
+#Region " ROUNDED TEXT SECTION "
+            Dim boundsRound As Rectangle = BoundsText(PreferredPosition)
+            boundsRound.Inflate(-2, -2)
+            Using pathBack As Drawing2D.GraphicsPath = DrawRoundedRectangle(boundsRound, 30)
                 Using backBrush As New SolidBrush(BorderColor)
                     g.FillPath(backBrush, pathBack)
                 End Using
             End Using
-            boundsTangle.Inflate(-2, -2)
-            Using pathBack As Drawing2D.GraphicsPath = DrawRoundedRectangle(boundsTangle, 28)
+
+            boundsRound.Inflate(-2, -2)
+            Using pathBack As Drawing2D.GraphicsPath = DrawRoundedRectangle(boundsRound, 28)
                 Using backBrush As New SolidBrush(CaptionColor)
                     g.FillPath(backBrush, pathBack)
                 End Using
             End Using
+#End Region
+#Region " DRAW IMAGE + TEXT "
+            boundsRound.Inflate(4, 4)
+            Dim wordOffset As New Point(boundsRound.X - boundsRelative.X, boundsRound.Y - boundsRelative.Y)
 
             If TipImage IsNot Nothing And Words.Any Then
                 Dim offsetImageY As Integer = 0
@@ -4422,28 +4419,25 @@ Public NotInheritable Class CustomToolTip
                 End If
                 Dim offsetImageX As Integer = 4 + CInt((wordFirstBounds.Left - TipImage.Width) / 2) '4 <== boundsTangle.Inflate(-2, -2) Twice
                 Dim boundsImageOffset As New Rectangle(offsetImageX, offsetImageY, TipImage.Width, TipImage.Height)
+                boundsImageOffset.Offset(wordOffset)
                 g.DrawImage(TipImage, boundsImageOffset)
             End If
-
-            Dim wordList As New SpecialDictionary(Of Rectangle, String)
-            For Each row In Words
-                For Each word In row.Value
-                    wordList.Add(word)
-                Next
-            Next
-            For Each word In wordList
+            For Each word In WordList
+                Dim wordRectangle As Rectangle = word.Key
+                wordRectangle.Offset(wordOffset)
                 Using brushFore As New SolidBrush(ForeColor)
                     Using sf As New StringFormat(StringFormatFlags.FitBlackBox) With {.Alignment = StringAlignment.Center, .LineAlignment = StringAlignment.Center}
                         g.DrawString(
     word.Value,
     TipFont,
     brushFore,
-    word.Key,
+    wordRectangle,
     sf
     )
                     End Using
                 End Using
             Next
+#End Region
         End Using
 
     End Sub
@@ -4452,18 +4446,63 @@ Public NotInheritable Class CustomToolTip
         '/// Regular ToolTip has the below Methods to Show
         '1] Text+Window, 2] Text+Window+Duration, 3] Text+Window+Point, 4] Text+Window+x+y, 5] Text+Window+Point+Duration 6] Text+Window++x+y+Duration
 
-        _TipText = textShow
+        If windowShow IsNot Nothing Then
+            Properties_Fill(textShow, Control.FromHandle(windowShow.Handle))
+            MyBase.Show(textShow, windowShow, OffsetShow) '<== Point is an OFFSET value to the Associated Control's location - NOT the screen position
+        End If
+
+    End Sub
+    Private Sub Properties_Fill(textTip As String, parentOfMe As Control)
+
+        _TipText = textTip
 
         _BoundsImage = If(TipImage Is Nothing, Nothing, New Rectangle(2, 2, TipImage.Width, TipImage.Height))
         Dim boundsWords = WordRectangles(TipText, TipFont, BoundsImage)
         _Words = boundsWords.Value
+        For Each row In Words
+            For Each word In row.Value
+                WordList.Add(word)
+            Next
+        Next
 
         Dim sizeOfMe As New Size(boundsWords.Key.Width, boundsWords.Key.Height)
+        Dim sizeConnector As New Size(24, 24)
         'Determine the position - then if it makes sense
-        Dim potentialBounds As New Dictionary(Of ShowPosition, Point)
-        For Each position In [Enum].GetNames(GetType(ShowPosition)).ToList
-            potentialBounds.Add(ParseEnum(Of ShowPosition)(position), New Point())
-        Next
+        'Connector between the Control and the Tip will be a rectangle:     80 x 40 | 40 x 80 | 80 x 80
+        _Parent = parentOfMe
+        Dim parentTopLeft As Point = Parent.PointToScreen(New Point())
+        Dim midX As Integer = CInt(Parent.Width / 2)
+        Dim midY As Integer = CInt(Parent.Height / 2)
+        EnumNames(GetType(ShowPosition)).ForEach(Sub(sp)
+                                                     Dim position As ShowPosition = ParseEnum(Of ShowPosition)(sp)
+                                                     Dim isLeft As Boolean = sp.Contains("Left") : Dim isRight As Boolean = sp.Contains("Right")
+                                                     Dim isMidH As Boolean = Not (isLeft Or isRight)
+                                                     Dim isAbove As Boolean = sp.Contains("Above") : Dim isBelow As Boolean = sp.Contains("Below")
+                                                     Dim isMidV As Boolean = Not (isAbove Or isBelow)
+                                                     Dim xPos As Integer = parentTopLeft.X + If(isLeft, 0, If(isRight, Parent.Width, CInt(Parent.Width / 2)))
+                                                     Dim yPos As Integer = parentTopLeft.Y + If(isAbove, 0, If(isBelow, Parent.Height, CInt(Parent.Height / 2)))
+                                                     'PointsParent is 1st of 2 connector points so a line can be drawn between the TipCorner and the Parent
+                                                     Dim pointParent As New Point(xPos, yPos)
+                                                     PointsParent.Add(position, pointParent)
+                                                     'Only offset X if Left or Right, Y if Above or Below
+                                                     Dim xOff As Integer = If(isLeft, -sizeConnector.Width, If(isRight, sizeConnector.Width, 0))
+                                                     Dim yOff As Integer = If(isAbove, -sizeConnector.Height, If(isBelow, sizeConnector.Height, 0))
+                                                     'PointsConnector is the 2nd of 2 connector points between the TipCorner and the Parent
+                                                     Dim pointTip As New Point(pointParent.X + xOff, pointParent.Y + yOff)
+                                                     PointsConnector.Add(position, {pointParent, pointTip})
+                                                     Dim pointX As Integer = If(isLeft, pointTip.X - sizeOfMe.Width, If(isRight, pointParent.X, pointParent.X - CInt(-sizeOfMe.Width / 2)))
+                                                     Dim pointY As Integer = If(isAbove, pointTip.Y - sizeOfMe.Height, If(isBelow, pointParent.Y, pointParent.Y - CInt(-sizeOfMe.Height / 2)))
+                                                     Dim sizeW As Integer = sizeOfMe.Width + If(isMidH, 0, sizeConnector.Width)
+                                                     Dim sizeH As Integer = sizeOfMe.Height + If(isMidV, 0, sizeConnector.Height)
+                                                     BoundsTip.Add(position, New Rectangle(pointX, pointY, sizeW, sizeH))
+                                                     Dim pointXX As Integer = If(isRight, pointTip.X, pointX)
+                                                     Dim pointYY As Integer = If(isBelow, pointTip.Y, pointY)
+                                                     BoundsText.Add(position, New Rectangle(pointXX - Bounds.X, pointYY - Bounds.Y, sizeOfMe.Width, sizeOfMe.Height))
+                                                     'BoundsConnector.Add(position,)
+                                                     'If position = PreferredPosition Then Stop
+                                                 End Sub)
+        _BoundsParent = New Rectangle(PointsParent(ShowPosition.AboveLeft), Parent.Size) 'AboveLeft is the upper left corner of the Associated Control
+        _OffsetShow = New Point(Bounds.X - BoundsParent.X, Bounds.Y - BoundsParent.Y)
         '┌───┐       ┌───┐       ┌───┐
         '│A.L│       │ABV│       │A.R│
         '└───┘┐      └─┬─┘      ┌└───┘
@@ -4475,10 +4514,6 @@ Public NotInheritable Class CustomToolTip
         '┌───┐┘      ┌─┴─┐      └┌───┐
         '│B.L│       │BLW│       │B.R│
         '└───┘       └───┘       └───┘
-
-        Stop
-        MyBase.Show(textShow, windowShow, New Point(-sizeOfMe.Width, -sizeOfMe.Height)) '<== Point is an OFFSET value to the Associated Control's location - NOT the screen position
-
     End Sub
 End Class
 
