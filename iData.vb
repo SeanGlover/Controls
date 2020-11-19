@@ -3584,22 +3584,6 @@ Public Module iData
         Weekly
         Monthly
     End Enum
-    Public Function RunSQL(ConnectionString As String, Instruction As String) As ResponseEventArgs
-
-        With New SQL(ConnectionString, Instruction)
-            .Execute()
-            Do While .Response Is Nothing
-            Loop
-            If .Response.Succeeded Then
-                Do While .Table Is Nothing
-                Loop
-                Return .Response
-            Else
-                Return .Response
-            End If
-        End With
-
-    End Function
     Public Function ColumnSQL(tableName As SystemObject, Optional language As QueryLanguage = QueryLanguage.Db2) As String
         Return ColumnSQL({tableName}.ToList, language)
     End Function

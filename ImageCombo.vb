@@ -1577,23 +1577,28 @@ Public Class ImageComboDropDown
         If Visible Then
             ResizeMe()
             ImageCombo.Toolstrip.Size = Size
-            Top = -1
             Top = 0
-
-            'NativeMethods.SetProcessDPIAware
-
-            Dim BitMap As New Bitmap(Width, Height)
-            Using Graphics As Graphics = Graphics.FromImage(BitMap)
-                'Graphics.PageScale = Math.Min(fSize.Width / Graphics.DpiX / 1000, fSize.Height / Graphics.DpiY / 1000)
+            Dim DisplayFactor = DisplayScale()
+            Dim bmp As New Bitmap(CInt((Width + ShadowDepth) * DisplayFactor), CInt((Height + ShadowDepth) * DisplayFactor))
+            Using Graphics As Graphics = Graphics.FromImage(bmp)
                 Dim Point As Point = PointToScreen(New Point(0, 0))
-                Graphics.CopyFromScreen(Point.X, Point.Y, 0, 0, BitMap.Size, CopyPixelOperation.SourceCopy)
+                Graphics.CopyFromScreen(
+                        CInt(Point.X * DisplayFactor),
+                        CInt(Point.Y * DisplayFactor),
+                        0,
+                        0,
+                        bmp.Size,
+                        CopyPixelOperation.SourceCopy)
+
                 For P = 0 To ShadowDepth - 1
-                    Using sb As New SolidBrush(Color.FromArgb(16 + (P * 5), DropShadowColor))
-                        Graphics.FillRectangle(sb, New Rectangle(ShadowDepth + P, ShadowDepth + P, Width - ShadowDepth - P * 2, Height - ShadowDepth - P * 2))
+                    Using Brush As New SolidBrush(Color.FromArgb(16 + (P * 5), DropShadowColor))
+                        Graphics.FillRectangle(Brush, New Rectangle(ShadowDepth + P, ShadowDepth + P, Width - ShadowDepth - P * 2, Height - ShadowDepth - P * 2))
                     End Using
                 Next
+                Graphics.FillRectangle(Brushes.White, New Rectangle(0, 0, bmp.Width, bmp.Height))
             End Using
-            BMP_Shadow = BitMap
+            BMP_Shadow = bmp
+
             Dim SV As IEnumerable(Of ComboItem) = From S In MatchedItems Where S.Index = ImageCombo.SelectionIndex
             If SV.Any Then
                 Dim ScrollValue As Integer = MatchedItems.IndexOf(SV.First)

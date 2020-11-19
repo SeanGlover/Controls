@@ -587,12 +587,19 @@ Public Class DatePicker
                 ForceCapture = True
                 SelectionStart = Parent.Value
                 Parent.Toolstrip.Size = Size
-                Top = -1
                 Top = 0
-                Dim bmp As New Bitmap(Width + ShadowDepth, Height + ShadowDepth)
+                Dim DisplayFactor = DisplayScale()
+                Dim bmp As New Bitmap(CInt((Width + ShadowDepth) * DisplayFactor), CInt((Height + ShadowDepth) * DisplayFactor))
                 Using Graphics As Graphics = Graphics.FromImage(bmp)
                     Dim Point As Point = PointToScreen(New Point(0, 0))
-                    Graphics.CopyFromScreen(Point.X, Point.Y, 0, 0, bmp.Size, CopyPixelOperation.SourceCopy)
+                    Graphics.CopyFromScreen(
+                        CInt(Point.X * DisplayFactor),
+                        CInt(Point.Y * DisplayFactor),
+                        0,
+                        0,
+                        bmp.Size,
+                        CopyPixelOperation.SourceCopy)
+
                     For P = 0 To ShadowDepth - 1
                         Using Brush As New SolidBrush(Color.FromArgb(16 + (P * 5), DropShadowColor))
                             Graphics.FillRectangle(Brush, New Rectangle(ShadowDepth + P, ShadowDepth + P, Width - ShadowDepth - P * 2, Height - ShadowDepth - P * 2))
