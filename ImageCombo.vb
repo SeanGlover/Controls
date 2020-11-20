@@ -1240,8 +1240,8 @@ Public NotInheritable Class ImageCombo
                     REM Show Matches
                     _DropItems = Matches
                     .Invalidate()
-                    .Visible = True
                     .ResizeMe()
+                    .Visible = True
                     Dim Coordinates As Point
                     Coordinates = PointToScreen(New Point(0, 0))
                     Toolstrip.Show(Coordinates.X, If(Coordinates.Y + .Height > My.Computer.Screen.WorkingArea.Height, Coordinates.Y - .Height, Coordinates.Y + Height))
@@ -1295,6 +1295,8 @@ Public Class ImageComboDropDown
         If e IsNot Nothing Then
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
             e.Graphics.FillRectangle(New SolidBrush(BackColor), ComboItemRectangle)
+            Dim boundsImage As New Rectangle(0, 0, Width, Height)
+            e.Graphics.DrawImage(BMP_Shadow, boundsImage)
             Using GP As New GraphicsPath
                 Dim Colors() As Color = {BackColor, ShadeColor}
                 GP.AddRectangle(ComboItemRectangle)
@@ -1344,13 +1346,12 @@ Public Class ImageComboDropDown
 
                 End With
             Next ComboItem
-
-            Using BMP_Right As New Bitmap(ShadowRight.Width, ShadowRight.Height)
-                e.Graphics.DrawImage(BMP_Shadow, ShadowRight.Left, 0, ShadowRight, GraphicsUnit.Pixel)
-            End Using
-            Using BMP_Bottom As New Bitmap(ShadowBottom.Width, ShadowBottom.Height)
-                e.Graphics.DrawImage(BMP_Shadow, 0, ShadowBottom.Top, ShadowBottom, GraphicsUnit.Pixel)
-            End Using
+            'Using BMP_Right As New Bitmap(ShadowRight.Width, ShadowRight.Height)
+            '    e.Graphics.DrawImage(BMP_Shadow, ShadowRight.Left, 0, ShadowRight, GraphicsUnit.Pixel)
+            'End Using
+            'Using BMP_Bottom As New Bitmap(ShadowBottom.Width, ShadowBottom.Height)
+            '    e.Graphics.DrawImage(BMP_Shadow, 0, ShadowBottom.Top, ShadowBottom, GraphicsUnit.Pixel)
+            'End Using
             If VScroll.Visible Then
                 e.Graphics.FillRectangle(Brushes.GhostWhite, VScroll.Bounds)
                 ControlPaint.DrawBorder3D(e.Graphics, VScroll.Bounds, Border3DStyle.RaisedInner)
@@ -1579,26 +1580,31 @@ Public Class ImageComboDropDown
             ImageCombo.Toolstrip.Size = Size
             Top = 0
             Dim DisplayFactor = DisplayScale()
-            Dim bmp As New Bitmap(CInt((Width + ShadowDepth) * DisplayFactor), CInt((Height + ShadowDepth) * DisplayFactor))
+            Dim myLocation As Point = PointToScreen(New Point(0, 0))
+            Dim bmp As New Bitmap(CInt(Width * DisplayFactor), CInt(Height * DisplayFactor))
             Using Graphics As Graphics = Graphics.FromImage(bmp)
-                Dim Point As Point = PointToScreen(New Point(0, 0))
                 Graphics.CopyFromScreen(
-                        CInt(Point.X * DisplayFactor),
-                        CInt(Point.Y * DisplayFactor),
+                        CInt(myLocation.X * DisplayFactor),
+                        CInt(myLocation.Y * DisplayFactor),
                         0,
                         0,
                         bmp.Size,
                         CopyPixelOperation.SourceCopy)
-
                 For P = 0 To ShadowDepth - 1
                     Using Brush As New SolidBrush(Color.FromArgb(16 + (P * 5), DropShadowColor))
                         Graphics.FillRectangle(Brush, New Rectangle(ShadowDepth + P, ShadowDepth + P, Width - ShadowDepth - P * 2, Height - ShadowDepth - P * 2))
                     End Using
                 Next
-                Graphics.FillRectangle(Brushes.White, New Rectangle(0, 0, bmp.Width, bmp.Height))
             End Using
             BMP_Shadow = bmp
-
+            Invalidate()
+            Using sw As New IO.StreamWriter(Desktop & "\imageData.txt")
+                sw.WriteLine(DisplayFactor.ToString("", InvariantCulture))
+                sw.WriteLine(myLocation.ToString)
+                sw.WriteLine(bmp.Size.ToString)
+                sw.WriteLine(Size.ToString)
+            End Using
+            bmp.Save(Desktop & "\imageCombo.png")
             Dim SV As IEnumerable(Of ComboItem) = From S In MatchedItems Where S.Index = ImageCombo.SelectionIndex
             If SV.Any Then
                 Dim ScrollValue As Integer = MatchedItems.IndexOf(SV.First)
