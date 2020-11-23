@@ -1143,7 +1143,7 @@ Public Class DataTool
                     .Margin = New Padding(0),
                     .HintText = "Name",
                     .Font = GothicFont}
-                addkeyControl.CheckBoxes = False
+                addkeyControl.CheckboxStyle = CheckStyle.None
                 Dim addvalueControl As New ImageCombo With {.Dock = DockStyle.Fill,
                     .Text = String.Empty,
                     .Margin = New Padding(0),
@@ -2406,11 +2406,11 @@ Public Class DataTool
                             If Not TLP_Type.Controls.Count = 0 Then
                                 REM /// INITIALIZE THEM
                                 With IC_BackColor
-                                    .CheckBoxes = False
+                                    .CheckboxStyle = CheckStyle.None
                                     .Mode = ImageComboMode.ColorPicker
                                 End With
                                 With IC_ForeColor
-                                    .CheckBoxes = False
+                                    .CheckboxStyle = CheckStyle.None
                                     .Mode = ImageComboMode.ColorPicker
                                 End With
                                 TLP_Type.Controls.Add(IC_BackColor)

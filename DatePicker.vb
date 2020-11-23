@@ -599,13 +599,11 @@ Public Class DatePicker
                         0,
                         bmp.Size,
                         CopyPixelOperation.SourceCopy)
-
                     For P = 0 To ShadowDepth - 1
                         Using Brush As New SolidBrush(Color.FromArgb(16 + (P * 5), DropShadowColor))
                             Graphics.FillRectangle(Brush, New Rectangle(ShadowDepth + P, ShadowDepth + P, Width - ShadowDepth - P * 2, Height - ShadowDepth - P * 2))
                         End Using
                     Next
-                    Graphics.FillRectangle(Brushes.White, New Rectangle(0, 0, bmp.Width, bmp.Height))
                 End Using
                 Parent.Toolstrip.BackgroundImage = bmp
             Else

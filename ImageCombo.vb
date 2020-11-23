@@ -7,7 +7,7 @@ Imports System.ComponentModel
 Public NotInheritable Class ImageComboEventArgs
     Inherits EventArgs
     Public Property ComboItem As ComboItem
-    Public Sub New(ByVal TheComboItem As ComboItem)
+    Public Sub New(TheComboItem As ComboItem)
         ComboItem = TheComboItem
     End Sub
     Public Sub New()
@@ -27,6 +27,11 @@ Public Enum MathSymbol
     Equals
     NotEquals
 End Enum 'Leave Public since DatePicker also uses
+Public Enum CheckStyle
+    None
+    Slide
+    Check
+End Enum
 Public NotInheritable Class ImageCombo
     Inherits Control
     'Fixes:     Screen Scaling of 125, 150 distorts the CopyFromScreen in DropDown.Protected Overrides Sub OnVisibleChanged(e As EventArgs)
@@ -79,7 +84,6 @@ Public NotInheritable Class ImageCombo
         Integers
         Decimals
     End Enum
-
     '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
     Public Sub New()
 
@@ -125,7 +129,7 @@ Public NotInheritable Class ImageCombo
 
     End Sub
 #Region " DRAWING "
-    Protected Overrides Sub OnPaint(ByVal e As PaintEventArgs)
+    Protected Overrides Sub OnPaint(e As PaintEventArgs)
 
         If e IsNot Nothing Then
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
@@ -247,7 +251,7 @@ Public NotInheritable Class ImageCombo
         If Mode = ImageComboMode.Button Then
             With ImageBounds
                 If hasImage Then
-                    Dim Padding As Integer = {0, Convert.ToInt32((Height - Image.Height) / 2)}.Max     'Might be negative if Image.Height > Height
+                    Dim Padding As Integer = {0, CInt((Height - Image.Height) / 2)}.Max     'Might be negative if Image.Height > Height
                     .X = Spacing
                     .Y = Padding
                     .Width = Image.Width
@@ -293,7 +297,7 @@ Public NotInheritable Class ImageCombo
             End If
             With ImageBounds
                 If hasImage Then
-                    Dim Padding As Integer = {0, Convert.ToInt32((Height - Image.Height) / 2)}.Max     'Might be negative if Image.Height > Height
+                    Dim Padding As Integer = {0, CInt((Height - Image.Height) / 2)}.Max     'Might be negative if Image.Height > Height
                     .X = Spacing
                     .Y = Padding
                     .Width = Image.Width
@@ -315,7 +319,7 @@ Public NotInheritable Class ImageCombo
             With DropBounds
                 If hasDrop Then
                     'V LOOKS BETTER WHEN NOT RESIZED
-                    Dim Padding As Integer = {0, Convert.ToInt32((Height - DropImage.Height) / 2)}.Max     'Might be negative if DropImage.Height > Height
+                    Dim Padding As Integer = {0, CInt((Height - DropImage.Height) / 2)}.Max     'Might be negative if DropImage.Height > Height
                     .X = Width - (DropImage.Width + Spacing)
                     .Y = Padding
                     .Width = DropImage.Width
@@ -332,7 +336,7 @@ Public NotInheritable Class ImageCombo
             With ClearTextBounds
                 If hasClear Then
                     'X LOOKS BETTER WHEN NOT RESIZED
-                    Dim Padding As Integer = {0, Convert.ToInt32((Height - ClearTextImage.Height) / 2)}.Max     'Might be negative if ClearTextImage.Height > Height
+                    Dim Padding As Integer = {0, CInt((Height - ClearTextImage.Height) / 2)}.Max     'Might be negative if ClearTextImage.Height > Height
                     .X = Width - ({DropBounds.Width, ClearTextImage.Width}.Sum + Spacing)
                     .Y = Padding
                     .Width = ClearTextImage.Width
@@ -348,7 +352,7 @@ Public NotInheritable Class ImageCombo
             End With
             With EyeBounds
                 If hasEye Then
-                    Dim Padding As Integer = {0, Convert.ToInt32((Height - EyeImage.Height) / 2)}.Max     'Might be negative if EyeImage.Height > Height
+                    Dim Padding As Integer = {0, CInt((Height - EyeImage.Height) / 2)}.Max     'Might be negative if EyeImage.Height > Height
                     .X = Width - ({DropBounds.Width, ClearTextBounds.Width, EyeImage.Width}.Sum + Spacing)
                     .Y = Padding
                     .Width = EyeImage.Width
@@ -387,8 +391,8 @@ Public NotInheritable Class ImageCombo
 
 #End Region
 #Region " PROPERTIES "
-    Public Property CheckBoxes As Boolean = True
     Public Property CheckOnSelect As Boolean = False
+    Public Property CheckboxStyle As CheckStyle = CheckStyle.Slide
     Public Property MultiSelect As Boolean
     Private ButtonTheme_ As Theme = Theme.Gray
     Public Property ButtonTheme As Theme
@@ -556,14 +560,14 @@ Public NotInheritable Class ImageCombo
             If Mode_ <> value Then
                 Items.Clear()
                 If value = ImageComboMode.ColorPicker Then
-                    CheckBoxes = False
+                    CheckboxStyle = CheckStyle.None
                     For Each colorItem In ColorImages()
                         Dim item As ComboItem = Items.Add(colorItem.Key.Name, colorItem.Value)
                         item.Tag = colorItem.Key
                     Next
 
                 ElseIf value = ImageComboMode.FontPicker Then
-                    CheckBoxes = False
+                    CheckboxStyle = CheckStyle.None
                     For Each fontItem In FontImages()
                         Dim item As ComboItem = Items.Add(fontItem.Key.Name, fontItem.Value)
                         item.Tag = fontItem.Key
@@ -584,13 +588,11 @@ Public NotInheritable Class ImageCombo
     Public Property IsReadOnly As Boolean
     Public ReadOnly Property DropDown As ImageComboDropDown
     Public ReadOnly Property Items As ItemCollection
-    Private _DropItems As New List(Of ComboItem)
-    Public ReadOnly Property DropItems As List(Of ComboItem)
+    Private WithEvents DropItems_ As New ItemCollection(Me)
+    Public ReadOnly Property DropItems As ItemCollection
         Get
-            If Not _DropItems.Any Then
-                _DropItems = Items
-            End If
-            Return _DropItems
+            If Not DropItems_.Any Then DropItems_ = Items
+            Return DropItems_
         End Get
     End Property
     Public Property HighlightColor As Color = Color.LimeGreen
@@ -785,56 +787,56 @@ Public NotInheritable Class ImageCombo
                         _DataType = Data_Type
                         Select Case Data_Type
                             Case GetType(String)
-                                Dim List As New List(Of String)(From Element In Type Select Convert.ToString(Element, InvariantCulture))
+                                Dim List As New List(Of String)(From Element In Type Select CStr(Element))
                                 List.Sort(Function(x, y) String.Compare(x, y, StringComparison.InvariantCulture))
                                 For Each Item As String In List.Distinct
                                     Items.Add(New ComboItem With {.Value = Item})
                                 Next
 
                             Case GetType(Date)
-                                Dim List As New List(Of Date)(From Element In Type Select Convert.ToDateTime(Element, InvariantCulture).Date)
+                                Dim List As New List(Of Date)(From Element In Type Select CDate(Element).Date)
                                 List.Sort(Function(x, y) y.CompareTo(x))
                                 For Each Item As Date In List.Distinct
                                     Items.Add(New ComboItem With {.Value = Item})
                                 Next
 
                             Case GetType(Boolean)
-                                Dim List As New List(Of Boolean)(From Element In Type Select Convert.ToBoolean(Element, InvariantCulture))
+                                Dim List As New List(Of Boolean)(From Element In Type Select CBool(Element))
                                 List.Sort(Function(x, y) x.CompareTo(y))
                                 For Each Item As Boolean In List.Distinct
                                     Items.Add(New ComboItem With {.Value = Item})
                                 Next
 
                             Case GetType(Decimal), GetType(Double)
-                                Dim List As New List(Of Decimal)(From Element In Type Select Convert.ToDecimal(Element, InvariantCulture))
+                                Dim List As New List(Of Decimal)(From Element In Type Select CDec(Element))
                                 List.Sort(Function(x, y) x.CompareTo(y))
                                 For Each Item As Decimal In List.Distinct
                                     Items.Add(New ComboItem With {.Value = Item})
                                 Next
 
                             Case GetType(Long)
-                                Dim List As New List(Of Long)(From Element In Type Select Convert.ToInt64(Element, InvariantCulture))
+                                Dim List As New List(Of Long)(From Element In Type Select CLng(Element))
                                 List.Sort(Function(x, y) x.CompareTo(y))
                                 For Each Item As Long In List.Distinct
                                     Items.Add(New ComboItem With {.Value = Item})
                                 Next
 
                             Case GetType(Integer)
-                                Dim List As New List(Of Integer)(From Element In Type Select Convert.ToInt32(Element, InvariantCulture))
+                                Dim List As New List(Of Integer)(From Element In Type Select CInt(Element))
                                 List.Sort(Function(x, y) x.CompareTo(y))
                                 For Each Item As Integer In List.Distinct
                                     Items.Add(New ComboItem With {.Value = Item})
                                 Next
 
                             Case GetType(Short)
-                                Dim List As New List(Of Short)(From Element In Type Select Convert.ToInt16(Element, InvariantCulture))
+                                Dim List As New List(Of Short)(From Element In Type Select CShort(Element))
                                 List.Sort(Function(x, y) x.CompareTo(y))
                                 For Each Item As Short In List.Distinct
                                     Items.Add(New ComboItem With {.Value = Item})
                                 Next
 
                             Case GetType(Byte)
-                                Dim List As New List(Of Byte)(From Element In Type Select Convert.ToByte(Element, InvariantCulture))
+                                Dim List As New List(Of Byte)(From Element In Type Select CByte(Element))
                                 List.Sort(Function(x, y) x.CompareTo(y))
                                 For Each Item As Byte In List.Distinct
                                     Items.Add(New ComboItem With {.Value = Item})
@@ -858,18 +860,16 @@ Public NotInheritable Class ImageCombo
         Invalidate()
 
     End Sub
-    Public Event ImageClicked(ByVal sender As Object, ByVal e As ImageComboEventArgs)
-    Public Event ClearTextClicked(ByVal sender As Object, ByVal e As ImageComboEventArgs)
-    Public Event ValueSubmitted(ByVal sender As Object, ByVal e As ImageComboEventArgs)
-    Public Event TextPaused(ByVal sender As Object, ByVal e As ImageComboEventArgs)
-    Public Event ValueChanged(ByVal sender As Object, ByVal e As ImageComboEventArgs)
-    Public Event SelectionChanged(ByVal sender As Object, ByVal e As ImageComboEventArgs)
-    Public Event ItemSelected(ByVal sender As Object, ByVal e As ImageComboEventArgs)
-    Public Event DropDownOpened(ByVal sender As Object, ByVal e As EventArgs)
-    Public Event DropDownClosed(ByVal sender As Object, ByVal e As EventArgs)
-    Public Event TextPasted(ByVal sender As Object, e As EventArgs)
-    Public Event TextCopied(ByVal sender As Object, e As EventArgs)
-    Friend Sub OnItemSelected(ByVal ComboItem As ComboItem, DropDownVisible As Boolean)
+    Public Event ImageClicked(sender As Object, e As ImageComboEventArgs)
+    Public Event ClearTextClicked(sender As Object, e As ImageComboEventArgs)
+    Public Event ValueSubmitted(sender As Object, e As ImageComboEventArgs)
+    Public Event TextPaused(sender As Object, e As ImageComboEventArgs)
+    Public Event ValueChanged(sender As Object, e As ImageComboEventArgs)
+    Public Event SelectionChanged(sender As Object, e As ImageComboEventArgs)
+    Public Event ItemSelected(sender As Object, e As ImageComboEventArgs)
+    Public Event TextPasted(sender As Object, e As EventArgs)
+    Public Event TextCopied(sender As Object, e As EventArgs)
+    Friend Sub OnItemSelected(ComboItem As ComboItem, DropDownVisible As Boolean)
 
         If Not ComboItem.Index = SelectedIndex Then
             _SelectedIndex = ComboItem.Index
@@ -881,8 +881,8 @@ Public NotInheritable Class ImageCombo
         RaiseEvent ItemSelected(Me, New ImageComboEventArgs(ComboItem))
 
     End Sub
-    Public Event ItemChecked(ByVal sender As Object, ByVal e As ImageComboEventArgs)
-    Friend Sub OnItemChecked(ByVal ComboItem As ComboItem)
+    Public Event ItemChecked(sender As Object, e As ImageComboEventArgs)
+    Friend Sub OnItemChecked(ComboItem As ComboItem)
         RaiseEvent ItemChecked(Me, New ImageComboEventArgs(ComboItem))
     End Sub
     Private Sub BorderDraw(sender As Object, e As EventArgs) Handles Me.GotFocus
@@ -893,7 +893,7 @@ Public NotInheritable Class ImageCombo
         _HasFocus = False
         Invalidate()
     End Sub
-    Private Sub On_PreviewKeyDown(ByVal sender As Object, ByVal e As PreviewKeyDownEventArgs)
+    Private Sub On_PreviewKeyDown(sender As Object, e As PreviewKeyDownEventArgs)
 
         If e IsNot Nothing Then
             Select Case e.KeyCode
@@ -926,7 +926,7 @@ Public NotInheritable Class ImageCombo
         MyBase.OnMouseLeave(e)
 
     End Sub
-    Protected Overrides Sub OnKeyDown(ByVal e As KeyEventArgs)
+    Protected Overrides Sub OnKeyDown(e As KeyEventArgs)
 
         Mouse_Region = MouseRegion.Text
         CursorShouldBeVisible = True
@@ -1068,7 +1068,7 @@ Public NotInheritable Class ImageCombo
     Friend Sub DelegateKeyPress(e As KeyPressEventArgs)
         OnKeyPress(e)
     End Sub
-    Protected Overrides Sub OnMouseMove(ByVal e As MouseEventArgs)
+    Protected Overrides Sub OnMouseMove(e As MouseEventArgs)
 
         If e IsNot Nothing Then
             Bounds_Set()
@@ -1083,7 +1083,7 @@ Public NotInheritable Class ImageCombo
         MyBase.OnMouseMove(e)
 
     End Sub
-    Protected Overrides Sub OnMouseDown(ByVal e As MouseEventArgs)
+    Protected Overrides Sub OnMouseDown(e As MouseEventArgs)
 
         If e IsNot Nothing Then
             If Mouse_Region = MouseRegion.Image Then
@@ -1116,19 +1116,10 @@ Public NotInheritable Class ImageCombo
                 SelectedIndex = -1
 
             ElseIf Mouse_Region = MouseRegion.DropDown Then
-                _DropItems = Items
-                If Not DropDown.Visible Then
-                    DropDown.ResizeMe()
-                    Dim Coordinates As Point
-                    Coordinates = PointToScreen(New Point(0, 0))
-                    Toolstrip.Show(Coordinates.X, If(Coordinates.Y + DropDown.Height > My.Computer.Screen.WorkingArea.Height, Coordinates.Y - DropDown.Height, Coordinates.Y + Height))
-                End If
+                DropItems_ = Items
                 DropDown.Visible = Not DropDown.Visible
-                If DropDown.Visible Then
-                    RaiseEvent DropDownOpened(Me, e)
-                Else
-                    RaiseEvent DropDownClosed(Me, e)
-                End If
+                If DropDown.Visible Then ShowDropDown()
+
             End If
             Invalidate()
         End If
@@ -1223,7 +1214,7 @@ Public NotInheritable Class ImageCombo
     Private Function GetLetterIndex(X As Integer) As Integer
         Return (From lw In LetterWidths.Keys Where LetterWidths(lw).Value <= {X, TextBounds.X}.Max Select lw).Max
     End Function
-    Private Function TextLength(ByVal T As String) As Integer
+    Private Function TextLength(T As String) As Integer
 
         Dim Padding As Integer = If(T.Length = 0, 0, (2 * TextRenderer.MeasureText(T.First, Font).Width) - TextRenderer.MeasureText(T.First & T.First, Font).Width)
         Return TextBounds.Left + TextRenderer.MeasureText(T, Font).Width - Padding
@@ -1231,23 +1222,29 @@ Public NotInheritable Class ImageCombo
     End Function
     Private Sub ShowMatches(MatchText As String)
 
-        Dim Matches As New List(Of ComboItem)(From CI In Items Where CI.Text.ToUpperInvariant.StartsWith(MatchText.ToUpperInvariant, StringComparison.InvariantCulture))
+        Dim dropMatches As New List(Of ComboItem)(Items.Where(Function(ci) ci.Text.ToUpperInvariant.StartsWith(MatchText.ToUpperInvariant, StringComparison.InvariantCulture)))
         With DropDown
             .Visible = False
-            Select Case Matches.Count
-                Case 0
-                Case Else
-                    REM Show Matches
-                    _DropItems = Matches
-                    .Invalidate()
-                    .ResizeMe()
-                    .Visible = True
-                    Dim Coordinates As Point
-                    Coordinates = PointToScreen(New Point(0, 0))
-                    Toolstrip.Show(Coordinates.X, If(Coordinates.Y + .Height > My.Computer.Screen.WorkingArea.Height, Coordinates.Y - .Height, Coordinates.Y + Height))
-            End Select
+            If dropMatches.Any Then
+                REM Show Matches
+                DropItems_.Clear()
+                DropItems_.AddRange(dropMatches)
+                ShowDropDown()
+            End If
             .VScroll.Value = 0
         End With
+    End Sub
+    Public Sub ShowDropDown()
+
+        If DropItems.Any Then
+            Dim Coordinates As Point
+            Coordinates = PointToScreen(New Point(0, 0))
+            Toolstrip.Show(Coordinates.X, If(Coordinates.Y + DropDown.Height > My.Computer.Screen.WorkingArea.Height, Coordinates.Y - DropDown.Height, Coordinates.Y + Height))
+            DropDown.ResizeMe()
+            DropDown.Visible = True
+            'If Me.Name = "quickSearch" Then Stop
+        End If
+
     End Sub
     Public Sub SelectAll()
 
@@ -1255,6 +1252,9 @@ Public NotInheritable Class ImageCombo
         _SelectionIndex = LetterWidths.Keys.Last
         Invalidate()
 
+    End Sub
+    Private Sub Items_Changed() Handles DropItems_.Changed
+        Bounds_Set()
     End Sub
 #End Region
 End Class
@@ -1265,7 +1265,9 @@ Public Class ImageComboDropDown
     Private WithEvents ToolTip As New ToolTip
     Private _LastMouseOverCombo As ComboItem
     Private BMP_Shadow As Bitmap
-    Private Const ShadowDepth As Integer = 8
+    Private Const ShadowDepth As Integer = 12
+    Private Const CheckWH As Integer = 14
+    Private ReadOnly Property ComboParent As ImageCombo
     Public Sub New(Parent As ImageCombo)
 
         SetStyle(ControlStyles.AllPaintingInWmPaint, True)
@@ -1280,7 +1282,8 @@ Public Class ImageComboDropDown
         Padding = New Padding(0)
         BackColor = Color.GhostWhite
         ForeColor = Color.DarkSlateGray
-        ImageCombo = Parent
+        ComboParent = Parent
+        _ItemHeight = 1 + TextRenderer.MeasureText("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ".ToString(InvariantCulture), ComboParent?.Font).Height + 1
 
     End Sub
     Protected Overrides Sub InitLayout()
@@ -1290,112 +1293,104 @@ Public Class ImageComboDropDown
         MyBase.InitLayout()
 
     End Sub
-    Protected Overrides Sub OnPaint(ByVal e As PaintEventArgs)
+    Protected Overrides Sub OnPaint(e As PaintEventArgs)
 
         If e IsNot Nothing Then
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
-            e.Graphics.FillRectangle(New SolidBrush(BackColor), ComboItemRectangle)
-            Dim boundsImage As New Rectangle(0, 0, Width, Height)
-            e.Graphics.DrawImage(BMP_Shadow, boundsImage)
-            Using GP As New GraphicsPath
-                Dim Colors() As Color = {BackColor, ShadeColor}
-                GP.AddRectangle(ComboItemRectangle)
-                Using PathBrush As New PathGradientBrush(GP)
-                    PathBrush.SurroundColors = Colors
-                    PathBrush.CenterColor = Color.FromArgb(128, Color.WhiteSmoke)
-                    e.Graphics.FillPath(PathBrush, GP)
-                End Using
-            End Using
+            Dim boundsScreenShot As New Rectangle(0, 0, Width, Height)
+            e.Graphics.DrawImage(BMP_Shadow, boundsScreenShot)
+            boundsScreenShot.Inflate(-1, -1)
+            boundsScreenShot.Offset(-2, -2)
+            'e.Graphics.DrawRectangle(Pens.Red, boundsScreenShot)
+
             For Each ComboItem In VisibleComboItems
                 With ComboItem
-                    Dim Bounds As Rectangle = .Bounds
-                    Bounds.Offset(0, -VScroll.Value)
-                    e.Graphics.FillRectangle(New SolidBrush(Color.FromArgb(64, BackColor)), .Bounds)
-                    If ImageCombo.CheckBoxes Then
-                        Dim CheckBounds As Rectangle = .CheckBounds
-                        CheckBounds.Offset(0, -VScroll.Value)
-                        ControlPaint.DrawCheckBox(e.Graphics, CheckBounds, If(.Checked, ButtonState.Checked, ButtonState.Normal))
+                    Dim boundsItem As Rectangle = .Bounds
+                    boundsItem.Offset(0, -VScroll.Value)
+                    Dim boundsCheck As Rectangle = .CheckBounds
+                    boundsCheck.Offset(0, -VScroll.Value)
+                    Dim boundsImage As Rectangle = .ImageBounds
+                    boundsImage.Offset(0, -VScroll.Value)
+                    Dim boundsText As Rectangle = .TextBounds
+                    boundsText.Offset(0, -VScroll.Value)
+
+                    If boundsItem.Bottom > Height - ShadowDepth Then Exit For
+                    If ComboParent.CheckboxStyle = CheckStyle.Check Then
+                        ControlPaint.DrawCheckBox(e.Graphics, boundsCheck, If(.Checked, ButtonState.Checked, ButtonState.Normal))
+
+                    ElseIf ComboParent.CheckboxStyle = CheckStyle.Slide Then
+                        e.Graphics.DrawImage(If(.Checked, My.Resources.slideStateOn, My.Resources.slideStateOff), boundsCheck)
+
                     End If
-                    If Not IsNothing(.Image) Then
-                        Dim ImageBounds As Rectangle = .ImageBounds
-                        ImageBounds.Offset(0, -VScroll.Value)
-                        e.Graphics.DrawImage(.Image, ImageBounds)
-                    End If
+                    If Not IsNothing(.Image) Then e.Graphics.DrawImage(.Image, boundsImage)
                     If .Selected Then
-                        Using Brush As New LinearGradientBrush(Bounds, Color.FromArgb(20, SelectionColor), Color.FromArgb(60, SelectionColor), linearGradientMode:=LinearGradientMode.Vertical)
+                        Using Brush As New LinearGradientBrush(boundsItem, Color.FromArgb(20, SelectionColor), Color.FromArgb(60, SelectionColor), linearGradientMode:=LinearGradientMode.Vertical)
                             e.Graphics.FillRectangle(Brush, Brush.Rectangle)
                         End Using
                         Using Pen As New Pen(SelectionColor)
-                            e.Graphics.DrawRectangle(Pen, Bounds)
+                            e.Graphics.DrawRectangle(Pen, boundsItem)
                         End Using
                     End If
-                    Dim TextBounds As Rectangle = .TextBounds
-                    TextBounds.Offset(0, -VScroll.Value)
 
-                    TextRenderer.DrawText(e.Graphics, Replace(.Text, "&", "&&"), Font, TextBounds, Color.Black, TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
-                    If ComboItem.Separator Then e.Graphics.DrawLine(Pens.Black, New Point(0, TextBounds.Bottom), New Point(TextBounds.Right, TextBounds.Bottom))
+                    TextRenderer.DrawText(e.Graphics, Replace(.Text, "&", "&&"), Font, boundsText, Color.Black, TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
+                    If ComboItem.Separator Then e.Graphics.DrawLine(Pens.Black, New Point(0, boundsText.Bottom), New Point(boundsText.Right, boundsText.Bottom))
 
                     If ComboItem.Index = MouseRowIndex Then
-                        Using Brush As New LinearGradientBrush(Bounds, Color.FromArgb(20, Color.DarkSlateGray), Color.FromArgb(60, Color.DarkSlateGray), linearGradientMode:=LinearGradientMode.Vertical)
+                        Using Brush As New LinearGradientBrush(boundsItem, Color.FromArgb(20, Color.DarkSlateGray), Color.FromArgb(60, Color.DarkSlateGray), linearGradientMode:=LinearGradientMode.Vertical)
                             e.Graphics.FillRectangle(Brush, Brush.Rectangle)
                         End Using
                         Using Pen As New Pen(Color.DarkSlateGray)
-                            e.Graphics.DrawRectangle(Pen, Bounds)
+                            e.Graphics.DrawRectangle(Pen, boundsItem)
                         End Using
                     End If
 
                 End With
             Next ComboItem
-            'Using BMP_Right As New Bitmap(ShadowRight.Width, ShadowRight.Height)
-            '    e.Graphics.DrawImage(BMP_Shadow, ShadowRight.Left, 0, ShadowRight, GraphicsUnit.Pixel)
-            'End Using
-            'Using BMP_Bottom As New Bitmap(ShadowBottom.Width, ShadowBottom.Height)
-            '    e.Graphics.DrawImage(BMP_Shadow, 0, ShadowBottom.Top, ShadowBottom, GraphicsUnit.Pixel)
-            'End Using
-            If VScroll.Visible Then
-                e.Graphics.FillRectangle(Brushes.GhostWhite, VScroll.Bounds)
-                ControlPaint.DrawBorder3D(e.Graphics, VScroll.Bounds, Border3DStyle.RaisedInner)
-                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
-                If VScroll.Lines Then
-                    Using Pen As New Pen(VScroll.Color, 1)
-                        For Each Page As Integer In VScroll.Pages
-                            e.Graphics.DrawLine(Pen, VScroll.TrackBounds.Left, Page, VScroll.TrackBounds.Right - 2, Page)
-                        Next
+            With VScroll
+                If .Visible Then
+                    e.Graphics.FillRectangle(Brushes.GhostWhite, .Bounds)
+                    ControlPaint.DrawBorder3D(e.Graphics, .Bounds, Border3DStyle.RaisedInner)
+                    e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+                    If .Lines Then
+                        Using Pen As New Pen(.Color, 1)
+                            For Each Page As Integer In .Pages
+                                e.Graphics.DrawLine(Pen, .TrackBounds.Left, Page, .TrackBounds.Right - 2, Page)
+                            Next
+                        End Using
+                    End If
+                    Using Pen As New Pen(Brushes.Black, 1)
+                        e.Graphics.DrawLine(Pen, .UpBounds.Left, .UpBounds.Bottom, .UpBounds.Right - 2, .UpBounds.Bottom)
+                        e.Graphics.DrawLine(Pen, .DownBounds.Left, .DownBounds.Top, .DownBounds.Right - 2, .DownBounds.Top)
+                    End Using
+                    Using Brush As New SolidBrush(Color.FromArgb(.UpAlpha, .Color))
+                        e.Graphics.FillRectangle(Brush, .UpBounds)
+                    End Using
+                    Using Brush As New SolidBrush(Color.FromArgb(.DownAlpha, .Color))
+                        e.Graphics.FillRectangle(Brush, .DownBounds)
+                    End Using
+                    Dim ArrowWidth As Integer = 8, ArrowHeight As Integer = 4, ArrowCenter As Integer = CInt((.UpBounds.Height - ArrowHeight) / 2)
+                    Dim TriangeTop As Integer = .UpBounds.Top + ArrowCenter
+                    Dim TriangleLeft As Integer = .Bounds.Left + 1, TRight As Integer = TriangleLeft + ArrowWidth, TMid As Integer = TriangleLeft + CInt(ArrowWidth / 2)
+                    Dim Triangle As Point() = {New Point(TMid, TriangeTop), New Point(TRight, TriangeTop + ArrowHeight), New Point(TriangleLeft, TriangeTop + ArrowHeight)}
+                    Using Brush As New SolidBrush(Color.FromArgb(255, .Color))
+                        e.Graphics.FillPolygon(Brush, Triangle)
+                    End Using
+                    Triangle = {New Point(TriangleLeft, .DownBounds.Top + ArrowCenter), New Point(TRight, .DownBounds.Top + ArrowCenter), New Point(TMid, .DownBounds.Top + ArrowCenter + ArrowHeight)}
+                    Using Brush As New SolidBrush(Color.FromArgb(255, .Color))
+                        e.Graphics.FillPolygon(Brush, Triangle)
+                    End Using
+                    Using Brush As New SolidBrush(Color.FromArgb(.Alpha, .Color))
+                        e.Graphics.FillRectangle(Brush, .BarBounds)
                     End Using
                 End If
-                Using Pen As New Pen(Brushes.Black, 1)
-                    e.Graphics.DrawLine(Pen, VScroll.UpBounds.Left, VScroll.UpBounds.Bottom, VScroll.UpBounds.Right - 2, VScroll.UpBounds.Bottom)
-                    e.Graphics.DrawLine(Pen, VScroll.DownBounds.Left, VScroll.DownBounds.Top, VScroll.DownBounds.Right - 2, VScroll.DownBounds.Top)
-                End Using
-                Using Brush As New SolidBrush(Color.FromArgb(VScroll.UpAlpha, VScroll.Color))
-                    e.Graphics.FillRectangle(Brush, VScroll.UpBounds)
-                End Using
-                Using Brush As New SolidBrush(Color.FromArgb(VScroll.DownAlpha, VScroll.Color))
-                    e.Graphics.FillRectangle(Brush, VScroll.DownBounds)
-                End Using
-                Dim ArrowWidth As Integer = 8, ArrowHeight As Integer = 4, ArrowCenter As Integer = Convert.ToInt32((VScroll.UpBounds.Height - ArrowHeight) / 2)
-                Dim TriangeTop As Integer = VScroll.UpBounds.Top + ArrowCenter
-                Dim TriangleLeft As Integer = VScroll.Bounds.Left + 1, TRight As Integer = TriangleLeft + ArrowWidth, TMid As Integer = TriangleLeft + Convert.ToInt32(ArrowWidth / 2)
-                Dim Triangle As Point() = {New Point(TMid, TriangeTop), New Point(TRight, TriangeTop + ArrowHeight), New Point(TriangleLeft, TriangeTop + ArrowHeight)}
-                Using Brush As New SolidBrush(Color.FromArgb(255, VScroll.Color))
-                    e.Graphics.FillPolygon(Brush, Triangle)
-                End Using
-                Triangle = {New Point(TriangleLeft, VScroll.DownBounds.Top + ArrowCenter), New Point(TRight, VScroll.DownBounds.Top + ArrowCenter), New Point(TMid, VScroll.DownBounds.Top + ArrowCenter + ArrowHeight)}
-                Using Brush As New SolidBrush(Color.FromArgb(255, VScroll.Color))
-                    e.Graphics.FillPolygon(Brush, Triangle)
-                End Using
-                Using Brush As New SolidBrush(Color.FromArgb(VScroll.Alpha, VScroll.Color))
-                    e.Graphics.FillRectangle(Brush, VScroll.BarBounds)
-                End Using
-            End If
+            End With
         End If
 
     End Sub
-#Region " Properties & Fields "
-    Private ReadOnly Property ImageCombo As ImageCombo
+
     Private ReadOnly Property MatchedItems As List(Of ComboItem)
         Get
-            Return ImageCombo.DropItems
+            Return ComboParent.DropItems
         End Get
     End Property
     Private ReadOnly Property VisibleComboItems As List(Of ComboItem)
@@ -1403,18 +1398,14 @@ Public Class ImageComboDropDown
             Return MatchedItems
         End Get
     End Property
-    Private _ComboItemRectangle As New Rectangle
-    Private ReadOnly Property ComboItemRectangle As Rectangle
-        Get
-            _ComboItemRectangle.Width = Width - ShadowDepth
-            _ComboItemRectangle.Height = Height - ShadowDepth
-            Return _ComboItemRectangle
-        End Get
-    End Property
-    Private _TotalHeight As Integer
     Private ReadOnly Property TotalHeight As Integer
         Get
-            Return _TotalHeight
+            If VisibleComboItems.Any Then
+                Return VisibleComboItems.Count * ItemHeight
+            Else
+                ComboParent.Toolstrip.Size = New Size(0, 0)
+                Return 0
+            End If
         End Get
     End Property
     Private _ItemHeight As Integer
@@ -1435,29 +1426,9 @@ Public Class ImageComboDropDown
             Return _MouseOverCombo
         End Get
     End Property
-    Private _ShadowRight As New Rectangle
-    Private ReadOnly Property ShadowRight As Rectangle
-        Get
-            _ShadowRight.X = ComboItemRectangle.Right
-            _ShadowRight.Y = 0
-            _ShadowRight.Width = ShadowDepth
-            _ShadowRight.Height = ComboItemRectangle.Height
-            Return _ShadowRight
-        End Get
-    End Property
-    Private _ShadowBottom As New Rectangle
-    Private ReadOnly Property ShadowBottom As Rectangle
-        Get
-            _ShadowBottom.X = 0
-            _ShadowBottom.Y = ComboItemRectangle.Bottom
-            _ShadowBottom.Width = Width
-            _ShadowBottom.Height = ShadowDepth
-            Return _ShadowBottom
-        End Get
-    End Property
     Public Property ShadeColor As Color = Color.WhiteSmoke
     Public Property SelectionColor As Color = Color.Transparent
-    Public Property DropShadowColor As Color = Color.CornflowerBlue
+    Public Property DropShadowColor As Color = Color.Gainsboro
     Private _ForceCapture As Boolean
     Protected Property ForceCapture() As Boolean
         Get
@@ -1468,8 +1439,7 @@ Public Class ImageComboDropDown
             Capture = value
         End Set
     End Property
-#End Region
-    Protected Shadows Sub OnPreviewKeyDown(ByVal sender As Object, ByVal e As PreviewKeyDownEventArgs)
+    Protected Shadows Sub OnPreviewKeyDown(sender As Object, e As PreviewKeyDownEventArgs)
 
         If e IsNot Nothing Then
             Select Case e.KeyCode
@@ -1499,14 +1469,14 @@ Public Class ImageComboDropDown
 
                 Case Keys.Down
                     If Not MouseRowIndex = MatchedItems.Count - 1 Then
-                        If VisibleComboItems.IndexOf(ImageCombo.Items(MouseRowIndex)) = ImageCombo.MaxItems - 1 Then
+                        If VisibleComboItems.IndexOf(ComboParent.Items(MouseRowIndex)) = ComboParent.MaxItems - 1 Then
                             VScroll.Value += ItemHeight
                         End If
                         _MouseRowIndex += 1
                     End If
 
                 Case Keys.Return
-                    ImageCombo.OnItemSelected(VisibleComboItems(MouseRowIndex), False)
+                    ComboParent.OnItemSelected(VisibleComboItems(MouseRowIndex), False)
 
             End Select
             Invalidate()
@@ -1514,12 +1484,12 @@ Public Class ImageComboDropDown
         MyBase.OnKeyDown(e)
 
     End Sub
-    Protected Overrides Sub OnMouseDown(ByVal e As MouseEventArgs)
+    Protected Overrides Sub OnMouseDown(e As MouseEventArgs)
 
         If e IsNot Nothing Then
-            If VScroll.Bounds.Contains(e.Location) Then
-            ElseIf Bounds.Contains(e.Location) And Not VScroll.Bounds.Contains(e.Location) Then
-                With ImageCombo
+            With ComboParent
+                If VScroll.Bounds.Contains(e.Location) Then
+                ElseIf Bounds.Contains(e.Location) And Not VScroll.Bounds.Contains(e.Location) Then
                     Dim VScrollOffset As Point = e.Location
                     VScrollOffset.Offset(0, VScroll.Value)
                     Dim Checked As New List(Of ComboItem)(From CI In VisibleComboItems Where CI.CheckBounds.Contains(VScrollOffset))
@@ -1530,26 +1500,26 @@ Public Class ImageComboDropDown
                     Else
                         Dim Selected As New List(Of ComboItem)(From CI In VisibleComboItems Where CI.Bounds.Contains(VScrollOffset))
                         If Selected.Any Then
-                            If Not ImageCombo.MultiSelect Then
+                            If Not .MultiSelect Then
                                 'Dim LastSelected As New List(Of ComboItem)(From CI In Items Where CI.Selected)
                                 'If LastSelected.Any Then LastSelected.First._Selected = False
                             End If
                             Selected.First._Selected = Not (Selected.First.Selected)
-                            If ImageCombo.CheckOnSelect Then Selected.First.Checked = Not (Selected.First.Checked)
+                            If .CheckOnSelect Then Selected.First.Checked = Not (Selected.First.Checked)
                             .OnItemSelected(Selected.First, Control.ModifierKeys = Keys.Shift)
                         End If
                     End If
-                End With
-            ElseIf ImageCombo.Bounds.Contains(e.Location) Then
-                ImageCombo.Focus()
-            Else
-                Visible = False
-            End If
+                ElseIf .Bounds.Contains(e.Location) Then
+                    .Focus()
+                Else
+                    Visible = False
+                End If
+            End With
         End If
         MyBase.OnMouseDown(e)
 
     End Sub
-    Protected Overrides Sub OnMouseMove(ByVal e As MouseEventArgs)
+    Protected Overrides Sub OnMouseMove(e As MouseEventArgs)
 
         If e IsNot Nothing Then
             If VScroll.Bounds.Contains(e.Location) Or VScroll.Scrolling Then
@@ -1560,14 +1530,14 @@ Public Class ImageComboDropDown
                     _MouseOverCombo = MouseOverComboItems.First
                     _MouseRowIndex = _MouseOverCombo.Index
                     If Not (If(MouseOverCombo.TipText, String.Empty).Length = 0 Or _LastMouseOverCombo Is _MouseOverCombo) Then
-                        ToolTip.Hide(ImageCombo)
-                        ToolTip.Show(MouseOverCombo.TipText, ImageCombo, 0, 0, 2000)
+                        ToolTip.Hide(ComboParent)
+                        ToolTip.Show(MouseOverCombo.TipText, ComboParent, 0, 0, 2000)
                         _LastMouseOverCombo = _MouseOverCombo
                     End If
                     ForceCapture = True
                     Invalidate()
                 End If
-            ElseIf ImageCombo.Bounds.Contains(e.Location) Then
+            ElseIf ComboParent.Bounds.Contains(e.Location) Then
             End If
         End If
         MyBase.OnMouseMove(e)
@@ -1577,11 +1547,12 @@ Public Class ImageComboDropDown
 
         If Visible Then
             ResizeMe()
-            ImageCombo.Toolstrip.Size = Size
             Top = 0
             Dim DisplayFactor = DisplayScale()
             Dim myLocation As Point = PointToScreen(New Point(0, 0))
-            Dim bmp As New Bitmap(CInt(Width * DisplayFactor), CInt(Height * DisplayFactor))
+            Dim widthScale As Integer = CInt(Width * DisplayFactor)
+            Dim heightScale As Integer = CInt(Height * DisplayFactor)
+            Dim bmp As New Bitmap(widthScale, heightScale)
             Using Graphics As Graphics = Graphics.FromImage(bmp)
                 Graphics.CopyFromScreen(
                         CInt(myLocation.X * DisplayFactor),
@@ -1590,32 +1561,31 @@ Public Class ImageComboDropDown
                         0,
                         bmp.Size,
                         CopyPixelOperation.SourceCopy)
-                For P = 0 To ShadowDepth - 1
-                    Using Brush As New SolidBrush(Color.FromArgb(16 + (P * 5), DropShadowColor))
-                        Graphics.FillRectangle(Brush, New Rectangle(ShadowDepth + P, ShadowDepth + P, Width - ShadowDepth - P * 2, Height - ShadowDepth - P * 2))
+                Const shrinkFactor As Integer = -1
+                Dim rectangleShade As New Rectangle(0, 0, bmp.Width, bmp.Height)
+                For i = 0 To 23
+                    Using brushShade As New SolidBrush(Color.FromArgb({16 + i * 4, 255}.Min, DropShadowColor))
+                        Using pathShade As GraphicsPath = DrawRoundedRectangle(rectangleShade, 30)
+                            Graphics.FillPath(brushShade, pathShade)
+                        End Using
                     End Using
+                    rectangleShade.Inflate(shrinkFactor, shrinkFactor)
+                    rectangleShade.Offset(shrinkFactor * 2, shrinkFactor * 2)
                 Next
             End Using
             BMP_Shadow = bmp
             Invalidate()
-            Using sw As New IO.StreamWriter(Desktop & "\imageData.txt")
-                sw.WriteLine(DisplayFactor.ToString("", InvariantCulture))
-                sw.WriteLine(myLocation.ToString)
-                sw.WriteLine(bmp.Size.ToString)
-                sw.WriteLine(Size.ToString)
-            End Using
-            bmp.Save(Desktop & "\imageCombo.png")
-            Dim SV As IEnumerable(Of ComboItem) = From S In MatchedItems Where S.Index = ImageCombo.SelectionIndex
+            'If ComboParent.Name = "quickSearch" Then Stop
+            Dim SV As IEnumerable(Of ComboItem) = From S In MatchedItems Where S.Index = ComboParent.SelectionIndex
             If SV.Any Then
                 Dim ScrollValue As Integer = MatchedItems.IndexOf(SV.First)
-                VScroll.Value = Convert.ToInt32(Split((ScrollValue / ImageCombo.MaxItems).ToString(InvariantCulture), ".")(0), InvariantCulture) * ImageCombo.MaxItems * ItemHeight
+                VScroll.Value = CInt(Split((ScrollValue / ComboParent.MaxItems).ToString(InvariantCulture), ".")(0)) * ComboParent.MaxItems * ItemHeight
                 Invalidate()
             End If
             ForceCapture = True
         Else
-            ImageCombo.Toolstrip.Size = New Size(0, 0)
+            ComboParent.Toolstrip.Size = New Size(0, 0)
             ForceCapture = False
-            ImageCombo.Focus()
         End If
         MyBase.OnVisibleChanged(e)
 
@@ -1625,7 +1595,7 @@ Public Class ImageComboDropDown
         If e IsNot Nothing Then
             If MatchedItems.Any And Asc(e.KeyChar) > 31 AndAlso Asc(e.KeyChar) < 127 Then
                 REM Printable characters
-                ImageCombo.DelegateKeyPress(e)
+                ComboParent.DelegateKeyPress(e)
             End If
         End If
         MyBase.OnKeyPress(e)
@@ -1633,64 +1603,77 @@ Public Class ImageComboDropDown
     End Sub
     Protected Overrides Sub OnFontChanged(e As EventArgs)
 
+        _ItemHeight = 1 + TextRenderer.MeasureText("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ".ToString(InvariantCulture), ComboParent.Font).Height + 1
         ResizeMe()
         MyBase.OnFontChanged(e)
 
     End Sub
     Friend Sub ResizeMe()
 
-        _ItemHeight = (1 + TextRenderer.MeasureText("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ".ToString(InvariantCulture), ImageCombo.Font).Height + 1)
-        With ImageCombo
+        With ComboParent
             If MatchedItems.Any Then
-                REM //////////////////////////// UPDATE COMBOITEM BOUNDS
-                For Each ComboItem As ComboItem In VisibleComboItems
-                    With ComboItem
-                        ._Index = VisibleComboItems.IndexOf(ComboItem)
-                        ._Bounds.X = 0
-                        ._Bounds.Y = (ItemHeight * .Index)
-                        ._Bounds.Width = Width - ShadowDepth
-                        ._Bounds.Height = ItemHeight
-                        If ImageCombo.CheckBoxes Then
-                            ._CheckBounds.X = 2
-                            ._CheckBounds.Y = ._Bounds.Y + Convert.ToInt32((ItemHeight - 14) / 2)
-                            ._CheckBounds.Width = 14
-                            ._CheckBounds.Height = 14
-                            ._CheckBounds.Offset(0, 1)
-                        Else
-                            ._CheckBounds.X = 0
-                            ._CheckBounds.Y = 0
-                            ._CheckBounds.Width = 0
-                            ._CheckBounds.Height = 0
-                        End If
-                        If IsNothing(.Image) Then
-                            ._ImageBounds.X = ._CheckBounds.Right
-                            ._ImageBounds.Y = ._Bounds.Y
-                            ._ImageBounds.Width = 0
-                            ._ImageBounds.Height = 0
-                        Else
-                            Dim ImageWidth As Integer = {ItemHeight, .Image.Height}.Min
-                            ._ImageBounds.X = ._CheckBounds.Right + 2
-                            ._ImageBounds.Y = ._Bounds.Y + Convert.ToInt32((ItemHeight - ImageWidth) / 2)
-                            ._ImageBounds.Width = ImageWidth
-                            ._ImageBounds.Height = ImageWidth
-                        End If
-                        ._TextBounds.X = ._ImageBounds.Right + If(Not IsNothing(.Image), 2, 0)
-                        ._TextBounds.Y = ._Bounds.Y
-                        ._TextBounds.Width = ._Bounds.Width - ._TextBounds.X
-                        ._TextBounds.Height = ItemHeight
-                    End With
-                Next
-
-                Width = (From R In VisibleComboItems Select 3 + If(IsNothing(R.Image), 0, 1 + R.Image.Width) + R.CheckBounds.Width + TextRenderer.MeasureText(R.Text, Font).Width).Union({ .TextBounds.Left, .Width}).Max + ShadowDepth + If(VScroll.Visible, VScroll.Bounds.Width, 0)
-                _TotalHeight = VisibleComboItems.Count * ItemHeight
-                Height = { .MaxItems * ItemHeight, TotalHeight}.Min + ShadowDepth
-                VScroll.Height = ComboItemRectangle.Height
+                Dim indexItem As Integer = 0
+                Dim widthProposed As Integer = 0
+                Dim widths As New List(Of Integer)
+                Dim widthCheck As Integer = If(.CheckboxStyle = CheckStyle.None, 0, If(.CheckboxStyle = CheckStyle.Slide, My.Resources.slideStateOn.Width, CheckWH))
+                Dim heightCheck As Integer = If(.CheckboxStyle = CheckStyle.None, 0, If(.CheckboxStyle = CheckStyle.Slide, My.Resources.slideStateOn.Height, CheckWH))
+                Dim widthScroll As Integer = If(VisibleComboItems.Count > ComboParent.MaxItems, VScroll.Bounds.Width, 0)
+                'If ComboParent.Name = "quickSearch" Then Stop
+                VisibleComboItems.ForEach(Sub(ci)
+                                              Dim widthRow As Integer = 2 'Pad Left
+                                              widthRow += If(ci.Image Is Nothing, 0, ci.Image.Width + 1) 'Item-level property
+                                              widthRow += widthCheck 'ImageCombo-level property ( all items same )
+                                              widthRow += TextRenderer.MeasureText(ci.Text, Font).Width 'DropDown-level property ( all items same font )
+                                              widthRow += widthScroll
+                                              widthRow += ShadowDepth
+                                              widthRow += 5 'Pad Right
+                                              If widthProposed < widthRow Then widthProposed = widthRow
+                                          End Sub)
+                Dim heightProposed As Integer = ItemHeight * {VisibleComboItems.Count, .MaxItems}.Min + ShadowDepth
+                Size = New Size(widthProposed, heightProposed)
+                VisibleComboItems.ForEach(Sub(ci)
+                                              With ci
+                                                  ._Index = indexItem
+                                                  ._Bounds.X = 0
+                                                  ._Bounds.Y = ItemHeight * .Index
+                                                  ._Bounds.Width = Width - ShadowDepth
+                                                  ._Bounds.Height = ItemHeight
+                                                  If ComboParent.CheckboxStyle = CheckStyle.None Then
+                                                      ._CheckBounds.X = 0
+                                                      ._CheckBounds.Y = 0
+                                                      ._CheckBounds.Width = 0
+                                                      ._CheckBounds.Height = 0
+                                                  Else
+                                                      ._CheckBounds.X = 1
+                                                      ._CheckBounds.Y = 1 + ._Bounds.Y + CInt((ItemHeight - heightCheck) / 2)
+                                                      ._CheckBounds.Width = widthCheck
+                                                      ._CheckBounds.Height = heightCheck
+                                                  End If
+                                                  If IsNothing(.Image) Then
+                                                      ._ImageBounds.X = ._CheckBounds.Right
+                                                      ._ImageBounds.Y = ._Bounds.Y
+                                                      ._ImageBounds.Width = 0
+                                                      ._ImageBounds.Height = 0
+                                                  Else
+                                                      Dim ImageWidth As Integer = {ItemHeight, .Image.Height}.Min
+                                                      ._ImageBounds.X = ._CheckBounds.Right + 2
+                                                      ._ImageBounds.Y = ._Bounds.Y + CInt((ItemHeight - ImageWidth) / 2)
+                                                      ._ImageBounds.Width = ImageWidth
+                                                      ._ImageBounds.Height = ImageWidth
+                                                  End If
+                                                  ._TextBounds.X = ._ImageBounds.Right + 2
+                                                  ._TextBounds.Y = ._Bounds.Y
+                                                  ._TextBounds.Width = ._Bounds.Width - ._TextBounds.X
+                                                  ._TextBounds.Height = ItemHeight
+                                              End With
+                                              indexItem += 1
+                                          End Sub)
+                VScroll.Height = Height - ShadowDepth
                 VScroll.Maximum = TotalHeight
                 VScroll.SmallChange = ItemHeight
-                VScroll.LargeChange = ComboItemRectangle.Height
+                VScroll.LargeChange = Height - ShadowDepth
                 .Toolstrip.Size = Size
             Else
-                _TotalHeight = 0
                 .Toolstrip.Size = New Size(0, 0)
             End If
         End With
@@ -1700,10 +1683,12 @@ End Class
 REM ////////////////////////////////////////////////////////////////////////////////////////////////////////// DROPDOWN COLLECTION
 Public NotInheritable Class ItemCollection
     Inherits List(Of ComboItem)
+    Public Event Changed(sender As Object)
     Public Sub New(Parent As ImageCombo)
         ImageCombo = Parent
     End Sub
     Public ReadOnly Property ImageCombo As ImageCombo
+    Private HoldEvents As Boolean = False
     Public Shadows Function Item(TheName As String) As ComboItem
 
         Dim Items As New List(Of ComboItem)(From CI In Me Where CI.Name = TheName)
@@ -1714,61 +1699,78 @@ Public NotInheritable Class ItemCollection
         End If
 
     End Function
-    Public Overloads Function Add(ByVal Text As String) As ComboItem
+    Public Overloads Function Add(Text As String) As ComboItem
 
         Dim ComboItem As New ComboItem With {.Value = Text}
         Add(ComboItem)
         Return ComboItem
 
     End Function
-    Public Overloads Function Add(ByVal Text As String, Image As Image) As ComboItem
+    Public Overloads Function Add(Text As String, Image As Image) As ComboItem
 
         Dim ComboItem As New ComboItem With {.Value = Text, .Image = Image}
         Add(ComboItem)
         Return ComboItem
 
     End Function
-    Public Overloads Function Add(ByVal ComboItem As ComboItem) As ComboItem
+    Public Overloads Function AddRange(items As ItemCollection) As List(Of ComboItem)
+
+        Dim newItems As New List(Of ComboItem)
+        If items IsNot Nothing Then
+            HoldEvents = True
+            items.ForEach(Sub(item)
+                              newItems.Add(item)
+                          End Sub)
+            HoldEvents = False
+            RaiseEvent Changed(Me)
+        End If
+        Return newItems
+
+    End Function
+    Public Overloads Function Add(ComboItem As ComboItem) As ComboItem
 
         If ComboItem IsNot Nothing Then
-            With ComboItem
-                ._ItemCollection = Me
-                Dim ItemHeight As Integer = TextRenderer.MeasureText("ZZZZZZZZZZZZZZZZZZZZ".ToString(InvariantCulture), ImageCombo.Font).Height
-                ._Index = Count
-                ._Bounds.X = 0
-                ._Bounds.Y = (ItemHeight * .Index)
-                ._Bounds.Width = ImageCombo.DropDown.Width - 3
-                ._Bounds.Height = ItemHeight
-                If ImageCombo.CheckBoxes Then
-                    ._CheckBounds.X = 2
-                    ._CheckBounds.Y = ._Bounds.Y + Convert.ToInt32((ItemHeight - 14) / 2)
-                    ._CheckBounds.Width = 14
-                    ._CheckBounds.Height = 14
-                Else
-                    ._CheckBounds.X = 0
-                    ._CheckBounds.Y = 0
-                    ._CheckBounds.Width = 0
-                    ._CheckBounds.Height = 0
-                End If
-                If IsNothing(.Image) Then
-                    ._ImageBounds.X = ._CheckBounds.Right
-                    ._ImageBounds.Y = ._Bounds.Y
-                    ._ImageBounds.Width = 0
-                    ._ImageBounds.Height = 0
-                Else
-                    Dim ImageWidth As Integer = {ItemHeight, .Image.Height}.Min
-                    ._ImageBounds.X = ._CheckBounds.Right + 2
-                    ._ImageBounds.Y = ._Bounds.Y + Convert.ToInt32((ItemHeight - ImageWidth) / 2)
-                    ._ImageBounds.Width = ImageWidth
-                    ._ImageBounds.Height = ImageWidth
-                End If
-                ._TextBounds.X = ._ImageBounds.Right + If(Not IsNothing(.Image), 2, 0)
-                ._TextBounds.Y = ._Bounds.Y
-                ._TextBounds.Width = ._Bounds.Width - ._TextBounds.X
-                ._TextBounds.Height = ItemHeight
-            End With
+            If 0 = 1 Then
+                Const CheckWH As Integer = 14
+                With ComboItem
+                    ._ItemCollection = Me
+                    Dim ItemHeight As Integer = TextRenderer.MeasureText("ZZZZZZZZZZZZZZZZZZZZ".ToString(InvariantCulture), ImageCombo.Font).Height
+                    ._Index = Count
+                    ._Bounds.X = 0
+                    ._Bounds.Y = (ItemHeight * .Index)
+                    ._Bounds.Width = ImageCombo.DropDown.Width - 3
+                    ._Bounds.Height = ItemHeight
+                    If ImageCombo.CheckboxStyle = CheckStyle.None Then
+                        ._CheckBounds.X = 0
+                        ._CheckBounds.Y = 0
+                        ._CheckBounds.Width = 0
+                        ._CheckBounds.Height = 0
+                    Else
+                        ._CheckBounds.X = 2
+                        ._CheckBounds.Y = ._Bounds.Y + CInt((ItemHeight - CheckWH) / 2)
+                        ._CheckBounds.Width = CheckWH
+                        ._CheckBounds.Height = CheckWH
+                    End If
+                    If IsNothing(.Image) Then
+                        ._ImageBounds.X = ._CheckBounds.Right
+                        ._ImageBounds.Y = ._Bounds.Y
+                        ._ImageBounds.Width = 0
+                        ._ImageBounds.Height = 0
+                    Else
+                        Dim ImageWidth As Integer = {ItemHeight, .Image.Height}.Min
+                        ._ImageBounds.X = ._CheckBounds.Right + 2
+                        ._ImageBounds.Y = ._Bounds.Y + CInt((ItemHeight - ImageWidth) / 2)
+                        ._ImageBounds.Width = ImageWidth
+                        ._ImageBounds.Height = ImageWidth
+                    End If
+                    ._TextBounds.X = ._ImageBounds.Right + If(Not IsNothing(.Image), 2, 0)
+                    ._TextBounds.Y = ._Bounds.Y
+                    ._TextBounds.Width = ._Bounds.Width - ._TextBounds.X
+                    ._TextBounds.Height = ItemHeight
+                End With
+            End If 'Don't think this is necessary
             MyBase.Add(ComboItem)
-            ImageCombo.Invalidate()
+            If Not HoldEvents Then RaiseEvent Changed(Me)
         End If
         Return ComboItem
 
@@ -1874,4 +1876,244 @@ REM ////////////////////////////////////////////////////////////////////////////
     Public Overrides Function ToString() As String
         Return Join({Text, Index}, BlackOut)
     End Function
+End Class
+REM ////////////////////////////////////////////////////////////////////////////////////////////////////////// DROPDOWN SCROLLBAR
+Public Class VerticalScrollBar
+    Friend WithEvents Timer As New Timer With {.Interval = 250}
+    Friend Alpha As Byte = 128
+    Friend UpAlpha As Byte
+    Friend DownAlpha As Byte
+    Private Const Width As Integer = 12
+    Private Const ShadowDepth As Integer = 8
+    Private Const ArrowsHeight As Integer = Width + 2
+
+    Public Sub New(Control As Control)
+
+        Me.Control = Control
+        If Control IsNot Nothing Then
+            AddHandler Control.SizeChanged, AddressOf ControlSizeChanged
+            AddHandler Control.MouseDown, AddressOf MouseDown
+            AddHandler Control.MouseMove, AddressOf MouseMove
+            AddHandler Control.MouseUp, AddressOf MouseUp
+            AddHandler Control.MouseHover, AddressOf MouseHeld
+        End If
+
+    End Sub
+
+    Private mScrolling As Boolean
+    Friend ReadOnly Property Scrolling As Boolean
+        Get
+            Return mScrolling
+        End Get
+    End Property
+    Private mReference As New Point
+    Friend Property Reference As Point
+        Get
+            Return mReference
+        End Get
+        Set(value As Point)
+            If Not mReference = value Then
+                mReference = value
+            End If
+        End Set
+    End Property
+    Public Property Lines As Boolean
+    Public Property Color As Color = Color.CornflowerBlue
+    Public Property SmallChange As Integer = 1
+    Public Property LargeChange As Integer
+    Public ReadOnly Property Control As Control
+    Friend ReadOnly Property Pages As List(Of Double)
+        Get
+            If Bounds.Height = 0 Then
+                Return New List(Of Double)
+            Else
+                Dim PageCount As Double = ScrollHeight / Bounds.Height
+                Return Enumerable.Range(0, CInt(Math.Floor(PageCount))).Select(Function(x) ArrowsHeight + (x * Bounds.Height) / 2).ToList
+            End If
+        End Get
+    End Property
+    Private _Value As Integer
+    Public Property Value As Integer
+        Get
+            Return _Value
+        End Get
+        Set(value As Integer)
+            If Not (value = _Value) Then
+                If value < 0 Then
+                    _Value = 0
+                ElseIf (value) > ScrollHeight Then
+                    _Value = ScrollHeight
+                Else
+                    _Value = value
+                End If
+                RaiseEvent ValueChanged(Me, Nothing)
+            End If
+        End Set
+    End Property
+    Private _Height As Integer
+    Public Property Height As Integer
+        Get
+            Return _Height
+        End Get
+        Set(value As Integer)
+            _Height = value
+            UpdateBounds()
+        End Set
+    End Property
+    Private _Maximum As Integer
+    Public Property Maximum As Integer
+        Get
+            Return _Maximum
+        End Get
+        Set(value As Integer)
+            UpdateBounds()
+            _Maximum = value
+        End Set
+    End Property
+    Friend ReadOnly Property ScrollHeight As Integer
+        Get
+            Return Maximum - Height
+        End Get
+    End Property
+    Private _Bounds As New Rectangle(0, 0, Width, 0)
+    Public ReadOnly Property Bounds As Rectangle
+        Get
+            Return _Bounds
+        End Get
+    End Property
+    Private _TrackBounds As New Rectangle(0, ArrowsHeight, Width, 0)
+    Public ReadOnly Property TrackBounds As Rectangle
+        Get
+            Return _TrackBounds
+        End Get
+    End Property
+    Private _UpBounds As New Rectangle(0, -1, Width, ArrowsHeight)
+    Friend ReadOnly Property UpBounds As Rectangle
+        Get
+            Return _UpBounds
+        End Get
+    End Property
+    Private _BarBounds As New Rectangle(0, ArrowsHeight, Width, 0)
+    Friend ReadOnly Property BarBounds As Rectangle
+        Get
+            If _BarBounds.Top <= UpBounds.Bottom Then
+                _BarBounds.Y = UpBounds.Bottom
+            ElseIf _BarBounds.Bottom >= DownBounds.Top Then
+                _BarBounds.Y = (DownBounds.Top - _BarBounds.Height)
+            End If
+            Return _BarBounds
+        End Get
+    End Property
+    Private _DownBounds As New Rectangle(0, 0, Width, ArrowsHeight)
+    Friend ReadOnly Property DownBounds As Rectangle
+        Get
+            Return _DownBounds
+        End Get
+    End Property
+    Friend ReadOnly Property Visible As Boolean
+        Get
+            Return ScrollHeight > Height
+        End Get
+    End Property
+
+    Public Event ValueChanged(sender As Object, e As EventArgs)
+    Private Sub ControlSizeChanged(sender As Object, e As EventArgs)
+        UpdateBounds()
+    End Sub
+    Private Sub MouseDown(sender As Object, e As MouseEventArgs)
+        If UpBounds.Contains(e.Location) Then
+            Reference = e.Location
+            Timer.Start()
+            Value -= SmallChange
+        ElseIf DownBounds.Contains(e.Location) Then
+            Reference = e.Location
+            Timer.Start()
+            Value += SmallChange
+        ElseIf TrackBounds.Contains(e.Location) Then
+            If Not BarBounds.Contains(e.Location) Then
+                Dim TrackValue As Double = ((e.Y - TrackBounds.Top) / (TrackBounds.Height - BarBounds.Height) * ScrollHeight)
+                Value = Convert.ToInt32(Math.Floor(TrackValue / SmallChange) * SmallChange)
+                _BarBounds.Y = e.Y
+            End If
+            Reference = e.Location
+            Alpha = 255
+            Control.Invalidate()
+        End If
+        Reference = e.Location
+    End Sub
+    Private Sub MouseHeld(sender As Object, e As EventArgs) Handles Timer.Tick
+        If UpBounds.Contains(Reference) Then
+            Value -= LargeChange
+            _BarBounds.Y = Convert.ToInt32(Value * (TrackBounds.Height - BarBounds.Height) / ScrollHeight) + TrackBounds.Top
+        ElseIf DownBounds.Contains(Reference) Then
+            Value += LargeChange
+            _BarBounds.Y = Convert.ToInt32(Value * (TrackBounds.Height - BarBounds.Height) / ScrollHeight) + TrackBounds.Top
+        End If
+        Control.Invalidate()
+    End Sub
+    Private Sub MouseMove(sender As Object, e As MouseEventArgs)
+        Alpha = 60
+        UpAlpha = 0
+        DownAlpha = 0
+        If Bounds.Contains(e.Location) Or Scrolling Then
+            If e.Y < TrackBounds.Top Or e.Y > TrackBounds.Bottom Then
+                mScrolling = False
+            End If
+            If TrackBounds.Contains(e.Location) Or Scrolling Then
+                Timer.Stop()
+                If e.Button = MouseButtons.Left Then
+                    Alpha = 255
+                    mScrolling = True
+                    Dim Change As Integer = (e.Y - Reference.Y)
+                    _BarBounds.Y += Change
+                    Dim TrackValue As Double = ((BarBounds.Top - TrackBounds.Top) / (TrackBounds.Height - BarBounds.Height) * ScrollHeight)
+                    Value = Convert.ToInt32(Math.Floor(TrackValue / SmallChange) * SmallChange)
+                    Reference = e.Location
+                Else
+                    mScrolling = False
+                    If BarBounds.Contains(e.Location) Then Alpha = 128
+                End If
+            ElseIf UpBounds.Contains(e.Location) Then
+                UpAlpha = 64
+            ElseIf DownBounds.Contains(e.Location) Then
+                DownAlpha = 64
+            End If
+            Control.Invalidate()
+        End If
+    End Sub
+    Private Sub MouseUp(sender As Object, e As MouseEventArgs)
+        If Bounds.Contains(e.Location) Then
+            Reference = Nothing
+        End If
+        mScrolling = False
+        Control.Invalidate()
+    End Sub
+    Private Sub UpdateBounds()
+
+        With _Bounds
+            .X = Control.Width - Width - ShadowDepth
+            .Height = Control.Height - ShadowDepth
+            .Width = If(Visible, Width, 0)
+        End With
+        With _TrackBounds
+            .X = _Bounds.X
+            .Height = _Bounds.Height - (ArrowsHeight * 2)
+            .Width = _Bounds.Width
+        End With
+        With _BarBounds
+            .X = _Bounds.X - 1
+            .Width = _Bounds.Width
+            .Height = If(Visible, {Convert.ToInt32((Height / Maximum) * TrackBounds.Height), 20}.Max, 0)
+        End With
+        With _UpBounds
+            .X = _Bounds.X - 1
+            .Width = _Bounds.Width
+        End With
+        With _DownBounds
+            .X = _Bounds.X - 1
+            .Y = _Bounds.Height - ArrowsHeight
+            .Width = _Bounds.Width
+        End With
+
+    End Sub
 End Class

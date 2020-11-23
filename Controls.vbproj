@@ -638,6 +638,15 @@
   <ItemGroup>
     <None Include="Resources\glossyWhite.png" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\slideStateMixed.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\slideStateOff.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\slideStateOn.png" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>

@@ -1167,7 +1167,7 @@ Public Module Functions
             Next
             wordList.Add(New KeyValuePair(Of Size, String)(MeasureText(typeString, fontText), typeString)) 'Very last character of stringIn
             '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ M A X   V A L U E S
-            Dim widthSpace As Integer = MeasureText(" ", fontText).Width
+            Dim widthSpace As Integer = MeasureText(" ".ToUpperInvariant, fontText).Width
             Dim heightRow As Integer = wordList.Max(Function(w) w.Key.Height)
             Dim widthLargestWord As Integer = wordList.Max(Function(w) w.Key.Width)
 #End Region
@@ -3624,242 +3624,6 @@ Public NotInheritable Class WebBrowserUpdater
     End Function
     ' End Function GetBrowserVersion
 End Class
-Public Class VerticalScrollBar
-    Friend WithEvents Timer As New Timer With {.Interval = 250}
-    Friend Alpha As Byte = 128, UpAlpha As Byte, DownAlpha As Byte
-    Private Const Width As Integer = 12, ArrowsHeight As Integer = Width + 2, ShadowDepth As Integer = 8
-
-    Public Sub New(Control As Control)
-
-        Me.Control = Control
-        If Control IsNot Nothing Then
-            AddHandler Control.SizeChanged, AddressOf ControlSizeChanged
-            AddHandler Control.MouseDown, AddressOf MouseDown
-            AddHandler Control.MouseMove, AddressOf MouseMove
-            AddHandler Control.MouseUp, AddressOf MouseUp
-            AddHandler Control.MouseHover, AddressOf MouseHeld
-        End If
-
-    End Sub
-
-#Region " Properties and Fields"
-    Private mScrolling As Boolean
-    Friend ReadOnly Property Scrolling As Boolean
-        Get
-            Return mScrolling
-        End Get
-    End Property
-    Private mReference As New Point
-    Friend Property Reference As Point
-        Get
-            Return mReference
-        End Get
-        Set(value As Point)
-            If Not mReference = value Then
-                mReference = value
-            End If
-        End Set
-    End Property
-    Public Property Lines As Boolean
-    Public Property Color As Color = Color.CornflowerBlue
-    Public Property SmallChange As Integer = 1
-    Public Property LargeChange As Integer
-    Public ReadOnly Property Control As Control
-    Friend ReadOnly Property Pages As List(Of Double)
-        Get
-            Dim PageCount As Double = ScrollHeight / Bounds.Height
-            Return Enumerable.Range(0, Convert.ToInt32(Math.Floor(PageCount))).Select(Function(x) ArrowsHeight + (x * Bounds.Height) / 2).ToList
-        End Get
-    End Property
-    Private _Value As Integer
-    Public Property Value As Integer
-        Get
-            Return _Value
-        End Get
-        Set(value As Integer)
-            If Not (value = _Value) Then
-                If value < 0 Then
-                    _Value = 0
-                ElseIf (value) > ScrollHeight Then
-                    _Value = ScrollHeight
-                Else
-                    _Value = value
-                End If
-                RaiseEvent ValueChanged(Me, Nothing)
-            End If
-        End Set
-    End Property
-    Private _Height As Integer
-    Public Property Height As Integer
-        Get
-            Return _Height
-        End Get
-        Set(value As Integer)
-            UpdateBounds()
-            _Height = value
-        End Set
-    End Property
-    Private _Maximum As Integer
-    Public Property Maximum As Integer
-        Get
-            Return _Maximum
-        End Get
-        Set(value As Integer)
-            UpdateBounds()
-            _Maximum = value
-        End Set
-    End Property
-    Friend ReadOnly Property ScrollHeight As Integer
-        Get
-            Return (Maximum - Height)
-        End Get
-    End Property
-    Private _Bounds As New Rectangle(0, 0, Width, 0)
-    Public ReadOnly Property Bounds As Rectangle
-        Get
-            Return _Bounds
-        End Get
-    End Property
-    Private _TrackBounds As New Rectangle(0, ArrowsHeight, Width, 0)
-    Public ReadOnly Property TrackBounds As Rectangle
-        Get
-            Return _TrackBounds
-        End Get
-    End Property
-    Private _UpBounds As New Rectangle(0, -1, Width, ArrowsHeight)
-    Friend ReadOnly Property UpBounds As Rectangle
-        Get
-            Return _UpBounds
-        End Get
-    End Property
-    Private _BarBounds As New Rectangle(0, ArrowsHeight, Width, 0)
-    Friend ReadOnly Property BarBounds As Rectangle
-        Get
-            If _BarBounds.Top <= UpBounds.Bottom Then
-                _BarBounds.Y = UpBounds.Bottom
-            ElseIf _BarBounds.Bottom >= DownBounds.Top Then
-                _BarBounds.Y = (DownBounds.Top - _BarBounds.Height)
-            End If
-            Return _BarBounds
-        End Get
-    End Property
-    Private _DownBounds As New Rectangle(0, 0, Width, ArrowsHeight)
-    Friend ReadOnly Property DownBounds As Rectangle
-        Get
-            Return _DownBounds
-        End Get
-    End Property
-    Friend ReadOnly Property Visible As Boolean
-        Get
-            Return (ScrollHeight > Height)
-        End Get
-    End Property
-#End Region
-#Region " Events "
-    Public Event ValueChanged(ByVal sender As Object, e As EventArgs)
-    Private Sub ControlSizeChanged(ByVal sender As Object, e As EventArgs)
-        UpdateBounds()
-    End Sub
-    Private Sub MouseDown(ByVal sender As Object, e As MouseEventArgs)
-        If UpBounds.Contains(e.Location) Then
-            Reference = e.Location
-            Timer.Start()
-            Value -= SmallChange
-        ElseIf DownBounds.Contains(e.Location) Then
-            Reference = e.Location
-            Timer.Start()
-            Value += SmallChange
-        ElseIf TrackBounds.Contains(e.Location) Then
-            If Not BarBounds.Contains(e.Location) Then
-                Dim TrackValue As Double = ((e.Y - TrackBounds.Top) / (TrackBounds.Height - BarBounds.Height) * ScrollHeight)
-                Value = Convert.ToInt32(Math.Floor(TrackValue / SmallChange) * SmallChange)
-                _BarBounds.Y = e.Y
-            End If
-            Reference = e.Location
-            Alpha = 255
-            Control.Invalidate()
-        End If
-        Reference = e.Location
-    End Sub
-    Private Sub MouseHeld(ByVal sender As Object, e As EventArgs) Handles Timer.Tick
-        If UpBounds.Contains(Reference) Then
-            Value -= LargeChange
-            _BarBounds.Y = Convert.ToInt32(Value * (TrackBounds.Height - BarBounds.Height) / ScrollHeight) + TrackBounds.Top
-        ElseIf DownBounds.Contains(Reference) Then
-            Value += LargeChange
-            _BarBounds.Y = Convert.ToInt32(Value * (TrackBounds.Height - BarBounds.Height) / ScrollHeight) + TrackBounds.Top
-        End If
-        Control.Invalidate()
-    End Sub
-    Private Sub MouseMove(ByVal sender As Object, e As MouseEventArgs)
-        Alpha = 60
-        UpAlpha = 0
-        DownAlpha = 0
-        If Bounds.Contains(e.Location) Or Scrolling Then
-            If e.Y < TrackBounds.Top Or e.Y > TrackBounds.Bottom Then
-                mScrolling = False
-            End If
-            If TrackBounds.Contains(e.Location) Or Scrolling Then
-                Timer.Stop()
-                If e.Button = MouseButtons.Left Then
-                    Alpha = 255
-                    mScrolling = True
-                    Dim Change As Integer = (e.Y - Reference.Y)
-                    _BarBounds.Y += Change
-                    Dim TrackValue As Double = ((BarBounds.Top - TrackBounds.Top) / (TrackBounds.Height - BarBounds.Height) * ScrollHeight)
-                    Value = Convert.ToInt32(Math.Floor(TrackValue / SmallChange) * SmallChange)
-                    Reference = e.Location
-                Else
-                    mScrolling = False
-                    If BarBounds.Contains(e.Location) Then Alpha = 128
-                End If
-            ElseIf UpBounds.Contains(e.Location) Then
-                UpAlpha = 64
-            ElseIf DownBounds.Contains(e.Location) Then
-                DownAlpha = 64
-            End If
-            Control.Invalidate()
-        End If
-    End Sub
-    Private Sub MouseUp(ByVal sender As Object, e As MouseEventArgs)
-        If Bounds.Contains(e.Location) Then
-            Reference = Nothing
-        End If
-        mScrolling = False
-        Control.Invalidate()
-    End Sub
-#End Region
-#Region " Methods "
-    Private Sub UpdateBounds()
-
-        With _Bounds
-            .X = Control.Width - Width - ShadowDepth
-            .Height = Control.Height - ShadowDepth
-            .Width = If(Visible, Width, 0)
-        End With
-        With _TrackBounds
-            .X = _Bounds.X
-            .Height = _Bounds.Height - (ArrowsHeight * 2)
-            .Width = _Bounds.Width
-        End With
-        With _BarBounds
-            .X = _Bounds.X - 1
-            .Width = _Bounds.Width
-            .Height = If(Visible, {Convert.ToInt32((Height / Maximum) * TrackBounds.Height), 20}.Max, 0)
-        End With
-        With _UpBounds
-            .X = _Bounds.X - 1
-            .Width = _Bounds.Width
-        End With
-        With _DownBounds
-            .X = _Bounds.X - 1
-            .Y = _Bounds.Height - ArrowsHeight
-            .Width = _Bounds.Width
-        End With
-
-    End Sub
-#End Region
-End Class
 Public NotInheritable Class CustomRenderer
     Inherits ToolStripProfessionalRenderer
     'https://docs.microsoft.com/en-us/dotnet/api/system.windows.forms.toolstripprofessionalrenderer?view=netcore-3.1#events
@@ -4003,7 +3767,7 @@ Public NotInheritable Class CustomRenderer
                 '    End Using
                 'End Using
             Else
-                Using Brush As New SolidBrush(Color.FromArgb(255, 227, 224, 215))
+                Using Brush As New SolidBrush(e.ToolStrip.BackColor)
                     e.Graphics.FillRectangle(Brush, e.Item.ContentRectangle)
                 End Using
             End If
@@ -4256,9 +4020,9 @@ Public NotInheritable Class NativeMethods
     Friend Declare Function IsWindowVisible Lib "user32.dll" (ByVal HWND As Long) As Boolean
     Friend Declare Function SendMessage Lib "User32" Alias "SendMessageA" (ByVal HWND As Long, ByVal wMsg As Long, ByVal wParam As Long, lParam As Long) As Long
     Friend Declare Sub Mouse_Event Lib "user32.dll" Alias "mouse_event" (ByVal dwFlags As Integer, ByVal dx As Integer, ByVal dy As Integer, ByVal cButtons As Integer, ByVal dwExtraInfo As Integer)
-    <DllImport("user32.dll", EntryPoint:="GetClassLong")> Public Shared Function GetClassLong(ByVal hWnd As IntPtr, ByVal nIndex As Integer) As Integer
+    <DllImport("user32.dll", EntryPoint:="GetClassLong")> Friend Shared Function GetClassLong(ByVal hWnd As IntPtr, ByVal nIndex As Integer) As Integer
     End Function
-    <DllImport("user32.dll", EntryPoint:="SetClassLong")> Public Shared Function SetClassLong(ByVal hWnd As IntPtr, ByVal nIndex As Integer, ByVal dwNewLong As Integer) As Integer
+    <DllImport("user32.dll", EntryPoint:="SetClassLong")> Friend Shared Function SetClassLong(ByVal hWnd As IntPtr, ByVal nIndex As Integer, ByVal dwNewLong As Integer) As Integer
     End Function
 #Region " S T A R T  /  S T O P   D R A W I N G "
     Private Const WM_SETREDRAW As Integer = &HB

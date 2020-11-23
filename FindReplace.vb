@@ -326,7 +326,7 @@ Public Class FindReplace
 
                         Dim Replace As New ImageCombo
                         With Replace
-                            .CheckBoxes = False
+                            .CheckboxStyle = CheckStyle.None
                             AddHandler .SelectionChanged, AddressOf RequestMade
                         End With
                         ReplaceControl_ = Replace
