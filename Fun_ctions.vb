@@ -935,16 +935,17 @@ Public Module Functions
         End If
 
     End Function
-    Public Function MeasureText(Text As String, TextFont As Font, Optional adjustmentFactor As Double = 1.03) As Size
+    Public Function MeasureText(textIn As String, TextFont As Font, Optional adjustmentFactor As Double = 1.03) As Size
 
-        If If(Text, String.Empty).Any Or TextFont Is Nothing Then
+        If If(textIn, String.Empty).Any Or TextFont Is Nothing Then
             Dim gTextSize As SizeF
             Using g As Graphics = Graphics.FromImage(My.Resources.Plus)
+                g.TextRenderingHint = Text.TextRenderingHint.AntiAlias
                 Dim sf As New StringFormat With {
                     .Trimming = StringTrimming.None}
-                gTextSize = g.MeasureString(Text, TextFont, RectangleF.Empty.Size, sf)
+                gTextSize = g.MeasureString(textIn, TextFont, RectangleF.Empty.Size, sf)
             End Using
-            Return New Size(Convert.ToInt32(adjustmentFactor * gTextSize.Width), Convert.ToInt32(gTextSize.Height))
+            Return New Size(CInt(adjustmentFactor * gTextSize.Width), CInt(gTextSize.Height))
 
         Else
             Return New Size(0, 0)
@@ -1153,19 +1154,25 @@ Public Module Functions
         If If(stringIn, String.Empty).Any AndAlso fontText IsNot Nothing Then
 #Region "■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ G E T   W O R D   S I Z E S"
             Dim wordList As New List(Of KeyValuePair(Of Size, String))
-            Dim firstLetter As Char = stringIn.First
-            Dim lastType As CharacterType = If(TrimReturn(firstLetter).Any, CharacterType.NotSpace, CharacterType.Space)
-            Dim typeString As String = String.Empty
-            For Each letter As Char In stringIn
-                Dim currentType As CharacterType = If(TrimReturn(letter).Any, CharacterType.NotSpace, CharacterType.Space)
-                If lastType <> currentType Then
-                    wordList.Add(New KeyValuePair(Of Size, String)(MeasureText(typeString, fontText), typeString))
-                    lastType = currentType
-                    typeString = String.Empty
-                End If
-                typeString &= letter
-            Next
-            wordList.Add(New KeyValuePair(Of Size, String)(MeasureText(typeString, fontText), typeString)) 'Very last character of stringIn
+            If 0 = 0 Then
+                RegexMatches(stringIn, "[^ ]{1,}", RegexOptions.None).ForEach(Sub(word)
+                                                                                  wordList.Add(New KeyValuePair(Of Size, String)(MeasureText(word.Value, fontText), word.Value))
+                                                                              End Sub)
+            Else
+                Dim firstLetter As Char = stringIn.First
+                Dim lastType As CharacterType = If(TrimReturn(firstLetter).Any, CharacterType.NotSpace, CharacterType.Space)
+                Dim typeString As String = String.Empty
+                For Each letter As Char In stringIn
+                    Dim currentType As CharacterType = If(TrimReturn(letter).Any, CharacterType.NotSpace, CharacterType.Space)
+                    If lastType <> currentType Then
+                        wordList.Add(New KeyValuePair(Of Size, String)(MeasureText(typeString, fontText), typeString))
+                        lastType = currentType
+                        typeString = String.Empty
+                    End If
+                    typeString &= letter
+                Next
+                wordList.Add(New KeyValuePair(Of Size, String)(MeasureText(typeString, fontText), typeString)) 'Very last character of stringIn
+            End If
             '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ M A X   V A L U E S
             Dim widthSpace As Integer = MeasureText(" ".ToUpperInvariant, fontText).Width
             Dim heightRow As Integer = wordList.Max(Function(w) w.Key.Height)
@@ -4242,48 +4249,58 @@ Public NotInheritable Class CustomToolTip
             boundsImageOffset.Offset(wordOffset)
             g.DrawImage(TipImage, boundsImageOffset)
         End If
+
+        g.TextRenderingHint = Text.TextRenderingHint.AntiAlias
         For Each row As SpecialDictionary(Of Rectangle, String) In Words.Values
-            If row.Any Then
-                Dim wordFirst As Rectangle = row.First.Key
-                Dim rowLeft As Integer = wordFirst.Left
-                Dim rowTop As Integer = wordFirst.Top
-                Dim wordLast As Rectangle = row.Last.Key
-                Dim rowRight As Integer = wordLast.Right
-                Dim rowWidth As Integer = {rowRight - rowLeft, boundsRound.Right}.Max
-                Dim rowHeight As Integer = wordLast.Height
-                Dim boxRow As New Rectangle(rowLeft + wordOffset.X, rowTop + wordOffset.Y, rowWidth, rowHeight)
-                Dim line As String = Join(row.Values.ToArray)
-                Using brushFore As New SolidBrush(Color.Red)
-                    Using sf As New StringFormat With {.Alignment = StringAlignment.Near, .LineAlignment = StringAlignment.Center}
-                        g.DrawString(
-    line,
-    TipFont,
-    brushFore,
-    boxRow,
-    sf
-    )
+            If 0 = 1 Then
+                For Each word In row
+                    Dim boxWord As Rectangle = word.Key
+                    boxWord.Offset(wordOffset)
+                    g.DrawRectangle(Pens.Red, boxWord)
+                    Using brushFore As New SolidBrush(ForeColor)
+                        Using sf As New StringFormat With {
+                            .Alignment = StringAlignment.Near,
+                            .LineAlignment = StringAlignment.Center,
+                            .Trimming = StringTrimming.None
+                        }
+                            g.DrawString(
+        word.Value,
+        TipFont,
+        brushFore,
+        boxWord,
+        sf
+        )
+                        End Using
                     End Using
-                End Using
+                Next
+            Else
+                If row.Any Then
+                    Dim wordFirst As Rectangle = row.First.Key
+                    Dim rowLeft As Integer = wordFirst.Left
+                    Dim rowTop As Integer = wordFirst.Top
+                    Dim wordLast As Rectangle = row.Last.Key
+                    Dim rowRight As Integer = wordLast.Right
+                    Dim rowWidth As Integer = {rowRight - rowLeft, boundsRound.Right}.Max
+                    Dim rowHeight As Integer = wordLast.Height
+                    Dim boxRow As New Rectangle(rowLeft + wordOffset.X, rowTop + wordOffset.Y, rowWidth, rowHeight)
+                    Dim line As String = Join(row.Values.ToArray)
+                    Using brushFore As New SolidBrush(ForeColor)
+                        Using sf As New StringFormat With {
+                            .Alignment = StringAlignment.Near,
+                            .LineAlignment = StringAlignment.Center,
+                            .Trimming = StringTrimming.None
+                        }
+                            g.DrawString(
+        line,
+        TipFont,
+        brushFore,
+        boxRow,
+        sf
+        )
+                        End Using
+                    End Using
+                End If
             End If
-        Next
-        Exit Sub
-        For Each word In WordList
-            Dim wordRectangle As Rectangle = word.Key
-            wordRectangle.Offset(wordOffset)
-            wordRectangle.Offset(New Point(-1, 0))
-            wordRectangle.Inflate(New Size(2, 0))
-            Using brushFore As New SolidBrush(ForeColor)
-                Using sf As New StringFormat With {.Alignment = StringAlignment.Near, .LineAlignment = StringAlignment.Center}
-                    g.DrawString(
-word.Value,
-TipFont,
-brushFore,
-wordRectangle,
-sf
-)
-                    'If word.Value = "in" Then Stop
-                End Using
-            End Using
         Next
 #End Region
 
