@@ -4835,4 +4835,15 @@ Public NotInheritable Class SpecialDictionary(Of TKey, TValue)
                         End Sub)
 
     End Sub
+    Public Overloads Function ToString() As String
+
+        Dim keysValues As New List(Of String)
+        For Each kvp In Me
+            Dim stringKey As String = If(kvp.Key Is Nothing, String.Empty, kvp.Key.ToString)
+            Dim stringValue As String = If(kvp.Value Is Nothing, String.Empty, kvp.Value.ToString)
+            keysValues.Add($"Key={stringKey}, Value={stringValue}")
+        Next
+        Return Microsoft.VisualBasic.Join(keysValues.ToArray, vbNewLine)
+
+    End Function
 End Class
