@@ -4835,7 +4835,7 @@ Public NotInheritable Class SpecialDictionary(Of TKey, TValue)
                         End Sub)
 
     End Sub
-    Public Overloads Function ToString() As String
+    Public Overrides Function ToString() As String
 
         Dim keysValues As New List(Of String)
         For Each kvp In Me
