@@ -34,7 +34,7 @@ Public NotInheritable Class WebFunctions
                 End Using
 
             Catch ex As WebException
-                responseText = Delimiter & ex.Message
+                responseText = ex.Message
 
             End Try
             Return New KeyValuePair(Of HttpWebResponse, String)(response, responseText)
