@@ -41,6 +41,30 @@ Public NotInheritable Class WebFunctions
         End If
 
     End Function
+    Public Shared Function Download(request As HttpWebRequest, pathFile As String) As HttpStatusCode
+
+        If request IsNot Nothing Then
+            Dim response = CType(request.GetResponse, HttpWebResponse)
+            If response.StatusCode = HttpStatusCode.OK Then
+                Using RS As Stream = response.GetResponseStream
+                    Using FS As New FileStream(pathFile, FileMode.Create)
+                        Dim Read As Byte() = New Byte(255) {}
+                        Dim Count As Integer = RS.Read(Read, 0, Read.Length)
+                        While Count > 0
+                            FS.Write(Read, 0, Count)
+                            Count = RS.Read(Read, 0, Read.Length)
+                        End While
+                    End Using
+                End Using
+            Else
+
+            End If
+            Return response.StatusCode
+        Else
+            Return HttpStatusCode.NoContent
+        End If
+
+    End Function
     Public Shared Function HarToCode(path As String) As String
 
         If path Is Nothing Then
