@@ -127,6 +127,7 @@ Public Class Prompt
         End Set
     End Property
     Public Property Type As IconOption = IconOption.OK
+    Public Property CloseOnLinkClick As Boolean = True
     Private ReadOnly Property SideBorderWidths As Integer
         Get
             Dim ScreenRectangle As Rectangle = RectangleToScreen(ClientRectangle)
@@ -380,6 +381,7 @@ Public Class Prompt
         If LastBounds.Contains(e.Location) Then
             Dim pathBrowser As String = BrowserPath
             If pathBrowser IsNot Nothing Then Process.Start(pathBrowser, AddressBounds(LastBounds))
+            If CloseOnLinkClick Then Close()
         End If
 
     End Sub

@@ -385,10 +385,10 @@ Public NotInheritable Class Token
     Public Overrides Function GetHashCode() As Integer
         Return If(Name, String.Empty).GetHashCode Xor If(Value, String.Empty).GetHashCode Xor Expiry.GetHashCode Xor MaxAge.GetHashCode Xor If(Domain, String.Empty).GetHashCode Xor If(Path, String.Empty).GetHashCode Xor Secure.GetHashCode Xor HttpOnly.GetHashCode Xor SameSite.GetHashCode
     End Function
-    Public Overloads Function Equals(ByVal other As Token) As Boolean Implements IEquatable(Of Token).Equals
-        Return other IsNot Nothing AndAlso (Name = other.Name And Value = other.Value And Expiry = other.Expiry)
+    Public Overloads Function Equals(other As Token) As Boolean Implements IEquatable(Of Token).Equals
+        Return other IsNot Nothing AndAlso (Name = other.Name And Value = other.Value)
     End Function
-    Public Shared Operator =(ByVal Object1 As Token, ByVal Object2 As Token) As Boolean
+    Public Shared Operator =(Object1 As Token, Object2 As Token) As Boolean
         If Object1 Is Nothing Then
             Return Object2 Is Nothing
         ElseIf Object2 Is Nothing Then
@@ -397,10 +397,10 @@ Public NotInheritable Class Token
             Return Object1.Equals(Object2)
         End If
     End Operator
-    Public Shared Operator <>(ByVal Object1 As Token, ByVal Object2 As Token) As Boolean
+    Public Shared Operator <>(Object1 As Token, Object2 As Token) As Boolean
         Return Not Object1 = Object2
     End Operator
-    Public Overrides Function Equals(ByVal obj As Object) As Boolean
+    Public Overrides Function Equals(obj As Object) As Boolean
         If TypeOf obj Is Token Then
             Return CType(obj, Token) = Me
         Else

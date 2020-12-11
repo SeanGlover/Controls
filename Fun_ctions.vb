@@ -4737,7 +4737,7 @@ Public NotInheritable Class SpecialDictionary(Of TKey, TValue)
         Next
         If ascending Then
             kvpList.Sort(Function(x, y)
-                             Select Case GetType(TValue)
+                             Select Case GetType(TKey)
                                  Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)
                                      Return CLng(x.Key.ToString).CompareTo(CLng(y.Key.ToString))
 
@@ -4757,7 +4757,7 @@ Public NotInheritable Class SpecialDictionary(Of TKey, TValue)
                          End Function)
         Else
             kvpList.Sort(Function(y, x)
-                             Select Case GetType(TValue)
+                             Select Case GetType(TKey)
                                  Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)
                                      Return CLng(x.Key.ToString).CompareTo(CLng(y.Key.ToString))
 
