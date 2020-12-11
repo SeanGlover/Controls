@@ -41,16 +41,16 @@ Public Structure MouseInfo
     Public Overrides Function GetHashCode() As Integer
         Return Point.GetHashCode
     End Function
-    Public Overloads Function Equals(ByVal other As MouseInfo) As Boolean Implements IEquatable(Of MouseInfo).Equals
+    Public Overloads Function Equals(other As MouseInfo) As Boolean Implements IEquatable(Of MouseInfo).Equals
         Return Point = other.Point
     End Function
-    Public Shared Operator =(ByVal Object1 As MouseInfo, ByVal Object2 As MouseInfo) As Boolean
+    Public Shared Operator =(Object1 As MouseInfo, Object2 As MouseInfo) As Boolean
         Return Object1.Equals(Object2)
     End Operator
-    Public Shared Operator <>(ByVal Object1 As MouseInfo, ByVal Object2 As MouseInfo) As Boolean
+    Public Shared Operator <>(Object1 As MouseInfo, Object2 As MouseInfo) As Boolean
         Return Not Object1 = Object2
     End Operator
-    Public Overrides Function Equals(ByVal obj As Object) As Boolean
+    Public Overrides Function Equals(obj As Object) As Boolean
         If TypeOf obj Is MouseInfo Then
             Return CType(obj, MouseInfo) = Me
         Else
@@ -322,7 +322,7 @@ Public Class DataViewer
 #End Region
 #Region "■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ DRAWING "
     'HEADER / ROW PROPERTIES...USE A TEMPLATE LIKE MS AND APPLY TO CELL, ROW, HEADER...{V/H ALIGNMENT, FONT, FORCOLOR, BACKCOLOR, ETC}
-    Protected Overrides Sub OnPaint(ByVal e As PaintEventArgs)
+    Protected Overrides Sub OnPaint(e As PaintEventArgs)
 
         SetupScrolls()
         If e IsNot Nothing Then
@@ -919,14 +919,14 @@ Public Class DataViewer
 
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ M O U S E ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Protected Overrides Sub OnMouseLeave(ByVal e As EventArgs)
+    Protected Overrides Sub OnMouseLeave(e As EventArgs)
 
         _MouseData = Nothing
         Invalidate()
         MyBase.OnMouseLeave(e)
 
     End Sub
-    Protected Overrides Sub OnMouseMove(ByVal e As MouseEventArgs)
+    Protected Overrides Sub OnMouseMove(e As MouseEventArgs)
 
         If e IsNot Nothing Then
             With _MouseData
@@ -1055,7 +1055,7 @@ Public Class DataViewer
         End If
 
     End Sub
-    Protected Overrides Sub OnMouseDown(ByVal e As MouseEventArgs)
+    Protected Overrides Sub OnMouseDown(e As MouseEventArgs)
 
         'MouseOver feeds MouseInfo.Action
 
@@ -1210,7 +1210,7 @@ Public Class DataViewer
         End If
 
     End Sub
-    Protected Overrides Sub OnMouseDoubleClick(ByVal e As MouseEventArgs)
+    Protected Overrides Sub OnMouseDoubleClick(e As MouseEventArgs)
 
         With _MouseData
             If .CurrentAction = MouseInfo.Action.HeaderEdgeClicked Or .CurrentAction = MouseInfo.Action.MouseOverHeadEdge Then
@@ -1230,7 +1230,7 @@ Public Class DataViewer
         MyBase.OnMouseDoubleClick(e)
 
     End Sub
-    Protected Overrides Sub OnMouseUp(ByVal e As MouseEventArgs)
+    Protected Overrides Sub OnMouseUp(e As MouseEventArgs)
 
         With _MouseData
             .CurrentAction = MouseInfo.Action.None
@@ -1241,7 +1241,7 @@ Public Class DataViewer
         MyBase.OnMouseUp(e)
 
     End Sub
-    Protected Overrides Sub OnKeyDown(ByVal e As KeyEventArgs)
+    Protected Overrides Sub OnKeyDown(e As KeyEventArgs)
 
         If e IsNot Nothing Then
 
@@ -1377,7 +1377,7 @@ Public Class DataViewer
         End If
 
     End Sub
-    Protected Overrides Sub OnKeyUp(ByVal e As KeyEventArgs)
+    Protected Overrides Sub OnKeyUp(e As KeyEventArgs)
 
         If e IsNot Nothing Then
             If e.KeyCode = Keys.ControlKey Then
@@ -1646,7 +1646,7 @@ Public Class ColumnCollection
         End Get
     End Property
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Public Shadows Function Add(ByVal addColumn As Column) As Column
+    Public Shadows Function Add(addColumn As Column) As Column
 
         If addColumn IsNot Nothing Then
             With addColumn
@@ -1664,7 +1664,7 @@ Public Class ColumnCollection
         Return addColumn
 
     End Function
-    Public Shadows Function AddRange(ByVal addColumns As Column()) As Column()
+    Public Shadows Function AddRange(addColumns As Column()) As Column()
 
         If addColumns Is Nothing Then
             Return Nothing
@@ -1676,7 +1676,7 @@ Public Class ColumnCollection
         End If
 
     End Function
-    Public Shadows Function Insert(position As Integer, ByVal insertColumn As Column) As Column
+    Public Shadows Function Insert(position As Integer, insertColumn As Column) As Column
 
         If insertColumn IsNot Nothing Then
             With insertColumn
@@ -1697,7 +1697,7 @@ Public Class ColumnCollection
         Return insertColumn
 
     End Function
-    Public Shadows Function Remove(ByVal dropColumn As Column) As Column
+    Public Shadows Function Remove(dropColumn As Column) As Column
 
         If dropColumn IsNot Nothing Then
             With dropColumn
@@ -1728,7 +1728,7 @@ Public Class ColumnCollection
         End If
 
     End Function
-    Public Shadows Function RemoveRange(ByVal dropColumns As Column()) As Column()
+    Public Shadows Function RemoveRange(dropColumns As Column()) As Column()
 
         If dropColumns Is Nothing Then
             Return Nothing
@@ -1740,10 +1740,10 @@ Public Class ColumnCollection
         End If
 
     End Function
-    Public Shadows Function Contains(ByVal ColumnName As String) As Boolean
+    Public Shadows Function Contains(ColumnName As String) As Boolean
         Return Item(ColumnName) IsNot Nothing
     End Function
-    Public Shadows Function Item(ByVal ColumnName As String) As Column
+    Public Shadows Function Item(ColumnName As String) As Column
 
         Dim Columns = Where(Function(c) c.Name.ToUpperInvariant = ColumnName.ToUpperInvariant)
         If Columns.Any Then
@@ -1953,9 +1953,9 @@ Public Class ColumnCollection
         End If
         DisposedValue = True
     End Sub
-    ' TODO: override Finalize() only if Dispose(ByVal disposing As Boolean) above has code to free unmanaged resources.
+    ' TODO: override Finalize() only if Dispose(disposing As Boolean) above has code to free unmanaged resources.
     Protected Overrides Sub Finalize()
-        ' Do not change this code.  Put cleanup code in Dispose(ByVal disposing As Boolean) above.
+        ' Do not change this code.  Put cleanup code in Dispose(disposing As Boolean) above.
         Dispose(False)
         MyBase.Finalize()
     End Sub
@@ -2150,7 +2150,7 @@ End Class
         Get
             Return _Image
         End Get
-        Set(ByVal value As Image)
+        Set(value As Image)
             If Not SameImage(value, _Image) Then
                 _Image = value
                 Parent?.ColumnWidth(Me)
@@ -2162,7 +2162,7 @@ End Class
         Get
             Return _Text
         End Get
-        Set(ByVal value As String)
+        Set(value As String)
             If _Text <> value Then
                 _Text = value
                 Parent?.ColumnsXH()
@@ -2321,9 +2321,9 @@ End Class
         End If
         DisposedValue = True
     End Sub
-    ' TODO: override Finalize() only if Dispose(ByVal disposing As Boolean) above has code to free unmanaged resources.
+    ' TODO: override Finalize() only if Dispose(disposing As Boolean) above has code to free unmanaged resources.
     Protected Overrides Sub Finalize()
-        ' Do not change this code.  Put cleanup code in Dispose(ByVal disposing As Boolean) above.
+        ' Do not change this code.  Put cleanup code in Dispose(disposing As Boolean) above.
         Dispose(False)
         MyBase.Finalize()
     End Sub
@@ -2405,7 +2405,7 @@ Public Class RowCollection
         End Set
     End Property
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Public Shadows Function Add(ByVal newRow As Row) As Row
+    Public Shadows Function Add(newRow As Row) As Row
 
         If newRow IsNot Nothing Then
             newRow._Parent = Me
@@ -2415,7 +2415,7 @@ Public Class RowCollection
         Return newRow
 
     End Function
-    Public Sub SortBy(ByVal Column As Column)
+    Public Sub SortBy(Column As Column)
 
         If Column IsNot Nothing Then
             With Column
@@ -2497,9 +2497,9 @@ Public Class RowCollection
         End If
         DisposedValue = True
     End Sub
-    ' TODO: override Finalize() only if Dispose(ByVal disposing As Boolean) above has code to free unmanaged resources.
+    ' TODO: override Finalize() only if Dispose(disposing As Boolean) above has code to free unmanaged resources.
     Protected Overrides Sub Finalize()
-        ' Do not change this code.  Put cleanup code in Dispose(ByVal disposing As Boolean) above.
+        ' Do not change this code.  Put cleanup code in Dispose(disposing As Boolean) above.
         Dispose(False)
         MyBase.Finalize()
     End Sub
@@ -2642,9 +2642,9 @@ End Class
         End If
         DisposedValue = True
     End Sub
-    ' TODO: override Finalize() only if Dispose(ByVal disposing As Boolean) above has code to free unmanaged resources.
+    ' TODO: override Finalize() only if Dispose(disposing As Boolean) above has code to free unmanaged resources.
     Protected Overrides Sub Finalize()
-        ' Do not change this code.  Put cleanup code in Dispose(ByVal disposing As Boolean) above.
+        ' Do not change this code.  Put cleanup code in Dispose(disposing As Boolean) above.
         Dispose(False)
         MyBase.Finalize()
     End Sub
@@ -2850,9 +2850,9 @@ End Class
         End If
         DisposedValue = True
     End Sub
-    ' TODO: override Finalize() only if Dispose(ByVal disposing As Boolean) above has code to free unmanaged resources.
+    ' TODO: override Finalize() only if Dispose(disposing As Boolean) above has code to free unmanaged resources.
     Protected Overrides Sub Finalize()
-        ' Do not change this code.  Put cleanup code in Dispose(ByVal disposing As Boolean) above.
+        ' Do not change this code.  Put cleanup code in Dispose(disposing As Boolean) above.
         Dispose(False)
         MyBase.Finalize()
     End Sub
@@ -2908,7 +2908,7 @@ End Class
         Get
             Return _Font
         End Get
-        Set(ByVal value As Font)
+        Set(value As Font)
             If value IsNot _Font Then
                 _Font = value
                 RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.Font, value))
@@ -2926,7 +2926,7 @@ End Class
         Get
             Return _BackColor
         End Get
-        Set(ByVal value As Color)
+        Set(value As Color)
             If value <> _BackColor Then
                 _BackColor = value
                 RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.BackColor, value))
@@ -2948,7 +2948,7 @@ End Class
                 Return GlossyForecolor(Theme)
             End If
         End Get
-        Set(ByVal value As Color)
+        Set(value As Color)
             If value <> _ForeColor Then
                 _ForeColor = value
                 RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.ForeColor, value))
@@ -2966,7 +2966,7 @@ End Class
         Get
             Return _ShadeColor
         End Get
-        Set(ByVal value As Color)
+        Set(value As Color)
             If value <> _ShadeColor Then
                 _ShadeColor = value
                 RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.ShadeColor, value))
@@ -2983,7 +2983,7 @@ End Class
         Get
             Return _Theme
         End Get
-        Set(ByVal value As Theme)
+        Set(value As Theme)
             If value <> _Theme Then
                 _Theme = value
                 RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.Theme, value))
@@ -3002,7 +3002,7 @@ End Class
         Get
             Return _Alignment
         End Get
-        Set(ByVal value As StringFormat)
+        Set(value As StringFormat)
             If value IsNot _Alignment Then
                 _Alignment = value
                 RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.Alignment, value))
@@ -3020,7 +3020,7 @@ End Class
         Get
             Return _ImageScaling
         End Get
-        Set(ByVal value As Scaling)
+        Set(value As Scaling)
             If value <> _ImageScaling Then
                 _ImageScaling = value
                 If value = Scaling.GrowParent Then _Height = {Padding.Top + CInt(Font.GetHeight) + Padding.Bottom, Height}.Max
@@ -3039,7 +3039,7 @@ End Class
         Get
             Return _Height
         End Get
-        Set(ByVal value As Integer)
+        Set(value As Integer)
             If value <> _Height Then
                 _Height = value
                 RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.Height, value))
@@ -3057,7 +3057,7 @@ End Class
         Get
             Return _Padding
         End Get
-        Set(ByVal value As Padding)
+        Set(value As Padding)
             If value <> _Padding Then
                 _Padding = value
                 RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.Padding, value))
@@ -3074,7 +3074,7 @@ End Class
         Get
             Return _BackImage
         End Get
-        Set(ByVal value As Image)
+        Set(value As Image)
             If Not SameImage(value, BackImage) Then
                 _BackImage = value
                 RaiseEvent PropertyChanged(Me, New StyleEventArgs(Properties.Image, value))
@@ -3085,14 +3085,14 @@ End Class
     Public Overrides Function GetHashCode() As Integer
         Return Font.GetHashCode Xor BackColor.GetHashCode Xor ForeColor.GetHashCode Xor ShadeColor.GetHashCode Xor Alignment.GetHashCode Xor ImageScaling.GetHashCode Xor Height.GetHashCode Xor Padding.GetHashCode
     End Function
-    Public Overloads Function Equals(ByVal other As CellStyle) As Boolean Implements IEquatable(Of CellStyle).Equals
+    Public Overloads Function Equals(other As CellStyle) As Boolean Implements IEquatable(Of CellStyle).Equals
         If other Is Nothing Then
             Return False
         Else
             Return BackColor = other.BackColor And Font.FontFamily.Name = other.Font.FontFamily.Name And Font.Size = other.Font.Size And Font.Style = other.Font.Style And ForeColor = other.ForeColor And ShadeColor = other.ShadeColor And Theme = other.Theme And Alignment.Alignment = other.Alignment.Alignment And Alignment.LineAlignment = other.Alignment.LineAlignment And ImageScaling = other.ImageScaling And Padding = other.Padding
         End If
     End Function
-    Public Shared Operator =(ByVal Object1 As CellStyle, ByVal Object2 As CellStyle) As Boolean
+    Public Shared Operator =(Object1 As CellStyle, Object2 As CellStyle) As Boolean
         If Object1 Is Nothing Then
             Return Object2 Is Nothing
         ElseIf Object2 Is Nothing Then
@@ -3101,10 +3101,10 @@ End Class
             Return Object1.Equals(Object2)
         End If
     End Operator
-    Public Shared Operator <>(ByVal Object1 As CellStyle, ByVal Object2 As CellStyle) As Boolean
+    Public Shared Operator <>(Object1 As CellStyle, Object2 As CellStyle) As Boolean
         Return Not Object1 = Object2
     End Operator
-    Public Overrides Function Equals(ByVal obj As Object) As Boolean
+    Public Overrides Function Equals(obj As Object) As Boolean
         If TypeOf obj Is CellStyle Then
             Return CType(obj, CellStyle) = Me
         Else
@@ -3126,9 +3126,9 @@ End Class
         End If
         DisposedValue = True
     End Sub
-    ' TODO: override Finalize() only if Dispose(ByVal disposing As Boolean) above has code to free unmanaged resources.
+    ' TODO: override Finalize() only if Dispose(disposing As Boolean) above has code to free unmanaged resources.
     Protected Overrides Sub Finalize()
-        ' Do not change this code.  Put cleanup code in Dispose(ByVal disposing As Boolean) above.
+        ' Do not change this code.  Put cleanup code in Dispose(disposing As Boolean) above.
         Dispose(False)
         MyBase.Finalize()
     End Sub

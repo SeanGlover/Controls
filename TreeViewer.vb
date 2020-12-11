@@ -17,24 +17,24 @@ Public Class HitRegion
     Public Overrides Function GetHashCode() As Integer
         Return Region.GetHashCode Xor Node.GetHashCode
     End Function
-    Public Overloads Function Equals(ByVal other As HitRegion) As Boolean Implements IEquatable(Of HitRegion).Equals
+    Public Overloads Function Equals(other As HitRegion) As Boolean Implements IEquatable(Of HitRegion).Equals
         If other Is Nothing Then
             Return Me Is Nothing
         Else
             Return Region = other.Region AndAlso Node Is other.Node
         End If
     End Function
-    Public Shared Operator =(ByVal value1 As HitRegion, ByVal value2 As HitRegion) As Boolean
+    Public Shared Operator =(value1 As HitRegion, value2 As HitRegion) As Boolean
         If value1 Is Nothing Then
             Return value2 Is Nothing
         Else
             Return value1.Equals(value2)
         End If
     End Operator
-    Public Shared Operator <>(ByVal value1 As HitRegion, ByVal value2 As HitRegion) As Boolean
+    Public Shared Operator <>(value1 As HitRegion, value2 As HitRegion) As Boolean
         Return Not value1 = value2
     End Operator
-    Public Overrides Function Equals(ByVal obj As Object) As Boolean
+    Public Overrides Function Equals(obj As Object) As Boolean
         If TypeOf obj Is HitRegion Then
             Return CType(obj, HitRegion) = Me
         Else
@@ -47,13 +47,13 @@ Public Class NodeEventArgs
     Public ReadOnly Property Node As Node
     Public ReadOnly Property Nodes As List(Of Node)
     Public ReadOnly Property ProposedText As String = String.Empty
-    Public Sub New(ByVal Value As Node)
+    Public Sub New(Value As Node)
         Node = Value
     End Sub
-    Public Sub New(ByVal Values As List(Of Node))
+    Public Sub New(Values As List(Of Node))
         Nodes = Values
     End Sub
-    Public Sub New(ByVal Value As Node, NewText As String)
+    Public Sub New(Value As Node, NewText As String)
         Node = Value
         ProposedText = NewText
     End Sub
@@ -216,7 +216,7 @@ Public Class TreeViewer
         RequiresRepaint()
     End Sub
 #Region " DRAWING "
-    Protected Overrides Sub OnPaint(ByVal e As PaintEventArgs)
+    Protected Overrides Sub OnPaint(e As PaintEventArgs)
 
         If e IsNot Nothing Then
             With e.Graphics
@@ -680,7 +680,7 @@ Public Class TreeViewer
         Get
             Return _ExpanderStyle
         End Get
-        Set(ByVal value As ExpandStyle)
+        Set(value As ExpandStyle)
             _ExpanderStyle = value
             UpdateExpandImage()
         End Set
@@ -773,23 +773,23 @@ Public Class TreeViewer
     End Property
 #End Region
 #Region " PUBLIC EVENTS "
-    Public Event NodesChanged(ByVal sender As Object, ByVal e As NodeEventArgs)
-    Public Event NodeBeforeAdded(ByVal sender As Object, ByVal e As NodeEventArgs)
-    Public Event NodeAfterAdded(ByVal sender As Object, ByVal e As NodeEventArgs)
-    Public Event NodeBeforeRemoved(ByVal sender As Object, ByVal e As NodeEventArgs)
-    Public Event NodeAfterRemoved(ByVal sender As Object, ByVal e As NodeEventArgs)
-    Public Event NodeBeforeEdited(ByVal sender As Object, ByVal e As NodeEventArgs)
-    Public Event NodeAfterEdited(ByVal sender As Object, ByVal e As NodeEventArgs)
-    Public Event NodeDragStart(ByVal sender As Object, ByVal e As NodeEventArgs)
-    Public Event NodeDragOver(ByVal sender As Object, ByVal e As NodeEventArgs)
-    Public Event NodeDropped(ByVal sender As Object, ByVal e As NodeEventArgs)
-    Public Event NodeChecked(ByVal sender As Object, ByVal e As NodeEventArgs)
-    Public Event NodeExpanded(ByVal sender As Object, ByVal e As NodeEventArgs)
-    Public Event NodeCollapsed(ByVal sender As Object, ByVal e As NodeEventArgs)
-    Public Event NodeClicked(ByVal sender As Object, ByVal e As NodeEventArgs)
-    Public Event NodeRightClicked(ByVal sender As Object, ByVal e As NodeEventArgs)
+    Public Event NodesChanged(sender As Object, e As NodeEventArgs)
+    Public Event NodeBeforeAdded(sender As Object, e As NodeEventArgs)
+    Public Event NodeAfterAdded(sender As Object, e As NodeEventArgs)
+    Public Event NodeBeforeRemoved(sender As Object, e As NodeEventArgs)
+    Public Event NodeAfterRemoved(sender As Object, e As NodeEventArgs)
+    Public Event NodeBeforeEdited(sender As Object, e As NodeEventArgs)
+    Public Event NodeAfterEdited(sender As Object, e As NodeEventArgs)
+    Public Event NodeDragStart(sender As Object, e As NodeEventArgs)
+    Public Event NodeDragOver(sender As Object, e As NodeEventArgs)
+    Public Event NodeDropped(sender As Object, e As NodeEventArgs)
+    Public Event NodeChecked(sender As Object, e As NodeEventArgs)
+    Public Event NodeExpanded(sender As Object, e As NodeEventArgs)
+    Public Event NodeCollapsed(sender As Object, e As NodeEventArgs)
+    Public Event NodeClicked(sender As Object, e As NodeEventArgs)
+    Public Event NodeRightClicked(sender As Object, e As NodeEventArgs)
     Public Event NodeFavorited(sender As Object, e As NodeEventArgs)
-    Public Event NodeDoubleClicked(ByVal sender As Object, ByVal e As NodeEventArgs)
+    Public Event NodeDoubleClicked(sender As Object, e As NodeEventArgs)
 #End Region
 #Region " MOUSE EVENTS "
     Private LastMouseNode As Node = Nothing
@@ -918,7 +918,7 @@ Public Class TreeViewer
     End Sub
 #End Region
 #Region " KEYPRESS EVENTS "
-    Private Sub On_PreviewKeyDown(ByVal sender As Object, ByVal e As PreviewKeyDownEventArgs)
+    Private Sub On_PreviewKeyDown(sender As Object, e As PreviewKeyDownEventArgs)
 
         If e IsNot Nothing Then
             Select Case e.KeyCode
@@ -1013,7 +1013,7 @@ Public Class TreeViewer
         End Using
 
     End Sub
-    Protected Overrides Sub OnDragLeave(ByVal e As EventArgs)
+    Protected Overrides Sub OnDragLeave(e As EventArgs)
 
         DragData.DropHighlightNode = Nothing
         Invalidate()
@@ -1036,14 +1036,14 @@ Public Class TreeViewer
         MyBase.OnDragLeave(e)
 
     End Sub
-    Protected Overrides Sub OnDragEnter(ByVal e As DragEventArgs)
+    Protected Overrides Sub OnDragEnter(e As DragEventArgs)
 
         ScrollTimer.Stop()
         Invalidate()
         MyBase.OnDragEnter(e)
 
     End Sub
-    Protected Overrides Sub OnDragOver(ByVal e As DragEventArgs)
+    Protected Overrides Sub OnDragOver(e As DragEventArgs)
 
         If e IsNot Nothing Then
             e.Effect = DragDropEffects.All
@@ -1068,7 +1068,7 @@ Public Class TreeViewer
         MyBase.OnDragOver(e)
 
     End Sub
-    Protected Overrides Sub OnDragDrop(ByVal e As DragEventArgs)
+    Protected Overrides Sub OnDragDrop(e As DragEventArgs)
 
         If e IsNot Nothing Then
             CursorTimer.Stop()
@@ -1086,7 +1086,7 @@ Public Class TreeViewer
         End If
 
     End Sub
-    Protected Overrides Sub OnGiveFeedback(ByVal e As GiveFeedbackEventArgs)
+    Protected Overrides Sub OnGiveFeedback(e As GiveFeedbackEventArgs)
 
         If e IsNot Nothing Then
             e.UseDefaultCursors = False
@@ -1329,7 +1329,7 @@ Public Class TreeViewer
 
     End Sub
 #Region " SCROLLING, SCROLLING, SCROLLING "
-    Private Sub OnScrolled(ByVal sender As Object, e As ScrollEventArgs) Handles HScroll.Scroll, VScroll.Scroll
+    Private Sub OnScrolled(sender As Object, e As ScrollEventArgs) Handles HScroll.Scroll, VScroll.Scroll
 
         If e.ScrollOrientation = ScrollOrientation.HorizontalScroll Then
             HScrollLeftRight(e.OldValue - e.NewValue)
@@ -1438,7 +1438,7 @@ Public Class TreeViewer
         End If
 
     End Sub
-    Private Sub ExpandCollapseNodes(ByVal Nodes As NodeCollection, State As Boolean)
+    Private Sub ExpandCollapseNodes(Nodes As NodeCollection, State As Boolean)
 
         For Each Node As Node In Nodes
             If State Then
@@ -1560,7 +1560,7 @@ Public NotInheritable Class NodeCollection
     End Property
 
 #Region " Methods "
-    Public Overloads Function Contains(ByVal Name As String) As Boolean
+    Public Overloads Function Contains(Name As String) As Boolean
 
         If Count = 0 Then
             Return False
@@ -1600,7 +1600,7 @@ Public NotInheritable Class NodeCollection
     Public Overloads Function Add(Text As String) As Node
         Return Add(New Node With {.Text = Text})
     End Function
-    Public Overloads Function Add(ByVal AddNode As Node) As Node
+    Public Overloads Function Add(AddNode As Node) As Node
 
         If AddNode IsNot Nothing Then
             With AddNode
@@ -1639,7 +1639,7 @@ Public NotInheritable Class NodeCollection
         Return AddNode
 
     End Function
-    Public Overloads Function AddRange(ByVal Nodes As List(Of Node)) As List(Of Node)
+    Public Overloads Function AddRange(Nodes As List(Of Node)) As List(Of Node)
 
         If Nodes IsNot Nothing Then
             For Each Node As Node In Nodes
@@ -1650,7 +1650,7 @@ Public NotInheritable Class NodeCollection
         Return Nodes
 
     End Function
-    Public Overloads Function AddRange(ByVal Nodes As Node()) As Node()
+    Public Overloads Function AddRange(Nodes As Node()) As Node()
 
         If Nodes IsNot Nothing Then
             For Each Node As Node In Nodes
@@ -1661,7 +1661,7 @@ Public NotInheritable Class NodeCollection
         Return Nodes
 
     End Function
-    Public Overloads Function AddRange(ByVal Nodes As String()) As Node()
+    Public Overloads Function AddRange(Nodes As String()) As Node()
 
         Dim NewNodes As New List(Of Node)
         If Nodes IsNot Nothing Then
@@ -1674,7 +1674,7 @@ Public NotInheritable Class NodeCollection
         Return NewNodes.ToArray
 
     End Function
-    Public Overloads Function Clear(ByVal Nodes As NodeCollection) As NodeCollection
+    Public Overloads Function Clear(Nodes As NodeCollection) As NodeCollection
 
         Clear()
         If Not IsNothing(TreeViewer) Then TreeViewer.RequiresRepaint()
@@ -1701,7 +1701,7 @@ Public NotInheritable Class NodeCollection
         Return InsertNode
 
     End Function
-    Public Overloads Function Remove(ByVal RemoveNode As Node) As Node
+    Public Overloads Function Remove(RemoveNode As Node) As Node
 
         If RemoveNode IsNot Nothing Then
             MyBase.Remove(RemoveNode)
@@ -1710,11 +1710,11 @@ Public NotInheritable Class NodeCollection
         Return RemoveNode
 
     End Function
-    Public Shadows Function Item(ByVal Name As String) As Node
+    Public Shadows Function Item(Name As String) As Node
         Dim Nodes As New List(Of Node)((From N In Me Where N.Name = Name).ToArray)
         Return If(Nodes.Any, Nodes.First, Nothing)
     End Function
-    Public Shadows Function ItemByTag(ByVal TagObject As Object) As Node
+    Public Shadows Function ItemByTag(TagObject As Object) As Node
         Dim Nodes As New List(Of Node)((From N In All Where N.Tag Is TagObject).ToArray)
         Return If(Nodes.Any, Nodes.First, Nothing)
     End Function
@@ -2424,9 +2424,9 @@ Public Class Node
         End If
         Me.DisposedValue = True
     End Sub
-    ' TODO: override Finalize() only if Dispose(ByVal disposing As Boolean) above has code to free unmanaged resources.
+    ' TODO: override Finalize() only if Dispose(disposing As Boolean) above has code to free unmanaged resources.
     Protected Overrides Sub Finalize()
-        ' Do not change this code.  Put cleanup code in Dispose(ByVal disposing As Boolean) above.
+        ' Do not change this code.  Put cleanup code in Dispose(disposing As Boolean) above.
         Dispose(False)
         MyBase.Finalize()
     End Sub

@@ -92,7 +92,7 @@ Public Class Tabs
 
     End Sub
 
-    Private Sub Tabs_DrawHeaders(ByVal sender As Object, ByVal e As DrawItemEventArgs) Handles Me.DrawItem
+    Private Sub Tabs_DrawHeaders(sender As Object, e As DrawItemEventArgs) Handles Me.DrawItem
 
         '//////////////////////////////////////////////////////////////////////////////
         '/////////////// SETTING THE IMAGE AT RUNTIME CAUSES THE IMAGE TO CORRECTLY PLACE ITSELF, ie) DON'T PAD THE TEXT RIGHT

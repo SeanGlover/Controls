@@ -58,7 +58,7 @@ Public Class DatePicker
         MyBase.InitLayout()
     End Sub
 
-    Protected Overrides Sub OnPaint(ByVal e As PaintEventArgs)
+    Protected Overrides Sub OnPaint(e As PaintEventArgs)
 
         If e IsNot Nothing Then
             e.Graphics.SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
@@ -256,10 +256,10 @@ Public Class DatePicker
     End Property
 #End Region
 #Region " Events "
-    Public Event DateChanged(ByVal sender As Object, e As DateRangeEventArgs)
-    Public Event DateSubmitted(ByVal sender As Object, e As DateRangeEventArgs)
-    Public Event TextPasted(ByVal sender As Object, e As EventArgs)
-    Public Event TextCopied(ByVal sender As Object, e As EventArgs)
+    Public Event DateChanged(sender As Object, e As DateRangeEventArgs)
+    Public Event DateSubmitted(sender As Object, e As DateRangeEventArgs)
+    Public Event TextPasted(sender As Object, e As EventArgs)
+    Public Event TextCopied(sender As Object, e As EventArgs)
     Friend Sub Date_Changed(e As DateRangeEventArgs)
         DropDown.SelectionStart = e.Start
         RaiseEvent DateChanged(Me, e)
@@ -307,7 +307,7 @@ Public Class DatePicker
         MyBase.OnKeyPress(e)
 
     End Sub
-    Protected Overrides Sub OnKeyDown(ByVal e As KeyEventArgs)
+    Protected Overrides Sub OnKeyDown(e As KeyEventArgs)
 
         Dim S As Integer = SelectionStart
         If e IsNot Nothing Then
@@ -431,7 +431,7 @@ Public Class DatePicker
         End If
 
     End Sub
-    Protected Overrides Sub OnMouseDown(ByVal e As MouseEventArgs)
+    Protected Overrides Sub OnMouseDown(e As MouseEventArgs)
 
         If e IsNot Nothing Then
             If MouseOver = MouseRegion.Clear Then
@@ -459,14 +459,14 @@ Public Class DatePicker
         End If
 
     End Sub
-    Protected Overrides Sub OnMouseUp(ByVal e As MouseEventArgs)
+    Protected Overrides Sub OnMouseUp(e As MouseEventArgs)
         Invalidate()
         MyBase.OnMouseUp(e)
     End Sub
 #End Region
 #End Region
 #Region " Helper Methods "
-    Private Function TextLength(ByVal T As String) As Integer
+    Private Function TextLength(T As String) As Integer
         Dim Padding As Integer = If(T.Length = 0, 0, (2 * TextRenderer.MeasureText(T.First, Font).Width) - TextRenderer.MeasureText(T.First & T.First, Font).Width)
         Return HOffset + TextRenderer.MeasureText(T, Font).Width - Padding
     End Function

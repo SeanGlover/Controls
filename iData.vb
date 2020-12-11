@@ -91,16 +91,16 @@ Public Structure Errors
     Public Overrides Function GetHashCode() As Integer
         Return Type.GetHashCode Xor Statement.GetHashCode
     End Function
-    Public Overloads Function Equals(ByVal other As Errors) As Boolean Implements IEquatable(Of Errors).Equals
+    Public Overloads Function Equals(other As Errors) As Boolean Implements IEquatable(Of Errors).Equals
         Return Type = other.Type And If(Statement, String.Empty) = other.Statement
     End Function
-    Public Shared Operator =(ByVal value1 As Errors, ByVal value2 As Errors) As Boolean
+    Public Shared Operator =(value1 As Errors, value2 As Errors) As Boolean
         Return value1.Equals(value2)
     End Operator
-    Public Shared Operator <>(ByVal value1 As Errors, ByVal value2 As Errors) As Boolean
+    Public Shared Operator <>(value1 As Errors, value2 As Errors) As Boolean
         Return Not value1 = value2
     End Operator
-    Public Overrides Function Equals(ByVal obj As Object) As Boolean
+    Public Overrides Function Equals(obj As Object) As Boolean
         If TypeOf obj Is Errors Then
             Return CType(obj, Errors) = Me
         Else
@@ -367,16 +367,16 @@ Public Structure StringStartEnd
     Public Overrides Function GetHashCode() As Integer
         Return Start.GetHashCode Xor Length.GetHashCode Xor Value.GetHashCode
     End Function
-    Public Overloads Function Equals(ByVal other As StringStartEnd) As Boolean Implements IEquatable(Of StringStartEnd).Equals
+    Public Overloads Function Equals(other As StringStartEnd) As Boolean Implements IEquatable(Of StringStartEnd).Equals
         Return Start = other.Start AndAlso Length = other.Length AndAlso Value = other.Value
     End Function
-    Public Shared Operator =(ByVal value1 As StringStartEnd, ByVal value2 As StringStartEnd) As Boolean
+    Public Shared Operator =(value1 As StringStartEnd, value2 As StringStartEnd) As Boolean
         Return value1.Equals(value2)
     End Operator
-    Public Shared Operator <>(ByVal value1 As StringStartEnd, ByVal value2 As StringStartEnd) As Boolean
+    Public Shared Operator <>(value1 As StringStartEnd, value2 As StringStartEnd) As Boolean
         Return Not value1 = value2
     End Operator
-    Public Overrides Function Equals(ByVal obj As Object) As Boolean
+    Public Overrides Function Equals(obj As Object) As Boolean
         If TypeOf obj Is StringStartEnd Then
             Return CType(obj, StringStartEnd) = Me
         Else
@@ -460,14 +460,14 @@ Public Class StringData
     Public Overrides Function GetHashCode() As Integer
         Return Start.GetHashCode Xor Length.GetHashCode Xor If(Value, String.Empty).GetHashCode Xor BackColor.GetHashCode Xor ForeColor.GetHashCode
     End Function
-    Public Overloads Function Equals(ByVal other As StringData) As Boolean Implements IEquatable(Of StringData).Equals
+    Public Overloads Function Equals(other As StringData) As Boolean Implements IEquatable(Of StringData).Equals
         If other Is Nothing Then
             Return Me Is Nothing
         Else
             Return Start = other.Start AndAlso Length = other.Length AndAlso Value = other.Value
         End If
     End Function
-    Public Shared Operator =(ByVal value1 As StringData, ByVal value2 As StringData) As Boolean
+    Public Shared Operator =(value1 As StringData, value2 As StringData) As Boolean
         If value1 Is Nothing Then
             Return value2 Is Nothing
         ElseIf value2 Is Nothing Then
@@ -476,10 +476,10 @@ Public Class StringData
             Return value1.Equals(value2)
         End If
     End Operator
-    Public Shared Operator <>(ByVal value1 As StringData, ByVal value2 As StringData) As Boolean
+    Public Shared Operator <>(value1 As StringData, value2 As StringData) As Boolean
         Return Not value1 = value2
     End Operator
-    Public Overrides Function Equals(ByVal obj As Object) As Boolean
+    Public Overrides Function Equals(obj As Object) As Boolean
         If TypeOf obj Is StringData Then
             Return CType(obj, StringData) = Me
         Else
@@ -577,16 +577,16 @@ Public Structure InstructionElement
     Public Overrides Function GetHashCode() As Integer
         Return If(Block, New StringData).GetHashCode Xor If(Highlight, New StringData).GetHashCode Xor Source.GetHashCode
     End Function
-    Public Overloads Function Equals(ByVal other As InstructionElement) As Boolean Implements IEquatable(Of InstructionElement).Equals
+    Public Overloads Function Equals(other As InstructionElement) As Boolean Implements IEquatable(Of InstructionElement).Equals
         Return If(Block, New StringData) = If(other.Block, New StringData) AndAlso If(Highlight, New StringData) = If(other.Highlight, New StringData) AndAlso Source = other.Source
     End Function
-    Public Shared Operator =(ByVal value1 As InstructionElement, ByVal value2 As InstructionElement) As Boolean
+    Public Shared Operator =(value1 As InstructionElement, value2 As InstructionElement) As Boolean
         Return value1.Equals(value2)
     End Operator
-    Public Shared Operator <>(ByVal value1 As InstructionElement, ByVal value2 As InstructionElement) As Boolean
+    Public Shared Operator <>(value1 As InstructionElement, value2 As InstructionElement) As Boolean
         Return Not value1 = value2
     End Operator
-    Public Overrides Function Equals(ByVal obj As Object) As Boolean
+    Public Overrides Function Equals(obj As Object) As Boolean
         If TypeOf obj Is InstructionElement Then
             Return CType(obj, InstructionElement) = Me
         Else
@@ -607,16 +607,16 @@ Public Structure ColumnParity
     Public Overrides Function GetHashCode() As Integer
         Return SourceName.GetHashCode Xor DestinationName.GetHashCode Xor DestinationType.GetHashCode Xor Index.GetHashCode
     End Function
-    Public Overloads Function Equals(ByVal other As ColumnParity) As Boolean Implements IEquatable(Of ColumnParity).Equals
+    Public Overloads Function Equals(other As ColumnParity) As Boolean Implements IEquatable(Of ColumnParity).Equals
         Return Index = other.Index AndAlso SourceName = other.SourceName
     End Function
-    Public Shared Operator =(ByVal value1 As ColumnParity, ByVal value2 As ColumnParity) As Boolean
+    Public Shared Operator =(value1 As ColumnParity, value2 As ColumnParity) As Boolean
         Return value1.Equals(value2)
     End Operator
-    Public Shared Operator <>(ByVal value1 As ColumnParity, ByVal value2 As ColumnParity) As Boolean
+    Public Shared Operator <>(value1 As ColumnParity, value2 As ColumnParity) As Boolean
         Return Not value1 = value2
     End Operator
-    Public Overrides Function Equals(ByVal obj As Object) As Boolean
+    Public Overrides Function Equals(obj As Object) As Boolean
         If TypeOf obj Is ColumnParity Then
             Return CType(obj, ColumnParity) = Me
         Else
@@ -656,16 +656,16 @@ Public Structure ColumnProperties
     Public Overrides Function GetHashCode() As Integer
         Return Name.GetHashCode Xor Index.GetHashCode Xor DataType.GetHashCode Xor Length.GetHashCode Xor Scale.GetHashCode Xor Nullable.GetHashCode
     End Function
-    Public Overloads Function Equals(ByVal other As ColumnProperties) As Boolean Implements IEquatable(Of ColumnProperties).Equals
+    Public Overloads Function Equals(other As ColumnProperties) As Boolean Implements IEquatable(Of ColumnProperties).Equals
         Return Index = other.Index AndAlso Name = other.Name
     End Function
-    Public Shared Operator =(ByVal value1 As ColumnProperties, ByVal value2 As ColumnProperties) As Boolean
+    Public Shared Operator =(value1 As ColumnProperties, value2 As ColumnProperties) As Boolean
         Return value1.Equals(value2)
     End Operator
-    Public Shared Operator <>(ByVal value1 As ColumnProperties, ByVal value2 As ColumnProperties) As Boolean
+    Public Shared Operator <>(value1 As ColumnProperties, value2 As ColumnProperties) As Boolean
         Return Not value1 = value2
     End Operator
-    Public Overrides Function Equals(ByVal obj As Object) As Boolean
+    Public Overrides Function Equals(obj As Object) As Boolean
         If TypeOf obj Is ColumnProperties Then
             Return CType(obj, ColumnProperties) = Me
         Else
@@ -1127,7 +1127,7 @@ End Class
     Public Overrides Function GetHashCode() As Integer
         Return DataSource.GetHashCode Xor UserID.GetHashCode Xor Password.GetHashCode
     End Function
-    Public Overloads Function Equals(ByVal other As Connection) As Boolean Implements IEquatable(Of Connection).Equals
+    Public Overloads Function Equals(other As Connection) As Boolean Implements IEquatable(Of Connection).Equals
 
         If DataSource Is Nothing Then
             Return other Is Nothing
@@ -1138,17 +1138,17 @@ End Class
         End If
 
     End Function
-    Public Shared Operator =(ByVal value1 As Connection, ByVal value2 As Connection) As Boolean
+    Public Shared Operator =(value1 As Connection, value2 As Connection) As Boolean
 
         Dim string1 As String = If(value1 Is Nothing, String.Empty, value1.Key)
         Dim string2 As String = If(value2 Is Nothing, String.Empty, value2.Key)
         Return string1 = string2
 
     End Operator
-    Public Shared Operator <>(ByVal value1 As Connection, ByVal value2 As Connection) As Boolean
+    Public Shared Operator <>(value1 As Connection, value2 As Connection) As Boolean
         Return Not value1 = value2
     End Operator
-    Public Overrides Function Equals(ByVal obj As Object) As Boolean
+    Public Overrides Function Equals(obj As Object) As Boolean
         If TypeOf obj Is Connection Then
             Return CType(obj, Connection) = Me
         Else
@@ -1696,14 +1696,14 @@ End Class
     Public Overrides Function GetHashCode() As Integer
         Return If(DSN, String.Empty).GetHashCode Xor Type.GetHashCode Xor If(DBName, String.Empty).GetHashCode Xor If(TSName, String.Empty).GetHashCode Xor If(Owner, String.Empty).GetHashCode Xor If(Name, String.Empty).GetHashCode
     End Function
-    Public Overloads Function Equals(ByVal other As SystemObject) As Boolean Implements IEquatable(Of SystemObject).Equals
+    Public Overloads Function Equals(other As SystemObject) As Boolean Implements IEquatable(Of SystemObject).Equals
         If other Is Nothing Then
             Return Me Is Nothing
         Else
             Return DSN = other.DSN AndAlso Owner = other.Owner AndAlso Name = other.Name
         End If
     End Function
-    Public Shared Operator =(ByVal value1 As SystemObject, ByVal value2 As SystemObject) As Boolean
+    Public Shared Operator =(value1 As SystemObject, value2 As SystemObject) As Boolean
         If value1 Is Nothing Then
             Return value2 Is Nothing
         ElseIf value2 Is Nothing Then
@@ -1712,10 +1712,10 @@ End Class
             Return value1.Equals(value2)
         End If
     End Operator
-    Public Shared Operator <>(ByVal value1 As SystemObject, ByVal value2 As SystemObject) As Boolean
+    Public Shared Operator <>(value1 As SystemObject, value2 As SystemObject) As Boolean
         Return Not value1 = value2
     End Operator
-    Public Overrides Function Equals(ByVal obj As Object) As Boolean
+    Public Overrides Function Equals(obj As Object) As Boolean
         If TypeOf obj Is SystemObject Then
             Return CType(obj, SystemObject) = Me
         Else
@@ -3647,7 +3647,7 @@ Public Module iData
 
     End Function
 #Region " TO AND FROM DATATABLES "
-    Public Function RetrieveData(ByVal Source As String, ByVal SQL As String) As DataTable
+    Public Function RetrieveData(Source As String, SQL As String) As DataTable
 
         Dim SQL_Table As DataTable
         With New SQL(Source, SQL)
@@ -3841,7 +3841,7 @@ Public Module iData
     End Function
 #End Region
 #Region " DataTable <===> HTML "
-    Public Function HTMLToDataSet(ByVal HTML As String) As DataSet
+    Public Function HTMLToDataSet(HTML As String) As DataSet
 
         If HTML Is Nothing Then
             Return Nothing
@@ -4260,7 +4260,7 @@ Public Module iData
     "End If"
     }
                 Dim sb As New System.Text.StringBuilder
-                sb.Append("Private Sub Worksheet_SelectionChange(ByVal Target As Range)" & vbNewLine)
+                sb.Append("Private Sub Worksheet_SelectionChange(Target As Range)" & vbNewLine)
                 Dim lines As New List(Of String)(From c In code Select vbTab & c & vbNewLine)
                 For Each line In lines
                     sb.Append(line)
@@ -4276,7 +4276,7 @@ Public Module iData
 #End Region
 
     End Sub
-    Private Function ExcelColName(ByVal Col As Integer) As String
+    Private Function ExcelColName(Col As Integer) As String
 
         If Col < 0 And Col > 256 Then
             Return Nothing
@@ -4417,7 +4417,7 @@ Public Module iData
         Next
 
     End Sub
-    Private Sub ReleaseObject(ByVal Item As Object)
+    Private Sub ReleaseObject(Item As Object)
         Try
             Marshal.ReleaseComObject(Item)
             Item = Nothing

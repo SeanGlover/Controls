@@ -188,7 +188,7 @@ Public Class Prompt
         End If
 
     End Sub
-    Private Sub DrawTitleBar(ByVal DrawForm As Boolean)
+    Private Sub DrawTitleBar(DrawForm As Boolean)
 
         Dim hdc As IntPtr = NativeMethods.GetWindowDC(Handle)
         Using g As Graphics = Graphics.FromHdc(hdc)
@@ -241,7 +241,7 @@ Public Class Prompt
         Dim Result = NativeMethods.ReleaseDC(Handle, hdc)
 
     End Sub
-    Protected Overrides Sub OnPaint(ByVal e As PaintEventArgs)
+    Protected Overrides Sub OnPaint(e As PaintEventArgs)
 
         If e IsNot Nothing Then
             If IsNothing(BackgroundImage) Then
@@ -296,7 +296,7 @@ Public Class Prompt
 #End Region
 
 #Region " EVENTS "
-    Private Sub Button_Click(ByVal sender As Object, ByVal e As EventArgs) Handles OK.Click, YES.Click, NO.Click
+    Private Sub Button_Click(sender As Object, e As EventArgs) Handles OK.Click, YES.Click, NO.Click
 
         Select Case True
             Case sender Is OK
@@ -792,7 +792,7 @@ Public Class TitleBarImage
     ''' <param name="Img">The Image to display.</param>
     ''' <param name="Alignment">Aligns the image to the Left, Center, or Right.</param>
     ''' <remarks></remarks>
-    Public Sub New(ByVal frm As Form, ByVal Img As Image, ByVal Alignment As HorizontalAlignment)
+    Public Sub New(frm As Form, Img As Image, Alignment As HorizontalAlignment)
         StartPosition = FormStartPosition.Manual
         FormBorderStyle = FormBorderStyle.None
         Opacity = 0.0
@@ -805,13 +805,13 @@ Public Class TitleBarImage
         _Img = Img
         SetHandlers()
     End Sub
-    Protected Overrides Sub OnPaint(ByVal e As PaintEventArgs)
+    Protected Overrides Sub OnPaint(e As PaintEventArgs)
         If e IsNot Nothing Then
             e.Graphics.DrawImage(_Img, 0, 0, Width, Height)
             MyBase.OnPaint(e)
         End If
     End Sub
-    Protected Overrides Sub OnShown(ByVal e As EventArgs)
+    Protected Overrides Sub OnShown(e As EventArgs)
         Dim ratio As Double = _Img.Width / _Img.Height
         Height = SystemInformation.CaptionHeight - 4
         Width = CInt(Height * ratio)
@@ -819,13 +819,13 @@ Public Class TitleBarImage
         Opacity = 1.0
         MyBase.OnShown(e)
     End Sub
-    Protected Overrides Sub OnMouseDown(ByVal e As System.Windows.Forms.MouseEventArgs)
+    Protected Overrides Sub OnMouseDown(e As System.Windows.Forms.MouseEventArgs)
         PositionOffset.X = MousePosition.X - _frm.Left
         PositionOffset.Y = MousePosition.Y - _frm.Top
         MyBase.OnMouseDown(e)
         _frm.Focus()
     End Sub
-    Protected Overrides Sub OnMouseMove(ByVal e As System.Windows.Forms.MouseEventArgs)
+    Protected Overrides Sub OnMouseMove(e As System.Windows.Forms.MouseEventArgs)
         If MouseButtons = MouseButtons.Left Then
             _frm.Left = MousePosition.X - PositionOffset.X
             _frm.Top = MousePosition.Y - PositionOffset.Y
@@ -849,13 +849,13 @@ Public Class TitleBarImage
         AddHandler _frm.Move, AddressOf Frm_Move
         AddHandler _frm.Resize, AddressOf Frm_Resize
     End Sub
-    Private Sub Frm_Closing(ByVal sender As Object, ByVal e As System.Windows.Forms.FormClosingEventArgs)
+    Private Sub Frm_Closing(sender As Object, e As System.Windows.Forms.FormClosingEventArgs)
         Close()
     End Sub
-    Private Sub Frm_Move(ByVal sender As Object, ByVal e As System.EventArgs)
+    Private Sub Frm_Move(sender As Object, e As System.EventArgs)
         SetPosition()
     End Sub
-    Private Sub Frm_Resize(ByVal sender As Object, ByVal e As System.EventArgs)
+    Private Sub Frm_Resize(sender As Object, e As System.EventArgs)
         SetPosition()
     End Sub
 End Class
@@ -925,7 +925,7 @@ Public Class InvisibleForm
         End If
 
     End Sub
-    Private Sub DrawTitleBar(ByVal DrawForm As Boolean)
+    Private Sub DrawTitleBar(DrawForm As Boolean)
 
         Dim hdc As IntPtr = NativeMethods.GetWindowDC(Handle)
         Using g As Graphics = Graphics.FromHdc(hdc)
@@ -1219,7 +1219,7 @@ Public Class TopBar
         Height = 36
 
     End Sub
-    Protected Overrides Sub OnPaint(ByVal e As PaintEventArgs)
+    Protected Overrides Sub OnPaint(e As PaintEventArgs)
 
         If e IsNot Nothing Then
             If BarStyle = Theme.None Then
@@ -1311,7 +1311,7 @@ Public Class TopBar
         MyBase.OnMouseLeave(e)
 
     End Sub
-    Protected Overrides Sub OnMouseMove(ByVal e As MouseEventArgs)
+    Protected Overrides Sub OnMouseMove(e As MouseEventArgs)
 
         If e IsNot Nothing Then
             _IsDragging = False
@@ -1355,13 +1355,13 @@ Public Class TopBar
         MyBase.OnMouseMove(e)
 
     End Sub
-    Protected Overrides Sub OnMouseDown(ByVal e As MouseEventArgs)
+    Protected Overrides Sub OnMouseDown(e As MouseEventArgs)
 
         If MouseZone <> BarZone.None Then RaiseEvent ZoneClicked(Me, New BarEventArgs(MouseZone))
         MyBase.OnMouseDown(e)
 
     End Sub
-    Protected Overrides Sub OnMouseUp(ByVal e As MouseEventArgs)
+    Protected Overrides Sub OnMouseUp(e As MouseEventArgs)
 
         If IsDragging Then RaiseEvent BarReleased(Me, New BarEventArgs(MouseZone))
         _IsDragging = False
@@ -1369,7 +1369,7 @@ Public Class TopBar
         MyBase.OnMouseUp(e)
 
     End Sub
-    Protected Overrides Sub OnTextChanged(ByVal e As EventArgs)
+    Protected Overrides Sub OnTextChanged(e As EventArgs)
         Invalidate()
         MyBase.OnTextChanged(e)
     End Sub

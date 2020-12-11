@@ -34,16 +34,16 @@ Public Structure MouseData
     Public Overrides Function GetHashCode() As Integer
         Return WordRectangle.GetHashCode Xor WordStart.GetHashCode Xor WordLength.GetHashCode Xor Word.GetHashCode Xor Intersects.GetHashCode
     End Function
-    Public Overloads Function Equals(ByVal other As MouseData) As Boolean Implements IEquatable(Of MouseData).Equals
+    Public Overloads Function Equals(other As MouseData) As Boolean Implements IEquatable(Of MouseData).Equals
         Return WordRectangle = other.WordRectangle AndAlso WordStart = other.WordStart AndAlso WordLength = other.WordLength AndAlso Word = other.Word
     End Function
-    Public Shared Operator =(ByVal value1 As MouseData, ByVal value2 As MouseData) As Boolean
+    Public Shared Operator =(value1 As MouseData, value2 As MouseData) As Boolean
         Return value1.Equals(value2)
     End Operator
-    Public Shared Operator <>(ByVal value1 As MouseData, ByVal value2 As MouseData) As Boolean
+    Public Shared Operator <>(value1 As MouseData, value2 As MouseData) As Boolean
         Return Not value1 = value2
     End Operator
-    Public Overrides Function Equals(ByVal obj As Object) As Boolean
+    Public Overrides Function Equals(obj As Object) As Boolean
         If TypeOf obj Is MouseData Then
             Return CType(obj, MouseData) = Me
         Else
@@ -65,12 +65,19 @@ Public NotInheritable Class RicherTextBox
         InnerSizeWidth = Size.Width - ClientSize.Width
         InnerSizeHeight = Size.Height - ClientSize.Height
     End Sub
+    Protected Overloads Overrides ReadOnly Property CreateParams() As CreateParams
+        Get
+            Dim cp As CreateParams = MyBase.CreateParams
+            cp.ExStyle = cp.ExStyle Or 33554432
+            Return cp
+        End Get
+    End Property
+
     Public Event ScrolledVertical(sender As Object, e As RicherEventArgs)
     Public Event DragStart(sender As Object, e As DragEventArgs)
+    Public Event PageChanged(sender As Object, e As Integer)
 
     Private ReadOnly Dragging As New Dictionary(Of Point, Boolean)
-    Protected Overrides Sub OnPaint(ByVal e As PaintEventArgs)
-    End Sub
     Private Const SIF_RANGE As Integer = &H1
     Private Const SIF_PAGE As Integer = &H2
     Private Const SIF_POS As Integer = &H4
@@ -147,7 +154,7 @@ Public NotInheritable Class RicherTextBox
         Get
             Return NativeMethods.GetScrollPos(Handle, SB_VERT)
         End Get
-        Set(ByVal value As Integer)
+        Set(value As Integer)
             Dim result = NativeMethods.SetScrollPos(Handle, SB_VERT, value, True)
             NativeMethods.PostMessageA(Handle, WM_VSCROLL, SB_THUMBPOSITION + &H10000 * value, Nothing)
         End Set
@@ -159,7 +166,7 @@ Public NotInheritable Class RicherTextBox
         Get
             Return NativeMethods.GetScrollPos(Handle, SB_HORZ)
         End Get
-        Set(ByVal value As Integer)
+        Set(value As Integer)
             Dim result = NativeMethods.SetScrollPos(Handle, SB_HORZ, value, True)
             NativeMethods.PostMessageA(Handle, WM_HSCROLL, SB_THUMBPOSITION + &H10000 * value, Nothing)
         End Set
@@ -296,6 +303,12 @@ Public NotInheritable Class RicherTextBox
             End Using
         End Get
     End Property
+    Public ReadOnly Property LinesPerPage As Integer
+        Get
+            Return CInt(Height / LineHeight)
+        End Get
+    End Property
+    Public ReadOnly Property PageNumber As Integer = 1
     Public ReadOnly Property Rows As Dictionary(Of Integer, String)
         Get
             Dim Ys As New Dictionary(Of Integer, List(Of String))
@@ -323,6 +336,14 @@ Public NotInheritable Class RicherTextBox
     Public ReadOnly Property VerticalScrollLocation As Point
     Private Sub VerticalScrolled() Handles Me.VScroll
 
+        Dim topLeftCharacter As Integer = GetCharIndexFromPosition(New Point(0, 0))
+        Dim topLine As Integer = GetLineFromCharIndex(topLeftCharacter)
+        Dim currentPageNbr As Integer = 1 + CInt(Math.Floor(topLine / LinesPerPage))
+        If currentPageNbr <> PageNumber Then
+            'DrawPageNumber(currentPageNbr)
+            _PageNumber = currentPageNbr
+            RaiseEvent PageChanged(Me, PageNumber)
+        End If
         If VScrollBounds.Contains(Cursor.Position) Then
             _VerticalScrollLocation = Cursor.Position
             RaiseEvent ScrolledVertical(Me, New RicherEventArgs(VScrollPos))

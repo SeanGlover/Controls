@@ -166,10 +166,10 @@ Public Module Functions
         Return imageIn
 
     End Function
-    Public Function ResizeImage(ByVal image As Image, imageSize As Size) As Bitmap
+    Public Function ResizeImage(image As Image, imageSize As Size) As Bitmap
         Return ResizeImage(image, imageSize.Width, imageSize.Height)
     End Function
-    Public Function ResizeImage(ByVal image As Image, ByVal width As Integer, ByVal height As Integer) As Bitmap
+    Public Function ResizeImage(image As Image, width As Integer, height As Integer) As Bitmap
 
         If image Is Nothing Then
             Return Nothing
@@ -349,7 +349,7 @@ Public Module Functions
     End Function
 #Region " RANDOM NUMBERS "
     Private ReadOnly Rnd As New Random()
-    Public Function RandomNumber(ByVal Low As Integer, ByVal High As Integer) As Integer
+    Public Function RandomNumber(Low As Integer, High As Integer) As Integer
         Dim EnsureLow = {Low, High}.Min
         Dim EnsureHigh = {Low, High}.Max
         Dim Random_Nbr As Integer = Rnd.Next(EnsureLow, EnsureHigh + 1)
@@ -1030,14 +1030,14 @@ Public Module Functions
         End If
 
     End Function
-    Private Sub CrossProduct(ByVal vect_A As Integer(), ByVal vect_B As Integer(), ByVal cross_P As Integer())
+    Private Sub CrossProduct(vect_A As Integer(), vect_B As Integer(), cross_P As Integer())
 
         cross_P(0) = vect_A(1) * vect_B(2) - vect_A(2) * vect_B(1)
         cross_P(1) = vect_A(2) * vect_B(0) - vect_A(0) * vect_B(2)
         cross_P(2) = vect_A(0) * vect_B(1) - vect_A(1) * vect_B(0)
 
     End Sub
-    Public Function InTriangle(ByVal checkPoint As Point, points As Point()) As Boolean
+    Public Function InTriangle(checkPoint As Point, points As Point()) As Boolean
 
         If points Is Nothing Then
             Return Nothing
@@ -1046,7 +1046,7 @@ Public Module Functions
         End If
 
     End Function
-    Public Function InTriangle(ByVal checkPoint As Point, points As PointF()) As Boolean
+    Public Function InTriangle(checkPoint As Point, points As PointF()) As Boolean
 
         If points Is Nothing Then
             Return Nothing
@@ -1059,7 +1059,7 @@ Public Module Functions
         End If
 
     End Function
-    Public Function InTriangle(ByVal checkPoint As Point, ByVal pointA As Point, ByVal pointB As Point, ByVal pointC As Point) As Boolean
+    Public Function InTriangle(checkPoint As Point, pointA As Point, pointB As Point, pointC As Point) As Boolean
 
         Dim p As New Numerics.Vector2(checkPoint.X, checkPoint.Y)
         Dim p0 As New Numerics.Vector2(pointA.X, pointA.Y)
@@ -1360,10 +1360,10 @@ Public Module Functions
     End Function
 
 #Region " COLOR "
-    Function ColorToHtmlHex(ByVal color As Color) As String
+    Function ColorToHtmlHex(color As Color) As String
         Return String.Format(InvariantCulture, "#{0:X2}{1:X2}{2:X2}", color.R, color.G, color.B)
     End Function
-    Public Function HtmlToColor(ByVal colorString As String) As Color
+    Public Function HtmlToColor(colorString As String) As Color
 
         If colorString Is Nothing Then
             Return Nothing
@@ -1378,7 +1378,7 @@ Public Module Functions
         End If
 
     End Function
-    Private Function ColorComponentToValue(ByVal component As String) As Integer
+    Private Function ColorComponentToValue(component As String) As Integer
 
         Debug.Assert(component IsNot Nothing)
         Debug.Assert(component.Length > 0)
@@ -1449,7 +1449,7 @@ Public Module Functions
         Return Attempts.Last
 
     End Function
-    Public Function LevenshteinDistance(ByVal s As String, ByVal t As String, Optional caseInsensitive As Boolean = False) As Integer
+    Public Function LevenshteinDistance(s As String, t As String, Optional caseInsensitive As Boolean = False) As Integer
 
         s = If(s, String.Empty)
         s = If(caseInsensitive, s.ToUpperInvariant, s)
@@ -1704,7 +1704,7 @@ Public Module Functions
             Return Nothing
         End Try
     End Function
-    Public Function ParseEnum(Of T)(ByVal value As String) As T
+    Public Function ParseEnum(Of T)(value As String) As T
 
         Dim enumValue As T
         For Each enumItem In EnumNames(GetType(T))
@@ -1857,7 +1857,7 @@ Public Module Functions
         Return ColorImageCollection
 
     End Function
-    Public Function ChangeImageColor(ByVal bmp As Bitmap, ByVal OldColor As Color, NewColor As Color) As Image
+    Public Function ChangeImageColor(bmp As Bitmap, OldColor As Color, NewColor As Color) As Image
 
         If bmp IsNot Nothing Then
             Using g As Graphics = Graphics.FromImage(bmp)
@@ -1877,7 +1877,7 @@ Public Module Functions
         Return bmp
 
     End Function
-    Public Function DrawRoundedRectangle(ByVal Rect As Rectangle, Optional ByVal Corner As Integer = 10) As Drawing2D.GraphicsPath
+    Public Function DrawRoundedRectangle(Rect As Rectangle, Optional Corner As Integer = 10) As Drawing2D.GraphicsPath
 
         Dim Graphix As New System.Drawing.Drawing2D.GraphicsPath
         Dim ArcRect As New RectangleF(Rect.Location, New SizeF(Corner, Corner))
@@ -1895,7 +1895,7 @@ Public Module Functions
         Return Graphix
 
     End Function
-    Public Function GetRoundedLine(ByVal points As PointF(), ByVal cornerRadius As Single) As Drawing2D.GraphicsPath
+    Public Function GetRoundedLine(points As PointF(), cornerRadius As Single) As Drawing2D.GraphicsPath
 
         If points Is Nothing Then
             Return Nothing
@@ -1924,7 +1924,7 @@ Public Module Functions
         End If
 
     End Function
-    Public Sub LengthenLine(ByVal startPoint As PointF, ByRef endPoint As PointF, ByVal pixelCount As Single)
+    Public Sub LengthenLine(startPoint As PointF, ByRef endPoint As PointF, pixelCount As Single)
 
         If startPoint.Equals(endPoint) Then Return
 
@@ -1953,7 +1953,7 @@ Public Module Functions
         End If
 
     End Sub
-    Public Function DrawSpeechBubble(ByVal Rect As Rectangle) As Drawing2D.GraphicsPath
+    Public Function DrawSpeechBubble(Rect As Rectangle) As Drawing2D.GraphicsPath
 
         Dim corner As Single = 22
 
@@ -1982,7 +1982,7 @@ Public Module Functions
         Return Graphix
 
     End Function
-    Friend Function SetOpacity(ByVal image As Image, ByVal opacity As Single) As Image
+    Friend Function SetOpacity(image As Image, opacity As Single) As Image
 
         Dim output = New Bitmap(image.Width, image.Height)
         Dim colorMatrix = New ColorMatrix With {
@@ -3124,16 +3124,16 @@ Public Module Ghost
         SMxCXSCREEN = 0
         SMxCYSCREEN = 1
     End Enum
-    Private Function CalculateAbsoluteCoordinateX(ByVal x As Integer) As Integer
+    Private Function CalculateAbsoluteCoordinateX(x As Integer) As Integer
         Return CType((x * 65536) / NativeMethods.GetSystemMetrics(SystemMetric.SMxCXSCREEN), Integer)
     End Function
-    Private Function CalculateAbsoluteCoordinateY(ByVal y As Integer) As Integer
+    Private Function CalculateAbsoluteCoordinateY(y As Integer) As Integer
         Return CType((y * 65536) / NativeMethods.GetSystemMetrics(SystemMetric.SMxCYSCREEN), Integer)
     End Function
-    Public Sub ClickLeftMouseButton(ByVal Location As Point)
+    Public Sub ClickLeftMouseButton(Location As Point)
         ClickLeftMouseButton(Location.X, Location.Y)
     End Sub
-    Public Sub ClickLeftMouseButton(ByVal x As Integer, ByVal y As Integer)
+    Public Sub ClickLeftMouseButton(x As Integer, y As Integer)
 
         Dim MouseInput As INPUT = New INPUT With {
             .type = SendInputEventType.InputMouse
@@ -3151,10 +3151,10 @@ Public Module Ghost
         End With
 
     End Sub
-    Public Sub ClickRightMouseButton(ByVal Location As Point)
+    Public Sub ClickRightMouseButton(Location As Point)
         ClickRightMouseButton(Location.X, Location.Y)
     End Sub
-    Public Sub ClickRightMouseButton(ByVal x As Integer, ByVal y As Integer)
+    Public Sub ClickRightMouseButton(x As Integer, y As Integer)
 
         Dim MouseInput As INPUT = New INPUT With {
             .type = SendInputEventType.InputMouse
@@ -3172,10 +3172,10 @@ Public Module Ghost
         End With
 
     End Sub
-    Public Sub MoveMouse(ByVal Location As Point)
+    Public Sub MoveMouse(Location As Point)
         MoveMouse(Location.X, Location.Y)
     End Sub
-    Public Sub MoveMouse(ByVal x As Integer, ByVal y As Integer)
+    Public Sub MoveMouse(x As Integer, y As Integer)
 
         Dim MouseInput As INPUT = New INPUT With {
             .type = SendInputEventType.InputMouse
@@ -3189,7 +3189,7 @@ Public Module Ghost
         End With
 
     End Sub
-    Public Sub KeyPress(ByVal keyCode As Keys)
+    Public Sub KeyPress(keyCode As Keys)
 
         Dim input As INPUT = New INPUT With {
         .type = SendInputEventType.InputKeyboard,
@@ -3461,31 +3461,31 @@ Public NotInheritable Class PropertyConverter
     Inherits TypeConverter
     Public Sub New()
     End Sub
-    Public Overloads Overrides Function CanConvertFrom(ByVal context As ITypeDescriptorContext, ByVal sourceType As Type) As Boolean
+    Public Overloads Overrides Function CanConvertFrom(context As ITypeDescriptorContext, sourceType As Type) As Boolean
         If sourceType?.Equals(GetType(String)) Then
             Return True
         Else
             Return MyBase.CanConvertFrom(context, sourceType)
         End If
     End Function
-    Public Overloads Overrides Function CanConvertTo(ByVal context As ITypeDescriptorContext, ByVal destinationType As Type) As Boolean
+    Public Overloads Overrides Function CanConvertTo(context As ITypeDescriptorContext, destinationType As Type) As Boolean
         If destinationType?.Equals(GetType(String)) Then
             Return True
         Else
             Return MyBase.CanConvertTo(context, destinationType)
         End If
     End Function
-    Public Overloads Overrides Function ConvertTo(ByVal context As ITypeDescriptorContext, ByVal culture As Globalization.CultureInfo, ByVal value As Object, ByVal destinationType As Type) As Object
+    Public Overloads Overrides Function ConvertTo(context As ITypeDescriptorContext, culture As Globalization.CultureInfo, value As Object, destinationType As Type) As Object
         If destinationType?.Equals(GetType(String)) Then
             Return value?.ToString()
         Else
             Return MyBase.ConvertTo(context, culture, value, destinationType)
         End If
     End Function
-    Public Overloads Overrides Function GetPropertiesSupported(ByVal context As ITypeDescriptorContext) As Boolean
+    Public Overloads Overrides Function GetPropertiesSupported(context As ITypeDescriptorContext) As Boolean
         Return True
     End Function
-    Public Overloads Overrides Function GetProperties(ByVal context As ITypeDescriptorContext, ByVal value As Object, ByVal Attribute() As Attribute) As PropertyDescriptorCollection
+    Public Overloads Overrides Function GetProperties(context As ITypeDescriptorContext, value As Object, Attribute() As Attribute) As PropertyDescriptorCollection
         Return TypeDescriptor.GetProperties(value)
     End Function
 End Class
@@ -3520,7 +3520,7 @@ Public NotInheritable Class CursorHelper
         Public hbmMask As IntPtr
         Public hbmColor As IntPtr
     End Structure
-    Public Shared Function CreateCursor(ByVal bmp As Bitmap, ByVal xHotspot As Integer, ByVal yHotspot As Integer) As Cursor
+    Public Shared Function CreateCursor(bmp As Bitmap, xHotspot As Integer, yHotspot As Integer) As Cursor
 
         If bmp Is Nothing Then
             Return Cursors.Default
@@ -3578,18 +3578,18 @@ Public NotInheritable Class WebBrowserUpdater
         FixBrowserVersion(appName)
     End Sub
 
-    Public Shared Sub FixBrowserVersion(ByVal appName As String)
+    Public Shared Sub FixBrowserVersion(appName As String)
         FixBrowserVersion(appName, GetEmbVersion())
     End Sub
     ' End Sub FixBrowserVersion
-    Public Shared Sub FixBrowserVersion(ByVal appName As String, ByVal ieVer As Integer)
+    Public Shared Sub FixBrowserVersion(appName As String, ieVer As Integer)
         FixBrowserVersion_Internal("HKEY_LOCAL_MACHINE", appName & ".exe".ToString(InvariantCulture), ieVer)
         FixBrowserVersion_Internal("HKEY_CURRENT_USER", appName & ".exe".ToString(InvariantCulture), ieVer)
         FixBrowserVersion_Internal("HKEY_LOCAL_MACHINE", appName & ".vshost.exe".ToString(InvariantCulture), ieVer)
         FixBrowserVersion_Internal("HKEY_CURRENT_USER", appName & ".vshost.exe".ToString(InvariantCulture), ieVer)
     End Sub
     ' End Sub FixBrowserVersion
-    Private Shared Sub FixBrowserVersion_Internal(ByVal root As String, ByVal appName As String, ByVal ieVer As Integer)
+    Private Shared Sub FixBrowserVersion_Internal(root As String, appName As String, ieVer As Integer)
         Try
             'For 64 bit Machine 
             If InternalCheckIsWow64() Then
@@ -3676,7 +3676,7 @@ Public NotInheritable Class CustomRenderer
         End If
 
     End Sub
-    Protected Overrides Sub OnRenderImageMargin(ByVal e As ToolStripRenderEventArgs)
+    Protected Overrides Sub OnRenderImageMargin(e As ToolStripRenderEventArgs)
 
         MyBase.OnRenderImageMargin(e)
         If e IsNot Nothing Then
@@ -3749,7 +3749,7 @@ Public NotInheritable Class CustomRenderer
     Protected Overrides Sub OnRenderItemBackground(e As ToolStripItemRenderEventArgs)
         MyBase.OnRenderItemBackground(e)
     End Sub
-    Protected Overrides Sub OnRenderMenuItemBackground(ByVal e As ToolStripItemRenderEventArgs)
+    Protected Overrides Sub OnRenderMenuItemBackground(e As ToolStripItemRenderEventArgs)
 
         If e IsNot Nothing Then
             If e.Item.Selected Then
@@ -3783,10 +3783,10 @@ Public NotInheritable Class CustomRenderer
     End Sub
 End Class
 Public Module ThreadHelperClass
-    Delegate Sub SetToolPropertyCallback(ByVal tsi As ToolStripItem, ByVal n As String, v As Object)
-    Delegate Sub SetPropertyCallback(ByVal c As Control, ByVal n As String, v As Object)
-    Delegate Sub GetPropertyCallback(ByVal c As Control, ByVal n As String)
-    Public Sub SetSafeControlPropertyValue(ByVal Item As Control, ByVal PropertyName As String, PropertyValue As Object)
+    Delegate Sub SetToolPropertyCallback(tsi As ToolStripItem, n As String, v As Object)
+    Delegate Sub SetPropertyCallback(c As Control, n As String, v As Object)
+    Delegate Sub GetPropertyCallback(c As Control, n As String)
+    Public Sub SetSafeControlPropertyValue(Item As Control, PropertyName As String, PropertyValue As Object)
 
         If Item IsNot Nothing Then
             Try
@@ -3811,7 +3811,7 @@ Public Module ThreadHelperClass
         End If
 
     End Sub
-    Public Sub SetSafeToolStripItemPropertyValue(ByVal Item As ToolStripItem, ByVal PropertyName As String, PropertyValue As Object)
+    Public Sub SetSafeToolStripItemPropertyValue(Item As ToolStripItem, PropertyName As String, PropertyValue As Object)
 
         If Item IsNot Nothing Then
             Try
@@ -3836,7 +3836,7 @@ Public Module ThreadHelperClass
         End If
 
     End Sub
-    Public Function GetSafeControlPropertyValue(ByVal Item As Control, ByVal PropertyName As String) As Object
+    Public Function GetSafeControlPropertyValue(Item As Control, PropertyName As String) As Object
 
         If Item Is Nothing Then
             Return Nothing
@@ -3899,16 +3899,16 @@ Public Structure SCROLLINFO
     Public Overrides Function GetHashCode() As Integer
         Return CbSize.GetHashCode Xor FMask.GetHashCode Xor NMin.GetHashCode Xor NPage.GetHashCode Xor NPos.GetHashCode Xor NTrackPos.GetHashCode
     End Function
-    Public Overloads Function Equals(ByVal other As SCROLLINFO) As Boolean Implements IEquatable(Of SCROLLINFO).Equals
+    Public Overloads Function Equals(other As SCROLLINFO) As Boolean Implements IEquatable(Of SCROLLINFO).Equals
         Return CbSize = other.CbSize AndAlso FMask = other.FMask AndAlso NMin = other.NMin
     End Function
-    Public Shared Operator =(ByVal value1 As SCROLLINFO, ByVal value2 As SCROLLINFO) As Boolean
+    Public Shared Operator =(value1 As SCROLLINFO, value2 As SCROLLINFO) As Boolean
         Return value1.Equals(value2)
     End Operator
-    Public Shared Operator <>(ByVal value1 As SCROLLINFO, ByVal value2 As SCROLLINFO) As Boolean
+    Public Shared Operator <>(value1 As SCROLLINFO, value2 As SCROLLINFO) As Boolean
         Return Not value1 = value2
     End Operator
-    Public Overrides Function Equals(ByVal obj As Object) As Boolean
+    Public Overrides Function Equals(obj As Object) As Boolean
         If TypeOf obj Is SCROLLINFO Then
             Return CType(obj, SCROLLINFO) = Me
         Else
@@ -3959,20 +3959,20 @@ Public NotInheritable Class NativeMethods
     End Sub
     Friend Declare Function SetProcessDPIAware Lib "user32.dll" () As Boolean
     <DllImport("user32.dll", EntryPoint:="GetScrollInfo")>
-    Friend Shared Function GetScrollInfo(ByVal hwnd As IntPtr, ByVal nBar As Integer, ByRef lpsi As SCROLLINFO) As <MarshalAs(UnmanagedType.Bool)> Boolean
+    Friend Shared Function GetScrollInfo(hwnd As IntPtr, nBar As Integer, ByRef lpsi As SCROLLINFO) As <MarshalAs(UnmanagedType.Bool)> Boolean
     End Function
     <DllImport("user32.dll", CharSet:=CharSet.Auto)>
-    Friend Shared Function GetScrollPos(ByVal hWnd As IntPtr, ByVal nBar As Integer) As Integer
+    Friend Shared Function GetScrollPos(hWnd As IntPtr, nBar As Integer) As Integer
     End Function
     <DllImport("user32.dll")>
-    Friend Shared Function SetScrollPos(ByVal hWnd As IntPtr, ByVal nBar As Integer, ByVal nPos As Integer, ByVal bRedraw As Boolean) As Integer
+    Friend Shared Function SetScrollPos(hWnd As IntPtr, nBar As Integer, nPos As Integer, bRedraw As Boolean) As Integer
     End Function
     Friend Declare Function PostMessageA Lib "user32.dll" (hwnd As IntPtr, wMsg As Integer, wParam As Integer, lParam As Integer) As Boolean
     <DllImport("user32.dll")>
     Friend Shared Function GetCursorPos(ByRef lpPoint As Point) As Boolean
     End Function
     <DllImport("user32.dll")>
-    Friend Shared Function SetCursorPos(ByVal x As Integer, ByVal Y As Integer) As Boolean
+    Friend Shared Function SetCursorPos(x As Integer, Y As Integer) As Boolean
     End Function
     <DllImport("User32.dll", CharSet:=CharSet.Auto)>
     Friend Shared Function ReleaseDC(hWnd As IntPtr, hDC As IntPtr) As Integer
@@ -3981,55 +3981,55 @@ Public NotInheritable Class NativeMethods
     Friend Shared Function GetWindowDC(hWnd As IntPtr) As IntPtr
     End Function
     <DllImport("user32.dll", SetLastError:=True)>
-    Friend Shared Function SendInput(ByVal nInputs As UInteger, ByRef pInputs As INPUT, ByVal cbSize As Integer) As UInteger
+    Friend Shared Function SendInput(nInputs As UInteger, ByRef pInputs As INPUT, cbSize As Integer) As UInteger
     End Function
     <DllImport("user32.dll", SetLastError:=True)>
-    Friend Shared Function SendInput(ByVal numberOfInputs As UInteger, ByVal inputs As INPUT(), ByVal sizeOfInputStructure As Integer) As UInteger
+    Friend Shared Function SendInput(numberOfInputs As UInteger, inputs As INPUT(), sizeOfInputStructure As Integer) As UInteger
     End Function
     <DllImport("kernel32.dll", CallingConvention:=CallingConvention.Winapi, SetLastError:=True)>
-    Friend Shared Function IsWow64Process(<[In]()> ByVal hProcess As IntPtr, <Out()> ByRef wow64Process As Boolean) As <MarshalAs(UnmanagedType.Bool)> Boolean
+    Friend Shared Function IsWow64Process(<[In]()> hProcess As IntPtr, <Out()> ByRef wow64Process As Boolean) As <MarshalAs(UnmanagedType.Bool)> Boolean
     End Function
     <DllImport("user32.dll", CharSet:=CharSet.Auto)>
-    Friend Shared Function MessageBeep(ByVal uType As Integer) As <MarshalAs(UnmanagedType.Bool)> Boolean
+    Friend Shared Function MessageBeep(uType As Integer) As <MarshalAs(UnmanagedType.Bool)> Boolean
     End Function
     <DllImport("user32.dll", EntryPoint:="CreateIconIndirect")>
-    Friend Shared Function CreateIconIndirect(ByVal iconInfo As IntPtr) As IntPtr
+    Friend Shared Function CreateIconIndirect(iconInfo As IntPtr) As IntPtr
     End Function
     <DllImport("user32.dll", CharSet:=CharSet.Auto)>
-    Friend Shared Function DestroyIcon(ByVal handle As IntPtr) As Boolean
+    Friend Shared Function DestroyIcon(handle As IntPtr) As Boolean
     End Function
     <DllImport("gdi32.dll")>
-    Friend Shared Function DeleteObject(ByVal hObject As IntPtr) As Boolean
+    Friend Shared Function DeleteObject(hObject As IntPtr) As Boolean
     End Function
-    <DllImport("gdi32.dll")> Friend Shared Function GetDeviceCaps(ByVal hdc As IntPtr, ByVal nIndex As Integer) As Integer
+    <DllImport("gdi32.dll")> Friend Shared Function GetDeviceCaps(hdc As IntPtr, nIndex As Integer) As Integer
     End Function
-    <DllImport("user32.dll")> Private Shared Function GetDC(ByVal hWnd As IntPtr) As IntPtr
+    <DllImport("user32.dll")> Private Shared Function GetDC(hWnd As IntPtr) As IntPtr
     End Function
-    Friend Declare Auto Function GetSystemMetrics Lib "user32.dll" (ByVal smIndex As Integer) As Integer
-    Friend Declare Function GetKeyState Lib "user32.dll" (ByVal nVirtKey As Integer) As Short
-    Friend Declare Function SetForegroundWindow Lib "user32.dll" (ByVal hwnd As IntPtr) As Integer
-    Friend Declare Function GetWindowPlacement Lib "user32" (ByVal hwnd As IntPtr, ByRef lpwndpl As WindowPlacement) As Long
-    Friend Declare Function SetWindowPlacement Lib "user32" (ByVal hwnd As IntPtr, ByRef lpwndpl As WindowPlacement) As Long
-    Friend Declare Function GetWindowThreadProcessId Lib "User32" (ByVal HWND As Long, lpdwProcessId As Long) As Long
-    Friend Declare Function IsIconic Lib "User32" (ByVal HWND As Long) As Long
-    <DllImport("user32.dll", SetLastError:=True)> Private Shared Function ShowWindow(ByVal HWND As IntPtr, ByVal nCmdShow As Integer) As Long
+    Friend Declare Auto Function GetSystemMetrics Lib "user32.dll" (smIndex As Integer) As Integer
+    Friend Declare Function GetKeyState Lib "user32.dll" (nVirtKey As Integer) As Short
+    Friend Declare Function SetForegroundWindow Lib "user32.dll" (hwnd As IntPtr) As Integer
+    Friend Declare Function GetWindowPlacement Lib "user32" (hwnd As IntPtr, ByRef lpwndpl As WindowPlacement) As Long
+    Friend Declare Function SetWindowPlacement Lib "user32" (hwnd As IntPtr, ByRef lpwndpl As WindowPlacement) As Long
+    Friend Declare Function GetWindowThreadProcessId Lib "User32" (HWND As Long, lpdwProcessId As Long) As Long
+    Friend Declare Function IsIconic Lib "User32" (HWND As Long) As Long
+    <DllImport("user32.dll", SetLastError:=True)> Private Shared Function ShowWindow(HWND As IntPtr, nCmdShow As Integer) As Long
     End Function
-    Friend Declare Function AttachThreadInput Lib "User32" (ByVal idAttach As Long, ByVal idAttachTo As Long, ByVal fAttach As Long) As Long
+    Friend Declare Function AttachThreadInput Lib "User32" (idAttach As Long, idAttachTo As Long, fAttach As Long) As Long
     Friend Declare Function GetForegroundWindow Lib "User32" () As Long
     Friend Declare Function GetDesktopWindow Lib "User32" () As Long
-    Friend Declare Function GetWindowRect Lib "User32" (ByVal HWND As Long, lpRect As RECT) As Long
-    Friend Declare Function MoveWindow Lib "User32" (ByVal HWND As IntPtr, ByVal x As Integer, ByVal Y As Integer, ByVal nWidth As Integer, ByVal nHeight As Integer, ByVal bRepaint As Boolean) As Long
-    Friend Declare Function EnumWindows Lib "User32" (ByVal lpEnumFunc As Long, ByVal lParam As Long) As Long
-    Friend Declare Function EnumChildWindows Lib "User32" (ByVal hWndParent As Long, ByVal lpEnumFunc As Long, ByVal lParam As Long) As Long
-    Friend Declare Function EnumThreadWindows Lib "User32" (ByVal dwThreadId As Long, ByVal lpfn As Long, ByVal lParam As Long) As Long
-    Friend Declare Function BringWindowToTop Lib "User32" (ByVal HWND As Long) As Long
-    Friend Declare Function SetActiveWindow Lib "user32.dll" (ByVal HWND As Long) As Long
-    Friend Declare Function IsWindowVisible Lib "user32.dll" (ByVal HWND As Long) As Boolean
-    Friend Declare Function SendMessage Lib "User32" Alias "SendMessageA" (ByVal HWND As Long, ByVal wMsg As Long, ByVal wParam As Long, lParam As Long) As Long
-    Friend Declare Sub Mouse_Event Lib "user32.dll" Alias "mouse_event" (ByVal dwFlags As Integer, ByVal dx As Integer, ByVal dy As Integer, ByVal cButtons As Integer, ByVal dwExtraInfo As Integer)
-    <DllImport("user32.dll", EntryPoint:="GetClassLong")> Friend Shared Function GetClassLong(ByVal hWnd As IntPtr, ByVal nIndex As Integer) As Integer
+    Friend Declare Function GetWindowRect Lib "User32" (HWND As Long, lpRect As RECT) As Long
+    Friend Declare Function MoveWindow Lib "User32" (HWND As IntPtr, x As Integer, Y As Integer, nWidth As Integer, nHeight As Integer, bRepaint As Boolean) As Long
+    Friend Declare Function EnumWindows Lib "User32" (lpEnumFunc As Long, lParam As Long) As Long
+    Friend Declare Function EnumChildWindows Lib "User32" (hWndParent As Long, lpEnumFunc As Long, lParam As Long) As Long
+    Friend Declare Function EnumThreadWindows Lib "User32" (dwThreadId As Long, lpfn As Long, lParam As Long) As Long
+    Friend Declare Function BringWindowToTop Lib "User32" (HWND As Long) As Long
+    Friend Declare Function SetActiveWindow Lib "user32.dll" (HWND As Long) As Long
+    Friend Declare Function IsWindowVisible Lib "user32.dll" (HWND As Long) As Boolean
+    Friend Declare Function SendMessage Lib "User32" Alias "SendMessageA" (HWND As Long, wMsg As Long, wParam As Long, lParam As Long) As Long
+    Friend Declare Sub Mouse_Event Lib "user32.dll" Alias "mouse_event" (dwFlags As Integer, dx As Integer, dy As Integer, cButtons As Integer, dwExtraInfo As Integer)
+    <DllImport("user32.dll", EntryPoint:="GetClassLong")> Friend Shared Function GetClassLong(hWnd As IntPtr, nIndex As Integer) As Integer
     End Function
-    <DllImport("user32.dll", EntryPoint:="SetClassLong")> Friend Shared Function SetClassLong(ByVal hWnd As IntPtr, ByVal nIndex As Integer, ByVal dwNewLong As Integer) As Integer
+    <DllImport("user32.dll", EntryPoint:="SetClassLong")> Friend Shared Function SetClassLong(hWnd As IntPtr, nIndex As Integer, dwNewLong As Integer) As Integer
     End Function
 #Region " S T A R T  /  S T O P   D R A W I N G "
     Private Const WM_SETREDRAW As Integer = &HB
@@ -4037,7 +4037,7 @@ Public NotInheritable Class NativeMethods
     Private Const EM_GETEVENTMASK As Integer = WM_USER + 59
     Private Const EM_SETEVENTMASK As Integer = WM_USER + 69
     Private Shared EventMask As IntPtr
-    <DllImport("user32", CharSet:=CharSet.Auto)> Private Shared Function SendMessage(ByVal hWnd As IntPtr, ByVal msg As Integer, ByVal wParam As Integer, ByVal lParam As IntPtr) As IntPtr
+    <DllImport("user32", CharSet:=CharSet.Auto)> Private Shared Function SendMessage(hWnd As IntPtr, msg As Integer, wParam As Integer, lParam As IntPtr) As IntPtr
     End Function
     Public Shared Sub StopDrawing(drawControl As Control)
 

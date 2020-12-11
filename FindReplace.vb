@@ -178,7 +178,7 @@ Public Class FindReplace
     End Sub
 #End Region
 #Region " DRAWING "
-    Protected Overrides Sub OnPaint(ByVal e As PaintEventArgs)
+    Protected Overrides Sub OnPaint(e As PaintEventArgs)
 
         If e Is Nothing Then
         Else
@@ -550,7 +550,7 @@ Public Class FindReplace
         Invalidate()
 
     End Sub
-    Private Sub On_KeyDown(sender As Object, ByVal e As KeyEventArgs)
+    Private Sub On_KeyDown(sender As Object, e As KeyEventArgs)
 
         DirectCast(sender, Control).BackColor = Color.White
         If e.KeyCode = Keys.Enter Then
