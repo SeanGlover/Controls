@@ -2511,7 +2511,7 @@ Public Class DDL
     End Sub
     Public Sub New(ddlConnectionString As String, ddlInstruction As String, Optional PromptForInput As Boolean = False, Optional getCount As Boolean = False)
 
-        If ConnectionString IsNot Nothing Then
+        If ddlConnectionString IsNot Nothing Then
             ConnectionString = ddlConnectionString
             Connection = New Connection(ddlConnectionString)
             Instruction = ddlInstruction
@@ -3221,16 +3221,20 @@ Public Class ETL
                 newTable.TableName = "newTable"
                 _Columns = DataTableToSystemObject(newTable).Columns
             End Using
-            With New DDL(ConnectionString, TableDDL)
-                AddHandler .Completed, AddressOf Table_CreateResponded
-                .Execute()
-            End With
+
+            Using createTable As New DDL(ConnectionString, TableDDL)
+                With createTable
+                    AddHandler createTable.Completed, AddressOf Table_CreateResponded
+                    createTable.Execute(False)
+                End With
+            End Using
 
         End Sub
         Private Sub Table_CreateResponded(sender As Object, e As ResponseEventArgs)
 
             _DDL = DirectCast(sender, DDL)
             RemoveHandler DDL.Completed, AddressOf Table_CreateResponded
+
             If e.Succeeded Then
                 DataTable_DB2()
             Else
@@ -3409,6 +3413,7 @@ Public Class ETL
                 Dim Response = New ResponseEventArgs(InstructionType.DDL, ConnectionString, String.Empty, Join({"The number of columns in the", WiderTable, "exceeds that of the", NarrowerTable}), Nothing)
                 RaiseEvent Completed(Me, New ResponsesEventArgs(Response))
             End If
+
             If CanProceed Then
                 Dim Rows As New Dictionary(Of Integer, List(Of Object))
                 For Each Row As DataRow In Table.Rows
