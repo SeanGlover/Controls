@@ -1117,8 +1117,9 @@ Public NotInheritable Class ImageCombo
 
             ElseIf Mouse_Region = MouseRegion.DropDown Then
                 DropItems_ = Items
-                DropDown.Visible = Not DropDown.Visible
-                If DropDown.Visible Then ShowDropDown()
+                'DropDown.Visible = Not DropDown.Visible
+                ShowDropDown()
+                'Stop
 
             End If
             Invalidate()

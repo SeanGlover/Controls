@@ -45,20 +45,20 @@ Public Structure Errors
             If errorMessage.ToUpperInvariant.Contains("PASSWORD") Or errorMessage.Contains("LDAP authentication failed For user") Then
                 If errorMessage.ToUpperInvariant.Contains("EXPIRED") Then
                     _Type = Item.PasswordExpired
-                    _Statement = $"Your password errorPWD for errorSource has expired. You must create a new password now."
+                    _Statement = $"Your password {errorPWD} for {errorSource} has expired. You must create a new password now."
 
                 ElseIf errorMessage.ToUpperInvariant.Contains("MISSING") Then
                     _Type = Item.PasswordMissing
-                    _Statement = $"Your password errorPWD for errorSource is missing. You must provide a value."
+                    _Statement = $"Your password {errorPWD} for {errorSource} is missing. You must provide a value."
 
                 ElseIf errorMessage.ToUpperInvariant.Contains("PASSWORD INVALID") Or errorMessage.Contains("LDAP authentication failed For user") Then
                     '[IBM][CLI DRIVER] SQL30082N  SECURITY PROCESSING FAILED WITH REASON "24" ("USERNAME AND/OR PASSWORD INVALID").  SQLSTATE=08001
                     _Type = Item.PasswordIncorrect
-                    _Statement = $"Your password errorPWD for errorSource is incorrect. You must submit another value."
+                    _Statement = $"Your password {errorPWD} for {errorSource} is incorrect. You must submit another value."
 
                 ElseIf errorMessage.ToUpperInvariant.Contains("REVOKED") Then
                     _Type = Item.AccessRevoked
-                    _Statement = $"Your access to errorSource has been revoked! Submit a request to reinstate your access"
+                    _Statement = $"Your access to {errorSource} has been revoked! Submit a request to reinstate your access"
 
                 End If
 
@@ -69,16 +69,16 @@ Public Structure Errors
 
             ElseIf errorMessage.ToUpperInvariant.Contains("ARCHITECTURE") Then
                 _Type = Item.ArchitectureMismatch
-                _Statement = $"Connection to errorSource is currently not possible. Wrong bit version is in use"
+                _Statement = $"Connection to {errorSource} is currently not possible. Wrong bit version is in use"
 
             ElseIf errorMessage.Contains("SQLAllocHandle") Then
                 _Type = Item.NotRunningAsAdministrator
-                _Statement = $"Connection to errorSource is currently not possible. Reopen the application and run as administrator"
+                _Statement = $"Connection to {errorSource} is currently not possible. Reopen the application and run as administrator"
 
             Else
                 If Regex.Match(errorMessage, "time[d]{0,1}[ ]{0,1}out", RegexOptions.IgnoreCase).Success Then
                     _Type = Item.Timeout
-                    _Statement = $"Operation took too long. " & errorMessage
+                    _Statement = $"Operation took too long. {errorMessage}"
                 Else
                     _Type = Item.ScriptError
                     _Statement = errorMessage
