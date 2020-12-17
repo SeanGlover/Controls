@@ -1222,6 +1222,7 @@ Public Class TopBar
     Protected Overrides Sub OnPaint(e As PaintEventArgs)
 
         If e IsNot Nothing Then
+            e.Graphics.TextRenderingHint = Drawing.Text.TextRenderingHint.AntiAlias
             If BarStyle = Theme.None Then
                 Using backBrush As New SolidBrush(BackColor)
                     e.Graphics.FillRectangle(backBrush, Bounds)

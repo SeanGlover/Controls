@@ -563,14 +563,14 @@ Public NotInheritable Class ImageCombo
                     CheckboxStyle = CheckStyle.None
                     For Each colorItem In ColorImages()
                         Dim item As ComboItem = Items.Add(colorItem.Key.Name, colorItem.Value)
-                        item.Tag = colorItem.Key
+                        item.Color_ = colorItem.Key
                     Next
 
                 ElseIf value = ImageComboMode.FontPicker Then
                     CheckboxStyle = CheckStyle.None
                     For Each fontItem In FontImages()
                         Dim item As ComboItem = Items.Add(fontItem.Key.Name, fontItem.Value)
-                        item.Tag = fontItem.Key
+                        item.Font_ = fontItem.Key
                     Next
 
                 ElseIf value = ImageComboMode.Button Then
@@ -658,19 +658,7 @@ Public NotInheritable Class ImageCombo
     '=======================================================
     Public ReadOnly Property SelectedItem As ComboItem
         Get
-            If SelectedIndex < 0 Then
-                Return Nothing
-            Else
-                If Items.Any Then
-                    If SelectedIndex < Items.Count Then
-                        Return Items(SelectedIndex)
-                    Else
-                        Return Nothing
-                    End If
-                Else
-                    Return Nothing
-                End If
-            End If
+            Return If(Items.Any And SelectedIndex >= 0 And SelectedIndex < Items.Count, Items(SelectedIndex), Nothing)
         End Get
     End Property
     Private _SelectedIndex As Integer = -1
@@ -742,7 +730,7 @@ Public NotInheritable Class ImageCombo
         End Set
     End Property
     Private _SelectionIndex As Integer
-    Friend Property SelectionIndex As Integer
+    Public Property SelectionIndex As Integer
         Get
             Return _SelectionIndex
         End Get
@@ -761,6 +749,50 @@ Public NotInheritable Class ImageCombo
                 Return Text.Substring(SelectionStart, SelectionLength)
             End If
         End Get
+    End Property
+    Private SelectedColor_ As Color
+    Public Property SelectedColor As Color
+        Get
+            SelectedColor_ = If(Mode = ImageComboMode.ColorPicker And SelectionIndex >= 0, SelectedItem.Color, Color.Transparent)
+            Return SelectedColor_
+        End Get
+        Set(value As Color)
+            If value <> SelectedColor_ Then
+                SelectedColor_ = value
+                Dim indexItem As Integer = 0
+                For Each item In Items
+                    If item.Color = value Then
+                        _SelectedIndex = indexItem
+                        Items(SelectedIndex)._Selected = True
+                        Text = value.Name
+                        Exit For
+                    End If
+                    indexItem += 1
+                Next
+                Invalidate()
+            End If
+        End Set
+    End Property
+    Private SelectedFont_ As Font
+    Public Property SelectedFont As Font
+        Get
+            If Mode = ImageComboMode.FontPicker And SelectionIndex >= 0 Then
+                Return SelectedItem.Font
+            Else
+                Return Nothing
+            End If
+        End Get
+        Set(value As Font)
+            If value IsNot Nothing Then
+                Dim indexItem As Integer = 0
+                For Each item In Items
+                    If item.Font.FontFamily.Name = value.FontFamily.Name Then Exit For
+                    indexItem += 1
+                Next
+                SelectionIndex = indexItem
+            End If
+            SelectedFont_ = value
+        End Set
     End Property
     Public Property BorderStyle As Border3DStyle = Border3DStyle.Adjust
     Public ReadOnly Property TextSize As Size
@@ -1852,6 +1884,18 @@ REM ////////////////////////////////////////////////////////////////////////////
     Public Property Format As String
     Public Property Value As Object
     Public Property Tag As Object
+    Friend Color_ As Color = Color.Transparent
+    Public ReadOnly Property Color As Color
+        Get
+            Return Color_
+        End Get
+    End Property
+    Friend Font_ As Font = Nothing
+    Public ReadOnly Property Font As Font
+        Get
+            Return Font_
+        End Get
+    End Property
     Public Property Name As String
     Public ReadOnly Property Text As String
         Get
