@@ -1586,35 +1586,36 @@ Public Class ImageComboDropDown
             Dim widthScale As Integer = CInt(Width * DisplayFactor)
             Dim heightScale As Integer = CInt(Height * DisplayFactor)
             Dim bmp As New Bitmap(widthScale, heightScale)
-            Using Graphics As Graphics = Graphics.FromImage(bmp)
-                Graphics.CopyFromScreen(
-                        CInt(myLocation.X * DisplayFactor),
-                        CInt(myLocation.Y * DisplayFactor),
-                        0,
-                        0,
-                        bmp.Size,
-                        CopyPixelOperation.SourceCopy)
-                Const shrinkFactor As Integer = -1
-                Dim rectangleShade As New Rectangle(0, 0, bmp.Width, bmp.Height)
-                For i = 0 To 23
-                    Using brushShade As New SolidBrush(Color.FromArgb({16 + i * 4, 255}.Min, DropShadowColor))
-                        Using pathShade As GraphicsPath = DrawRoundedRectangle(rectangleShade, 30)
-                            Graphics.FillPath(brushShade, pathShade)
+            Try
+                Using Graphics As Graphics = Graphics.FromImage(bmp)
+                    Graphics.CopyFromScreen(
+                            CInt(myLocation.X * DisplayFactor),
+                            CInt(myLocation.Y * DisplayFactor),
+                            0,
+                            0,
+                            bmp.Size,
+                            CopyPixelOperation.SourceCopy)
+                    Const shrinkFactor As Integer = -1
+                    Dim rectangleShade As New Rectangle(0, 0, bmp.Width, bmp.Height)
+                    For i = 0 To 23
+                        Using brushShade As New SolidBrush(Color.FromArgb({16 + i * 4, 255}.Min, DropShadowColor))
+                            Using pathShade As GraphicsPath = DrawRoundedRectangle(rectangleShade, 30)
+                                Graphics.FillPath(brushShade, pathShade)
+                            End Using
                         End Using
-                    End Using
-                    rectangleShade.Inflate(shrinkFactor, shrinkFactor)
-                    rectangleShade.Offset(shrinkFactor * 2, shrinkFactor * 2)
-                Next
-            End Using
-            BMP_Shadow = bmp
-            Invalidate()
-            'If ComboParent.Name = "quickSearch" Then Stop
-            Dim SV As IEnumerable(Of ComboItem) = From S In MatchedItems Where S.Index = ComboParent.SelectionIndex
-            If SV.Any Then
-                Dim ScrollValue As Integer = MatchedItems.IndexOf(SV.First)
-                VScroll.Value = CInt(Split((ScrollValue / ComboParent.MaxItems).ToString(InvariantCulture), ".")(0)) * ComboParent.MaxItems * ItemHeight
+                        rectangleShade.Inflate(shrinkFactor, shrinkFactor)
+                        rectangleShade.Offset(shrinkFactor * 2, shrinkFactor * 2)
+                    Next
+                End Using
+                BMP_Shadow = bmp
+                Dim SV As IEnumerable(Of ComboItem) = From S In MatchedItems Where S.Index = ComboParent.SelectionIndex
+                If SV.Any Then
+                    Dim ScrollValue As Integer = MatchedItems.IndexOf(SV.First)
+                    VScroll.Value = CInt(Split((ScrollValue / ComboParent.MaxItems).ToString(InvariantCulture), ".")(0)) * ComboParent.MaxItems * ItemHeight
+                End If
                 Invalidate()
-            End If
+            Catch ex As system.ComponentModel.Win32Exception
+            End Try
             ForceCapture = True
         Else
             ComboParent.Toolstrip.Size = New Size(0, 0)
