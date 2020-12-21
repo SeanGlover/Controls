@@ -1389,6 +1389,96 @@ Public Module Functions
         Return Integer.Parse(component, NumberStyles.HexNumber, InvariantCulture)
 
     End Function
+    Public Function BackColorToForeColor(backColor As Color) As Color
+
+        With backColor
+            Dim rFactor As Double = Math.Pow(.R, 2) * 0.241
+            Dim gFactor As Double = Math.Pow(.G, 2) * 0.691
+            Dim bFactor As Double = Math.Pow(.B, 2) * 0.068
+            Dim colorThreshold = Math.Sqrt(rFactor + gFactor + bFactor)
+            If colorThreshold < 130 Then
+                Return Color.White
+            Else
+                Return Color.Black
+            End If
+        End With
+
+    End Function
+    Public Function FontImages() As Dictionary(Of Font, Image)
+
+        Dim FontImageCollection As New Dictionary(Of Font, Image)
+        REM /// INITIALIZE THEM
+        Using ifc As Text.InstalledFontCollection = New Text.InstalledFontCollection()
+            For Each availableFont In ifc.Families
+                Using bmpFont As New Font(availableFont, 9, FontStyle.Regular)
+                    Dim fontSize As Size = MeasureText(availableFont.Name, bmpFont)
+                    Dim _Image As New Bitmap(fontSize.Width, fontSize.Height)
+                    Using G As Graphics = Graphics.FromImage(_Image)
+                        G.SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
+                        G.InterpolationMode = Drawing2D.InterpolationMode.HighQualityBicubic
+                        G.PixelOffsetMode = Drawing2D.PixelOffsetMode.HighQuality
+                        G.TextRenderingHint = Text.TextRenderingHint.SingleBitPerPixelGridFit
+                        Using Brush As New SolidBrush(Color.White)
+                            G.DrawRectangle(Pens.Black, 0, 0, _Image.Width - 1, _Image.Height - 1)
+                            G.FillRectangle(Brush, 2, 2, _Image.Width - 4, _Image.Height - 4)
+                        End Using
+                        Using Format As New StringFormat With {
+        .Alignment = StringAlignment.Center,
+        .LineAlignment = StringAlignment.Center
+    }
+                            G.DrawString("A", bmpFont, Brushes.Black, New Rectangle(New Point(0, 0), fontSize), Format) 'availableFont.Name
+                        End Using
+                    End Using
+                    FontImageCollection.Add(bmpFont, _Image)
+                End Using
+            Next
+        End Using
+        Return FontImageCollection
+
+    End Function
+    Public Function ColorImages() As Dictionary(Of Color, Image)
+
+        Dim ColorImageCollection As New Dictionary(Of Color, Image)
+        REM /// INITIALIZE THEM
+        Dim X As Color = Color.Beige
+        Dim ColorType As Type = X.GetType
+        Dim ColorList() As PropertyInfo = ColorType.GetProperties(BindingFlags.Static Or BindingFlags.DeclaredOnly Or BindingFlags.Public)
+        Dim Colors As New List(Of String)(From CL In ColorList Select CL.Name)
+        Dim ComboImage As Image = Nothing
+        For Each colorName In Colors
+            Dim _Image As New Bitmap(16, 16)
+            Dim colorValue As Color = Color.FromName(colorName)
+            Using G As Graphics = Graphics.FromImage(_Image)
+                Using Brush As New SolidBrush(colorValue)
+                    G.DrawRectangle(Pens.Black, 0, 0, _Image.Width - 1, _Image.Height - 1)
+                    G.FillRectangle(Brush, 2, 2, _Image.Width - 4, _Image.Height - 4)
+                End Using
+            End Using
+            ColorImageCollection.Add(colorValue, _Image)
+        Next
+        Return ColorImageCollection
+
+    End Function
+    Public Function ChangeImageColor(bmp As Bitmap, OldColor As Color, NewColor As Color) As Image
+
+        If bmp IsNot Nothing Then
+            Using g As Graphics = Graphics.FromImage(bmp)
+                g.SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
+                Dim ColorMap As ColorMap() = New ColorMap(0) {}
+                ColorMap(0) = New ColorMap With {
+                    .OldColor = OldColor,
+                    .NewColor = NewColor
+                }
+                Using Attributes As ImageAttributes = New ImageAttributes()
+                    Attributes.SetRemapTable(ColorMap)
+                    Dim rect As Rectangle = New Rectangle(0, 0, bmp.Width, bmp.Height)
+                    g.DrawImage(bmp, rect, 0, 0, rect.Width, rect.Height, GraphicsUnit.Pixel, Attributes)
+                End Using
+            End Using
+        End If
+        Return bmp
+
+    End Function
 #End Region
 
     Public Function Bulletize(Items As String()) As String
@@ -1787,96 +1877,6 @@ Public Module Functions
         Return sb.ToString
     End Function
 
-    Public Function BackColorToForeColor(backColor As Color) As Color
-
-        With backColor
-            Dim rFactor As Double = Math.Pow(.R, 2) * 0.241
-            Dim gFactor As Double = Math.Pow(.G, 2) * 0.691
-            Dim bFactor As Double = Math.Pow(.B, 2) * 0.068
-            Dim colorThreshold = Math.Sqrt(rFactor + gFactor + bFactor)
-            If colorThreshold < 130 Then
-                Return Color.White
-            Else
-                Return Color.Black
-            End If
-        End With
-
-    End Function
-    Public Function FontImages() As Dictionary(Of Font, Image)
-
-        Dim FontImageCollection As New Dictionary(Of Font, Image)
-        REM /// INITIALIZE THEM
-        Using ifc As Text.InstalledFontCollection = New Text.InstalledFontCollection()
-            For Each availableFont In ifc.Families
-                Using bmpFont As New Font(availableFont, 9, FontStyle.Regular)
-                    Dim fontSize As Size = MeasureText(availableFont.Name, bmpFont)
-                    Dim _Image As New Bitmap(fontSize.Width, fontSize.Height)
-                    Using G As Graphics = Graphics.FromImage(_Image)
-                        G.SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
-                        G.InterpolationMode = Drawing2D.InterpolationMode.HighQualityBicubic
-                        G.PixelOffsetMode = Drawing2D.PixelOffsetMode.HighQuality
-                        G.TextRenderingHint = Text.TextRenderingHint.SingleBitPerPixelGridFit
-                        Using Brush As New SolidBrush(Color.White)
-                            G.DrawRectangle(Pens.Black, 0, 0, _Image.Width - 1, _Image.Height - 1)
-                            G.FillRectangle(Brush, 2, 2, _Image.Width - 4, _Image.Height - 4)
-                        End Using
-                        Using Format As New StringFormat With {
-        .Alignment = StringAlignment.Center,
-        .LineAlignment = StringAlignment.Center
-    }
-                            G.DrawString("A", bmpFont, Brushes.Black, New Rectangle(New Point(0, 0), fontSize), Format) 'availableFont.Name
-                        End Using
-                    End Using
-                    FontImageCollection.Add(bmpFont, _Image)
-                End Using
-            Next
-        End Using
-        Return FontImageCollection
-
-    End Function
-    Public Function ColorImages() As Dictionary(Of Color, Image)
-
-        Dim ColorImageCollection As New Dictionary(Of Color, Image)
-        REM /// INITIALIZE THEM
-        Dim X As Color = Color.Beige
-        Dim ColorType As Type = X.GetType
-        Dim ColorList() As PropertyInfo = ColorType.GetProperties(BindingFlags.Static Or BindingFlags.DeclaredOnly Or BindingFlags.Public)
-        Dim Colors As New List(Of String)(From CL In ColorList Select CL.Name)
-        Dim ComboImage As Image = Nothing
-        For Each colorName In Colors
-            Dim _Image As New Bitmap(16, 16)
-            Dim colorValue As Color = Color.FromName(colorName)
-            Using G As Graphics = Graphics.FromImage(_Image)
-                Using Brush As New SolidBrush(colorValue)
-                    G.DrawRectangle(Pens.Black, 0, 0, _Image.Width - 1, _Image.Height - 1)
-                    G.FillRectangle(Brush, 2, 2, _Image.Width - 4, _Image.Height - 4)
-                End Using
-            End Using
-            ColorImageCollection.Add(colorValue, _Image)
-        Next
-        Return ColorImageCollection
-
-    End Function
-    Public Function ChangeImageColor(bmp As Bitmap, OldColor As Color, NewColor As Color) As Image
-
-        If bmp IsNot Nothing Then
-            Using g As Graphics = Graphics.FromImage(bmp)
-                g.SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
-                Dim ColorMap As ColorMap() = New ColorMap(0) {}
-                ColorMap(0) = New ColorMap With {
-                    .OldColor = OldColor,
-                    .NewColor = NewColor
-                }
-                Using Attributes As ImageAttributes = New ImageAttributes()
-                    Attributes.SetRemapTable(ColorMap)
-                    Dim rect As Rectangle = New Rectangle(0, 0, bmp.Width, bmp.Height)
-                    g.DrawImage(bmp, rect, 0, 0, rect.Width, rect.Height, GraphicsUnit.Pixel, Attributes)
-                End Using
-            End Using
-        End If
-        Return bmp
-
-    End Function
     Public Function DrawRoundedRectangle(Rect As Rectangle, Optional Corner As Integer = 10) As Drawing2D.GraphicsPath
 
         Dim Graphix As New System.Drawing.Drawing2D.GraphicsPath
@@ -3752,30 +3752,13 @@ Public NotInheritable Class CustomRenderer
     Protected Overrides Sub OnRenderMenuItemBackground(e As ToolStripItemRenderEventArgs)
 
         If e IsNot Nothing Then
+            Using Brush As New SolidBrush(e.Item.BackColor)
+                e.Graphics.FillRectangle(Brush, e.Item.ContentRectangle)
+            End Using
             If e.Item.Selected Then
-                If e.Item.Image Is Nothing Then
-                    Using backBrush As New SolidBrush(Color.FromArgb(UnderlineAlpha, Color.WhiteSmoke))
-                        e.Graphics.FillRectangle(backBrush, e.Item.ContentRectangle)
-                    End Using
-                End If
                 Dim underlineBounds As New Rectangle(e.Item.ContentRectangle.X, e.Item.ContentRectangle.Height - 6, e.Item.ContentRectangle.Width, 6)
                 Using backBrush As New SolidBrush(Color.FromArgb(UnderlineAlpha, ThemeColor))
                     e.Graphics.FillRectangle(backBrush, underlineBounds)
-                End Using
-                'Using Brush As New Drawing2D.LinearGradientBrush(e.Item.ContentRectangle, Color.FromArgb(255, 227, 224, 215), Color.White, Drawing2D.LinearGradientMode.Vertical)
-                '    e.Graphics.FillRectangle(Brush, e.Item.ContentRectangle)
-                'End Using
-                'Dim RoundRectangle As Rectangle = e.Item.ContentRectangle
-                'RoundRectangle.Inflate(-2, -2)
-                'RoundRectangle.Offset(0, -2)
-                'Using GP As Drawing2D.GraphicsPath = DrawRoundedRectangle(e.Item.ContentRectangle)
-                '    Using PathPen As New Pen(Color.Peru, 1)
-                '        e.Graphics.DrawPath(PathPen, GP)
-                '    End Using
-                'End Using
-            Else
-                Using Brush As New SolidBrush(e.ToolStrip.BackColor)
-                    e.Graphics.FillRectangle(Brush, e.Item.ContentRectangle)
                 End Using
             End If
         End If
