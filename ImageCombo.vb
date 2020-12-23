@@ -723,7 +723,7 @@ Public NotInheritable Class ImageCombo
             Return _CursorIndex
         End Get
         Set(value As Integer)
-            If (value <> _CursorIndex And value >= 0 And value < LetterWidths.Count) Then
+            If value <> _CursorIndex And value >= 0 And value < LetterWidths.Count Then
                 _CursorIndex = value
                 Invalidate()
             End If
@@ -1111,10 +1111,22 @@ Public NotInheritable Class ImageCombo
                 HighlightBounds = If(Mouse_Region = MouseRegion.Image, ImageClickBounds, If(Mouse_Region = MouseRegion.Search, SearchBounds, If(Mouse_Region = MouseRegion.Eye, EyeBounds, If(Mouse_Region = MouseRegion.ClearText, ClearTextBounds, If(Mouse_Region = MouseRegion.DropDown, DropClickBounds, New Rectangle)))))
                 Invalidate()
             End If
+            If MouseLeftDown.Key And e.Button = MouseButtons.Left Then
+                Dim startEnd As Integer() = {CursorIndex, GetLetterIndex(e.X)}
+                If MouseLeftDown.Value <> startEnd.Last Then
+                    'Moved to left or right
+                    Dim leftMost As Integer = startEnd.Min
+                    Dim rightMost As Integer = startEnd.Max
+                    _CursorIndex = leftMost
+                    SelectionIndex = rightMost
+                    Invalidate()
+                End If
+            End If
         End If
         MyBase.OnMouseMove(e)
 
     End Sub
+    Private MouseLeftDown As New KeyValuePair(Of Boolean, Integer)
     Protected Overrides Sub OnMouseDown(e As MouseEventArgs)
 
         If e IsNot Nothing Then
@@ -1137,6 +1149,7 @@ Public NotInheritable Class ImageCombo
                 CursorBlinkTimer.Start()
                 CursorIndex = GetLetterIndex(e.X)
                 SelectionIndex = CursorIndex
+                If e.Button = MouseButtons.Left Then MouseLeftDown = New KeyValuePair(Of Boolean, Integer)(True, SelectionIndex)
 
             ElseIf Mouse_Region = MouseRegion.Eye Then
                 TextIsVisible = Not TextIsVisible
@@ -1158,6 +1171,9 @@ Public NotInheritable Class ImageCombo
         End If
         MyBase.OnMouseDown(e)
 
+    End Sub
+    Protected Overrides Sub OnMouseUp(e As MouseEventArgs)
+        MouseLeftDown = Nothing
     End Sub
     Protected Overrides Sub OnMouseDoubleClick(e As MouseEventArgs)
 

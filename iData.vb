@@ -3937,106 +3937,122 @@ Public Module iData
         End If
 
     End Function
-    Public Function DataTableToHtml(DataTable As DataTable, Optional HeaderBackColor As Color = Nothing, Optional HeaderForeColor As Color = Nothing, Optional Script As String = Nothing) As String
+    Public Function DataTableToHtml(Table As DataTable, HeaderStyle As CellStyle, RowStyle As CellStyle) As String
 
         Dim HTML As String = String.Empty
-        If DataTable IsNot Nothing Then
-            Dim Columns As New List(Of DataColumn)(From C In DataTable.Columns Select DirectCast(C, DataColumn))
+        If Table IsNot Nothing And HeaderStyle IsNot Nothing And RowStyle IsNot Nothing Then
+            Dim Columns As New List(Of DataColumn)(From C In Table.Columns Select DirectCast(C, DataColumn))
             Dim Rows As New Dictionary(Of DataRow, List(Of String))
 
-            Using TableFont As New Font("Calibri", 9)
-                Dim columnStrings As New Dictionary(Of String, Dictionary(Of Integer, String))
-                Dim columnWidths As New Dictionary(Of String, Integer)
-                Dim columnAlignments As New Dictionary(Of String, String)
-                Dim columnIndex As Integer = 1
-                Columns.ForEach(Sub(column)
-                                    Dim columnName As String = column.ColumnName
-                                    Dim strings As New Dictionary(Of Integer, String)
-                                    Dim rowIndex As Integer = 0
-                                    Dim rowArray As New List(Of String)
-                                    For Each row As DataRow In DataTable.AsEnumerable
-                                        Dim rowCell As Object = row(column)
-                                        Dim cellString As String
-                                        If IsDBNull(rowCell) Or rowCell Is Nothing Then
-                                            cellString = String.Empty
-                                        Else
-                                            If column.DataType Is GetType(Date) Then
-                                                Dim cellDate As Date = DirectCast(rowCell, Date)
-                                                If cellDate.TimeOfDay.Ticks = 0 Then
-                                                    cellString = cellDate.ToShortDateString
-                                                Else
-                                                    cellString = cellDate.ToString("M/d/yyyy h:mm tt", InvariantCulture)
-                                                End If
-
-                                            ElseIf column.DataType Is GetType(Double) Or column.DataType Is GetType(Decimal) Then
-                                                Dim nfi As NumberFormatInfo = New CultureInfo("en-US", False).NumberFormat
-                                                'Displays a value with the default separator (".")
-                                                Dim doubleValue As Double = 0
-                                                Dim testDouble As Boolean = Double.TryParse(rowCell.ToString, doubleValue)
-                                                cellString = doubleValue.ToString("N", nfi)
-
+            Dim columnStrings As New Dictionary(Of String, Dictionary(Of Integer, String))
+            Dim columnWidths As New Dictionary(Of String, Integer)
+            Dim columnAlignments As New Dictionary(Of String, String)
+            Dim columnIndex As Integer = 1
+            Columns.ForEach(Sub(column)
+                                Dim columnName As String = column.ColumnName
+                                Dim strings As New Dictionary(Of Integer, String)
+                                Dim rowIndex As Integer = 0
+                                Dim rowArray As New List(Of String)
+                                For Each row As DataRow In Table.AsEnumerable
+                                    Dim rowCell As Object = row(column)
+                                    Dim cellString As String
+                                    If IsDBNull(rowCell) Or rowCell Is Nothing Then
+                                        cellString = String.Empty
+                                    Else
+                                        If column.DataType Is GetType(Date) Then
+                                            Dim cellDate As Date = DirectCast(rowCell, Date)
+                                            If cellDate.TimeOfDay.Ticks = 0 Then
+                                                cellString = cellDate.ToShortDateString
                                             Else
-                                                cellString = rowCell.ToString
+                                                cellString = cellDate.ToString("M/d/yyyy h:mm tt", InvariantCulture)
                                             End If
+
+                                        ElseIf column.DataType Is GetType(Double) Or column.DataType Is GetType(Decimal) Then
+                                            Dim nfi As NumberFormatInfo = New CultureInfo("en-US", False).NumberFormat
+                                            'Displays a value with the default separator (".")
+                                            Dim doubleValue As Double = 0
+                                            Dim testDouble As Boolean = Double.TryParse(rowCell.ToString, doubleValue)
+                                            cellString = doubleValue.ToString("N", nfi)
+
+                                        Else
+                                            cellString = rowCell.ToString
                                         End If
-                                        strings.Add(rowIndex, cellString)
-                                        If Not Rows.ContainsKey(row) Then Rows.Add(row, New List(Of String))
-                                        Rows(row).Add(cellString)
-                                        rowIndex += 1
-                                    Next
-                                    columnStrings.Add(columnName, strings)
-                                    Dim columnHeadWidth As Integer = TextRenderer.MeasureText(columnName, TableFont).Width
-                                    Dim columnMaxContentWidth As Integer = If(strings.Values.Any, strings.Values.Select(Function(c) TextRenderer.MeasureText(c, TableFont).Width).Max, 0)
-                                    Dim columnWidth As Integer = 18 + {columnHeadWidth, columnMaxContentWidth}.Max
-                                    columnWidths.Add(columnName, columnWidth)
-                                    'tr td:nth-child(2) {text-align: right;}
-                                    Dim columnAlignment As String = $"tr td:nth-child({columnIndex})" & " {text-align: " & DataTypeToAlignment(column.DataType).ToString.ToUpperInvariant & ";}"
-                                    columnAlignments.Add(columnName, columnAlignment)
-                                    columnIndex += 1
-                                End Sub)
-                Dim Top As New List(Of String)
-                If HeaderBackColor.IsEmpty Then HeaderBackColor = Color.DarkGray
-                If HeaderForeColor.IsEmpty Then HeaderForeColor = Color.White
-                Dim HBS As String = ColorToHtmlHex(HeaderBackColor)
-                Dim HFS As String = ColorToHtmlHex(HeaderForeColor)
-
+                                    End If
+                                    strings.Add(rowIndex, cellString)
+                                    If Not Rows.ContainsKey(row) Then Rows.Add(row, New List(Of String))
+                                    Rows(row).Add(cellString)
+                                    rowIndex += 1
+                                Next
+                                columnStrings.Add(columnName, strings)
+                                Dim columnHeadWidth As Integer = TextRenderer.MeasureText(columnName, HeaderStyle.Font).Width
+                                Dim columnMaxContentWidth As Integer = If(strings.Values.Any, strings.Values.Select(Function(c) TextRenderer.MeasureText(c, RowStyle.Font).Width).Max, 0)
+                                Dim columnWidth As Integer = 18 + {columnHeadWidth, columnMaxContentWidth}.Max
+                                columnWidths.Add(columnName, columnWidth)
+                                'tr td:nth-child(2) {text-align: right;}
+                                Dim columnAlignment As String = $"tr td:nth-child({columnIndex})" & " {text-align: " & DataTypeToAlignment(column.DataType).ToString.ToUpperInvariant & ";}"
+                                columnAlignments.Add(columnName, columnAlignment)
+                                columnIndex += 1
+                            End Sub)
+            Dim Top As New List(Of String)
+            Dim HBS As String = ColorToHtmlHex(HeaderStyle.BackColor)
+            Dim HFS As String = ColorToHtmlHex(HeaderStyle.ForeColor)
+            Dim headSz As String = Format(Math.Round(HeaderStyle.Font.Size / 10, 1), "##.#")
+            Dim rowSz As String = Format(Math.Round(RowStyle.Font.Size / 10, 1), "##.#")
 #Region " CSS Table Properties "
-                Top.Clear()
-                Top.Add("<!DOCTYPE html>")
-                Top.Add("<html>")
-                Top.Add("<head>")
-                Top.Add("<style>")
-                Top.Add("body {font-family: " & TableFont.FontFamily.Name & "}")
-                Top.Add("table {border-collapse:collapse; border: 1px solid #778db3;}") ' width: 100%;
-                Top.Add("th {background-color:" & HBS & "; color:" & HFS & "; text-align:center; font-weight:bold; font-size:0." & TableFont.Size & "em; border: 1px solid #778db3; white-space: nowrap;}")
-                Top.Add("td {text-align:left; font-size:0." & (TableFont.Size - 1) & "em; border: 1px #696969; white-space: nowrap;}")
-                Top.Add(Join(columnAlignments.Values.ToArray, vbNewLine))
-                Top.Add("</style>")
-                Top.Add("</head>")
-                Top.Add("<body>")
-                If Not IsNothing(Script) Then Top.Add("<p>" & Script & "</p>")
-                Top.Add("<table>")
-                Top.Add("<tr>" & Join((From C In columnWidths Select "<th width=" & C.Value & ";>" & C.Key & "</th>").ToArray, "") & "</tr>")
+            Top.Clear()
+            Top.Add("<!DOCTYPE html>")
+            Top.Add("<html>")
+            Top.Add("<head>")
+            Top.Add("<style>")
+            Top.Add("table {border-collapse:collapse; border: 1px solid #778db3;}") ' width: 100%;
+            Top.Add("th {" & $"font-family:{HeaderStyle.Font.FontFamily.Name}; background-color:{HBS}; color:{HFS}; text-align:center; font-weight:bold; font-size:{headSz}em; border: 1px solid #778db3; white-space: nowrap;" & "}")
+            Top.Add("td {" & $"font-family:{RowStyle.Font.FontFamily.Name}; text-align:left; font-size:{rowSz}em; border: 1px #696969; white-space: nowrap;" & "}")
+            Top.Add(Join(columnAlignments.Values.ToArray, vbNewLine))
+            Top.Add("</style>")
+            Top.Add("</head>")
+            Top.Add("<body>")
+            Top.Add("<table>")
+            Top.Add("<tr>" & Join((From C In columnWidths Select "<th width=" & C.Value & ";>" & C.Key & "</th>").ToArray, "") & "</tr>")
 #End Region
-                '#F5F5F5, #F5F5DC
-                Dim Middle As New List(Of String)
-                For Each Row In Rows
-                    Middle.Add("<tr style=background-color:" & IIf(Middle.Count Mod 2 = 0, "#F5F5F5", "#FFFFFF").ToString & ";>" + Join((From IA In Row.Value Select "<td>" + IA + "</td>").ToArray, "") + "</tr>")
-                Next
-
-                Dim Bottom As New List(Of String) From {
-                "</table>",
-                "</body>",
-                "</html>"
-            }
-                Dim All As New List(Of String)
-                All.AddRange(Top)
-                All.AddRange(Middle)
-                All.AddRange(Bottom)
-                HTML = Join(All.ToArray, vbNewLine)
-            End Using
+            Dim Middle As New List(Of String)
+            For Each Row In Rows
+                Middle.Add("<tr style=background-color:" & IIf(Middle.Count Mod 2 = 0, "#F5F5F5", "#FFFFFF").ToString & ";>" + Join((From IA In Row.Value Select "<td>" + IA + "</td>").ToArray, "") + "</tr>")
+            Next
+            Dim Bottom As New List(Of String) From {
+"</table>",
+"</body>",
+"</html>"
+}
+            Dim All As New List(Of String)
+            All.AddRange(Top)
+            All.AddRange(Middle)
+            All.AddRange(Bottom)
+            HTML = Join(All.ToArray, vbNewLine)
         End If
         Return HTML
+
+    End Function
+    Public Function DataTableToHtml(Table As DataTable, HeaderBackColor As Color, HeaderForeColor As Color) As String
+
+        If Table Is Nothing Then
+            Return Nothing
+        Else
+            Dim tableHTML As String = Nothing
+            Using styleHead As New CellStyle With {
+                               .BackColor = HeaderBackColor,
+                               .ForeColor = HeaderForeColor,
+                               .Font = New Font("Century Gothic", 10)
+                               }
+                Using styleRows As New CellStyle With {
+                                   .BackColor = Color.Gainsboro,
+                                   .ForeColor = Color.Black,
+                                   .Font = New Font("Century Gothic", 9)
+                                   }
+                    tableHTML = DataTableToHtml(Table, styleHead, styleRows)
+                End Using
+            End Using
+            Return tableHTML
+        End If
 
     End Function
 #End Region

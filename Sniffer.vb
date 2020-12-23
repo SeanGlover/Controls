@@ -9,23 +9,42 @@ Imports System.Text.RegularExpressions
 
 Public Class SnifferEventArgs
     Inherits EventArgs
-    Public ReadOnly Property Headers As List(Of KeyValuePair(Of String, String))
-    Public ReadOnly Property HeadersDistinct As New Dictionary(Of String, String)
+    Public ReadOnly Property Id As Integer
+    Public ReadOnly Property RequestURL As Uri
+    Public ReadOnly Property Client As Http.HttpWebClient
+    Public ReadOnly Property Headers As New List(Of KeyValuePair(Of String, String))
+    Public ReadOnly Property HeadersDistinct As New SpecialDictionary(Of String, String)
+    Public ReadOnly Property Before As Boolean
     Public Sub New()
+    End Sub
+    Public Sub New(e As SessionEventArgs, index As Integer, request As Boolean, Optional after As Boolean = False)
+
+        If e Is Nothing Then Exit Sub
+        Client = e.HttpClient
+        RequestURL = New Uri(Client.Request.Url)
+        Id = index
+        Before = Not after
+        For Each header As HttpHeader In If(request, Client.Request.Headers, Client.Response.Headers)
+            Dim kvpHead = New KeyValuePair(Of String, String)(header.Name, header.Value)
+            Headers.Add(kvpHead)
+            If Not HeadersDistinct.ContainsKey(kvpHead.Key) Then HeadersDistinct.Add(kvpHead.Key, kvpHead.Value)
+        Next
+
     End Sub
     Public Sub New(headers As List(Of KeyValuePair(Of String, String)))
 
-        Me.Headers = headers
-        If headers IsNot Nothing Then
-            For Each header In headers
-                If Not HeadersDistinct.ContainsKey(header.Key) Then HeadersDistinct.Add(header.Key, header.Value)
-            Next
-        End If
+        If headers Is Nothing Then Exit Sub
+        headers.ForEach(Sub(header)
+                            headers.Add(header)
+                            If Not HeadersDistinct.ContainsKey(header.Key) Then HeadersDistinct.Add(header.Key, header.Value)
+                        End Sub)
 
     End Sub
 End Class
 Public Class Sniffer
-    Public Event Alert(sender As Object, e As Controls.AlertEventArgs)
+    Public Event Alert(sender As Object, e As AlertEventArgs)
+    Public Event RequestAlert(sender As Object, e As SnifferEventArgs)
+    Public Event ResponseAlert(sender As Object, e As SnifferEventArgs)
     Public Event Found(sender As Object, e As SnifferEventArgs)
 
     Private WithEvents ProxyServer As ProxyServer
@@ -34,6 +53,16 @@ Public Class Sniffer
     Public Property Name As String
     Public Property Tag As Object
     Public ReadOnly Property Clients As New List(Of Http.HttpWebClient)
+    Private Client_ As Http.HttpWebClient
+    Private Property Client As Http.HttpWebClient
+        Get
+            Return Client_
+        End Get
+        Set(value As Http.HttpWebClient)
+            Client_ = value
+            If Not Clients.Contains(value) Then Clients.Add(value)
+        End Set
+    End Property
     Public Property Search As New SearchRequest
     Public ReadOnly Property ClientsString As New List(Of String)
     Public ReadOnly Property Sniffing As Boolean = False
@@ -72,40 +101,54 @@ Public Class Sniffer
 
     Private Async Function Proxy_BeforeRequest(Sender As Object, e As SessionEventArgs) As Task Handles ProxyServer.BeforeRequest
         Await Task.Run(Sub()
+                           Client = e.HttpClient
+                           RaiseEvent RequestAlert(Me, New SnifferEventArgs(e, Clients.IndexOf(Client), True, False))
                            RequestEvent(e)
                        End Sub).ConfigureAwait(False)
     End Function
-    Private Async Function Proxy_AfterRequest(Sender As Object, e As SessionEventArgs) As Task Handles ProxyServer.BeforeResponse
+    Private Async Function Proxy_BeforeResponse(Sender As Object, e As SessionEventArgs) As Task Handles ProxyServer.BeforeResponse
         Await Task.Run(Sub()
+                           Client = e.HttpClient
+                           RaiseEvent ResponseAlert(Me, New SnifferEventArgs(e, Clients.IndexOf(Client), False, False))
                            RequestEvent(e)
                        End Sub).ConfigureAwait(False)
     End Function
     Private Async Function Proxy_AfterResponse(Sender As Object, e As SessionEventArgs) As Task Handles ProxyServer.AfterResponse
         Await Task.Run(Sub()
-                           Dim response As Http.Response = e.HttpClient.Response
+                           Client = e.HttpClient
+                           RaiseEvent ResponseAlert(Me, New SnifferEventArgs(e, Clients.IndexOf(Client), False, True))
+                           Dim response = Client.Response
                            If Not response.StatusCode = 0 Then
                                RaiseEvent Alert(response, New AlertEventArgs(CStr(response.StatusCode)))
-                               If response.HasBody And 0 = 1 Then '/// Errors trying to read BodyString as Response is still processing the reading of the Body
-                                   Dim responseValues As New List(Of KeyValuePair(Of String, String))
-                                   With Search
-                                       If .By = FindyBy.Body Then
-                                           If .Expression Is Nothing Then 'Explicit
-                                               For Each searchValue In .Values
-                                                   If response.BodyString.Contains(searchValue) Then
-                                                       responseValues.Add(New KeyValuePair(Of String, String)(searchValue, response.BodyString))
-                                                   End If
-                                               Next
-                                           Else 'Regex
-                                               Dim bodyMatches = RegexMatches(response.BodyString, .Expression.SearchPattern, .Expression.SearchOptions)
-                                               For Each bodyMatch In bodyMatches
-                                                   responseValues.Add(New KeyValuePair(Of String, String)(bodyMatch.Value, response.BodyString))
-                                               Next
-                                           End If
-                                       End If
-                                   End With
-                                   If responseValues.Any Then
-                                       RaiseEvent Found(Me, New SnifferEventArgs(responseValues))
-                                   End If
+                               If response.HasBody Then '/// Errors trying to read BodyString as Response is still processing the reading of the Body
+#Region " R E S P O N S E   B O D Y - I N A C T I V E (response.BodyString ) "
+                                   '■■■■■■■■■■■■■■■■■■■■■■■■ Response body is not read yet.
+                                   '■■■■■■■■■■■■■■■■■■■■■■■■ Use SessionEventArgs.GetResponseBody() Or SessionEventArgs.GetResponseBodyAsString() method to read the response body
+                                   'Dim responseValues As New List(Of KeyValuePair(Of String, String))
+                                   'Dim bodyResponse As String = response.BodyString
+                                   'With Search
+                                   '    If .By = FindyBy.Body Then
+                                   '        If .Expression Is Nothing Then 'Explicit
+                                   '            For Each searchValue In .Values
+                                   '                If bodyResponse.Contains(searchValue) Then
+                                   '                    responseValues.Add(New KeyValuePair(Of String, String)(searchValue, bodyResponse))
+                                   '                End If
+                                   '            Next
+                                   '        Else 'Regex
+                                   '            Dim bodyMatches = RegexMatches(bodyResponse, .Expression.SearchPattern, .Expression.SearchOptions)
+                                   '            For Each bodyMatch In bodyMatches
+                                   '                responseValues.Add(New KeyValuePair(Of String, String)(bodyMatch.Value, bodyResponse))
+                                   '            Next
+                                   '        End If
+                                   '    End If
+                                   'End With
+                                   'If responseValues.Any Then
+                                   '    For Each responseHead In response.Headers
+                                   '        responseValues.Add(New KeyValuePair(Of String, String)(responseHead.Name, responseHead.Value))
+                                   '    Next
+                                   '    RaiseEvent Found(Me, New SnifferEventArgs(responseValues))
+                                   'End If
+#End Region
                                End If
                                ClientsString.Add(ClientToString(e.HttpClient))
                            End If
@@ -113,7 +156,6 @@ Public Class Sniffer
     End Function
     Private Sub RequestEvent(e As SessionEventArgs)
 
-        Clients.Add(e.HttpClient)
         Dim request As Http.Request = e.HttpClient.Request
         RaiseEvent Alert(request, New AlertEventArgs(request.Url.ToUpperInvariant))
         With Search
@@ -137,10 +179,6 @@ Public Class Sniffer
                     urlMatches = lookForURL = requestURL
                 Else
                     urlMatches = Regex.Match(request.RequestUri.ToString, .Expression.SearchPattern, .Expression.SearchOptions).Success
-                    'If .Expression.SearchPattern = "https:\/\/www\.treasury\.pncbank\.com\/acweb\/servlet\/ViewEmbeddedObject\?" And request.RequestUri.ToString.Contains("ViewEmbeddedObject") Then
-                    '    StopSniffing()
-                    '    Stop
-                    'End If
                 End If
                 If urlMatches Then
                     For Each requestHeader As HttpHeader In request.Headers

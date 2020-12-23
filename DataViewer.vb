@@ -1330,7 +1330,7 @@ Public Class DataViewer
                                         .Rows.Add(row)
                                     Next
                                 End With
-                                Dim htmlTable As String = DataTableToHtml(copyTable, Columns.HeaderStyle.BackColor, Columns.HeaderStyle.ForeColor)
+                                Dim htmlTable As String = DataTableToHtml(copyTable, Columns.HeaderStyle, Rows.RowStyle)
                                 ClipboardHelper.CopyToClipboard(htmlTable)
                                 CopyTimer.Tag = copyTable.Rows.Count
                             End Using
