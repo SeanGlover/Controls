@@ -13,7 +13,6 @@ Public Class SnifferEventArgs
     Public ReadOnly Property RequestURL As Uri
     Public ReadOnly Property Client As Http.HttpWebClient
     Public ReadOnly Property Headers As New List(Of KeyValuePair(Of String, String))
-    Public ReadOnly Property HeadersDistinct As New SpecialDictionary(Of String, String)
     Public ReadOnly Property Before As Boolean
     Public Sub New()
     End Sub
@@ -24,20 +23,14 @@ Public Class SnifferEventArgs
         RequestURL = New Uri(Client.Request.Url)
         Id = index
         Before = Not after
-        For Each header As HttpHeader In If(request, Client.Request.Headers, Client.Response.Headers)
-            Dim kvpHead = New KeyValuePair(Of String, String)(header.Name, header.Value)
-            Headers.Add(kvpHead)
-            If Not HeadersDistinct.ContainsKey(kvpHead.Key) Then HeadersDistinct.Add(kvpHead.Key, kvpHead.Value)
+        For Each header In If(request, Client.Request.Headers, Client.Response.Headers)
+            Headers.Add(New KeyValuePair(Of String, String)(header.Name, header.Value))
         Next
 
     End Sub
     Public Sub New(headers As List(Of KeyValuePair(Of String, String)))
 
-        If headers Is Nothing Then Exit Sub
-        headers.ForEach(Sub(header)
-                            headers.Add(header)
-                            If Not HeadersDistinct.ContainsKey(header.Key) Then HeadersDistinct.Add(header.Key, header.Value)
-                        End Sub)
+        _Headers = headers
 
     End Sub
 End Class

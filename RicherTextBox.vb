@@ -65,13 +65,13 @@ Public NotInheritable Class RicherTextBox
         InnerSizeWidth = Size.Width - ClientSize.Width
         InnerSizeHeight = Size.Height - ClientSize.Height
     End Sub
-    Protected Overloads Overrides ReadOnly Property CreateParams() As CreateParams
-        Get
-            Dim cp As CreateParams = MyBase.CreateParams
-            cp.ExStyle = cp.ExStyle Or 33554432
-            Return cp
-        End Get
-    End Property
+    'Protected Overloads Overrides ReadOnly Property CreateParams() As CreateParams
+    '    Get
+    '        Dim cp As CreateParams = MyBase.CreateParams
+    '        cp.ExStyle = cp.ExStyle Or 33554432
+    '        Return cp
+    '    End Get
+    'End Property
 
     Public Event ScrolledVertical(sender As Object, e As RicherEventArgs)
     Public Event DragStart(sender As Object, e As DragEventArgs)

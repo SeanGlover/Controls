@@ -1440,12 +1440,7 @@ Public Module Functions
 
         Dim ColorImageCollection As New Dictionary(Of Color, Image)
         REM /// INITIALIZE THEM
-        Dim X As Color = Color.Beige
-        Dim ColorType As Type = X.GetType
-        Dim ColorList() As PropertyInfo = ColorType.GetProperties(BindingFlags.Static Or BindingFlags.DeclaredOnly Or BindingFlags.Public)
-        Dim Colors As New List(Of String)(From CL In ColorList Select CL.Name)
-        Dim ComboImage As Image = Nothing
-        For Each colorName In Colors
+        For Each colorName In ColorNames()
             Dim _Image As New Bitmap(16, 16)
             Dim colorValue As Color = Color.FromName(colorName)
             Using G As Graphics = Graphics.FromImage(_Image)
@@ -1457,6 +1452,13 @@ Public Module Functions
             ColorImageCollection.Add(colorValue, _Image)
         Next
         Return ColorImageCollection
+
+    End Function
+    Public Function ColorNames() As List(Of String)
+
+        Dim ColorType As Type = Color.Beige.GetType
+        Dim ColorList() As PropertyInfo = ColorType.GetProperties(BindingFlags.Static Or BindingFlags.DeclaredOnly Or BindingFlags.Public)
+        Return New List(Of String)(From CL In ColorList Select CL.Name)
 
     End Function
     Public Function ChangeImageColor(bmp As Bitmap, OldColor As Color, NewColor As Color) As Image

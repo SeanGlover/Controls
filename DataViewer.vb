@@ -188,8 +188,10 @@ Public Class DataViewer
             HeaderOptions.Items.Add(FontsColorsToTSMI(MouseRegion.Header))
             GridOptions.Items.Add(FontsColorsToTSMI(MouseRegion.Grid))
         End If
+        Colors.AddRange(ColorNames)
 
     End Sub
+    Private ReadOnly Colors As New List(Of String)
     Private Function FontsColorsToTSMI(viewerRegion As MouseRegion) As ToolStripMenuItem
 
         Dim viewerProperties = GroupedProperties("grid")
@@ -496,7 +498,6 @@ Public Class DataViewer
                                                 '///////////  CHANGING A NON-IMAGE VALUE TO AN IMAGE WILL SWITCH THE COLUMN FORMAT TO IMAGES WHICH THROWS AN ERROR @ Dim ImageWidth As Integer
                                                 '///////////  ALSO FILLING A DATATABLE WITH IMAGES BEFORE SETTING TO THE DATAVIEWER.DATASOURCE WON'T SET THE ROWHEIGHT CORRECTLY
 
-                                                Dim cellText As String = .Text 'Getting .Text also Sets the .Image based on the Column.DataType
                                                 If .Column.Format.Key = Column.TypeGroup.Images Or .Column.Format.Key = Column.TypeGroup.Booleans Then
                                                     Dim EdgePadding As Integer = 1 'all sides to ensure Image doesn't touch the edge of the Cell Rectangle
                                                     Dim MaxImageWidth As Integer = CellBounds.Width - EdgePadding * 2
@@ -519,7 +520,18 @@ Public Class DataViewer
                                                         End Using
                                                     End If
                                                 Else
-                                                    Using textBrush As New SolidBrush(cellStyle.ForeColor)
+                                                    Dim cellText As String = .Text 'Getting .Text also Sets the .Image based on the Column.DataType
+                                                    Dim patternColor As String = $"""({Join(Colors.ToArray, "|")})"""
+                                                    Dim cellForeColor As Color = cellStyle.ForeColor
+                                                    Dim cellMatch As RegularExpressions.Match = RegularExpressions.Regex.Match(cellText, patternColor, RegularExpressions.RegexOptions.IgnoreCase)
+                                                    Dim changeColor As Boolean = cellMatch.Success
+                                                    If changeColor Then
+                                                        cellText = cellText.Remove(cellMatch.Index, cellMatch.Length)
+                                                        Dim cellColorName As String = .Text.Substring(cellMatch.Index + 1, cellMatch.Length - 2)
+                                                        cellForeColor = Color.FromName(cellColorName)
+                                                    End If
+                                                    e.Graphics.TextRenderingHint = Drawing.Text.TextRenderingHint.AntiAlias
+                                                    Using textBrush As New SolidBrush(cellForeColor)
                                                         e.Graphics.DrawString(cellText,
                                                                               If(MouseOverRow, New Font(cellStyle.Font, FontStyle.Underline), cellStyle.Font),
                                                                               textBrush,
