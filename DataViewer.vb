@@ -329,6 +329,7 @@ Public Class DataViewer
         SetupScrolls()
         If e IsNot Nothing Then
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+            e.Graphics.TextRenderingHint = Drawing.Text.TextRenderingHint.AntiAlias
             e.Graphics.FillRectangle(New SolidBrush(BackColor), ClientRectangle)
             If BackgroundImage IsNot Nothing Then e.Graphics.DrawImage(BackgroundImage, CenterItem(BackgroundImage.Size))
 #Region " DRAW HEADERS "
@@ -530,7 +531,6 @@ Public Class DataViewer
                                                         Dim cellColorName As String = .Text.Substring(cellMatch.Index + 1, cellMatch.Length - 2)
                                                         cellForeColor = Color.FromName(cellColorName)
                                                     End If
-                                                    e.Graphics.TextRenderingHint = Drawing.Text.TextRenderingHint.AntiAlias
                                                     Using textBrush As New SolidBrush(cellForeColor)
                                                         e.Graphics.DrawString(cellText,
                                                                               If(MouseOverRow, New Font(cellStyle.Font, FontStyle.Underline), cellStyle.Font),

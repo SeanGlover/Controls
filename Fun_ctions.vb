@@ -1483,6 +1483,21 @@ Public Module Functions
     End Function
 #End Region
 
+    Public Function CookieToDictionary(stringValue As String) As SpecialDictionary(Of String, String)
+
+        If stringValue Is Nothing Then
+            Return Nothing
+        Else
+            Dim namesValues As New SpecialDictionary(Of String, String)
+            For Each nameValue In Split(stringValue, ";")
+                Dim kvp As String() = Split(nameValue, "=")
+                namesValues.Add(Trim(kvp.First), Trim(kvp.Last))
+            Next
+            Return namesValues
+        End If
+
+    End Function
+
     Public Function Bulletize(Items As String()) As String
 
         Dim List As New List(Of String)
@@ -2037,6 +2052,39 @@ Public Module Functions
         End If
 
     End Sub
+    Public Function Unzip(pathZip As String, folderExtract As String) As TriState
+
+        If If(pathZip, String.Empty).Any And If(folderExtract, String.Empty).Any Then
+            folderExtract = Path.GetFullPath(folderExtract)
+            '// Ensures that the last character on the extraction path is the directory separator char.
+            '// Without this, a malicious zip file could try to traverse outside of the expected extraction path.
+            If Not folderExtract.EndsWith(Path.DirectorySeparatorChar.ToString(InvariantCulture), StringComparison.Ordinal) Then folderExtract += Path.DirectorySeparatorChar
+
+            If File.Exists(pathZip) Then
+                'The source zip file to read MUST exist, but the destination folder can be created
+                If Not Directory.Exists(folderExtract) Then PathEnsureExists(folderExtract)
+                Try
+                    Using archive As ZipArchive = ZipFile.OpenRead(pathZip)
+                        For Each entry As ZipArchiveEntry In archive.Entries
+                            Dim destinationPath As String = Path.GetFullPath(Path.Combine(folderExtract, entry.FullName))
+                            If destinationPath.StartsWith(folderExtract, StringComparison.Ordinal) Then
+                                PathEnsureExists(destinationPath)
+                                entry.ExtractToFile(destinationPath, True) '<=== Overwrites any existing files with same name
+                            End If
+                        Next
+                    End Using
+                    Return TriState.True
+                Catch ex As InvalidDataException
+                    Return TriState.False
+                End Try
+            Else
+                Return TriState.UseDefault
+            End If
+        Else
+            Return TriState.UseDefault
+        End If
+
+    End Function
     Public Function WriteText(FilePathOrName As String, List As List(Of String)) As Boolean
 
         If List Is Nothing Then
@@ -4820,6 +4868,17 @@ Public NotInheritable Class SpecialDictionary(Of TKey, TValue)
                         End Sub)
 
     End Sub
+    Public ReadOnly Property Stringify As String
+        Get
+            Dim keysValues As New List(Of String)
+            For Each kvp In Me
+                Dim stringKey As String = If(kvp.Key Is Nothing, String.Empty, kvp.Key.ToString)
+                Dim stringValue As String = If(kvp.Value Is Nothing, String.Empty, kvp.Value.ToString)
+                keysValues.Add($"Key={stringKey}, Value={stringValue}")
+            Next
+            Return Microsoft.VisualBasic.Join(keysValues.ToArray, vbNewLine)
+        End Get
+    End Property
     Public Overrides Function ToString() As String
 
         Dim keysValues As New List(Of String)

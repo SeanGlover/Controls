@@ -3429,7 +3429,6 @@ Public Class DataTool
                     Message.Show("Can not connect", "Connection is missing " & Join(Items.ToArray, " and "), Prompt.IconOption.Critical, Prompt.StyleOption.Blue)
                 End If
             Else
-                Stop
                 Message.Show("No datasource found or selected", "Please set your connection", Prompt.IconOption.Critical, Prompt.StyleOption.Blue)
             End If
         End With

@@ -905,7 +905,7 @@ End Class
             Else
                 Dim elementsStandard As New List(Of String)
                 PropertyIndices = New SpecialDictionary(Of String, Integer)
-                Language = If(Regex.Match(ConnectionString, "DRIVER=\{(Netezza|NZ)SQL\}", RegexOptions.IgnoreCase).Success, QueryLanguage.Netezza, QueryLanguage.Db2)
+                Language = If(Regex.IsMatch(ConnectionString, "PORT=5480", RegexOptions.IgnoreCase), QueryLanguage.Netezza, QueryLanguage.Db2)
                 Dim stringOptions As String = If(Language = QueryLanguage.Db2,
                     "Driver=;DSN=DSNA1;UID=;PWD=;NEWPWD=;Database=;MODE=;DBALIAS=;ASYNCENABLE=;USESCHEMAQUERIES=;Protocol=;HOSTNAME=;PORT=;QueryTimeout=600;Nickname=",
                     "Driver=;DSN=;UID=;PWD=;NEWPWD=;Database=;Servername=;SchemaName=;Port=;ReadOnly=;SQLBitOneZero=;FastSelect=;LegacySQLTables=;NumericAsChar=;ShowSystemTables=;LoginTimeout=;QueryTimeout=0;DateFormat=;SecurityLevel=;CaCertFile=;Nickname="
