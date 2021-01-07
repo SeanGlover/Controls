@@ -657,6 +657,7 @@ End Class
     End Function
 #End Region
 End Class
+
 Public Class DataTool
     Inherits Control
 #Region " DECLARATIONS "
@@ -1233,9 +1234,7 @@ Public Class DataTool
         .Font = GothicFont,
         .MinimumSize = New Size(20, 20),
         .AutoSize = True}
-        With tlpFileTree
-            .Controls.Add(FileTree, 0, 0)
-        End With
+        tlpFileTree.Controls.Add(FileTree, 0, 0)
         FilesButton.DropDownItems.Add(New ToolStripControlHost(tlpFileTree) With {.AutoSize = True})
         '===============================================================================
         Dim tlpSettings As New TableLayoutPanel With {
@@ -1825,10 +1824,12 @@ Public Class DataTool
 
     End Sub
     Private Sub FileTree_NodeClicked(sender As Object, e As NodeEventArgs) Handles FileTree.NodeClicked
+
         If e.Node Is OpenFileNode Then
             OpenFile.Tag = Nothing
             OpenFile.ShowDialog()
         End If
+
     End Sub
     Private Sub FileTree_NodeFavorited(sender As Object, e As NodeEventArgs) Handles FileTree.NodeFavorited
 
@@ -3147,9 +3148,11 @@ Public Class DataTool
             Dim UnstructuredItems As New List(Of StringData)(From M In Regex.Matches(TextNoComments, ObjectPattern, RegexOptions.IgnoreCase) Select New StringData(M))
             For Each Item In UnstructuredItems
                 REM /// ONLY ADD WORDS THAT EXIST IN MY.SETTINGS.SystemObjects
+                Dim tables = SystemObjects.Items(Item.Value)
+                'If Item.Value = "C.OPENH3" Then Stop
                 TablesObject.AddRange(SystemObjects.Items(Item.Value))
             Next
-
+            'Stop
         Else
             REM /// SCHEMAS SHOWS DEPTH OF DETAIL IN BODY.TEXT...FROM ACTIONS=1, C085365.ACTIONS=2, DSNA1.C085365.ACTIONS=3
             REM /// USE SystemObjectCollection.Items(DataString As String)
@@ -3237,6 +3240,7 @@ Public Class DataTool
                     If UIDs.Any Then _ActiveConnection = UIDs.First
                 End If
             End If
+            'Stop
         End If
 
     End Sub
@@ -4580,7 +4584,7 @@ Public Class DataTool
         If DragNode Is Nothing Then
 
         ElseIf DragNode.TreeViewer Is Tree_Objects Then
-            If Not DragNode Is DropNode Then
+            If DragNode IsNot DropNode Then
 
             End If
         ElseIf DragNode.TreeViewer Is FileTree Then

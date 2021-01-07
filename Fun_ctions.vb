@@ -848,7 +848,7 @@ Public Module Functions
         End If
 
     End Function
-    Public Function RegexMatches(InputString As String, Pattern As String, Options As RegexOptions, Optional ascendingIndex As Boolean = True) As List(Of Match)
+    Public Function RegexMatches(InputString As String, Pattern As String, Optional Options As RegexOptions = RegexOptions.None, Optional ascendingIndex As Boolean = True) As List(Of Match)
 
         If InputString Is Nothing Or Pattern Is Nothing Then
             Return Nothing

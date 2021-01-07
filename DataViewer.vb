@@ -6,69 +6,17 @@ Imports System.ComponentModel
 Imports System.Drawing.Drawing2D
 Imports System.Reflection
 Imports System.Text
-#Region " STRUCTURES + ENUMERATIONS "
-Public Enum MouseRegion
-    Header
-    Grid
-End Enum
-Public Structure MouseInfo
-    Implements IEquatable(Of MouseInfo)
-    Public Property Column As Column
-    Public Property Row As Row
-    Public Property RowBounds As Rectangle
-    Public Property Cell As Cell
-    Public Property CellBounds As Rectangle
-    Public Property Point As Point
-    Public Property SelectPointA As Point
-    Public Property SelectPointB As Point
-    Public Property CurrentAction As Action
-    Public Property CurrentRegion As MouseRegion
-    Public Enum Action
-        None
-        MouseOverHead
-        MouseOverGrid
-        GridSelecting
-        MouseOverHeadEdge
-        HeaderEdgeClicked
-        HeaderClicked
-        ColumnDragging
-        ColumnSizing
-        Filtering
-        CellClicked
-        CellDoubleClicked
-        CellSelecting
-    End Enum
-    Public Overrides Function GetHashCode() As Integer
-        Return Point.GetHashCode
-    End Function
-    Public Overloads Function Equals(other As MouseInfo) As Boolean Implements IEquatable(Of MouseInfo).Equals
-        Return Point = other.Point
-    End Function
-    Public Shared Operator =(Object1 As MouseInfo, Object2 As MouseInfo) As Boolean
-        Return Object1.Equals(Object2)
-    End Operator
-    Public Shared Operator <>(Object1 As MouseInfo, Object2 As MouseInfo) As Boolean
-        Return Not Object1 = Object2
-    End Operator
-    Public Overrides Function Equals(obj As Object) As Boolean
-        If TypeOf obj Is MouseInfo Then
-            Return CType(obj, MouseInfo) = Me
-        Else
-            Return False
-        End If
-    End Function
-End Structure
+
 Public Enum Scaling
     GrowParent
     ShrinkChild
 End Enum
-#End Region
 
 Public Class ViewerEventArgs
     Inherits EventArgs
-    Public ReadOnly Property MouseData As MouseInfo
+    Public ReadOnly Property MouseData As DataViewer.MouseInfo
     Public ReadOnly Property Table As DataTable
-    Public Sub New(MI As MouseInfo)
+    Public Sub New(MI As DataViewer.MouseInfo)
         MouseData = MI
     End Sub
     Public Sub New(Table As DataTable)
@@ -77,6 +25,58 @@ Public Class ViewerEventArgs
 End Class
 Public Class DataViewer
     Inherits Control
+
+    Public Enum MouseRegion
+        Header
+        Grid
+    End Enum
+    Public Structure MouseInfo
+        Implements IEquatable(Of MouseInfo)
+        Public Property Column As Column
+        Public Property Row As Row
+        Public Property RowBounds As Rectangle
+        Public Property Cell As Cell
+        Public Property CellBounds As Rectangle
+        Public Property Point As Point
+        Public Property SelectPointA As Point
+        Public Property SelectPointB As Point
+        Public Property CurrentAction As Action
+        Public Property CurrentRegion As MouseRegion
+        Public Enum Action
+            None
+            MouseOverHead
+            MouseOverGrid
+            GridSelecting
+            MouseOverHeadEdge
+            HeaderEdgeClicked
+            HeaderClicked
+            ColumnDragging
+            ColumnSizing
+            Filtering
+            CellClicked
+            CellDoubleClicked
+            CellSelecting
+        End Enum
+        Public Overrides Function GetHashCode() As Integer
+            Return Point.GetHashCode
+        End Function
+        Public Overloads Function Equals(other As MouseInfo) As Boolean Implements IEquatable(Of MouseInfo).Equals
+            Return Point = other.Point
+        End Function
+        Public Shared Operator =(Object1 As MouseInfo, Object2 As MouseInfo) As Boolean
+            Return Object1.Equals(Object2)
+        End Operator
+        Public Shared Operator <>(Object1 As MouseInfo, Object2 As MouseInfo) As Boolean
+            Return Not Object1 = Object2
+        End Operator
+        Public Overrides Function Equals(obj As Object) As Boolean
+            If TypeOf obj Is MouseInfo Then
+                Return CType(obj, MouseInfo) = Me
+            Else
+                Return False
+            End If
+        End Function
+    End Structure
 
 #Region " GENERAL DECLARATIONS "
     Private WithEvents BindingSource As New BindingSource

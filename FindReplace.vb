@@ -138,14 +138,13 @@ Public Class FindReplace
     Inherits Control
     Private WithEvents FindTimer As New Timer With {.Interval = 500}
     Friend ReadOnly Tree As TreeViewer
-#Region " GENERAL DECLARATIONS "
+
     Private ReadOnly Zones As New Dictionary(Of Zone.Identifier, Zone)
     Private ReadOnly ZonesBounds As New Dictionary(Of Zone, Rectangle)
     Private MouseOverZone As Zone
     Private MouseLocation As Point
     Private Const Spacing As Integer = 3
-#End Region
-#Region " Classes, Structures and Enumerations "
+
     Public Enum ParentType
         None
         GridControl
@@ -158,8 +157,7 @@ Public Class FindReplace
         Strings
         None
     End Enum
-#End Region
-#Region " Constructor "
+
     Public Sub New()
 
         SetStyle(ControlStyles.AllPaintingInWmPaint, True)
@@ -176,8 +174,6 @@ Public Class FindReplace
         MouseOverZone = Zones(Zone.Identifier.None)
 
     End Sub
-#End Region
-#Region " DRAWING "
     Protected Overrides Sub OnPaint(e As PaintEventArgs)
 
         If e Is Nothing Then
@@ -209,7 +205,7 @@ Public Class FindReplace
         End If
 
     End Sub
-#End Region
+
 #Region " PROPERTIES "
     Private ReadOnly Property ParentControl As Control
     Private WithEvents FindControl_ As Control
@@ -699,13 +695,13 @@ Public Class FindReplace
 
         If Control.ModifierKeys = Keys.Control And e.KeyCode = Keys.F Then
             Location = New Point(Parent.ClientSize.Width - Width - Spacing, Spacing)
-            Show()
+            Visible = True
             FindControl.Focus()
         End If
 
     End Sub
 #End Region
-#Region " METHODS "
+
     Private Sub ResizeMe()
 
         Dim Zone_ShowHide As Zone = Zones(Zone.Identifier.ShowHideReplace)
@@ -805,5 +801,5 @@ Public Class FindReplace
         RaiseEvent ZoneClicked(Me, New ZoneEventArgs(MouseOverZone))
         _CurrentMatch = New KeyValuePair(Of Integer, String)(-1, String.Empty)
     End Sub
-#End Region
+
 End Class
