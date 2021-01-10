@@ -941,15 +941,41 @@ Public Module Functions
             Dim gTextSize As SizeF
             Using g As Graphics = Graphics.FromImage(My.Resources.Plus)
                 g.TextRenderingHint = Text.TextRenderingHint.AntiAlias
-                Dim sf As New StringFormat With {
-                    .Trimming = StringTrimming.None}
-                gTextSize = g.MeasureString(textIn, TextFont, RectangleF.Empty.Size, sf)
+                Using sf As New StringFormat With {
+                    .Trimming = StringTrimming.None
+                }
+                    gTextSize = g.MeasureString(textIn, TextFont, RectangleF.Empty.Size, sf)
+                End Using
             End Using
             Return New Size(CInt(adjustmentFactor * gTextSize.Width), CInt(gTextSize.Height))
 
         Else
             Return New Size(0, 0)
 
+        End If
+
+    End Function
+    Public Function MeasureText(textIn As String, textFont As Font, g As Graphics) As Size
+
+        If If(textIn, String.Empty).Any Or textFont Is Nothing Then
+            Dim characterRanges As CharacterRange() = {New CharacterRange(0, textIn.Length), New CharacterRange(0, 0)}
+            Dim width As Single = 1000.0F
+            Dim height As Single = 36.0F
+            Dim layoutRect As RectangleF = New RectangleF(0.0F, 0.0F, width, height)
+            Using sf As StringFormat = New StringFormat With {
+                .FormatFlags = StringFormatFlags.NoWrap,
+                .Alignment = StringAlignment.Near,
+                .LineAlignment = StringAlignment.Center
+                }
+                sf.SetMeasurableCharacterRanges(characterRanges)
+                g.TextRenderingHint = Drawing.Text.TextRenderingHint.AntiAlias
+                Dim stringRegions As Region() = g.MeasureCharacterRanges(textIn, textFont, layoutRect, sf)
+                Dim measureRect1 As RectangleF = stringRegions(0).GetBounds(g)
+                Dim textTangle As Rectangle = Rectangle.Round(measureRect1)
+                Return textTangle.Size
+            End Using
+        Else
+            Return New Size(0, 0)
         End If
 
     End Function

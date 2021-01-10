@@ -281,19 +281,22 @@ Public Class TreeViewer
                                     End If
                                 End If
                                 Dim boundsNode As Rectangle = .Bounds_Text
-                                boundsNode.Inflate(10, 0)
-                                boundsNode.Offset(5, 0)
                                 Using textBrush As New SolidBrush(.ForeColor)
                                     Using sf As New StringFormat With {
                                             .Alignment = StringAlignment.Near,
                                             .LineAlignment = StringAlignment.Center,
-                                            .FormatFlags = StringFormatFlags.NoWrap
+                                            .FormatFlags = StringFormatFlags.NoWrap Or StringFormatFlags.NoClip
                                         }
+                                        ._Bounds_Text.Width = 2 + MeasureText(If(mouseInTip, .TipText, .Text), .Font, e.Graphics).Width + 2
+                                        boundsNode = .Bounds_Text
+                                        boundsNode.Inflate(6, 0)
+                                        boundsNode.Offset(3, 0)
                                         e.Graphics.DrawString(If(mouseInTip, .TipText, .Text),
                                                                   .Font,
                                                                   textBrush,
                                                                   boundsNode,
                                                                   sf)
+                                        boundsNode = .Bounds_Text
                                     End Using
                                 End Using
                                 If Hit?.Node Is Node And .TipText Is Nothing Then
@@ -991,7 +994,7 @@ Public Class TreeViewer
                             Graphics.SmoothingMode = SmoothingMode.AntiAlias
                             Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic
                             Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality
-                            Graphics.TextRenderingHint = Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit
+                            Graphics.TextRenderingHint = Drawing.Text.TextRenderingHint.AntiAliasGridFit
                             Dim fadingRectangle As New Rectangle(0, 0, bmp.Width, bmp.Height)
                             Dim fadeFactor As Integer
                             For P = 0 To shadowDepth - 1
@@ -1679,6 +1682,7 @@ Public NotInheritable Class NodeCollection
                 End If
                 If TreeViewer IsNot Nothing Then
                     .Font = TreeViewer.Font
+                    .TextWidth_Set()
                     TreeViewer.NodeTimer_Start(AddNode)
                 End If
             End With
@@ -2070,11 +2074,31 @@ Public Class Node
     End Property
     Public Property Name As String
     Public Property Tag As Object
-    Friend ReadOnly Property TextWidth As Integer
-    Private Sub TextWidth_Set()
+    Friend Sub TextWidth_Set()
 
-        _TextWidth = MeasureText(If(Text, String.Empty), Font).Width ' TextRenderer.MeasureText().Width
-        _Bounds_Text.Width = 8 + TextWidth + 8
+        'Affected by: 1) Node added ( Treeviewer Property Set ) 2) Text changed 3) Font changed
+        If TreeViewer Is Nothing Then
+            _Bounds_Text.Width = MeasureText(Text, Font).Width
+        Else
+            Using g As Graphics = TreeViewer.CreateGraphics
+                Dim characterRanges As CharacterRange() = {New CharacterRange(0, Text.Length), New CharacterRange(0, 0)}
+                Dim width As Single = 1000.0F
+                Dim height As Single = 36.0F
+                Dim layoutRect As RectangleF = New RectangleF(0.0F, 0.0F, width, height)
+                Using sf As StringFormat = New StringFormat With {
+                    .FormatFlags = StringFormatFlags.NoWrap,
+                    .Alignment = StringAlignment.Near,
+                    .LineAlignment = StringAlignment.Center
+                    }
+                    sf.SetMeasurableCharacterRanges(characterRanges)
+                    g.TextRenderingHint = Drawing.Text.TextRenderingHint.AntiAlias
+                    Dim stringRegions As Region() = g.MeasureCharacterRanges(Text, Font, layoutRect, sf)
+                    Dim measureRect1 As RectangleF = stringRegions(0).GetBounds(g)
+                    Dim textTangle As Rectangle = Rectangle.Round(measureRect1)
+                    _Bounds_Text.Width = textTangle.Width
+                End Using
+            End Using
+        End If
         RequiresRepaint()
 
     End Sub 'Only changes to Font & Text affect the width
