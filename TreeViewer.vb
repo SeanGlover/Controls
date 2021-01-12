@@ -280,24 +280,27 @@ Public Class TreeViewer
                                         End Using
                                     End If
                                 End If
+
+                                ._Bounds_Text.Width = 2 + MeasureText(If(mouseInTip, .TipText, .Text), .Font, e.Graphics).Width + 2
                                 Dim boundsNode As Rectangle = .Bounds_Text
-                                Using textBrush As New SolidBrush(.ForeColor)
-                                    Using sf As New StringFormat With {
+                                Using sf As New StringFormat With {
                                             .Alignment = StringAlignment.Near,
                                             .LineAlignment = StringAlignment.Center,
                                             .FormatFlags = StringFormatFlags.NoWrap Or StringFormatFlags.NoClip
                                         }
-                                        ._Bounds_Text.Width = 2 + MeasureText(If(mouseInTip, .TipText, .Text), .Font, e.Graphics).Width + 2
-                                        boundsNode = .Bounds_Text
-                                        boundsNode.Inflate(6, 0)
-                                        boundsNode.Offset(3, 0)
-                                        e.Graphics.DrawString(If(mouseInTip, .TipText, .Text),
-                                                                  .Font,
-                                                                  textBrush,
-                                                                  boundsNode,
-                                                                  sf)
-                                        boundsNode = .Bounds_Text
+                                    boundsNode.Inflate(6, 0)
+                                    boundsNode.Offset(3, 0)
+                                    Using backBrush As New SolidBrush(.BackColor)
+                                        e.Graphics.FillRectangle(backBrush, boundsNode)
                                     End Using
+                                    Using textBrush As New SolidBrush(.ForeColor)
+                                        e.Graphics.DrawString(If(mouseInTip, .TipText, .Text),
+                                                                               .Font,
+                                                                               textBrush,
+                                                                               boundsNode,
+                                                                               sf)
+                                    End Using
+                                    boundsNode = .Bounds_Text
                                 End Using
                                 If Hit?.Node Is Node And .TipText Is Nothing Then
                                     Using SemiTransparentBrush As New SolidBrush(Color.FromArgb(128, MouseOverColor))
@@ -589,8 +592,9 @@ Public Class TreeViewer
 #End Region
 
     End Sub
-    Private Sub EditNodeText_ValueSubmitted() Handles IC_NodeEdit.ValueSubmitted
+    Private Sub NodeEdit_Submitted() Handles IC_NodeEdit.ValueSubmitted
 
+        Karen.Unsubscribe()
         If SelectedNodes.Count = 1 Then
             Dim editNode As Node = SelectedNodes.First
             If editNode.CanEdit And IC_NodeEdit.Text <> editNode.Text Then
@@ -603,23 +607,13 @@ Public Class TreeViewer
             End If
             TSMI_NodeEditing.HideDropDown()
         End If
-        Karen.Unsubscribe()
 
     End Sub
-    Private Sub NodeAddRequested() Handles IC_NodeAdd.ValueSubmitted, IC_NodeAdd.ItemSelected
+    Private Sub NodeAdd_Submitted() Handles IC_NodeAdd.ValueSubmitted, IC_NodeAdd.ItemSelected
 
         Karen.Unsubscribe()
-
-        Dim TheNodes As NodeCollection = Nothing
-        If Not SelectedNodes.Any Then
-            TheNodes = Nodes
-
-        ElseIf SelectedNodes.Count = 1 Then
-            TheNodes = SelectedNodes.First.Nodes
-
-        End If
-
-        If Not IsNothing(TheNodes) Then
+        Dim nodesAdd As NodeCollection = If(SelectedNodes.Count = 1, SelectedNodes.First.Nodes, Nodes)
+        If nodesAdd IsNot Nothing Then
             Dim Items As New List(Of Node)({New Node With {.Text = IC_NodeAdd.Text, .BackColor = Color.Lavender}})
             Items.AddRange(From I In IC_NodeAdd.Items Where Not I.Text = IC_NodeAdd.Text And I.Checked Select New Node With {.Text = I.Text, .BackColor = Color.Lavender})
             If Items.Count = 1 Then
@@ -629,20 +623,23 @@ Public Class TreeViewer
                     Item.Dispose()
                 Else
                     REM /// BEFORE ADDING CanS FOR SETTING TO NOTHING ∴ CANCELLING
-                    TheNodes.Add(Item)
+                    nodesAdd.Add(Item)
                     RaiseEvent NodeAfterAdded(Me, New NodeEventArgs(Item, IC_NodeAdd.Text))
                 End If
             Else
                 REM /// ADDING A RANGE DOES NOT Can FOR TESTING BEFORE ADD
-                TheNodes.AddRange(Items)
+                nodesAdd.AddRange(Items)
                 RaiseEvent NodeAfterAdded(Me, New NodeEventArgs(Items))
             End If
             HideOptions()
+        Else
+
         End If
 
     End Sub
-    Private Sub NodeRemoveRequested() Handles IC_NodeRemove.Click
+    Private Sub NodeRemove_Submitted() Handles IC_NodeRemove.Click
 
+        Karen.Unsubscribe()
         Dim TheNodes As NodeCollection '= TryCast(SelectedNodes, Children)
         If SelectedNodes.Any Then
             For Each Node As Node In SelectedNodes
@@ -1529,6 +1526,9 @@ Public Class TreeViewer
 
     End Sub
 #End Region
+    Public Overrides Function ToString() As String
+        Return $"{If(Name, "Treeviewer")} [{Nodes.Count}]"
+    End Function
 End Class
 
 REM //////////////// NODE COLLECTION \\\\\\\\\\\\\\\\
@@ -1740,7 +1740,7 @@ Public NotInheritable Class NodeCollection
                 MyBase.Insert(Index, InsertNode)
             Else
                 If TreeViewer.Nodes.All.Contains(InsertNode) Then
-                    'Throw New ArgumentException("This node already exists in the Treeviewer. Try Removing the Node")
+                    'Throw New ArgumentException("This node already exists In the Treeviewer. Try Removing the Node")
 
                 Else
                     MyBase.Insert(Index, InsertNode)
@@ -1946,7 +1946,7 @@ Public Class Node
         Above
         Below
     End Enum
-#Region " Properties and Fields "
+#Region " Properties And Fields "
     Friend _TreeViewer As TreeViewer
     Public ReadOnly Property TreeViewer As TreeViewer
         Get
@@ -2079,7 +2079,8 @@ Public Class Node
         'Affected by: 1) Node added ( Treeviewer Property Set ) 2) Text changed 3) Font changed
         If TreeViewer Is Nothing Then
             _Bounds_Text.Width = MeasureText(Text, Font).Width
-        Else
+
+        ElseIf If(text, String.Empty).Any Then
             Using g As Graphics = TreeViewer.CreateGraphics
                 Dim characterRanges As CharacterRange() = {New CharacterRange(0, Text.Length), New CharacterRange(0, 0)}
                 Dim width As Single = 1000.0F
@@ -2098,6 +2099,8 @@ Public Class Node
                     _Bounds_Text.Width = textTangle.Width
                 End Using
             End Using
+        Else
+            _Bounds_Text.Width = 0
         End If
         RequiresRepaint()
 

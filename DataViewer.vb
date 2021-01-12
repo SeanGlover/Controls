@@ -203,7 +203,7 @@ Public Class DataViewer
             If subPropertyName.StartsWith(startsWith, StringComparison.InvariantCultureIgnoreCase) Then
                 properties.Add(viewerProperty)
                 subPropertyName = subPropertyName.Remove(0, startsWith.Length)
-                Dim colorProperty As String() = System.Text.RegularExpressions.Regex.Split(subPropertyName, "(?=ForeColor|BackColor|ShadeColor)", System.Text.RegularExpressions.RegexOptions.None)
+                Dim colorProperty As String() = RegularExpressions.Regex.Split(subPropertyName, "(?=ForeColor|BackColor|ShadeColor)", System.Text.RegularExpressions.RegexOptions.None)
                 Dim colorGroupKey As String = colorProperty.First
                 Dim colorGroupValue As String = colorProperty.Last
                 If Not objectProperties.ContainsKey(colorGroupKey) Then objectProperties.Add(colorGroupKey, New List(Of System.Configuration.SettingsPropertyValue))
@@ -984,8 +984,15 @@ Public Class DataViewer
                         Invalidate()
 #End Region
                     Else
+                        '// Determine .Column here - as it also affects if user is in Grid region.
                         Dim lastMouseColumn As Column = .Column
+                        Dim mouseColumns = VisibleColumns.Where(Function(vc) vc.Value.Contains(New Point(newPoint.X, 0))).Select(Function(c) c.Key)
+                        If mouseColumns.Any Then .Column = mouseColumns.First
+
                         Dim lastMouseRow As Row = .Row
+                        Dim MouseRows = VisibleRows.Where(Function(r) e.Y >= r.Value.Top And e.Y <= r.Value.Bottom)
+                        Dim lastMouseCell As Cell = .Cell
+
                         Dim Redraw As Boolean = False
                         If .CurrentRegion = MouseRegion.Header Then
 #Region " HEADER REGION "
@@ -1000,8 +1007,6 @@ Public Class DataViewer
                                 Cursor = Cursors.VSplit
 
                             Else
-                                Dim MouseColumns = VisibleColumns.Where(Function(vc) vc.Value.Contains(New Point(newPoint.X, 0))).Select(Function(c) c.Key)
-                                If MouseColumns.Any Then .Column = MouseColumns.First
                                 .CurrentAction = MouseInfo.Action.MouseOverHead
                                 Cursor = Cursors.Default
                             End If
@@ -1009,8 +1014,6 @@ Public Class DataViewer
                         Else
 #Region " GRID REGION "
                             Cursor = Cursors.Default
-                            Dim MouseRows = VisibleRows.Where(Function(r) e.Y >= r.Value.Top And e.Y <= r.Value.Bottom)
-                            Dim lastMouseCell As Cell = .Cell
                             If MouseRows.Any Then
                                 .Row = MouseRows.First.Key
                                 .RowBounds = VisibleRows(.Row)
@@ -1454,7 +1457,7 @@ Public Class DataViewer
     Private Sub CellStyleProperty_SelectionChanged(sender As Object, e As ImageComboEventArgs)
 
         Dim propertyCombo As ImageCombo = DirectCast(sender, ImageCombo)
-        Dim propertyColor As Color = DirectCast(propertyCombo.SelectedItem.Tag, Color)
+        Dim propertyColor As Color = propertyCombo.SelectedColor
         Dim propertySetting As System.Configuration.SettingsPropertyValue = DirectCast(propertyCombo.Tag, System.Configuration.SettingsPropertyValue)
 
         Select Case True
