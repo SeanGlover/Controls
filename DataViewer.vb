@@ -137,6 +137,7 @@ Public Class DataViewer
     Private ControlKeyDown As Boolean
 #End Region
 #Region " EVENTS "
+    Public Event ColumnSizing(sender As Object, e As ViewerEventArgs)
     Public Event ColumnsSized(sender As Object, e As ViewerEventArgs)
     Public Event RowsLoading(sender As Object, e As ViewerEventArgs)
     Public Event RowsLoaded(sender As Object, e As ViewerEventArgs)
@@ -465,10 +466,7 @@ Public Class DataViewer
                                         With rowCell
                                             Dim cellValue As Object = .Value
                                             Dim drawCellAsSelected As Boolean = If(FullRowSelect, Row.Selected, .Selected)
-                                            Dim cellStyle = If(drawCellAsSelected, If(Row.SelectionStyle.Theme = Theme.None And Row.SelectionStyle.BackImage Is Nothing, Rows.SelectionRowStyle, Row.SelectionStyle), rowStyle)
-                                            'If drawCellAsSelected And cellStyle.Theme = Theme.DarkRed Then Stop
-                                            'If Row.Selected And rowCell.Text = "055224" And Row.Cells.Item("CUSTNO").ValueWhole = 1338968 Then Stop
-                                            'If Row.Tag?.ToString = "Mky" Then Stop
+                                            Dim cellStyle = If(.StyleSet, .Style, If(drawCellAsSelected, If(Row.SelectionStyle.Theme = Theme.None And Row.SelectionStyle.BackImage Is Nothing, Rows.SelectionRowStyle, Row.SelectionStyle), rowStyle))
                                             If MouseData.CurrentAction = MouseInfo.Action.GridSelecting Then .Selected = drawBounds.IntersectsWith(CellBounds)
 #Region " C E L L   B A C K G R O U N D "
                                             If drawCellAsSelected Then   'Already drew the entire row before "DRAW CELLS" Region
@@ -498,13 +496,12 @@ Public Class DataViewer
                                                 '///////////  KNOWN ISSUES
                                                 '///////////  CHANGING A NON-IMAGE VALUE TO AN IMAGE WILL SWITCH THE COLUMN FORMAT TO IMAGES WHICH THROWS AN ERROR @ Dim ImageWidth As Integer
                                                 '///////////  ALSO FILLING A DATATABLE WITH IMAGES BEFORE SETTING TO THE DATAVIEWER.DATASOURCE WON'T SET THE ROWHEIGHT CORRECTLY
-
                                                 If .Column.Format.Key = Column.TypeGroup.Images Or .Column.Format.Key = Column.TypeGroup.Booleans Then
                                                     Dim EdgePadding As Integer = 1 'all sides to ensure Image doesn't touch the edge of the Cell Rectangle
                                                     Dim MaxImageWidth As Integer = CellBounds.Width - EdgePadding * 2
                                                     Dim MaxImageHeight As Integer = CellBounds.Height - EdgePadding * 2
-                                                    Dim ImageWidth As Integer = { .ValueImage.Width, MaxImageWidth}.Min
-                                                    Dim ImageHeight As Integer = { .ValueImage.Height, MaxImageHeight}.Min
+                                                    Dim ImageWidth As Integer = {If(.ValueImage Is Nothing, 0, .ValueImage.Width), MaxImageWidth}.Min
+                                                    Dim ImageHeight As Integer = {If(.ValueImage Is Nothing, 0, .ValueImage.Height), MaxImageHeight}.Min
                                                     Dim xOffset As Integer = CInt((CellBounds.Width - ImageWidth) / 2)
                                                     Dim yOffset As Integer = CInt((CellBounds.Height - ImageHeight) / 2)
                                                     Dim imageBounds As New Rectangle(CellBounds.X + xOffset, CellBounds.Y + yOffset, ImageWidth, ImageHeight)
@@ -513,7 +510,7 @@ Public Class DataViewer
                                                         Dim imageName As String = If(.ValueBoolean, String.Empty, "un") & "checked" & If(useWhite, "White", "Black")
                                                         e.Graphics.DrawImage(Base64ToImage(CheckImages(imageName)), imageBounds)
                                                     Else
-                                                        e.Graphics.DrawImage(.ValueImage, imageBounds)
+                                                        If .ValueImage IsNot Nothing Then e.Graphics.DrawImage(.ValueImage, imageBounds)
                                                     End If
                                                     If MouseOverRow Then
                                                         Using yellowBrush As New SolidBrush(Color.FromArgb(128, Color.Yellow))
@@ -733,6 +730,8 @@ Public Class DataViewer
     End Property
     Public ReadOnly Property MouseData As New MouseInfo
     Public Property FullRowSelect As Boolean
+    Public Property UserCanStyleHeaders As Boolean = True
+    Public Property UserCanStyleRows As Boolean = True
     Public ReadOnly Property LoadTime As TimeSpan
     Private WithEvents Table_ As DataTable
     Public ReadOnly Property Table As DataTable
@@ -951,6 +950,7 @@ Public Class DataViewer
                         .CurrentAction = MouseInfo.Action.ColumnSizing
                         If e.Button = MouseButtons.Left Then
                             RaiseEvent Alert(True, New AlertEventArgs(If(.Column Is Nothing, "No column", .Column.Name)))
+                            RaiseEvent ColumnSizing(Me, New ViewerEventArgs(MouseData))
                             Dim Delta = e.X - .Point.X
                             With .Column
                                 .Width += Delta
@@ -1075,11 +1075,7 @@ Public Class DataViewer
         'MouseOver feeds MouseInfo.Action
 
         If e IsNot Nothing Then
-            With HeaderOptions
-                .Tag = Nothing
-                .AutoClose = True
-                .Hide()
-            End With
+            HideStyleOptions()
             With _MouseData
                 Dim clickPoint As Point = e.Location
                 Dim mouseColumns = VisibleColumns.Where(Function(vc) vc.Value.Contains(New Point(clickPoint.X, 0))).Select(Function(c) c.Key) 'Use for all EXCEPT Edge ( left button )
@@ -1168,12 +1164,14 @@ Public Class DataViewer
                             End If
 #End Region
                             Dim relativePoint As Point = If(.Column Is Nothing, e.Location, New Point(.Column.HeadBounds.Right - HeaderOptions.Width, HeaderHeight))
-                            With HeaderOptions
-                                .AutoClose = False
-                                .Tag = _MouseData.Column
-                                .Location = PointToScreen(relativePoint)
-                            End With
-                            headerProperties.ShowDropDown()
+                            If UserCanStyleHeaders Then
+                                With HeaderOptions
+                                    .AutoClose = False
+                                    .Tag = _MouseData.Column
+                                    .Location = PointToScreen(relativePoint)
+                                End With
+                                headerProperties.ShowDropDown()
+                            End If
                         End If
 #End Region
                     End If
@@ -1185,11 +1183,7 @@ Public Class DataViewer
                     .Column = If(mouseColumns.Any, mouseColumns.First, Nothing) 'Ensure .Column has current value
                     .Cell = If(.Row Is Nothing Or .Column Is Nothing, Nothing, .Row.Cells(.Column.Name))
                     If e.Button = MouseButtons.Left Then
-                        With GridOptions
-                            .Tag = Nothing
-                            .AutoClose = True
-                            .Hide()
-                        End With
+                        HideStyleOptions()
 #Region " L E F T - Cell / Row selection "
                         If .Cell Is Nothing Then
                             .CurrentAction = MouseInfo.Action.None
@@ -1214,6 +1208,8 @@ Public Class DataViewer
                     ElseIf e.Button = MouseButtons.Right Then
 #Region " R I G H T - Show Cell properties "
                         GridOptions.AutoClose = False
+                        Dim gridProperties As ToolStripItem = GridOptions.Items("properties")
+                        If gridProperties IsNot Nothing Then gridProperties.Visible = UserCanStyleRows
                         Dim relativePoint As Point = If(.Cell Is Nothing, e.Location, New Point(.CellBounds.Right, .CellBounds.Top))
                         GridOptions.Show(PointToScreen(relativePoint))
 #End Region
@@ -1533,27 +1529,14 @@ Public Class DataViewer
         End With
     End Sub
     Protected Overrides Sub OnVisibleChanged(e As EventArgs)
-        With HeaderOptions
-            .Tag = Nothing
-            .AutoClose = True
-            .Hide()
-        End With
-        With GridOptions
-            .Tag = Nothing
-            .AutoClose = True
-            .Hide()
-        End With
+        HideStyleOptions()
         MyBase.OnVisibleChanged(e)
     End Sub
 
     '■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ T O   F I L E
     Public Sub Export(filePath As String, Optional MessageWhenComplete As Boolean = False)
 
-        With GridOptions
-            .Tag = Nothing
-            .AutoClose = True
-            .Hide()
-        End With
+        HideStyleOptions()
         filePath = If(filePath, Desktop & "\NoName.xlsx")
         DataTableToExcel(Table:=Table,
                          ExcelPath:=filePath,
@@ -1608,6 +1591,20 @@ Public Class DataViewer
     End Sub
     Private Sub FileSaved(sender As Object, e As AlertEventArgs)
         RaiseEvent Alert(sender, e)
+    End Sub
+    Public Sub HideStyleOptions()
+
+        With HeaderOptions
+            .Tag = Nothing
+            .AutoClose = True
+            .Hide()
+        End With
+        With GridOptions
+            .Tag = Nothing
+            .AutoClose = True
+            .Hide()
+        End With
+
     End Sub
 #End Region
 End Class
@@ -2841,15 +2838,22 @@ End Class
     Public Overrides Function ToString() As String
         Return Join({Name, Text, DataType.ToString}, ", ")
     End Function
-    Public ReadOnly Property Style As CellStyle
+    Private Style_ As CellStyle
+    Public Property Style As CellStyle
         Get
-            If Parent.Parent Is Nothing Then
-                Return Nothing
-            Else
-                Return If(Selected, Parent.Parent.SelectionRowStyle, If(Index Mod 2 = 0, Parent.Parent.RowStyle, Parent.Parent.AlternatingRowStyle))
+            If Style_ Is Nothing And Not Parent.Parent Is Nothing Then
+                Style_ = If(Selected, Parent.Parent.SelectionRowStyle, If(Parent.Index Mod 2 = 0, Parent.Parent.RowStyle, Parent.Parent.AlternatingRowStyle))
             End If
+            Return Style_
         End Get
+        Set(value As CellStyle)
+            If value IsNot Nothing Then
+                Style_ = value
+                _StyleSet = True
+            End If
+        End Set
     End Property
+    Friend ReadOnly Property StyleSet As Boolean
 #Region "IDisposable Support"
     Private DisposedValue As Boolean ' To detect redundant calls IDisposable
     Protected Overridable Sub Dispose(disposing As Boolean)
@@ -2858,6 +2862,7 @@ End Class
                 ' TODO: dispose managed state (managed objects).
                 _Parent.Dispose()
                 _ValueImage?.Dispose()
+                Style_.Dispose()
 
             End If
             ' TODO: free unmanaged resources (unmanaged objects) and override Finalize() below.
