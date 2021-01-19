@@ -189,10 +189,8 @@ Public Class DataViewer
             HeaderOptions.Items.Add(FontsColorsToTSMI(MouseRegion.Header))
             GridOptions.Items.Add(FontsColorsToTSMI(MouseRegion.Grid))
         End If
-        Colors.AddRange(ColorNames)
 
     End Sub
-    Private ReadOnly Colors As New List(Of String)
     Private Function FontsColorsToTSMI(viewerRegion As MouseRegion) As ToolStripMenuItem
 
         Dim viewerProperties = GroupedProperties("grid")
@@ -518,17 +516,13 @@ Public Class DataViewer
                                                         End Using
                                                     End If
                                                 Else
-                                                    Dim cellText As String = .Text 'Getting .Text also Sets the .Image based on the Column.DataType
-                                                    Dim patternColor As String = $"""({Join(Colors.ToArray, "|")})"""
-                                                    Dim cellForeColor As Color = cellStyle.ForeColor
-                                                    Dim cellMatch As RegularExpressions.Match = RegularExpressions.Regex.Match(cellText, patternColor, RegularExpressions.RegexOptions.IgnoreCase)
-                                                    Dim changeColor As Boolean = cellMatch.Success
-                                                    If changeColor Then
-                                                        cellText = cellText.Remove(cellMatch.Index, cellMatch.Length)
-                                                        Dim cellColorName As String = .Text.Substring(cellMatch.Index + 1, cellMatch.Length - 2)
-                                                        cellForeColor = Color.FromName(cellColorName)
+                                                    If .StyleSet Then
+                                                        Using backBrush As New SolidBrush(.Style.BackColor)
+                                                            e.Graphics.FillRectangle(backBrush, CellBounds)
+                                                        End Using
                                                     End If
-                                                    Using textBrush As New SolidBrush(cellForeColor)
+                                                    Dim cellText As String = .Text 'Getting .Text also Sets the .Image based on the Column.DataType
+                                                    Using textBrush As New SolidBrush(cellStyle.ForeColor)
                                                         e.Graphics.DrawString(cellText,
                                                                               If(MouseOverRow, New Font(cellStyle.Font, FontStyle.Underline), cellStyle.Font),
                                                                               textBrush,
@@ -2674,10 +2668,23 @@ End Class
     Implements IDisposable
     Private IsNew As Boolean = True
     Public Sub New(cellParent As Row, columnName As String, columnIndex As Integer, cellValue As Object)
+
         Parent = cellParent
         Name = columnName
         Index = columnIndex
-        Value = If(IsDBNull(cellValue), Nothing, cellValue)
+        If IsDBNull(cellValue) Or cellValue Is Nothing Then
+            Value = Nothing
+        Else
+            Dim valueString As String = cellValue.ToString
+            Dim cssMatch As RegularExpressions.Match = RegularExpressions.Regex.Match(valueString, "{([^:]{1,}:[^;]{1,};){1,} {0,}}")
+            If cssMatch.Success Then
+                Value = cellValue.ToString.Remove(cssMatch.Index, cssMatch.Length)
+                Style = New CellStyle(cssMatch.Value)
+            Else
+                Value = cellValue
+            End If
+        End If
+
     End Sub
     Public ReadOnly Property Parent As Row
     Friend ReadOnly Property DataType As Type
@@ -2916,6 +2923,79 @@ End Class
     End Enum
     Public Sub New()
         Height = Padding.Top + CInt(Font.GetHeight) + Padding.Bottom
+    End Sub
+    Public Sub New(css As String)
+
+        Dim cssMatch As RegularExpressions.Match = RegularExpressions.Regex.Match(If(css, String.Empty), "{([^:]{1,}:[^;]{1,};){1,} {0,}}")
+        If cssMatch.Success Then
+            Dim InstalledFontCollection = New Text.InstalledFontCollection()
+            Dim fontFamilies As New List(Of FontFamily)(InstalledFontCollection.Families)
+            Dim fontProperties As New Dictionary(Of String, Object) From {
+                    {"font-style", Font.Style},
+                    {"font-size", Font.Size},
+                    {"font-family", Font.FontFamily.Name}
+                }
+            Dim fontFamilyModified As Boolean
+            Dim fontSizeModified As Boolean
+            Dim fontStyleModified As Boolean
+
+            Dim propertiesString As String = RegularExpressions.Regex.Replace(cssMatch.Value, "[{} ]", String.Empty)
+
+            For Each propertyString In Split(propertiesString, ";")
+                Dim kvp As String() = Split(propertyString, ":")
+                Dim key As String = kvp.First.ToLowerInvariant
+                Dim value = kvp.Last.ToLowerInvariant
+                Select Case key
+                    Case "color"
+                        Dim colorFromValue As Color = Color.FromName(value)
+                        If colorFromValue.IsKnownColor Then _ForeColor = colorFromValue
+
+                    Case "background-color"
+                        Dim colorFromValue As Color = Color.FromName(value)
+                        If colorFromValue.IsKnownColor Then
+                            _BackColor = colorFromValue
+                            _ShadeColor = colorFromValue
+                        End If
+
+                    Case "font-family"
+                        fontFamilies.ForEach(Sub(family)
+                                                 If Replace(family.Name.ToLowerInvariant, " ", String.Empty) = value Then
+                                                     fontProperties(key) = family.Name
+                                                     fontFamilyModified = True
+                                                 End If
+                                             End Sub)
+
+                    Case "font-size"
+                        If value.Contains("em") Then
+                            value = Replace(value, "em", String.Empty)
+                            Dim fontSize As Single
+                            fontSizeModified = Single.TryParse(value, fontSize)
+                            If fontSizeModified Then fontProperties(key) = CSng(fontSize * 11.955168)
+
+                        ElseIf value.Contains("px") Then
+                            value = Replace(value, "px", String.Empty)
+                            Dim fontSize As Single
+                            fontSizeModified = Single.TryParse(value, fontSize)
+                            If fontSizeModified Then fontProperties(key) = fontSize
+
+                        End If
+
+                    Case "font-style", "font-weight"
+                        key = "font-style"
+                        'font-style: normal;font-style: italic;font-style: oblique
+                        If value = "normal" Then fontProperties(key) = FontStyle.Regular
+                        If value = "italic" Then fontProperties(key) = FontStyle.Italic
+                        If value = "bold" Then fontProperties(key) = FontStyle.Bold
+                        fontStyleModified = DirectCast(fontProperties(key), FontStyle) <> Font.Style
+
+                End Select
+            Next
+            If fontFamilyModified Or fontSizeModified Or fontStyleModified Then
+                _Font = New Font(fontProperties("font-family").ToString, DirectCast(fontProperties("font-size"), Single), DirectCast(fontProperties("font-style"), FontStyle))
+            End If
+        End If
+        Height = Padding.Top + CInt(Font.GetHeight) + Padding.Bottom
+
     End Sub
 
     Private _Font As New Font("Century Gothic", 9)

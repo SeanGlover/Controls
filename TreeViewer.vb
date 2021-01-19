@@ -63,43 +63,31 @@ Public Class TreeViewer
             End If
         End Function
     End Class
+    Private Structure DragInfo
+        Friend CursorSize As Size
+        Friend MousePoints As List(Of Point)
+        Friend IsDragging As Boolean
+        Friend DragNode As Node
+        Friend DropHighlightNode As Node
+    End Structure
 
-    Private WithEvents Karen As New Hooker
     Public WithEvents VScroll As New VScrollBar
     Public WithEvents HScroll As New HScrollBar
     Private WithEvents NodeTimer As New Timer With {.Interval = 200}
     Private WithEvents CursorTimer As New Timer With {.Interval = 300}
     Private WithEvents ScrollTimer As New Timer With {.Interval = 50}
 #Region " TREEVIEW GLOBAL FUNCTIONS (CMS) "
-    Private WithEvents TSDD_Options As New ToolStripDropDown With {.AutoClose = False, .Padding = New Padding(0), .DropShadowEnabled = True, .BackColor = Color.Transparent}
-    Private WithEvents TSMI_ExpandCollapseStyles As New ToolStripMenuItem With {.Text = "Node ± Styles"}
-    Private WithEvents TLP_NodeStyleButtons As New TableLayoutPanel With {.Size = New Size(36, 36), .CellBorderStyle = TableLayoutPanelCellBorderStyle.Inset}
-    Private WithEvents TSMI_ExpandCollapseAll As New ToolStripMenuItem With {.Text = "Expand All"}
-
-    Private WithEvents TSMI_Checkboxes As New ToolStripMenuItem With {.Text = "Checkboxes", .Checked = False, .CheckOnClick = True, .ImageScaling = ToolStripItemImageScaling.None}
-    Private WithEvents TSMI_CheckUncheckAll As New ToolStripMenuItem With {.Text = "Check All", .Checked = False, .CheckOnClick = True, .ImageScaling = ToolStripItemImageScaling.None}
-
-    Private WithEvents TSMI_MultiSelect As New ToolStripMenuItem With {.Text = "Multi-Select", .Checked = False, .CheckOnClick = True}
-    Private WithEvents TSMI_SelectAll As New ToolStripMenuItem With {.Text = "Select All"}
-    Private WithEvents TSMI_SelectNone As New ToolStripMenuItem With {.Text = "Select None"}
-
-    Private WithEvents TSMI_Sort As New ToolStripMenuItem With {.Text = "Click to Sort Ascending"}
-
-    Private WithEvents TSMI_NodeEditing As New ToolStripMenuItem With {.Text = "Node Editing Options"}
-    Private ReadOnly TLP_NodePermissions As New TableLayoutPanel With {.CellBorderStyle = TableLayoutPanelCellBorderStyle.None,
-        .ColumnCount = 1,
-        .RowCount = 3,
-        .Size = New Size(200, 90),
-        .Margin = New Padding(0)}
-    Private WithEvents IC_NodeAdd As New ImageCombo With {.Dock = DockStyle.Fill,
+    Private WithEvents IC_NodeAdd As New ImageCombo With {
+        .Dock = DockStyle.Fill,
         .Margin = New Padding(0),
-        .HintText = "Add Child Node"}
-    Private WithEvents IC_NodeRemove As New ImageCombo With {.Dock = DockStyle.Fill,
-        .Text = "Remove Node",
+        .HintText = "Add Child Node"
+    }
+    Private WithEvents IC_NodeEdit As New ImageCombo With {
+        .Size = New Size(32, 100),
         .Margin = New Padding(0),
-        .Mode = ImageComboMode.ColorPicker}
-    Private WithEvents IC_NodeEdit As New ImageCombo With {.Dock = DockStyle.Fill,
-        .Margin = New Padding(0)}
+        .Visible = False,
+        .Image = My.Resources.recycle
+    }
 #End Region
     Private Const CheckHeight As Integer = 14
     Private Const VScrollWidth As Integer = 14
@@ -124,565 +112,17 @@ Public Class TreeViewer
         End Get
         Set(value As CheckStyle)
             CheckboxStyle_ = value
+            Dim nodeStyleCheck = Nodes.Item("Options").Nodes.Find(Function(n) n.Name = "checkStyle")
+            nodeStyleCheck.Image = If(value = CheckStyle.Check, My.Resources.checkbox, My.Resources.slideStateOn)
             RefreshNodesBounds_Lines(Nodes)
         End Set
     End Property
-    Private Structure DragInfo
-        Friend MousePoints As List(Of Point)
-        Friend IsDragging As Boolean
-        Friend DragNode As Node
-        Friend DropHighlightNode As Node
-    End Structure
-#End Region
-    Public Sub New()
-
-        SetStyle(ControlStyles.AllPaintingInWmPaint, True)
-        SetStyle(ControlStyles.ContainerControl, True)
-        SetStyle(ControlStyles.DoubleBuffer, True)
-        SetStyle(ControlStyles.UserPaint, True)
-        SetStyle(ControlStyles.ResizeRedraw, True)
-        SetStyle(ControlStyles.Selectable, True)
-        SetStyle(ControlStyles.Opaque, True)
-        SetStyle(ControlStyles.UserMouse, True)
-
-        BackColor = Color.GhostWhite
-#Region " GLOBAL OPTIONS SET-UP "
-        With TSDD_Options
-            .Renderer = New CustomRenderer
-#Region " NODE EDITING "
-            With TSMI_NodeEditing
-                .DisplayStyle = ToolStripItemDisplayStyle.ImageAndText
-                .ImageScaling = ToolStripItemImageScaling.None
-                .Image = Base64ToImage(EditString)
-                With TLP_NodePermissions
-                    .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 200})
-                    .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 28})
-                    .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 28})
-                    .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 28})
-                    .Controls.Add(IC_NodeEdit, 0, 0)
-                    .Controls.Add(IC_NodeAdd, 0, 1)
-                    .Controls.Add(IC_NodeRemove, 0, 2)
-                End With
-                TLP.SetSize(TLP_NodePermissions)
-                .DropDownItems.Add(New ToolStripControlHost(TLP_NodePermissions))
-                IC_NodeEdit.Image = Base64ToImage(EditString)
-                IC_NodeEdit.DropDown.SelectionColor = Color.Transparent
-                IC_NodeAdd.Image = Base64ToImage(AddString)
-                IC_NodeAdd.DropDown.SelectionColor = Color.Transparent
-                IC_NodeRemove.Image = Base64ToImage(RemoveString)
-            End With
-            .Items.Add(TSMI_NodeEditing)
-#End Region
-#Region " SORTING "
-            .Items.Add(TSMI_Sort)
-            TSMI_Sort.Image = Base64ToImage(SortString)
-#End Region
-#Region " EXPAND/COLLAPSE STYLES "
-            With TSMI_ExpandCollapseStyles
-                .Image = Base64ToImage(DefaultCollapsed)
-                Dim arrow As ToolStripItem = .DropDownItems.Add("Arrow - Up/Down", Base64ToImage(ArrowExpanded), AddressOf OptionsClicked)
-                arrow.Tag = ExpandStyle.Arrow
-                Dim book As ToolStripItem = .DropDownItems.Add("Book - Open/Closed", Base64ToImage(BookOpen, True), AddressOf OptionsClicked)
-                book.Tag = ExpandStyle.Book
-                Dim normal As ToolStripItem = .DropDownItems.Add("Plus - Minus", Base64ToImage(DefaultCollapsed), AddressOf OptionsClicked)
-                normal.Tag = ExpandStyle.PlusMinus
-                Dim light As ToolStripItem = .DropDownItems.Add("Light - On/Off", Base64ToImage(LightOn, True), AddressOf OptionsClicked)
-                light.Tag = ExpandStyle.LightBulb
-            End With
-            .Items.Add(TSMI_ExpandCollapseStyles)
-            TSMI_ExpandCollapseAll.Image = Base64ToImage(DefaultCollapsed)
-            .Items.Add(TSMI_ExpandCollapseAll)
-#End Region
-#Region " MULTI-SELECT "
-            TSMI_MultiSelect.DropDownItems.AddRange({TSMI_SelectAll, TSMI_SelectNone})
-            .Items.Add(TSMI_MultiSelect)
-#End Region
-#Region " CHECKBOXES "
-            With TSMI_Checkboxes
-                .Image = Base64ToImage(CheckString)
-                .DropDownItems.Add(TSMI_CheckUncheckAll)
-            End With
-            .Items.Add(TSMI_Checkboxes)
-#End Region
-        End With
-#End Region
-        Controls.AddRange({VScroll, HScroll})
-        ExpanderStyle = ExpandStyle.PlusMinus
-
-    End Sub
-    Protected Overrides Sub InitLayout()
-        REM /// FIRES AFTER BEING ADDED TO ANOTHER CONTROL...ADD TREEVIEW AFTER LOADING NODES
-        RequiresRepaint()
-        MyBase.InitLayout()
-    End Sub
-    Private Sub WhenParentChanges() Handles Me.ParentChanged
-        RequiresRepaint()
-    End Sub
-#Region " DRAWING "
-    Protected Overrides Sub OnPaint(e As PaintEventArgs)
-
-        If e IsNot Nothing Then
-            With e.Graphics
-                .SmoothingMode = SmoothingMode.AntiAlias
-                .TextRenderingHint = Drawing.Text.TextRenderingHint.AntiAlias
-                Using backBrush As New SolidBrush(BackColor)
-                    .FillRectangle(backBrush, ClientRectangle)
-                End Using
-                If BackgroundImage IsNot Nothing Then
-                    Dim xOffset As Integer = {ClientRectangle.Width, Math.Abs(Convert.ToInt32((ClientRectangle.Width - BackgroundImage.Width) / 2))}.Min
-                    Dim yOffset As Integer = {ClientRectangle.Height, Math.Abs(Convert.ToInt32((ClientRectangle.Height - BackgroundImage.Height) / 2))}.Min
-                    Dim Bounds_Image As New Rectangle(xOffset, yOffset, {ClientRectangle.Width, BackgroundImage.Width}.Min, {ClientRectangle.Height, BackgroundImage.Height}.Min)
-                    .DrawImage(BackgroundImage, Bounds_Image)
-                End If
-                If Nodes.Any Then
-                    Dim drawRootLines As Boolean = RootLines And Nodes.Count > 1 'Doesn't make sense if only one root, when User wants RootLines
-                    Dim firstRootNode As Node = Nodes.First
-                    Dim verticalRootLine_x As Integer = CInt({
-                                            firstRootNode.Bounds_Check.Left,
-                                            firstRootNode.Bounds_Favorite.Left,
-                                            firstRootNode.Bounds_Image.Left,
-                                            firstRootNode.Bounds_ShowHide.Left
-                                                                          }.Min / 2)
-                    Using linePen As New Pen(LineColor) With {.DashStyle = LineStyle}
-                        For Each Node As Node In Nodes.Draw
-                            With Node
-                                Dim mouseInTip As Boolean = False
-                                If .Separator = Node.SeparatorPosition.Above And Node IsNot firstRootNode Then
-                                    Using Pen As New Pen(Color.Blue, 1)
-                                        Pen.DashStyle = DashStyle.DashDot
-                                        e.Graphics.DrawLine(Pen, New Point(0, .Bounds_Text.Top), New Point(ClientRectangle.Right, .Bounds_Text.Top))
-                                    End Using
-
-                                ElseIf .Separator = Node.SeparatorPosition.Below And Node IsNot Nodes.Last Then
-                                    Using Pen As New Pen(Color.Blue, 1)
-                                        Pen.DashStyle = DashStyle.DashDot
-                                        e.Graphics.DrawLine(Pen, New Point(0, .Bounds_Text.Bottom), New Point(ClientRectangle.Right, .Bounds_Text.Bottom))
-                                    End Using
-
-                                End If
-                                If .CanFavorite Then e.Graphics.DrawImage(If(.Favorite, My.Resources.star, My.Resources.starEmpty), .Bounds_Favorite)
-
-                                If .TipText IsNot Nothing Then
-                                    Dim triangleHeight As Single = 8
-                                    Dim trianglePoints As New List(Of PointF) From {
-                                            New PointF(.Bounds_Text.Left, .Bounds_Text.Top),
-                                            New PointF(.Bounds_Text.Left + triangleHeight, .Bounds_Text.Top),
-                                            New PointF(.Bounds_Text.Left, .Bounds_Text.Top + triangleHeight)
-                                    }
-                                    e.Graphics.FillPolygon(Brushes.DarkOrange, trianglePoints.ToArray)
-                                    mouseInTip = InTriangle(MousePoint, trianglePoints.ToArray)
-                                End If
-                                If .Image IsNot Nothing Then
-                                    e.Graphics.DrawImage(.Image, .Bounds_Image)
-                                    If Hit?.Node Is Node And Hit?.Region = MouseRegion.Image Then
-                                        Using imageBrush As New SolidBrush(Color.FromArgb(96, MouseOverColor))
-                                            e.Graphics.FillRectangle(imageBrush, .Bounds_Image)
-                                        End Using
-                                    End If
-                                End If
-
-                                ._Bounds_Text.Width = 2 + MeasureText(If(mouseInTip, .TipText, .Text), .Font, e.Graphics).Width + 2
-                                Dim boundsNode As Rectangle = .Bounds_Text
-                                Using sf As New StringFormat With {
-                                            .Alignment = StringAlignment.Near,
-                                            .LineAlignment = StringAlignment.Center,
-                                            .FormatFlags = StringFormatFlags.NoWrap Or StringFormatFlags.NoClip
-                                        }
-                                    boundsNode.Inflate(6, 0)
-                                    boundsNode.Offset(3, 0)
-                                    Using backBrush As New SolidBrush(.BackColor)
-                                        e.Graphics.FillRectangle(backBrush, boundsNode)
-                                    End Using
-                                    Using textBrush As New SolidBrush(.ForeColor)
-                                        e.Graphics.DrawString(If(mouseInTip, .TipText, .Text),
-                                                                               .Font,
-                                                                               textBrush,
-                                                                               boundsNode,
-                                                                               sf)
-                                    End Using
-                                    boundsNode = .Bounds_Text
-                                End Using
-                                If Hit?.Node Is Node And .TipText Is Nothing Then
-                                    Using SemiTransparentBrush As New SolidBrush(Color.FromArgb(128, MouseOverColor))
-                                        e.Graphics.FillRectangle(SemiTransparentBrush, boundsNode)
-                                    End Using
-                                End If
-                                If .Selected Then
-                                    Using Brush As New SolidBrush(If(DragData.DropHighlightNode Is Node, DropHighlightColor, .BackColor))
-                                        boundsNode.Inflate(-1, -1)
-                                        e.Graphics.FillRectangle(Brush, boundsNode)
-                                    End Using
-                                    Using SemiTransparentBrush As New SolidBrush(Color.FromArgb(128, SelectionColor))
-                                        e.Graphics.FillRectangle(SemiTransparentBrush, boundsNode)
-                                        boundsNode.Inflate(1, 1)
-                                    End Using
-                                    e.Graphics.DrawRectangle(Pens.Black, boundsNode)
-                                End If
-                                If .CheckBox Then
-                                    If CheckboxStyle = CheckStyle.Check Then
-                                        '/// Check background as White or Gray
-                                        Using checkBrush As New SolidBrush(If(.PartialChecked, Color.FromArgb(192, Color.LightGray), Color.White))
-                                            e.Graphics.FillRectangle(checkBrush, .Bounds_Check)
-                                        End Using
-                                        ''/// Draw the checkmark ( only if .Checked or .PartialChecked )
-                                        If .Checked Or .PartialChecked Then
-                                            Using CheckFont As New Font("Marlett", 10)
-                                                TextRenderer.DrawText(e.Graphics, "a".ToString(InvariantCulture), CheckFont, .Bounds_Check, If(.Checked, Color.Blue, Color.DarkGray), TextFormatFlags.NoPadding Or TextFormatFlags.HorizontalCenter Or TextFormatFlags.Bottom)
-                                            End Using
-                                        End If
-                                        '/// Draw the surrounding Check square
-                                        Using Pen As New Pen(Color.Blue, 1)
-                                            e.Graphics.DrawRectangle(Pen, .Bounds_Check)
-                                        End Using
-
-                                    ElseIf CheckboxStyle = CheckStyle.Slide Then
-                                        e.Graphics.DrawImage(If(.Checked, My.Resources.slideStateOn, If(.PartialChecked, My.Resources.slideStateMixed, My.Resources.slideStateOff)), .Bounds_Check)
-                                        If Hit?.Node Is Node And Hit?.Region = MouseRegion.CheckBox Then
-                                            Using checkBrush As New SolidBrush(Color.FromArgb(96, MouseOverColor))
-                                                e.Graphics.FillRectangle(checkBrush, .Bounds_Check)
-                                            End Using
-                                        End If
-
-                                    End If
-                                End If
-
-                                Dim objectBounds As Rectangle = .Bounds_ShowHide
-                                Dim objectCenter As Integer = CInt(objectBounds.Height / 2)
-
-                                '/// Vertical line between this node and child nodes
-                                Dim VerticalCenter As Integer = objectBounds.Top + objectCenter
-                                If .HasChildren And .Expanded Then
-                                    Dim verticalNodeLineLeft As Integer = objectBounds.Left + objectCenter - 1
-                                    Dim verticalNodeLineTop_xy As New Point(verticalNodeLineLeft, VerticalCenter)
-                                    Dim childLast = .Nodes.Last
-                                    Dim verticalNodeLineBottom_xy As New Point(verticalNodeLineLeft, {childLast.Bounds_Text.Top + CInt(childLast.Bounds_Text.Height / 2), ClientRectangle.Height}.Min)
-                                    e.Graphics.DrawLine(linePen, verticalNodeLineTop_xy, verticalNodeLineBottom_xy)
-                                End If
-                                If .HasChildren Then e.Graphics.DrawImage(If(.Expanded, CollapseImage, ExpandImage), .Bounds_ShowHide)
-
-                                Dim horizontalNodeLine_x As Integer = {
-                                                .Bounds_Check.Left,
-                                                .Bounds_Favorite.Left,
-                                                .Bounds_ShowHide.Left
-                                                                              }.Min
-
-                                If IsNothing(.Parent) Then
-                                    If drawRootLines Then e.Graphics.DrawLine(linePen, New Point(verticalRootLine_x, VerticalCenter), New Point(horizontalNodeLine_x, VerticalCenter))
-                                Else
-                                    REM /// HORIZONTAL LINES LEFT OF EXPAND/COLLAPSE
-                                    Dim NodeHorizontalLeftPoint As New Point(.Parent.Bounds_ShowHide.Left + objectCenter, VerticalCenter)
-                                    Dim NodeHorizontalRightPoint As New Point(horizontalNodeLine_x, VerticalCenter)
-                                    e.Graphics.DrawLine(linePen, NodeHorizontalLeftPoint, NodeHorizontalRightPoint)
-                                End If
-
-                            End With
-                        Next
-                        '/// Vertical root line between top ( first ) node and bottom ( last ) node ... but don't draw if the top IS the bottom too ( 1 node only )
-                        If drawRootLines Then
-                            Dim lastNode As Node = Nodes.Last
-                            Dim LineTop As Integer = 2 + firstRootNode.Bounds_ShowHide.Top + CInt(firstRootNode.Bounds_ShowHide.Height / 2)
-                            Dim TopPoint As New Point(verticalRootLine_x, {0, LineTop}.Max)
-                            Dim LineBottom As Integer = lastNode.Bounds_Text.Top + Convert.ToInt32(lastNode.Height / 2)
-                            Dim BottomPoint As New Point(verticalRootLine_x, {LineBottom, Height}.Min)
-                            e.Graphics.DrawLine(linePen, TopPoint, BottomPoint)
-                        End If
-                    End Using
-                Else
-                    HScroll.Hide()
-                    VScroll.Hide()
-                End If
-            End With
-            ControlPaint.DrawBorder3D(e.Graphics, ClientRectangle, Border3DStyle.Sunken)
-        End If
-
-    End Sub
-#End Region
-#Region " GLOBAL OPTIONS "
-    Private Sub IC_TextChanged(sender As Object, e As EventArgs) Handles IC_NodeEdit.TextChanged, IC_NodeAdd.TextChanged
-
-        With DirectCast(sender, ImageCombo)
-            TLP_NodePermissions.ColumnStyles(0).Width = {200, .Image.Width + TextRenderer.MeasureText(.Text, .Font).Width + .Image.Width}.Max
-            TLP.SetSize(TLP_NodePermissions)
-        End With
-
-    End Sub
-    Private Sub NodeEditingMouseEnter() Handles TSMI_NodeEditing.MouseEnter
-        If SelectedNodes.Any Then
-            IC_NodeEdit.Text = SelectedNodes.First.Text
-        Else
-            IC_NodeEdit.Text = String.Empty
-        End If
-        TSMI_NodeEditing.ShowDropDown()
-    End Sub
-    Private Sub ToggleSelect()
-        TSMI_SelectAll.Visible = MultiSelect
-        If MultiSelect Then
-            TSMI_MultiSelect.Text = "Multi-Select".ToString(InvariantCulture)
-        Else
-            TSMI_MultiSelect.Text = "Single-Select".ToString(InvariantCulture)
-        End If
-    End Sub
-    Private Sub NodeEditingOptions_Opening() Handles TSMI_NodeEditing.DropDownOpening
-        Karen.Subscribe()
-    End Sub
-    Private Sub Hook_Moused() Handles Karen.Moused
-
-        Dim CoCOptions As String = If(CursorOverControl(TSDD_Options), "[Y]", "[N]") & " TSDD_Options"
-        Dim CoCNodeEdit As String = If(CursorOverControl(IC_NodeEdit), "[Y]", "[N]") & " IC_NodeEdit"
-        Dim CoCNodeAdd As String = If(CursorOverControl(IC_NodeAdd), "[Y]", "[N]") & " IC_NodeAdd"
-        Dim CoCNodeRemove As String = If(CursorOverControl(IC_NodeRemove), "[Y]", "[N]") & " IC_NodeRemove"
-
-        Dim OverStatus As New List(Of String) From {CoCOptions, CoCNodeEdit, CoCNodeAdd, CoCNodeRemove}
-        Dim NotOvers = OverStatus.Where(Function(o) o.Contains("[N]")).Select(Function(n) Split(n, " ").Last)
-        Dim Overs = OverStatus.Where(Function(o) o.Contains("[Y]")).Select(Function(n) Split(n, " ").Last)
-
-        Dim MessageOver As String
-
-        If Overs.Any Then
-            MessageOver = "Over:" & Join(Overs.ToArray, ",") & ", Not over:" & Join(NotOvers.ToArray, ",")
-
-        Else
-            MessageOver = "Over none, Not over any:" & Join(NotOvers.ToArray, ",")
-            HideOptions()
-            Karen.Unsubscribe()
-        End If
-        'RaiseEvent Alert(Me, New AlertEventArgs(MessageOver & " *** " & Now.ToLongTimeString))
-
-    End Sub
-    Private Sub TreeviewGlobalOptions_Opening() Handles TSDD_Options.Opening
-
-        _OptionsOpen = True
-
-        REM /// TEST IF THE NODE CanS EDITING, ADDS, OR REMOVAL SO AS TO HIDE THE EDIT OPTION IF NONE EXIST
-        REM /// TLP_NodePermissions.Controls={1.Edit, 2.Add, 3.Remove}
-        Dim SelectedNode As Node = Nothing
-        Dim EditVisible As Boolean = False
-        Dim AddVisible As Boolean = False
-        Dim RemoveVisible As Boolean = False
-
-        ToggleSelect()
-
-        If SelectedNodes.Any Then
-            REM /// A NODE IS SELECTED- NOW CHECK IF THE PERMISSION PROPERTIES
-            SelectedNode = SelectedNodes.First
-            With SelectedNode
-                EditVisible = .CanEdit
-                AddVisible = .CanAdd
-                RemoveVisible = .CanRemove
-                TSMI_Sort.Visible = .HasChildren
-            End With
-
-        Else
-            REM /// NOTHING SELECTED SO CAN ONLY POTENTIALLY ADD
-            EditVisible = False
-            AddVisible = CanAdd
-            RemoveVisible = False
-
-        End If
-        REM /// NOW IT CAN BE DETERMINED IF TSMI_NodeEditing CAN BE VISIBLE
-        If EditVisible = False And AddVisible = False And RemoveVisible = False Then
-            TSMI_NodeEditing.Visible = False
-
-        Else
-            REM /// AT LEAST ONE ITEM IS VISIBLE
-            TSMI_NodeEditing.Visible = True
-
-            With TLP_NodePermissions
-                .RowStyles(0).Height = If(EditVisible, 28, 0)
-                If EditVisible Then
-                    With IC_NodeEdit
-                        .Text = SelectedNode.Text
-                        .DataSource = SelectedNode.Options
-                    End With
-                End If
-
-                .RowStyles(1).Height = If(AddVisible, 28, 0)
-                If AddVisible Then
-                    With IC_NodeAdd
-                        If IsNothing(SelectedNode) Then
-                            IC_NodeAdd.HintText = "Add Root Node"
-                        Else
-                            IC_NodeAdd.HintText = "Add Child Node"
-                            .DataSource = SelectedNode.ChildOptions
-                        End If
-                    End With
-                End If
-
-                .RowStyles(2).Height = If(RemoveVisible, 28, 0)
-                .Height = Convert.ToInt32({ .RowStyles(0).Height, .RowStyles(1).Height, .RowStyles(2).Height}.Sum)
-
-            End With
-
-        End If
-        TSMI_CheckUncheckAll.Visible = TSMI_Checkboxes.Checked
-
-    End Sub
-    Private Sub OptionsClicked(sender As Object, e As EventArgs) Handles TSMI_ExpandCollapseAll.Click, TSMI_Checkboxes.Click, TSMI_CheckUncheckAll.Click, TSMI_MultiSelect.Click, TSMI_SelectAll.Click, TSMI_SelectNone.Click, TSMI_Sort.Click
-
-        Dim tsi As ToolStripItem = DirectCast(sender, ToolStripItem)
-        If tsi.Tag?.GetType Is GetType(ExpandStyle) Then
-            ExpanderStyle = DirectCast(tsi.Tag, ExpandStyle)
-            TSMI_ExpandCollapseStyles.Image = tsi.Image
-        End If
-
-#Region " SORT FUNCTIONS "
-        If sender Is TSMI_Sort Then
-
-            Dim TheNodes As NodeCollection = If(SelectedNodes.Any, SelectedNodes.First.Nodes, Nodes)
-            If TheNodes.SortOrder = SortOrder.None Or TheNodes.SortOrder = SortOrder.Descending Then
-                TheNodes.SortOrder = SortOrder.Ascending
-                TSMI_Sort.Text = "Click to Sort Descending".ToString(InvariantCulture)
-
-            ElseIf TheNodes.SortOrder = SortOrder.Ascending Then
-                TheNodes.SortOrder = SortOrder.Descending
-                TSMI_Sort.Text = "Click to Sort Ascending".ToString(InvariantCulture)
-
-            End If
-
-        End If
-#End Region
-#Region " EXPAND / COLLAPSE FUNCTIONS "
-        If sender Is TSMI_ExpandCollapseAll Then
-            If TSMI_ExpandCollapseAll.Text = "Expand All" Then
-                TSMI_ExpandCollapseAll.Text = "Collapse All".ToString(InvariantCulture)
-                TSMI_ExpandCollapseAll.Image = Base64ToImage(DefaultExpanded)
-                ExpandNodes()
-            Else
-                TSMI_ExpandCollapseAll.Text = "Expand All".ToString(InvariantCulture)
-                TSMI_ExpandCollapseAll.Image = Base64ToImage(DefaultCollapsed)
-                CollapseNodes()
-            End If
-            VScroll.Value = 0
-            HScroll.Value = 0
-            RequiresRepaint()
-        End If
-#End Region
-#Region " MULTI-SELECT FUNCTIONS "
-        If sender Is TSMI_MultiSelect Then MultiSelect = TSMI_MultiSelect.Checked
-        ToggleSelect()
-
-        If sender Is TSMI_SelectAll Then
-            If MultiSelect Then
-                For Each Node In Nodes.All
-                    Node._Selected = True
-                Next
-                Invalidate()
-            End If
-        ElseIf sender Is TSMI_SelectNone Then
-            For Each Node In Nodes.All
-                Node._Selected = False
-            Next
-            Invalidate()
-        End If
-#End Region
-#Region " CHECKBOX FUNCTIONS "
-        TSMI_CheckUncheckAll.Visible = TSMI_Checkboxes.Checked
-        If Not TSMI_Checkboxes.Checked Then TSMI_Checkboxes.HideDropDown()
-        If sender Is TSMI_Checkboxes Then
-            If TSMI_Checkboxes.Checked Then
-                CheckBoxes = CheckState.All
-            Else
-                CheckBoxes = CheckState.None
-            End If
-        End If
-        If sender Is TSMI_CheckUncheckAll Then
-            TSMI_CheckUncheckAll.Text = If(TSMI_CheckUncheckAll.Checked, "UnCheck All", "Check All").ToString(InvariantCulture)
-            CheckAll = TSMI_CheckUncheckAll.Checked
-        End If
-#End Region
-
-    End Sub
-    Private Sub NodeEdit_Submitted() Handles IC_NodeEdit.ValueSubmitted
-
-        Karen.Unsubscribe()
-        If SelectedNodes.Count = 1 Then
-            Dim editNode As Node = SelectedNodes.First
-            If editNode.CanEdit And IC_NodeEdit.Text <> editNode.Text Then
-                RaiseEvent NodeBeforeEdited(Me, New NodeEventArgs(editNode, IC_NodeEdit.Text))
-                If Not editNode.CancelAction Then
-                    editNode.Text = IC_NodeEdit.Text
-                    RaiseEvent NodeAfterEdited(Me, New NodeEventArgs(editNode, IC_NodeAdd.Text))
-                End If
-
-            End If
-            TSMI_NodeEditing.HideDropDown()
-        End If
-
-    End Sub
-    Private Sub NodeAdd_Submitted() Handles IC_NodeAdd.ValueSubmitted, IC_NodeAdd.ItemSelected
-
-        Karen.Unsubscribe()
-        Dim nodesAdd As NodeCollection = If(SelectedNodes.Count = 1, SelectedNodes.First.Nodes, Nodes)
-        If nodesAdd IsNot Nothing Then
-            Dim Items As New List(Of Node)({New Node With {.Text = IC_NodeAdd.Text, .BackColor = Color.Lavender}})
-            Items.AddRange(From I In IC_NodeAdd.Items Where Not I.Text = IC_NodeAdd.Text And I.Checked Select New Node With {.Text = I.Text, .BackColor = Color.Lavender})
-            If Items.Count = 1 Then
-                Dim Item As Node = Items.First
-                RaiseEvent NodeBeforeAdded(Me, New NodeEventArgs(Item, IC_NodeAdd.Text))
-                If Item.CancelAction Then
-                    Item.Dispose()
-                Else
-                    REM /// BEFORE ADDING CanS FOR SETTING TO NOTHING ∴ CANCELLING
-                    nodesAdd.Add(Item)
-                    RaiseEvent NodeAfterAdded(Me, New NodeEventArgs(Item, IC_NodeAdd.Text))
-                End If
-            Else
-                REM /// ADDING A RANGE DOES NOT Can FOR TESTING BEFORE ADD
-                nodesAdd.AddRange(Items)
-                RaiseEvent NodeAfterAdded(Me, New NodeEventArgs(Items))
-            End If
-            HideOptions()
-        Else
-
-        End If
-
-    End Sub
-    Private Sub NodeRemove_Submitted() Handles IC_NodeRemove.Click
-
-        Karen.Unsubscribe()
-        Dim TheNodes As NodeCollection '= TryCast(SelectedNodes, Children)
-        If SelectedNodes.Any Then
-            For Each Node As Node In SelectedNodes
-                If Node.CanRemove Then
-                    RaiseEvent NodeBeforeRemoved(Me, New NodeEventArgs(Node))
-                    If Not Node.CancelAction Then
-                        If IsNothing(Node.Parent) Then
-                            TheNodes = Nodes
-                        Else
-                            TheNodes = Node.Parent.Nodes
-                        End If
-                        TheNodes.Remove(Node)
-                        RaiseEvent NodeAfterRemoved(Me, New NodeEventArgs(Node))
-                    End If
-                End If
-            Next
-            HideOptions()
-            TSMI_NodeEditing.HideDropDown()
-        End If
-
-    End Sub
-    Private Sub HideOptions()
-
-        _OptionsOpen = False
-        Karen.Unsubscribe()
-        TSDD_Options.AutoClose = True
-        TSDD_Options.Hide()
-        TSMI_NodeEditing.HideDropDown()
-
-    End Sub
-#End Region
-#Region " EXPAND / COLLAPSE "
     Public Enum ExpandStyle
         PlusMinus
         Arrow
         Book
         LightBulb
     End Enum
-#End Region
-#Region " PROPERTIES "
-    Public Property FavoriteImage As Image = Base64ToImage(StarString)
-    Public ReadOnly Property OptionsOpen As Boolean
-    Public Property FavoritesFirst As Boolean = True
     Private _ExpanderStyle As ExpandStyle = ExpandStyle.PlusMinus
     Public Property ExpanderStyle As ExpandStyle
         Get
@@ -690,7 +130,7 @@ Public Class TreeViewer
         End Get
         Set(value As ExpandStyle)
             _ExpanderStyle = value
-            Select Case _ExpanderStyle
+            Select Case value
                 Case ExpandStyle.Arrow
                     ExpandImage = Base64ToImage(ArrowCollapsed, True)
                     CollapseImage = Base64ToImage(ArrowExpanded, True)
@@ -708,11 +148,252 @@ Public Class TreeViewer
                     CollapseImage = Base64ToImage(DefaultExpanded, True)
 
             End Select
+            Dim nodeOptions As Node = Nodes.Item("Options")
+            If nodeOptions IsNot Nothing Then
+                Dim nodeStyleExpand = (From n In Nodes.All Where n.Name = "expandStyle").First
+                nodeStyleExpand.Image = ExpandImage
+                nodeStyleExpand.Text = value.ToString
+            End If
             ExpandHeight = ExpandImage.Height
             REM /// IF EXPAND/COLLAPSE HEIGHT CHANGES, THEN NODE.BOUNDS WILL BE AFFECTED 
             RequiresRepaint()
         End Set
     End Property
+#End Region
+    Public Sub New()
+
+        SetStyle(ControlStyles.AllPaintingInWmPaint, True)
+        SetStyle(ControlStyles.ContainerControl, True)
+        SetStyle(ControlStyles.DoubleBuffer, True)
+        SetStyle(ControlStyles.UserPaint, True)
+        SetStyle(ControlStyles.ResizeRedraw, True)
+        SetStyle(ControlStyles.Selectable, True)
+        SetStyle(ControlStyles.Opaque, True)
+        SetStyle(ControlStyles.UserMouse, True)
+
+        BackColor = Color.GhostWhite
+        Controls.AddRange({VScroll, HScroll, IC_NodeEdit})
+        ExpanderStyle = ExpandStyle.PlusMinus
+
+#Region " GLOBAL OPTIONS SET-UP "
+        Dim nodeOptions As Node = Nodes.Add("Options", "Options", My.Resources.tree)
+        With nodeOptions
+            With .Nodes.Add("sortChildren", "Sort children", My.Resources.sortNone)
+                .Tag = SortOrder.None
+            End With
+            With .Nodes.Add("showIndex", "Show node index", My.Resources.slideStateOff)
+                .Tag = False
+            End With
+
+            Dim nodeStyleCheck As Node = .Nodes.Add("checkStyle", "Checkbox style", My.Resources.slideStateOn)
+
+            Dim nodeStyleShowHide As Node = .Nodes.Add("expandStyle", "Expander style", ExpandImage)
+
+            Dim nodeExpandAll As Node = .Nodes.Add("expandAll", "Expand all", My.Resources.slideStateMixed)
+
+            If 0 = 1 Then
+                Dim nodeCanCheck As Node = .Nodes.Add("showCheckboxes", "Checkboxes", My.Resources.slideStateOn)
+
+                Dim nodeCanMulti As Node = .Nodes.Add("allowMultiSelect", "Multi-select", My.Resources.slideStateOn)
+            End If 'Not sure necessary
+
+            .Nodes.ForEach(Sub(optionNode)
+                               With optionNode
+                                   .CanAdd = False
+                                   .CanDragDrop = False
+                                   .CanEdit = False
+                                   .CanFavorite = False
+                                   .CanRemove = False
+                               End With
+                           End Sub)
+        End With
+#End Region
+
+    End Sub
+    Protected Overrides Sub InitLayout()
+        REM /// FIRES AFTER BEING ADDED TO ANOTHER CONTROL...ADD TREEVIEW AFTER LOADING NODES
+        RequiresRepaint()
+        MyBase.InitLayout()
+    End Sub
+    Private Sub WhenParentChanges() Handles Me.ParentChanged
+        RequiresRepaint()
+    End Sub
+#Region " GLOBAL OPTIONS "
+    Private Sub NodeOption_Clicked(optionClicked As Node)
+
+        Select Case optionClicked.Name
+            Case "checkStyle"
+                CheckboxStyle = If(CheckboxStyle = CheckStyle.Check, CheckStyle.Slide, CheckStyle.Check)
+
+            Case "expandStyle"
+                ExpanderStyle = If(ExpanderStyle = ExpandStyle.Arrow, ExpandStyle.Book, If(ExpanderStyle = ExpandStyle.Book, ExpandStyle.LightBulb, If(ExpanderStyle = ExpandStyle.LightBulb, ExpandStyle.PlusMinus, ExpandStyle.Arrow)))
+
+            Case "sortChildren"
+                Dim sortUp As String = "iVBORw0KGgoAAAANSUhEUgAAABEAAAALCAYAAACZIGYHAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAABFSURBVChTY2SAgAYoTQ4A6z0PxP8pwPep4hLG//9BhlEGyHFJAzaLSQ2T+yBDkDFVXEL3MMEaFjBAbJhghAUMU8ElDAwAvNhdwMSXsO4AAAAASUVORK5CYII="
+                Dim sortDown As String = "iVBORw0KGgoAAAANSUhEUgAAABEAAAALCAYAAACZIGYHAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAABLSURBVChTY2SAgAYojQ80/P//H8rEBOeBGCRLCN8HGYINU8UljLgkSAGkuAQGsLqI2DCBYYywoYpLBixM0AFYL6lhgo7vU8ElDA0AaFFdwFj1ubQAAAAASUVORK5CYII="
+                Dim nodeOrder As SortOrder = DirectCast(optionClicked.Tag, SortOrder)
+                nodeOrder = If(nodeOrder = SortOrder.None, SortOrder.Ascending, If(nodeOrder = SortOrder.Ascending, SortOrder.Descending, SortOrder.None))
+                optionClicked.Image = If(nodeOrder = SortOrder.None, My.Resources.sortNone, Base64ToImage(If(nodeOrder = SortOrder.Ascending, sortDown, sortUp)))
+                SelectedNodes.ForEach(Sub(nodeSelected)
+                                          nodeSelected.SortChildren(nodeOrder)
+                                      End Sub)
+                optionClicked.Tag = nodeOrder
+
+            Case "showIndex"
+                Dim showIndex As Boolean = Not DirectCast(optionClicked.Tag, Boolean)
+                optionClicked.Image = If(showIndex, My.Resources.slideStateOn, My.Resources.slideStateOff)
+                SelectedNodes.ForEach(Sub(nodeSelected)
+                                          nodeSelected.ShowIndex = showIndex
+                                          nodeSelected.Children.ForEach(Sub(nodeChild)
+                                                                            nodeChild.ShowIndex = showIndex
+                                                                        End Sub)
+                                      End Sub)
+                optionClicked.Tag = showIndex
+
+            Case "expandAll"
+                Dim expandAll As Boolean = Not SameImage(optionClicked.Image, My.Resources.slideStateOn)
+                If expandAll Then ExpandNodes()
+                If Not expandAll Then CollapseNodes()
+                optionClicked.Image = If(expandAll, My.Resources.slideStateOn, My.Resources.slideStateOff)
+
+                'Dim nodeCanCheck As Node = .Nodes.Add("showCheckboxes", "Checkboxes", My.Resources.slideStateOn)
+                'AddHandler NodeClicked, AddressOf NodeOption_Clicked
+
+                'Dim nodeCanMulti As Node = .Nodes.Add("allowMultiSelect", "Multi-select", My.Resources.slideStateOn)
+                'AddHandler NodeClicked, AddressOf NodeOption_Clicked
+
+        End Select
+#Region " MULTI-SELECT / CHECKBOX FUNCTIONS - NOT SURE NEEDED "
+        '        If sender Is TSMI_MultiSelect Then MultiSelect = TSMI_MultiSelect.Checked
+        '        ToggleSelect()
+
+        '        If sender Is TSMI_SelectAll Then
+        '            If MultiSelect Then
+        '                For Each Node In Nodes.All
+        '                    Node._Selected = True
+        '                Next
+        '                Invalidate()
+        '            End If
+        '        ElseIf sender Is TSMI_SelectNone Then
+        '            For Each Node In Nodes.All
+        '                Node._Selected = False
+        '            Next
+        '            Invalidate()
+        '        End If
+        '#End Region
+        '#Region " CHECKBOX FUNCTIONS "
+        '        TSMI_CheckUncheckAll.Visible = TSMI_Checkboxes.Checked
+        '        If Not TSMI_Checkboxes.Checked Then TSMI_Checkboxes.HideDropDown()
+        '        If sender Is TSMI_Checkboxes Then
+        '            If TSMI_Checkboxes.Checked Then
+        '                CheckBoxes = CheckState.All
+        '            Else
+        '                CheckBoxes = CheckState.None
+        '            End If
+        '        End If
+        '        If sender Is TSMI_CheckUncheckAll Then
+        '            TSMI_CheckUncheckAll.Text = If(TSMI_CheckUncheckAll.Checked, "UnCheck All", "Check All").ToString(InvariantCulture)
+        '            CheckAll = TSMI_CheckUncheckAll.Checked
+        '        End If
+        '#End Region
+        'TSMI_SelectAll.Visible = MultiSelect
+        'If MultiSelect Then
+        '    TSMI_MultiSelect.Text = "Multi-Select".ToString(InvariantCulture)
+        'Else
+        '    TSMI_MultiSelect.Text = "Single-Select".ToString(InvariantCulture)
+        'End If
+#End Region
+
+    End Sub
+    Private Sub NodeAdd_Submitted() Handles IC_NodeAdd.ValueSubmitted, IC_NodeAdd.ItemSelected
+
+        Dim nodeParentCollection As NodeCollection = If(SelectedNodes.Any, SelectedNodes.First.Nodes, Nodes)
+        If nodeParentCollection.Any Then
+            '// [1] Add a new Node from the Text of the ImageCombo
+            Dim Items As New List(Of Node)({New Node With {.Text = IC_NodeAdd.Text, .BackColor = Color.Lavender}})
+
+            '// [2] Potentially add multiple nodes from any selected items in the ImageCombo.DropDown
+            Items.AddRange(From I In IC_NodeAdd.Items Where Not I.Text = IC_NodeAdd.Text And I.Checked Select New Node With {.Text = I.Text, .BackColor = Color.Lavender})
+
+            If Items.Count = 1 Then '// Only adding from [1]
+                Dim Item As Node = Items.First
+                RaiseEvent NodeBeforeAdded(Me, New NodeEventArgs(Item, IC_NodeAdd.Text))
+
+            Else
+                '// Coming from [2] but multiple adds doesn't allow for NodeBeforeAdded
+                nodeParentCollection.AddRange(Items)
+                RaiseEvent NodeAfterAdded(Me, New NodeEventArgs(Items))
+            End If
+        End If
+
+    End Sub
+    Private AddNode_OK_ As Boolean
+    Public Property AddNode_OK(Optional nodeAdd As Node = Nothing) As Boolean
+        Get
+            Return AddNode_OK_
+        End Get
+        Set(value As Boolean)
+            AddNode_OK_ = value
+            If nodeAdd IsNot Nothing Then 'If nodeAdd Is Nothing Then it is a reset
+                If value Then
+                    Dim nodeParentCollection As NodeCollection = If(SelectedNodes.Any, SelectedNodes.First.Nodes, Nodes)
+                    nodeParentCollection.Add(nodeAdd)
+                    RaiseEvent NodeAfterAdded(Me, New NodeEventArgs(nodeAdd, IC_NodeAdd.Text))
+                Else
+                    RaiseEvent NodeAfterAdded(Me, New NodeEventArgs(nodeAdd, IC_NodeAdd.Text))
+                    nodeAdd.Dispose()
+                End If
+            End If
+        End Set
+    End Property
+    Private Sub NodeEdit_Submitted() Handles IC_NodeEdit.ValueSubmitted
+
+        Dim editNode As Node = DirectCast(IC_NodeEdit.Tag, Node)
+        IC_NodeEdit.Visible = False
+        If IC_NodeEdit.Text <> editNode.Text Then RaiseEvent NodeBeforeEdited(Me, New NodeEventArgs(editNode, IC_NodeEdit.Text))
+
+    End Sub
+    Private EditNode_OK_ As Boolean
+    Public Property EditNode_OK(Optional nodeEdit As Node = Nothing) As Boolean
+        Get
+            Return EditNode_OK_
+        End Get
+        Set(value As Boolean)
+            EditNode_OK_ = value
+            If nodeEdit IsNot Nothing Then 'If nodeEdit Is Nothing Then it is a reset
+                If value Then nodeEdit.Text = IC_NodeEdit.Text
+                RaiseEvent NodeAfterEdited(Me, New NodeEventArgs(nodeEdit, IC_NodeEdit.Text))
+                IC_NodeEdit.Text = String.Empty
+            End If
+        End Set
+    End Property
+    Private Sub NodeRemove_Submitted(sender As Object, e As EventArgs) Handles IC_NodeEdit.ImageClicked
+
+        Dim nodeRemove As Node = DirectCast(IC_NodeEdit.Tag, Node)
+        RaiseEvent NodeBeforeRemoved(Me, New NodeEventArgs(nodeRemove))
+
+    End Sub
+    Private RemoveNode_OK_ As Boolean
+    Public Property RemoveNode_OK(Optional nodeRemove As Node = Nothing) As Boolean
+        Get
+            Return RemoveNode_OK_
+        End Get
+        Set(value As Boolean)
+            RemoveNode_OK_ = value
+            If nodeRemove IsNot Nothing Then 'If nodeRemove Is Nothing Then it is a reset
+                If value Then
+                    nodeRemove.RemoveMe()
+                    IC_NodeEdit.Visible = False
+                    RaiseEvent NodeAfterRemoved(Me, New NodeEventArgs(nodeRemove))
+                End If
+            End If
+        End Set
+    End Property
+#End Region
+#Region " PROPERTIES "
+    Public Property FavoriteImage As Image = Base64ToImage(StarString)
+    Public ReadOnly Property OptionsOpen As Boolean
+    Public Property FavoritesFirst As Boolean = True
     Public ReadOnly Property DropHighlightNode As Node
         Get
             Return DragData.DropHighlightNode
@@ -792,9 +473,7 @@ Public Class TreeViewer
         Set(value As Boolean)
             If _CheckAll <> value Then
                 Dim CheckNodes = Nodes.All.Where(Function(c) c.CheckBox)
-                If _CheckAll And Not CheckNodes.Any Then
-                    CheckBoxes = CheckState.All
-                End If
+                If _CheckAll And Not CheckNodes.Any Then CheckBoxes = CheckState.All
                 For Each Node In Nodes.All.Where(Function(c) c.CheckBox)
                     Node.Checked = value
                 Next
@@ -824,64 +503,85 @@ Public Class TreeViewer
 #End Region
 #Region " MOUSE EVENTS "
     Private LastMouseNode As Node = Nothing
-    Private CurrentMouseNode As Node = Nothing
     Private MousePoint As Point
     Protected Overrides Sub OnMouseDown(e As MouseEventArgs)
 
         If e IsNot Nothing Then
             Dim HitRegion As HitRegion = HitTest(e.Location)
             Dim HitNode As Node = HitRegion.Node
-            DragData = New DragInfo With {.DragNode = HitNode,
+            IC_NodeEdit.Visible = False
+            DragData = New DragInfo With {
+                .DragNode = HitNode,
                 .IsDragging = False,
-                .MousePoints = New List(Of Point)}
+                .MousePoints = New List(Of Point)
+            }
 
             If e.Button = MouseButtons.Right Then
-                Dim ShowLocation As Point = Cursor.Position
-                ShowLocation.Offset(10, 0)
-                TSDD_Options.AutoClose = False
-                TSDD_Options.Show(ShowLocation)
+                If HitNode Is Nothing Then
+
+                ElseIf HitNode.CanEdit Then
+                    With IC_NodeEdit
+                        .Text = HitNode.Text
+                        .Image = If(HitNode.CanRemove, My.Resources.recycle, Nothing)
+                        .HintText = HitNode.Text
+                        Dim nodeXY As Point = HitNode.Bounds_Text.Location
+                        nodeXY.Offset(-1, -1)
+                        .Location = nodeXY
+                        .Size = HitNode.Bounds_Text.Size
+                        .MaximumSize = New Size(1000, .Size.Height)
+                        .MinimumSize = New Size(10, .Size.Height)
+                        .MinimumSize = New Size(.IdealSize.Width, .Size.Height)
+                        .AutoSize = True
+                        .Visible = True
+                        .Tag = HitNode
+                    End With
+                End If
+
             Else
-                HideOptions()
                 If HitNode IsNot Nothing Then
                     With HitNode
-                        Select Case HitRegion.Region
-                            Case MouseRegion.Expander
-                                ._Clicked = True
-                                If .HasChildren Then
-                                    ._Expanded = Not .Expanded
-                                    If .Expanded Then
-                                        .Expand()
-                                        RaiseEvent NodeExpanded(Me, New NodeEventArgs(HitNode))
-                                    Else
-                                        .Collapse()
-                                        RaiseEvent NodeCollapsed(Me, New NodeEventArgs(HitNode))
+                        If .Parent?.Name = "Options" Then
+                            NodeOption_Clicked(HitNode)
+                        Else
+                            Select Case HitRegion.Region
+                                Case MouseRegion.Expander
+                                    ._Clicked = True
+                                    If .HasChildren Then
+                                        ._Expanded = Not .Expanded
+                                        If .Expanded Then
+                                            .Expand()
+                                            RaiseEvent NodeExpanded(Me, New NodeEventArgs(HitNode))
+                                        Else
+                                            .Collapse()
+                                            RaiseEvent NodeCollapsed(Me, New NodeEventArgs(HitNode))
+                                        End If
                                     End If
-                                End If
 
-                            Case MouseRegion.Favorite
-                                .Favorite = Not .Favorite
-                                RaiseEvent NodeFavorited(Me, New NodeEventArgs(HitNode))
+                                Case MouseRegion.Favorite
+                                    .Favorite = Not .Favorite
+                                    RaiseEvent NodeFavorited(Me, New NodeEventArgs(HitNode))
 
-                            Case MouseRegion.CheckBox
-                                ._Clicked = True
-                                .Checked = Not .Checked
-                                RaiseEvent NodeChecked(Me, New NodeEventArgs(HitNode))
+                                Case MouseRegion.CheckBox
+                                    ._Clicked = True
+                                    .Checked = Not .Checked
+                                    RaiseEvent NodeChecked(Me, New NodeEventArgs(HitNode))
 
-                            Case MouseRegion.Image, MouseRegion.Node
-                                ._Clicked = True
-                                If Not MultiSelect Then
-                                    For Each Node In SelectedNodes.Except({HitNode})
-                                        Node._Selected = False
-                                    Next
-                                End If
-                                HitNode._Selected = Not HitNode.Selected
-                                If e.Button = MouseButtons.Left Then
-                                    RaiseEvent NodeClicked(Me, New NodeEventArgs(HitNode))
-                                ElseIf e.Button = MouseButtons.Right Then
-                                    RaiseEvent NodeRightClicked(Me, New NodeEventArgs(HitNode))
-                                End If
+                                Case MouseRegion.Image, MouseRegion.Node
+                                    ._Clicked = True
+                                    If Not MultiSelect Then
+                                        For Each Node In SelectedNodes.Except({HitNode})
+                                            Node._Selected = False
+                                        Next
+                                    End If
+                                    HitNode._Selected = Not HitNode.Selected
+                                    If e.Button = MouseButtons.Left Then
+                                        RaiseEvent NodeClicked(Me, New NodeEventArgs(HitNode))
+                                    ElseIf e.Button = MouseButtons.Right Then
+                                        RaiseEvent NodeRightClicked(Me, New NodeEventArgs(HitNode))
+                                    End If
 
-                        End Select
+                            End Select
+                        End If
                     End With
                     Invalidate()
                 End If
@@ -938,7 +638,7 @@ Public Class TreeViewer
     End Sub
     Protected Overrides Sub OnMouseDoubleClick(e As MouseEventArgs)
 
-        If e IsNot Nothing Then
+        If e IsNot Nothing AndAlso e.Button = MouseButtons.Left Then
             Dim HitRegion As HitRegion = HitTest(e.Location)
             Dim HitNode As Node = HitRegion.Node
             If Not IsNothing(HitNode) Then
@@ -984,6 +684,7 @@ Public Class TreeViewer
                 Using nodeFont As New Font(.DragNode.Font.FontFamily, .DragNode.Font.Size + 4, FontStyle.Bold)
                     Dim textSize As Size = TextRenderer.MeasureText(.DragNode.Text, nodeFont)
                     Dim cursorBounds As New Rectangle(New Point(0, 0), New Size(3 + textSize.Width + 3, 2 + textSize.Height + 2))
+                    .CursorSize = cursorBounds.Size
                     Dim shadowDepth As Integer = 16
                     cursorBounds.Inflate(shadowDepth, shadowDepth)
                     Using bmp As New Bitmap(cursorBounds.Width, cursorBounds.Height)
@@ -1083,38 +784,48 @@ Public Class TreeViewer
 
         If e IsNot Nothing Then
             e.Effect = DragDropEffects.All
-            Dim Location As Point = PointToClient(New Point(e.X, e.Y))
-            Dim HitRegion As HitRegion = HitTest(Location)
-            Dim HitNode As Node = HitRegion?.Node
-            If Not HitNode Is DragData.DropHighlightNode Then
-                DragData.DropHighlightNode = HitNode
+            Dim regionHit As HitRegion = DragHit(e)
+            Dim nodeHit As Node = regionHit?.Node
+
+            If nodeHit IsNot DragData.DropHighlightNode Then
+                DragData.DropHighlightNode = nodeHit
                 Invalidate()
-                If Not IsNothing(HitNode) Then
-                    e.Data.SetData(GetType(Object), HitNode)
-                    If HitRegion.Region = MouseRegion.Expander And HitNode.HasChildren Then
-                        If HitNode.Expanded Then
-                            HitNode.Collapse()
-                        Else
-                            HitNode.Expand()
+                If nodeHit IsNot Nothing Then
+                    e.Data.SetData(GetType(Object), nodeHit)
+                    With nodeHit
+                        If regionHit.Region = MouseRegion.Expander And .HasChildren Then
+                            If .Expanded Then
+                                .Collapse()
+                            Else
+                                .Expand()
+                            End If
                         End If
-                    End If
+                    End With
                 End If
             End If
         End If
         MyBase.OnDragOver(e)
 
     End Sub
+    Private Function DragHit(e As DragEventArgs) As HitRegion
+
+        Dim cursorLocation As Point = PointToClient(New Point(e.X, e.Y))
+        Dim cursorBounds As New Rectangle(cursorLocation, DragData.CursorSize)
+        cursorLocation.Offset(0, -CInt(cursorBounds.Height / 2)) 'CInt(cursorBounds.Width / 2)CInt(cursorBounds.Height / 2)
+        cursorBounds.Offset(0, -CInt(cursorBounds.Height / 2))
+        Return HitTest(cursorBounds)
+
+    End Function
     Protected Overrides Sub OnDragDrop(e As DragEventArgs)
 
         If e IsNot Nothing Then
             CursorTimer.Stop()
-            Dim DragNode As Node = TryCast(e.Data.GetData(GetType(Node)), Node)
-            Dim Location As Point = PointToClient(New Point(e.X, e.Y))
-            Dim HitRegion As HitRegion = HitTest(Location)
-            Dim HitNode As Node = HitRegion.Node
-            If DragNode IsNot Nothing AndAlso DragNode.CanDragDrop And HitNode IsNot Nothing AndAlso HitNode.CanDragDrop Then
-                e.Data.SetData(GetType(Node), HitNode)
-                RaiseEvent NodeDropped(Me, New NodeEventArgs(HitNode))
+            Dim nodeBeingDragged As Node = TryCast(e.Data.GetData(GetType(Node)), Node)
+            Dim regionHit As HitRegion = DragHit(e)
+            Dim nodeHit As Node = regionHit?.Node
+            If nodeBeingDragged?.CanDragDrop And nodeHit?.CanDragDrop Then
+                e.Data.SetData(GetType(Node), nodeHit)
+                RaiseEvent NodeDropped(Me, New NodeEventArgs(nodeHit))
             End If
             DragData.DropHighlightNode = Nothing
             RequiresRepaint()
@@ -1164,6 +875,183 @@ Public Class TreeViewer
 #End Region
 #Region " INVALIDATION "
     Dim RR As Boolean
+    Protected Overrides Sub OnPaint(e As PaintEventArgs)
+
+        If e IsNot Nothing Then
+            With e.Graphics
+                .SmoothingMode = SmoothingMode.AntiAlias
+                .TextRenderingHint = Drawing.Text.TextRenderingHint.AntiAlias
+                Using backBrush As New SolidBrush(BackColor)
+                    .FillRectangle(backBrush, ClientRectangle)
+                End Using
+                If BackgroundImage IsNot Nothing Then
+                    Dim xOffset As Integer = {ClientRectangle.Width, Math.Abs(Convert.ToInt32((ClientRectangle.Width - BackgroundImage.Width) / 2))}.Min
+                    Dim yOffset As Integer = {ClientRectangle.Height, Math.Abs(Convert.ToInt32((ClientRectangle.Height - BackgroundImage.Height) / 2))}.Min
+                    Dim Bounds_Image As New Rectangle(xOffset, yOffset, {ClientRectangle.Width, BackgroundImage.Width}.Min, {ClientRectangle.Height, BackgroundImage.Height}.Min)
+                    .DrawImage(BackgroundImage, Bounds_Image)
+                End If
+                If Nodes.Any Then
+                    Dim drawRootLines As Boolean = RootLines And Nodes.Count > 1 'Doesn't make sense if only one root, when User wants RootLines
+                    Dim firstRootNode As Node = Nodes.First
+                    Dim verticalRootLine_x As Integer = CInt({
+                                            firstRootNode.Bounds_Check.Left,
+                                            firstRootNode.Bounds_Favorite.Left,
+                                            firstRootNode.Bounds_Image.Left,
+                                            firstRootNode.Bounds_ShowHide.Left
+                                                                          }.Min / 2)
+                    Using linePen As New Pen(LineColor) With {.DashStyle = LineStyle}
+                        For Each Node As Node In Nodes.Draw
+                            With Node
+                                Dim mouseInTip As Boolean = False
+                                If .Separator = Node.SeparatorPosition.Above And Node IsNot firstRootNode Then
+                                    Using Pen As New Pen(Color.Blue, 1)
+                                        Pen.DashStyle = DashStyle.DashDot
+                                        e.Graphics.DrawLine(Pen, New Point(0, .Bounds_Text.Top), New Point(ClientRectangle.Right, .Bounds_Text.Top))
+                                    End Using
+
+                                ElseIf .Separator = Node.SeparatorPosition.Below And Node IsNot Nodes.Last Then
+                                    Using Pen As New Pen(Color.Blue, 1)
+                                        Pen.DashStyle = DashStyle.DashDot
+                                        e.Graphics.DrawLine(Pen, New Point(0, .Bounds_Text.Bottom), New Point(ClientRectangle.Right, .Bounds_Text.Bottom))
+                                    End Using
+
+                                End If
+                                If .CanFavorite Then e.Graphics.DrawImage(If(.Favorite, My.Resources.star, My.Resources.starEmpty), .Bounds_Favorite)
+
+                                If .TipText IsNot Nothing Then
+                                    Dim triangleHeight As Single = 8
+                                    Dim trianglePoints As New List(Of PointF) From {
+                                            New PointF(.Bounds_Text.Left, .Bounds_Text.Top),
+                                            New PointF(.Bounds_Text.Left + triangleHeight, .Bounds_Text.Top),
+                                            New PointF(.Bounds_Text.Left, .Bounds_Text.Top + triangleHeight)
+                                    }
+                                    e.Graphics.FillPolygon(Brushes.DarkOrange, trianglePoints.ToArray)
+                                    mouseInTip = InTriangle(MousePoint, trianglePoints.ToArray)
+                                End If
+                                If .Image IsNot Nothing Then
+                                    e.Graphics.DrawImage(.Image, .Bounds_Image)
+                                    If Hit?.Node Is Node And Hit?.Region = MouseRegion.Image Then
+                                        Using imageBrush As New SolidBrush(Color.FromArgb(96, MouseOverColor))
+                                            e.Graphics.FillRectangle(imageBrush, .Bounds_Image)
+                                        End Using
+                                    End If
+                                End If
+
+                                ._Bounds_Text.Width = 2 + MeasureText(If(mouseInTip, .TipText, .Text), .Font, e.Graphics).Width + 2
+                                Dim boundsNode As Rectangle = .Bounds_Text
+                                Using sf As New StringFormat With {
+                                            .Alignment = StringAlignment.Near,
+                                            .LineAlignment = StringAlignment.Center,
+                                            .FormatFlags = StringFormatFlags.NoWrap Or StringFormatFlags.NoClip
+                                        }
+                                    boundsNode.Inflate(3, 0)
+                                    boundsNode.Offset(3, 0)
+                                    Using backBrush As New SolidBrush(If(DragData.DropHighlightNode Is Node, DropHighlightColor, .BackColor))
+                                        e.Graphics.FillRectangle(backBrush, boundsNode)
+                                    End Using
+                                    Using textBrush As New SolidBrush(.ForeColor)
+                                        e.Graphics.DrawString(If(mouseInTip, .TipText, .Text),
+                                                                               .Font,
+                                                                               textBrush,
+                                                                               boundsNode,
+                                                                               sf)
+                                    End Using
+                                    boundsNode = .Bounds_Text
+                                End Using
+                                If Hit?.Node Is Node And .TipText Is Nothing Then
+                                    Using SemiTransparentBrush As New SolidBrush(Color.FromArgb(128, MouseOverColor))
+                                        e.Graphics.FillRectangle(SemiTransparentBrush, boundsNode)
+                                    End Using
+                                End If
+                                If .Selected Then
+                                    boundsNode.Inflate(0, -1)
+                                    boundsNode.Offset(0, -1)
+                                    Using SemiTransparentBrush As New SolidBrush(Color.FromArgb(128, SelectionColor))
+                                        e.Graphics.FillRectangle(SemiTransparentBrush, boundsNode)
+                                    End Using
+                                    Using dottedPen As New Pen(SystemBrushes.ControlText, 1)
+                                        dottedPen.DashStyle = DashStyle.DashDot
+                                        e.Graphics.DrawRectangle(dottedPen, boundsNode)
+                                    End Using
+                                End If
+                                If .CheckBox Then
+                                    If CheckboxStyle = CheckStyle.Check Then
+                                        '/// Check background as White or Gray
+                                        Using checkBrush As New SolidBrush(If(.PartialChecked, Color.FromArgb(192, Color.LightGray), Color.White))
+                                            e.Graphics.FillRectangle(checkBrush, .Bounds_Check)
+                                        End Using
+                                        ''/// Draw the checkmark ( only if .Checked or .PartialChecked )
+                                        If .Checked Or .PartialChecked Then
+                                            Using CheckFont As New Font("Marlett", 10)
+                                                TextRenderer.DrawText(e.Graphics, "a".ToString(InvariantCulture), CheckFont, .Bounds_Check, If(.Checked, Color.Blue, Color.DarkGray), TextFormatFlags.NoPadding Or TextFormatFlags.HorizontalCenter Or TextFormatFlags.Bottom)
+                                            End Using
+                                        End If
+                                        '/// Draw the surrounding Check square
+                                        Using Pen As New Pen(Color.Blue, 1)
+                                            e.Graphics.DrawRectangle(Pen, .Bounds_Check)
+                                        End Using
+
+                                    ElseIf CheckboxStyle = CheckStyle.Slide Then
+                                        e.Graphics.DrawImage(If(.Checked, My.Resources.slideStateOn, If(.PartialChecked, My.Resources.slideStateMixed, My.Resources.slideStateOff)), .Bounds_Check)
+                                        If Hit?.Node Is Node And Hit?.Region = MouseRegion.CheckBox Then
+                                            Using checkBrush As New SolidBrush(Color.FromArgb(96, MouseOverColor))
+                                                e.Graphics.FillRectangle(checkBrush, .Bounds_Check)
+                                            End Using
+                                        End If
+
+                                    End If
+                                End If
+
+                                Dim objectBounds As Rectangle = .Bounds_ShowHide
+                                Dim objectCenter As Integer = CInt(objectBounds.Height / 2)
+
+                                '/// Vertical line between this node and child nodes
+                                Dim VerticalCenter As Integer = objectBounds.Top + objectCenter
+                                If .HasChildren And .Expanded Then
+                                    Dim verticalNodeLineLeft As Integer = objectBounds.Left + objectCenter - 1
+                                    Dim verticalNodeLineTop_xy As New Point(verticalNodeLineLeft, VerticalCenter)
+                                    Dim childLast = .Nodes.Last
+                                    Dim verticalNodeLineBottom_xy As New Point(verticalNodeLineLeft, {childLast.Bounds_Text.Top + CInt(childLast.Bounds_Text.Height / 2), ClientRectangle.Height}.Min)
+                                    e.Graphics.DrawLine(linePen, verticalNodeLineTop_xy, verticalNodeLineBottom_xy)
+                                End If
+                                If .HasChildren Then e.Graphics.DrawImage(If(.Expanded, CollapseImage, ExpandImage), .Bounds_ShowHide)
+
+                                Dim horizontalNodeLine_x As Integer = {
+                                                .Bounds_Check.Left,
+                                                .Bounds_Favorite.Left,
+                                                .Bounds_ShowHide.Left
+                                                                              }.Min
+
+                                If IsNothing(.Parent) Then
+                                    If drawRootLines Then e.Graphics.DrawLine(linePen, New Point(verticalRootLine_x, VerticalCenter), New Point(horizontalNodeLine_x, VerticalCenter))
+                                Else
+                                    REM /// HORIZONTAL LINES LEFT OF EXPAND/COLLAPSE
+                                    Dim NodeHorizontalLeftPoint As New Point(.Parent.Bounds_ShowHide.Left + objectCenter, VerticalCenter)
+                                    Dim NodeHorizontalRightPoint As New Point(horizontalNodeLine_x, VerticalCenter)
+                                    e.Graphics.DrawLine(linePen, NodeHorizontalLeftPoint, NodeHorizontalRightPoint)
+                                End If
+
+                            End With
+                        Next
+                        '/// Vertical root line between top ( first ) node and bottom ( last ) node ... but don't draw if the top IS the bottom too ( 1 node only )
+                        If drawRootLines Then
+                            Dim lastNode As Node = Nodes.Last
+                            Dim LineTop As Integer = 2 + firstRootNode.Bounds_ShowHide.Top + CInt(firstRootNode.Bounds_ShowHide.Height / 2)
+                            Dim TopPoint As New Point(verticalRootLine_x, {0, LineTop}.Max)
+                            Dim LineBottom As Integer = lastNode.Bounds_Text.Top + Convert.ToInt32(lastNode.Height / 2)
+                            Dim BottomPoint As New Point(verticalRootLine_x, {LineBottom, Height}.Min)
+                            e.Graphics.DrawLine(linePen, TopPoint, BottomPoint)
+                        End If
+                    End Using
+                Else
+                    HScroll.Hide()
+                    VScroll.Hide()
+                End If
+            End With
+            ControlPaint.DrawBorder3D(e.Graphics, ClientRectangle, Border3DStyle.Sunken)
+        End If
+
+    End Sub
     Friend Sub RequiresRepaint()
 
         RR = True
@@ -1200,7 +1088,7 @@ Public Class TreeViewer
         End If
 #End Region
         Dim maxSize As New Size
-        Dim sizes As New List(Of Size) From {maxScreenSize, maxParentSize, maxUserSize}
+        Dim sizes As New List(Of Size) From {maxScreenSize, maxParentSize, maxUserSize} ', New Size(IC_NodeEdit.Location.X + IC_NodeEdit.Width, IC_NodeEdit.Height)
         Dim nonZeroWidths As New List(Of Integer)(From s In sizes Where s.Width > 0 Select s.Width)
         Dim nonZeroHeights As New List(Of Integer)(From s In sizes Where s.Height > 0 Select s.Height)
         Dim maxWidth As Integer = nonZeroWidths.Min
@@ -1280,7 +1168,14 @@ Public Class TreeViewer
                 End If
                 NodeIndex += 1
             End With
-            If FavoritesFirst Then Node.Nodes.SortAscending(False) 'Do not let the Sort require repaint as it cycles back here to an infinate loop
+            If FavoritesFirst Then Node.Nodes.Sort(Function(x, y)
+                                                       Dim level1 As Integer = y.Favorite.CompareTo(x.Favorite)
+                                                       If level1 = 0 Then
+                                                           Return x.Index.CompareTo(y.Index)  'String.Compare(x.Text, y.Text, StringComparison.Ordinal)
+                                                       Else
+                                                           Return level1
+                                                       End If
+                                                   End Function)
         Next
 
     End Sub
@@ -1384,28 +1279,30 @@ Public Class TreeViewer
         UpdateDrawNodes()
 
     End Sub
-    Private Sub HScrollLeftRight(X_Change As Integer)
+    Private Sub HScrollLeftRight(changeX As Integer)
 
-        If X_Change = 0 Then Exit Sub
+        If changeX = 0 Then Exit Sub
+        IC_NodeEdit.Location = New Point(IC_NodeEdit.Location.X + changeX, IC_NodeEdit.Location.Y)
         Nodes.Visible.ForEach(Sub(node)
-                                  node._Bounds_ShowHide.X += X_Change
-                                  node._Bounds_Favorite.X += X_Change
-                                  node._Bounds_Check.X += X_Change
-                                  node._Bounds_Image.X += X_Change
-                                  node._Bounds_Text.X += X_Change
+                                  node._Bounds_ShowHide.X += changeX
+                                  node._Bounds_Favorite.X += changeX
+                                  node._Bounds_Check.X += changeX
+                                  node._Bounds_Image.X += changeX
+                                  node._Bounds_Text.X += changeX
                               End Sub)
         Invalidate()
 
     End Sub
-    Private Sub VScrollUpDown(Y_Change As Integer)
+    Private Sub VScrollUpDown(changeY As Integer)
 
-        If Y_Change = 0 Then Exit Sub
+        If changeY = 0 Then Exit Sub
+        IC_NodeEdit.Location = New Point(IC_NodeEdit.Location.X, IC_NodeEdit.Location.Y + changeY)
         Nodes.Visible.ForEach(Sub(node)
-                                  node._Bounds_ShowHide.Y += Y_Change
-                                  node._Bounds_Favorite.Y += Y_Change
-                                  node._Bounds_Check.Y += Y_Change
-                                  node._Bounds_Image.Y += Y_Change
-                                  node._Bounds_Text.Y += Y_Change
+                                  node._Bounds_ShowHide.Y += changeY
+                                  node._Bounds_Favorite.Y += changeY
+                                  node._Bounds_Check.Y += changeY
+                                  node._Bounds_Image.Y += changeY
+                                  node._Bounds_Text.Y += changeY
                               End Sub)
         Invalidate()
 
@@ -1470,12 +1367,38 @@ Public Class TreeViewer
         Return Region
 
     End Function
+    Public Function HitTest(dragBounds As Rectangle) As HitRegion
+
+        Dim Region As New HitRegion
+        Dim expandBounds As New List(Of Node)(From N In Nodes.Draw Where dragBounds.Contains(N.Bounds_ShowHide))
+        Dim Bounds_Favorite As New List(Of Node)(From N In Nodes.Draw Where dragBounds.Contains(N.Bounds_Favorite))
+        Dim Bounds_Check As New List(Of Node)(From N In Nodes.Draw Where dragBounds.Contains(N.Bounds_Check))
+        Dim Bounds_Image As New List(Of Node)(From N In Nodes.Draw Where dragBounds.Contains(N.Bounds_Image))
+        Dim nodeBounds As New List(Of Node)(From N In Nodes.Draw Where dragBounds.Contains(N.Bounds_Text))
+
+        Dim HitBounds As New List(Of Node)(expandBounds.Union(Bounds_Favorite).Union(Bounds_Check).Union(nodeBounds))
+        If HitBounds.Any Then
+            With Region
+                .Node = HitBounds.First
+                If expandBounds.Any Then .Region = MouseRegion.Expander
+                If Bounds_Favorite.Any Then .Region = MouseRegion.Favorite
+                If Bounds_Check.Any Then .Region = MouseRegion.CheckBox
+                If Bounds_Image.Any Then .Region = MouseRegion.Image
+                If nodeBounds.Any Then .Region = MouseRegion.Node
+            End With
+        End If
+        Return Region
+
+    End Function
     Public Sub ExpandNodes()
 
         If Nodes.Any Then
             ExpandCollapseNodes(Nodes, True)
             Nodes.First.Expand()
         End If
+        VScroll.Value = 0
+        HScroll.Value = 0
+        RequiresRepaint()
 
     End Sub
     Public Sub CollapseNodes()
@@ -1484,6 +1407,9 @@ Public Class TreeViewer
             ExpandCollapseNodes(Nodes, False)
             Nodes.First.Collapse()
         End If
+        VScroll.Value = 0
+        HScroll.Value = 0
+        RequiresRepaint()
 
     End Sub
     Private Sub ExpandCollapseNodes(Nodes As NodeCollection, State As Boolean)
@@ -1520,7 +1446,7 @@ Public Class TreeViewer
     Public Sub AutoWidth()
 
         If Nodes.Any Then
-            Width = Nodes.Max(Function(n) n.Bounds_Text.Right)
+            Width = Nodes.Max(Function(n) {n.Bounds_Text.Right, If(IC_NodeEdit.Visible, IC_NodeEdit.Location.X + IC_NodeEdit.Width, 0)}.Max)
             RequiresRepaint()
         End If
 
@@ -1542,6 +1468,7 @@ Public NotInheritable Class NodeCollection
         Set(value As SortOrder)
             If Not SortOrder_ = value Then
                 SortOrder_ = value
+                If value = SortOrder.None Then SortOriginalIndex()
                 If value = SortOrder.Ascending Then SortAscending()
                 If value = SortOrder.Descending Then SortDescending()
             End If
@@ -1656,6 +1583,7 @@ Public NotInheritable Class NodeCollection
         If AddNode IsNot Nothing Then
             With AddNode
                 ._Index = Count
+                .AddTime = Now
                 If Parent Is Nothing Then   ' *** ROOT NODE
                     'mTreeViewer was set when TreeViewer was created with New NodeCollection
                     ._TreeViewer = TreeViewer
@@ -1770,6 +1698,26 @@ Public NotInheritable Class NodeCollection
         Dim Nodes As New List(Of Node)((From N In All Where N.Tag Is TagObject).ToArray)
         Return If(Nodes.Any, Nodes.First, Nothing)
     End Function
+    Friend Sub SortOriginalIndex(Optional repaint As Boolean = True)
+
+        If TreeViewer?.FavoritesFirst Then
+            Sort(Function(x, y)
+                     Dim Level1 = y.Favorite.CompareTo(x.Favorite) 'False=0, True=1 
+                     If Level1 = 0 Then
+                         Dim Level2 As Integer = x.AddTime.CompareTo(y.AddTime)
+                         Return Level2
+                     Else
+                         Return Level1
+                     End If
+                 End Function)
+        Else
+            Sort(Function(x, y)
+                     Return x.AddTime.CompareTo(y.AddTime)
+                 End Function)
+        End If
+        'If repaint Then TreeViewer?.RequiresRepaint()
+
+    End Sub
     Friend Sub SortAscending(Optional repaint As Boolean = True)
 
         If TreeViewer?.FavoritesFirst Then
@@ -1848,7 +1796,7 @@ Public NotInheritable Class NodeCollection
 
             End Select
         End If
-        If repaint Then TreeViewer?.RequiresRepaint()
+        'If repaint Then TreeViewer?.RequiresRepaint()
 
     End Sub
     Friend Sub SortDescending(Optional repaint As Boolean = True)
@@ -1929,7 +1877,7 @@ Public NotInheritable Class NodeCollection
 
             End Select
         End If
-        If repaint Then TreeViewer?.RequiresRepaint()
+        'If repaint Then TreeViewer?.RequiresRepaint()
 
     End Sub
 #End Region
@@ -2047,7 +1995,6 @@ Public Class Node
     Public Property CanEdit As Boolean = True
     Public Property CanAdd As Boolean = True
     Public Property CanRemove As Boolean = True
-    Public Property CancelAction As Boolean = False
     Private _ImageScaling As Boolean = False
     Public Property ImageScaling As Boolean
         Get
@@ -2108,7 +2055,7 @@ Public Class Node
     Private _Text As String
     Public Property Text As String
         Get
-            Return _Text & If(ShowNodeIndex, $" [{Index.ToString(InvariantCulture)}]", String.Empty)
+            Return $"{_Text}{If(ShowIndex, $" [{Index}]", String.Empty)}"
         End Get
         Set(value As String)
             If Not _Text = value Then
@@ -2172,6 +2119,7 @@ Public Class Node
             Return _Index
         End Get
     End Property
+    Friend AddTime As Date
     Public ReadOnly Property Height As Integer
         Get
             Dim ImageHeight As Integer = 0
@@ -2279,13 +2227,13 @@ Public Class Node
             End If
         End Set
     End Property
-    Private _ShowNodeIndex As Boolean = False
-    Public Property ShowNodeIndex As Boolean
+    Private ShowIndex_ As Boolean = False
+    Public Property ShowIndex As Boolean
         Get
-            Return _ShowNodeIndex
+            Return ShowIndex_
         End Get
         Set(value As Boolean)
-            _ShowNodeIndex = value
+            ShowIndex_ = value
             RequiresRepaint()
         End Set
     End Property
@@ -2303,16 +2251,7 @@ Public Class Node
     End Property
     Public ReadOnly Property Siblings As List(Of Node)
         Get
-            Dim BrothersSistersAndMe As New List(Of Node)
-            If IsRoot Then
-                If Not TreeViewer Is Nothing Then BrothersSistersAndMe.AddRange(TreeViewer.Nodes)
-
-            Else
-                BrothersSistersAndMe.AddRange(Parent.Nodes)
-
-            End If
-            BrothersSistersAndMe.Sort(Function(x, y) x.Index.CompareTo(y.Index))
-            Return BrothersSistersAndMe
+            Return New List(Of Node)(From n In If(IsRoot, TreeViewer?.Nodes, Parent?.Nodes) Where n IsNot Me)
         End Get
     End Property
     Public ReadOnly Property FirstSibling As Node
@@ -2377,17 +2316,16 @@ Public Class Node
             End If
         End Set
     End Property
-    Private _SortValue As String = String.Empty
+    Private SortValue_ As String = String.Empty
     Public Property SortValue As String
         Get
-            If If(_SortValue, String.Empty).Length = 0 Then
-                _SortValue = Text
-            End If
-            Return _SortValue
+            If Not If(SortValue_, String.Empty).Any Then SortValue_ = Text
+            Return SortValue_
         End Get
         Set(value As String)
-            If value <> _SortValue Then
-                _SortValue = value
+            If value <> SortValue_ Then
+                SortValue_ = value
+                'Refresh?
             End If
         End Set
     End Property
@@ -2460,28 +2398,7 @@ Public Class Node
     End Property
     Public Sub SortChildren(Optional SortOrder As SortOrder = SortOrder.Ascending)
 
-        Select Case SortType
-            Case GetType(String)
-                If SortOrder = SortOrder.Ascending Then Nodes.Sort(Function(x, y) String.Compare(Convert.ToString(x.SortValue, InvariantCulture), Convert.ToString(y.SortValue, InvariantCulture), StringComparison.Ordinal))
-                If SortOrder = SortOrder.Descending Then Nodes.Sort(Function(y, x) String.Compare(Convert.ToString(x.SortValue, InvariantCulture), Convert.ToString(y.SortValue, InvariantCulture), StringComparison.Ordinal))
-
-            Case GetType(Byte), GetType(Short), GetType(Integer), GetType(Long)
-                If SortOrder = SortOrder.Ascending Then Nodes.Sort(Function(x, y) Convert.ToInt64(x.SortValue, InvariantCulture).CompareTo(Convert.ToInt64(y.SortValue, InvariantCulture)))
-                If SortOrder = SortOrder.Descending Then Nodes.Sort(Function(y, x) Convert.ToInt64(x.SortValue, InvariantCulture).CompareTo(Convert.ToInt64(y.SortValue, InvariantCulture)))
-
-            Case GetType(Double), GetType(Decimal)
-                If SortOrder = SortOrder.Ascending Then Nodes.Sort(Function(x, y) Convert.ToDouble(x.SortValue, InvariantCulture).CompareTo(Convert.ToDouble(y.SortValue, InvariantCulture)))
-                If SortOrder = SortOrder.Descending Then Nodes.Sort(Function(y, x) Convert.ToDouble(x.SortValue, InvariantCulture).CompareTo(Convert.ToDouble(y.SortValue, InvariantCulture)))
-
-            Case GetType(Date)
-                If SortOrder = SortOrder.Ascending Then Nodes.Sort(Function(x, y) Convert.ToDateTime(x.SortValue, InvariantCulture).CompareTo(Convert.ToDateTime(y.SortValue, InvariantCulture)))
-                If SortOrder = SortOrder.Descending Then Nodes.Sort(Function(y, x) Convert.ToDateTime(x.SortValue, InvariantCulture).CompareTo(Convert.ToDateTime(y.SortValue, InvariantCulture)))
-
-            Case GetType(Boolean)
-                If SortOrder = SortOrder.Ascending Then Nodes.Sort(Function(x, y) Convert.ToBoolean(x.SortValue, InvariantCulture).CompareTo(Convert.ToBoolean(y.SortValue, InvariantCulture)))
-                If SortOrder = SortOrder.Descending Then Nodes.Sort(Function(y, x) Convert.ToBoolean(x.SortValue, InvariantCulture).CompareTo(Convert.ToBoolean(y.SortValue, InvariantCulture)))
-
-        End Select
+        Nodes.SortOrder = SortOrder
 
     End Sub
     Public Overrides Function ToString() As String

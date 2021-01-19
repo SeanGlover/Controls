@@ -10,6 +10,7 @@ Imports Excel = Microsoft.Office.Interop.Excel
 Imports System.ComponentModel
 Imports System.Runtime.InteropServices
 Imports System.Globalization
+Imports Newtonsoft.Json
 
 Public Enum QueryLanguage
     None
@@ -309,15 +310,15 @@ Friend Class ResponseFailure
 
         Dim ResponseArgs = DirectCast(DirectCast(sender, ImageCombo).Tag, ResponseEventArgs)
         With ResponseArgs
-            Dim _Connection = ResponseArgs.Connection
-            If Password_New.Text = _Connection.Password Then
+            Dim Connection_ = ResponseArgs.Connection
+            If Password_New.Text = Connection_.Password Then
                 IssuePromptShow()
 
             ElseIf Not Password_New.Text.Any Then
                 IssuePromptShow()
 
             ElseIf .RunError.Type = Errors.Item.PasswordExpired Then
-                With _Connection
+                With Connection_
                     .NewPassword = Password_New.Text
                     RetrieveData(.ToString, "SELECT * FROM SYSIBM.SYSDUMMY1")
                     REM /// SAVING CLEARS THE NEWPWD FIELD
@@ -327,7 +328,7 @@ Friend Class ResponseFailure
                 End With
 
             ElseIf .RunError.Type = Errors.Item.PasswordIncorrect Then
-                With _Connection
+                With Connection_
                     .Password = Password_New.Text
                     .Save()
                 End With
@@ -676,18 +677,23 @@ End Structure
 '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 Public NotInheritable Class ConnectionCollection
     Inherits List(Of Connection)
-    Private ReadOnly DataManagerDirectory As DirectoryInfo = Directory.CreateDirectory(MyDocuments & "\DataManager")
-    Private WithEvents ChangeTimer As New Timer With {.Interval = 500}
+    Private ReadOnly Path As String = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}\DataManager\Connections.txt"
     Public Sub New()
 
         If Not File.Exists(Path) Then
+            Directory.CreateDirectory($"{Environment.SpecialFolder.MyDocuments}\DataManager\")
             Using SW As New StreamWriter(Path)
                 SW.Write(My.Resources.Base_Connections)
             End Using
         End If
-        Dim ConnectionStrings As New List(Of String)(PathToList(Path))
-        For Each ConnectionString As String In ConnectionStrings
-            Add(New Connection(ConnectionString))
+
+        Dim cnxnDict = JsonConvert.DeserializeObject(Of Dictionary(Of String, Dictionary(Of String, String)))(ReadText(Path))
+        For Each cnxn In cnxnDict
+            Dim cnxnProperties As New Dictionary(Of String, String)(cnxn.Value)
+            cnxnProperties("UID") = DeKrypt(cnxn.Value("UID"))
+            cnxnProperties("PWD") = DeKrypt(cnxn.Value("PWD"))
+            Dim connectionString As String = String.Join(";", (From c In cnxnProperties Select $"{c.Key}={c.Value}").ToArray)
+            Add(New Connection(connectionString))
         Next
 
     End Sub
@@ -710,11 +716,9 @@ Public NotInheritable Class ConnectionCollection
 #Region " PROPERTIES - FUNCTIONS - METHODS "
     Public Shadows Function Add(NewConnection As Connection) As Connection
 
-        ChangeTimer.Stop()
         If NewConnection IsNot Nothing Then
-            ChangeTimer.Start()
+            NewConnection.Parent_ = Me
             MyBase.Add(NewConnection)
-            NewConnection._Parent = Me
         End If
         Return NewConnection
 
@@ -731,11 +735,9 @@ Public NotInheritable Class ConnectionCollection
     End Function
     Public Shadows Function Remove(OldConnection As Connection) As Connection
 
-        ChangeTimer.Stop()
         If OldConnection IsNot Nothing Then
-            ChangeTimer.Start()
             MyBase.Remove(OldConnection)
-            OldConnection._Parent = Nothing
+            OldConnection.Parent_ = Nothing
         End If
         Return OldConnection
 
@@ -795,11 +797,6 @@ Public NotInheritable Class ConnectionCollection
         Return Not IsNothing(Item(ConnectionItem))
     End Function
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Private ReadOnly Property Path As String
-        Get
-            Return DataManagerDirectory.FullName & "\Connections.txt"
-        End Get
-    End Property
     Public ReadOnly Property Keys As List(Of String)
         Get
             Dim _Keys As New List(Of String)
@@ -819,10 +816,6 @@ Public NotInheritable Class ConnectionCollection
         End Get
     End Property
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Private Sub ChangeTimerTick() Handles ChangeTimer.Tick
-        ChangeTimer.Stop()
-        SortCollection()
-    End Sub
     Public Sub SortCollection()
 
         Sort(Function(f1, f2)
@@ -852,9 +845,19 @@ Public NotInheritable Class ConnectionCollection
         End Using
     End Sub
     Public Sub Save()
-        Using SW As New StreamWriter(Path)
-            SW.Write(ToString)
+
+        Dim cnxnDict As New Dictionary(Of String, Dictionary(Of String, String))
+        ForEach(Sub(cnxn)
+                    Dim cnxnProperties As New Dictionary(Of String, String)(cnxn.Properties)
+                    cnxnProperties("UID") = cnxn.UserID_Encrypted
+                    cnxnProperties("PWD") = cnxn.Password_Encrypted
+                    cnxnDict.Add(cnxn.Key_Encrypted, cnxnProperties) 'JsonConvert.SerializeObject(cnxnProperties, Formatting.Indented)
+                End Sub)
+        Dim cnxnString As String = JsonConvert.SerializeObject(cnxnDict, Formatting.Indented)
+        Using sw As New StreamWriter(Path)
+            sw.Write(cnxnString)
         End Using
+
     End Sub
     Public Overrides Function ToString() As String
         Return Strings.Join((From m In Me Select m.ToString & String.Empty).ToArray, vbNewLine)
@@ -933,10 +936,10 @@ End Class
 
     End Sub
 #Region " PROPERTIES - FUNCTIONS - METHODS "
-    <NonSerialized> Friend _Parent As ConnectionCollection
+    <NonSerialized> Friend Parent_ As ConnectionCollection
     Public ReadOnly Property Parent As ConnectionCollection
         Get
-            Return _Parent
+            Return Parent_
         End Get
     End Property
     Public ReadOnly Property DataSource As String
@@ -951,6 +954,11 @@ End Class
         Set(value As String)
             If _Properties.ContainsKey("UID") Then _Properties("UID") = value
         End Set
+    End Property
+    Public ReadOnly Property UserID_Encrypted As String
+        Get
+            Return Krypt(UserID)
+        End Get
     End Property
     Public Property Password As String
         Get
@@ -970,6 +978,11 @@ End Class
                 TestPassed_ = TriState.UseDefault
             End If
         End Set
+    End Property
+    Public ReadOnly Property Password_Encrypted As String
+        Get
+            Return Krypt(Password)
+        End Get
     End Property
     Public Property NewPassword As String
         Get
@@ -1003,7 +1016,12 @@ End Class
     Public ReadOnly Property Language As QueryLanguage
     Public ReadOnly Property Key As String
         Get
-            Return Join({"DSN=" & DataSource, "UID=" & UserID}, ";")
+            Return $"DSN={DataSource};UID={UserID}"
+        End Get
+    End Property
+    Public ReadOnly Property Key_Encrypted As String
+        Get
+            Return $"DSN={DataSource};UID={UserID_Encrypted }"
         End Get
     End Property
     Public ReadOnly Property MissingUserID As Boolean
@@ -1075,9 +1093,6 @@ End Class
             Return colorsFore({Index Mod colorsFore.Count, 0}.Max)
         End Get
     End Property
-    Public Shared Function FromString(Value As String) As Connection
-        Return New Connection(Value)
-    End Function
     Public Overrides Function ToString() As String
         If IsFile Then
             Return Properties.Keys.First
@@ -1678,9 +1693,9 @@ End Class
     Public ReadOnly Property Connection As Connection
         Get
             Dim Connections = New ConnectionCollection
-            Dim _Connections As New List(Of Connection)(Connections.Where(Function(x) x.DataSource = DSN))
-            If _Connections.Any Then
-                Return _Connections.First
+            Dim Connection_s As New List(Of Connection)(Connections.Where(Function(x) x.DataSource = DSN))
+            If Connection_s.Any Then
+                Return Connection_s.First
             Else
                 Return Nothing
             End If
@@ -3168,7 +3183,7 @@ Public Class ETL
                 }
                 For Each Column In _Columns
                     Dim Comma As String = If(Column.Value.Index = 0, String.Empty, ", ")
-                    DDL.Add(Comma + DB2ColumnNamingConvention(Column.Key.ToUpperInvariant) & StrDup(6, vbTab) & Column.Value.Format)
+                    DDL.Add(Comma + Db2ColumnNamingConvention(Column.Key.ToUpperInvariant) & StrDup(6, vbTab) & Column.Value.Format)
                 Next Column
                 DDL.Add(")")
                 If If(TableSpace, String.Empty).Length > 0 Then DDL.Add(" IN " & TableSpace)
@@ -4160,7 +4175,7 @@ Public Module iData
         Dim excelPath As String = Replace(Replace(dataElements.First, "☻", String.Empty), "☺", String.Empty)
         Dim startTime As Date = DB2TimestampToDate(dataElements.Last)
 
-        RaiseEvent Alerts(workBook, New AlertEventArgs(Join({"Formatting Excel Workbook", excelPath, "at", startTime.ToLongTimeString})))
+        RaiseEvent Alerts(workBook, New AlertEventArgs($"Formatting Excel Workbook {excelPath} at {startTime.ToLongTimeString}"))
 
 #Region " FORMAT BOOK "
         Dim startRow As Integer = 2 'Assumes headers!!!
@@ -4409,7 +4424,7 @@ Public Module iData
                 End Using
             End If
         Else
-            Dim finishedMessage As String = Join({"Excel Workbook ready at", excelPath, "Total time:", TimespanToString(startTime, Now)})
+            Dim finishedMessage As String = $"Excel Workbook ready at {excelPath} Total time: {TimespanToString(startTime, Now)}"
             RaiseEvent Alerts(excelBook, New AlertEventArgs(finishedMessage))
             If notifyState = TriState.UseDefault Then
                 Using finishedNotice As New Prompt

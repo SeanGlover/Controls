@@ -245,6 +245,31 @@ Public NotInheritable Class ImageCombo
         End If
 
     End Sub
+    Public ReadOnly Property IdealSize As Size
+        Get
+            Dim hasImage As Boolean = Image IsNot Nothing
+            Dim hasText As Boolean = Text.Any
+            Dim hasDrop As Boolean = Not Mode = ImageComboMode.Button And Items.Any
+            Dim hasClear As Boolean = Not Mode = ImageComboMode.Button And hasText
+            Dim hasEye As Boolean = PasswordProtected And hasClear
+            '===========================
+            Dim imageSize As Size = If(hasImage, Image.Size, New Size)
+            Dim mathSize As Size = If(Mode = ImageComboMode.Searchbox, New Size(16, 16), New Size)
+            Dim dropSize As Size = If(hasDrop, DropImage.Size, New Size)
+            Dim clearSize As Size = If(hasClear, ClearTextImage.Size, New Size)
+            Dim eyeSize As Size = If(hasEye, EyeImage.Size, New Size)
+            '===========================
+            Dim sizes As New List(Of Size) From {imageSize, mathSize, TextSize, dropSize, clearSize, eyeSize}
+            Dim widths As New List(Of Integer)(From s In sizes Where Not s.Width = 0 Select s.Width)
+            Dim heights As New List(Of Integer)(From s In sizes Where Not s.Height = 0 Select s.Height)
+            '===========================
+            Dim minSize As Size = If(MinimumSize.IsEmpty, New Size(60, 24), MinimumSize)
+            Dim maxSize As Size = If(MaximumSize.IsEmpty, WorkingArea.Size, MaximumSize)
+            Dim minmaxWidth As Integer = {{If(widths.Any, widths.Sum + Spacing * (widths.Count + 1), minSize.Width), minSize.Width}.Max, maxSize.Width}.Min
+            Dim minmaxHeight As Integer = {{If(heights.Any, Spacing + heights.Max + Spacing, minSize.Height), minSize.Height}.Max, maxSize.Height}.Min
+            Return New Size(minmaxWidth, minmaxHeight)
+        End Get
+    End Property
     Private Sub Bounds_Set()
 
         Dim hasImage As Boolean = Image IsNot Nothing
@@ -278,22 +303,8 @@ Public NotInheritable Class ImageCombo
             Dim hasEye As Boolean = PasswordProtected And hasClear
             '===========================
             If AutoSize Then
-                Dim imageSize As Size = If(hasImage, Image.Size, New Size)
-                Dim mathSize As Size = If(Mode = ImageComboMode.Searchbox, New Size(16, 16), New Size)
-                Dim dropSize As Size = If(hasDrop, DropImage.Size, New Size)
-                Dim clearSize As Size = If(hasClear, ClearTextImage.Size, New Size)
-                Dim eyeSize As Size = If(hasEye, EyeImage.Size, New Size)
-                '===========================
-                Dim sizes As New List(Of Size) From {imageSize, mathSize, TextSize, dropSize, clearSize, eyeSize}
-                Dim widths As New List(Of Integer)(From s In sizes Where Not s.Width = 0 Select s.Width)
-                Dim heights As New List(Of Integer)(From s In sizes Where Not s.Height = 0 Select s.Height)
-                '===========================
-                Dim minSize As Size = If(MinimumSize.IsEmpty, New Size(60, 24), MinimumSize)
-                Dim maxSize As Size = If(MaximumSize.IsEmpty, WorkingArea.Size, MaximumSize)
-                Dim minmaxWidth As Integer = {{If(widths.Any, widths.Sum + Spacing * (widths.Count + 1), minSize.Width), minSize.Width}.Max, maxSize.Width}.Min
-                Dim minmaxHeight As Integer = {{If(heights.Any, Spacing + heights.Max + Spacing, minSize.Height), minSize.Height}.Max, maxSize.Height}.Min
-                Dim newSize As New Size(minmaxWidth, minmaxHeight)
-                If newSize <> Size Then Size = newSize
+                Dim bestSize As Size = IdealSize
+                If bestSize <> Size Then Size = bestSize 'Never assign a Control's size unless it's <>. Setting the same size on a Control will ALWAYS fire the SizeChanged.Event
             End If
             With ImageBounds
                 If hasImage Then
