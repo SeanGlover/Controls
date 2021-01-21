@@ -658,6 +658,9 @@
   <ItemGroup>
     <None Include="Resources\Cloud.ico" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Db2.ico" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>

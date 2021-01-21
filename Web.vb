@@ -46,18 +46,16 @@ Public NotInheritable Class WebFunctions
         If request IsNot Nothing Then
             Dim response = CType(request.GetResponse, HttpWebResponse)
             If response.StatusCode = HttpStatusCode.OK Then
-                Using RS As Stream = response.GetResponseStream
-                    Using FS As New FileStream(pathFile, FileMode.Create)
-                        Dim Read As Byte() = New Byte(255) {}
-                        Dim Count As Integer = RS.Read(Read, 0, Read.Length)
+                Using downStream As Stream = response.GetResponseStream
+                    Using pathStream As New FileStream(pathFile, FileMode.Create)
+                        Dim input As Byte() = New Byte(255) {}
+                        Dim Count As Integer = downStream.Read(input, 0, input.Length)
                         While Count > 0
-                            FS.Write(Read, 0, Count)
-                            Count = RS.Read(Read, 0, Read.Length)
+                            pathStream.Write(input, 0, Count)
+                            Count = downStream.Read(input, 0, input.Length)
                         End While
                     End Using
                 End Using
-            Else
-
             End If
             Return response.StatusCode
         Else

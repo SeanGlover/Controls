@@ -1569,7 +1569,7 @@ End Class
         Dim objectElements As String() = Split(objectSplit.First, Delimiter)
         With objectElements
             DSN = .First
-            Type = DirectCast([Enum].Parse(GetType(ObjectType), StrConv(.ElementAt(1), VbStrConv.ProperCase)), ObjectType)
+            Type = ParseEnum(Of ObjectType)(.ElementAt(1))
             DBName = .ElementAt(2)
             TSName = .ElementAt(3)
             Owner = .ElementAt(4)

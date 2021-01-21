@@ -2,7 +2,7 @@
 Option Explicit On
 Imports System.Windows.Forms
 Imports System.Drawing
-Friend NotInheritable Class Login
+Public NotInheritable Class Login
     Inherits Control
     Public Enum Display
         Horizontal

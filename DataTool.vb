@@ -672,9 +672,7 @@ End Class
     End Function
     Public Overrides Function ToString() As String
 
-        Dim scriptText As String = If(Text, String.Empty)
-        Dim abbreviatedText As String = If(scriptText.Any, If(scriptText.Length > 10, scriptText.Substring(0, 10) & "...", scriptText), String.Empty)
-        Return Join({Name, Datasource, Type.ToString, abbreviatedText}, BlackOut)
+        Return $"{Name} [{Type}][{Datasource}]"
 
     End Function
 #End Region
@@ -707,9 +705,10 @@ Public Class DataTool
     }
     Private WithEvents SaveAs As New ImageCombo With {.Margin = New Padding(0),
         .Image = My.Resources.Save,
-        .Size = New Size(2 + My.Resources.Save.Width + 2, 2 + .Image.Height + 2),
+        .Size = New Size(100, 2 + .Image.Height + 2),
         .Font = GothicFont,
         .MinimumSize = .Size,
+        .MaximumSize = New Size(800, .Size.Height),
         .AutoSize = True
     }
     Private WithEvents MessageButton As New ToolStripDropDownButton With {
@@ -1426,7 +1425,7 @@ Public Class DataTool
 
         Dim ParentForm As Form = TryCast(Parent, Form)
         If ParentForm IsNot Nothing Then
-            ParentForm.Icon = My.Resources.Cloud
+            ParentForm.Icon = My.Resources.Db2
             ParentForm.Text = "Db2ool".ToString(InvariantCulture)
         End If
 
@@ -1469,7 +1468,9 @@ Public Class DataTool
         End If
     End Function
     Private Function ActiveScript() As Script
-        Return DirectCast(ActivePane()?.Tag, Script)
+        Dim scriptActive As Script = DirectCast(ActivePane()?.Tag, Script)
+        If scriptActive IsNot Nothing Then SaveAs.Text = scriptActive.Name
+        Return scriptActive
     End Function
 #End Region
 
@@ -1896,46 +1897,7 @@ Public Class DataTool
     '===============================================================================
     Private Sub SaveAs_MouseEnter(sender As Object, e As EventArgs) Handles SaveAs.MouseEnter
 
-        With SaveAs
-            .MinimumSize = New Size(2 + My.Resources.Save.Width + 2, SaveAs.Height)
-            .MaximumSize = New Size(600, SaveAs.Height)
-            If ActiveScript() IsNot Nothing Then
-                If ActiveScript() IsNot Nothing Then
-                    .Text = ActiveScript.Name
-                    .Image = If(ActiveScript.FileTextMatchesText, My.Resources.saved, My.Resources.savedNot)
-                End If
-            End If
-            .AutoSize = True
-        End With
-
-    End Sub
-    Private Sub SaveAs_MouseLeave(sender As Object, e As EventArgs) Handles SaveAs.MouseLeave
-
-        With SaveAs
-            .MinimumSize = New Size(2 + My.Resources.Save.Width + 2, SaveAs.Height)
-            .AutoSize = True
-            .Text = String.Empty
-        End With
-
-    End Sub
-    Private Sub SaveAs_TextChanged(sender As Object, e As EventArgs)
-
-        With SaveAs
-            If If(.Text, String.Empty).Any Then
-                .MinimumSize = New Size(100, .Height)
-                .AutoSize = True
-                RemoveHandler .TextChanged, AddressOf SaveAs_TextChanged
-            End If
-        End With
-
-    End Sub
-    Private Sub SaveAs_ClearTextClicked(sender As Object, e As EventArgs) Handles SaveAs.ClearTextClicked
-
-        With SaveAs
-            .AutoSize = True
-            .MinimumSize = New Size(.Width, .Height)
-            AddHandler .TextChanged, AddressOf SaveAs_TextChanged
-        End With
+        SaveAs_SetImage()
 
     End Sub
     Private Sub SaveAs_ImageClicked() Handles SaveAs.ImageClicked, SaveAs.ValueSubmitted
@@ -1946,14 +1908,18 @@ Public Class DataTool
                     'USING Now.ToLongTimeString ENSURE NAME<>value AND ACTION IS TAKEN
                     Dim ActiveScriptName As String = Join({DateTimeToString(Now), SaveAs.Text}, Delimiter)
                     saveScript.Name = ActiveScriptName
-                    If saveScript.Save(Script.SaveAction.ChangeContent) Then SaveAs.Image = My.Resources.saved
+                    If saveScript.Save(Script.SaveAction.ChangeContent) Then SaveAs_SetImage()
                 End Using
             End If
         End Using
 
     End Sub
     Private Sub SaveAs_SetImage()
-        SaveAs.Image = If(ActiveScript.State = Script.ViewState.OpenDraft, If(If(ActiveText, String.Empty).Any, My.Resources.savedNot, My.Resources.Save), If(ActiveScript.FileTextMatchesText, My.Resources.saved, My.Resources.savedNot))
+
+        If ActiveScript() IsNot Nothing Then
+            SaveAs.Image = If(ActiveScript.State = Script.ViewState.OpenDraft, If(If(ActiveText, String.Empty).Any, My.Resources.savedNot, My.Resources.Save), If(ActiveScript.FileTextMatchesText, My.Resources.saved, My.Resources.savedNot))
+        End If
+
     End Sub
 #End Region
     Private Sub ButtonMouseEnter(sender As Object, e As EventArgs) Handles MessageButton.MouseEnter
@@ -2355,7 +2321,7 @@ Public Class DataTool
                 End Using
             End If
             scriptNode.Image = bmp
-
+            SaveAs.Text = visibleScript.Name
 
         Else
             Dim invisibleScript As Script = e.Item
@@ -2381,6 +2347,7 @@ Public Class DataTool
             scriptNode.Image = e.Item.TabImage
             Script_Tabs.TabPages.Remove(oldTab)
             oldTab.Dispose()
+            SaveAs.Text = String.Empty
         End If
 
     End Sub
@@ -2390,7 +2357,7 @@ Public Class DataTool
         Dim changedNode As Node = FileTree.Nodes.ItemByTag(changedScript)
         changedNode.Text = e.CurrentName
         If changedScript.Visible Then changedScript.TabPage.ItemText = changedScript.Name
-        SaveAs.Text = changedScript.Name
+        SaveAs_SetImage()
         Script_Tabs.Refresh()
 
     End Sub
@@ -4846,6 +4813,7 @@ Public Class DataTool
 
     End Function
     Private Sub ExpandCollapseOnOff(Action As HandlerAction)
+
         If Action = HandlerAction.Add Then
             AddHandler Tree_Objects.NodeExpanded, AddressOf ObjectsTreeview_AutoWidth
             AddHandler Tree_Objects.NodeExpanded, AddressOf ObjectsTreeview_AutoWidth
@@ -4853,6 +4821,7 @@ Public Class DataTool
             RemoveHandler Tree_Objects.NodeExpanded, AddressOf ObjectsTreeview_AutoWidth
             RemoveHandler Tree_Objects.NodeExpanded, AddressOf ObjectsTreeview_AutoWidth
         End If
+
     End Sub
     Private Sub ObjectTreeview_ETL(SourceScript As Script, DestinationObject As SystemObject)
 
@@ -5262,6 +5231,7 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
         'Optional e As Object = Nothing .... allows for other EventArgs to come here for resizing
         'Must use ActivePane if sender is a Worker, otherwise the Get throws a cross-thread error
         Script_Grid?.Timer?.StopTicking()
+        If sender?.GetType Is GetType(Tab) Then SaveAs.Text = DirectCast(sender, Tab).Text
         If TLP_PaneGrid.ColumnStyles.Count >= 2 Then
 
             Dim Column_1_Width As Integer = 0
@@ -5330,7 +5300,8 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
                         Column_2_Width = AvailableWidth - Column_1_Width
 
                     ElseIf sender.GetType Is GetType(Tab) Then
-                        SaveAs.Text = DirectCast(sender, Tab).Name
+                        SaveAs_SetImage()
+
                         If Actual_Column1_Width < Column_1_MinimumWidth Then
                             Column_1_Width = Column_1_MinimumWidth
                         Else
