@@ -705,7 +705,7 @@ Public Class DataTool
     }
     Private WithEvents SaveAs As New ImageCombo With {.Margin = New Padding(0),
         .Image = My.Resources.Save,
-        .Size = New Size(100, 2 + .Image.Height + 2),
+        .Size = New Size(200, 5 + .Image.Height + 5),
         .Font = GothicFont,
         .MinimumSize = .Size,
         .MaximumSize = New Size(800, .Size.Height),
@@ -3491,9 +3491,9 @@ Public Class DataTool
             With DirectCast(sender, SQL)
                 ItemName = .Name
                 RemoveHandler .Completed, AddressOf Execute_Completed
-                isExportRequest = .Tag.GetType Is GetType(Boolean)
+                Dim isBoolean As Boolean = .Tag.GetType Is GetType(Boolean)
+                If isBoolean Then isExportRequest = DirectCast(.Tag, Boolean)
             End With
-
         Else
             With DirectCast(sender, DDL)
                 ItemName = .Name

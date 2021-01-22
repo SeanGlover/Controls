@@ -4,6 +4,7 @@ Imports System.Windows.Forms
 Imports System.Text.RegularExpressions
 Imports System.Net
 Imports System.IO
+Imports Newtonsoft.Json
 
 Public NotInheritable Class WebFunctions
     Public Shared Sub SetPayload(parameters As Dictionary(Of String, Object), request As HttpWebRequest)
@@ -253,12 +254,28 @@ Public NotInheritable Class Token
     Public Event Expiring(sender As Object, e As TokenEventArgs)
     Private WithEvents ExpiryTimer As New Timer With {.Interval = 1000}
     Public Sub New()
+        'Allows user to create and initialize {}
     End Sub
     Public Sub New(tokenString As String)
 
         tokenString = If(tokenString, String.Empty)
         CookieString = tokenString
 
+        Dim jsonToken As Token = JsonConvert.DeserializeObject(Of Token)(tokenString)
+        If jsonToken IsNot Nothing Then
+            With jsonToken
+                Name = .Name
+                Value = .Value
+                MaxAge = .MaxAge
+                Domain = .Domain
+                Path = .Path
+                Secure = .Secure
+                HttpOnly = .HttpOnly
+                SameSite = .SameSite
+                Expiry_ = Expiry
+            End With
+        End If
+        Exit Sub
         'https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie
         'A <cookie-name> can be any US-ASCII characters, except control characters, spaces, or tabs. It also must not contain a separator character like the following: ( ) < > @ , ; : \ " / [ ] ? = { }.
         'A <cookie-value> can optionally be wrapped in double quotes and include any US-ASCII characters excluding control characters, Whitespace, double quotes, comma, semicolon, and backslash. Encoding: Many implementations perform URL encoding on cookie values, however it is not required per the RFC specification. It does help satisfying the requirements about which characters are allowed for <cookie-value> though.
@@ -283,6 +300,7 @@ Public NotInheritable Class Token
             Name = tokenElements.First
             Value = tokenElements(1)
             Expiry = StringToDateTime(tokenElements.Last)
+
         Else
             If tokenString.Any Then
                 If Regex.Match(tokenString, "Expires|Max-Age|Domain|Path|Secure|HttpOnly|SameSite", RegexOptions.IgnoreCase).Success Then
@@ -366,7 +384,7 @@ Public NotInheritable Class Token
     End Property
     Public ReadOnly Property Valid As Boolean
         Get
-            Return Now <Expiry
+            Return Now < Expiry
         End Get
     End Property
     Private Sub ExpiryTimer_Tick() Handles ExpiryTimer.Tick
@@ -407,6 +425,6 @@ Public NotInheritable Class Token
     End Function
 
     Public Overrides Function ToString() As String
-        Return Join({Name, Value, DateTimeToString(Expiry)}, BlackOut)
+        Return $"{Name}={Value} Expires: {DateTimeToString(Expiry)}"
     End Function
 End Class
