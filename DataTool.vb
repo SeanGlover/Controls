@@ -1424,10 +1424,7 @@ Public Class DataTool
     Private Sub UpdateParentIcon_Text()
 
         Dim ParentForm As Form = TryCast(Parent, Form)
-        If ParentForm IsNot Nothing Then
-            ParentForm.Icon = My.Resources.Db2
-            ParentForm.Text = "Db2ool".ToString(InvariantCulture)
-        End If
+        If ParentForm IsNot Nothing Then ParentForm.Icon = My.Resources.Db2
 
     End Sub
 #End Region

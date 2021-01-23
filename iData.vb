@@ -237,7 +237,7 @@ Friend Class ResponseFailure
                 Case Else
                     'A C C E S S  === AccessRevoked | PasswordExpired | PasswordIncorrect | PasswordMissing
                     Dim headerElements = RegexSplit(.Type.ToString, "(?=[A-Z])", RegexOptions.None)
-                    Dim ShowPasswordBox As Boolean = Not .Type = Errors.Item.AccessRevoked
+                    Dim ShowPasswordBox As Boolean = Not {Errors.Item.AccessRevoked, Errors.Item.ConnectionFailure}.Contains(.Type)
                     Password_New.Tag = e
                     With IssueClose
                         .ForeColor = If(e.RunError.Type = Errors.Item.PasswordExpired, Color.Black, Color.White)
@@ -285,7 +285,6 @@ Friend Class ResponseFailure
 
             End Select
         End With
-
 
     End Sub
     Private Sub IssuePromptShow()
@@ -687,7 +686,11 @@ Public NotInheritable Class ConnectionCollection
             End Using
         End If
 
-        Dim cnxnDict = JsonConvert.DeserializeObject(Of Dictionary(Of String, Dictionary(Of String, String)))(ReadText(Path))
+        Dim content As String
+        Using SR As New StreamReader(Path)
+            content = SR.ReadToEnd()
+        End Using
+        Dim cnxnDict = JsonConvert.DeserializeObject(Of Dictionary(Of String, Dictionary(Of String, String)))(content)
         For Each cnxn In cnxnDict
             Dim cnxnProperties As New Dictionary(Of String, String)(cnxn.Value)
             cnxnProperties("UID") = DeKrypt(cnxn.Value("UID"))

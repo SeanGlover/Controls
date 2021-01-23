@@ -13,12 +13,16 @@ Public Class SnifferEventArgs
     Public ReadOnly Property RequestURL As Uri
     Public ReadOnly Property Client As Http.HttpWebClient
     Public ReadOnly Property Headers As New List(Of KeyValuePair(Of String, String))
+    Public ReadOnly Property Key As String
+    Public ReadOnly Property KeyTime As Date
     Public ReadOnly Property Before As Boolean
     Public Sub New()
     End Sub
     Public Sub New(e As SessionEventArgs, index As Integer, request As Boolean, Optional after As Boolean = False)
 
         If e Is Nothing Then Exit Sub
+        _Key = String.Format("{0:N}", Guid.NewGuid())
+        _KeyTime = Now
         Client = e.HttpClient
         RequestURL = New Uri(Client.Request.Url)
         Id = index
@@ -28,8 +32,11 @@ Public Class SnifferEventArgs
         Next
 
     End Sub
-    Public Sub New(headers As List(Of KeyValuePair(Of String, String)))
+    Public Sub New(url As Uri, headers As List(Of KeyValuePair(Of String, String)))
 
+        _Key = String.Format("{0:N}", Guid.NewGuid())
+        _KeyTime = Now
+        _RequestURL = url
         _Headers = headers
 
     End Sub
@@ -56,17 +63,17 @@ Public Class Sniffer
             If Not Clients.Contains(value) Then Clients.Add(value)
         End Set
     End Property
-    Public Property Search As New SearchRequest
+    Public Property Scrape As New Filter
     Public ReadOnly Property ClientsString As New List(Of String)
     Public ReadOnly Property Sniffing As Boolean = False
-    Public Sub New()
-    End Sub
 
     Public Sub StartSniffing()
 
         Clients.Clear()
         ClientsString.Clear()
         If Not Sniffing Then
+            _Sniffing = True
+            _SniffRequests += 1
             ProxyServer = New ProxyServer
             Dim explicitEndPoint As New ExplicitProxyEndPoint(IPAddress.Any, ProxyPort + SniffRequests, True)
             With ProxyServer
@@ -75,8 +82,6 @@ Public Class Sniffer
                 .SetAsSystemHttpProxy(explicitEndPoint)
                 .SetAsSystemHttpsProxy(explicitEndPoint)
             End With
-            _Sniffing = True
-            _SniffRequests += 1
         End If
 
     End Sub
@@ -151,38 +156,16 @@ Public Class Sniffer
 
         Dim request As Http.Request = e.HttpClient.Request
         RaiseEvent Alert(request, New AlertEventArgs(request.Url.ToUpperInvariant))
-        With Search
-            'GET HEADER(S) WHEN ...
-            Dim requestHeaders As New List(Of KeyValuePair(Of String, String))
-            If .By = FindyBy.Host And .Host IsNot Nothing Then
-#Region " ... A GIVEN HOST MATCHES - AND - HAS A PARTICULAR REQUEST HEADER NAME ( ex x-authorize-token ) "
-                Dim hostMatches As Boolean = If(.Expression Is Nothing, .Host.ToUpperInvariant = request.Host.ToUpperInvariant, Regex.Match(request.Host, .Expression.SearchPattern, .Expression.SearchOptions).Success)
-                If hostMatches Then
-                    For Each requestHeader As HttpHeader In request.Headers
-                        If .UpperValues.Contains(requestHeader.Name.ToUpperInvariant) Then requestHeaders.Add(New KeyValuePair(Of String, String)(requestHeader.Name, requestHeader.Value))
-                    Next
-                End If
-#End Region
-            ElseIf .By = FindyBy.RequestURL Then
-#Region " ... A GIVEN REQUEST URL MATCHES ( ex JSESSIONID ) "
-                Dim urlMatches As Boolean = False
-                If .Expression Is Nothing Then
-                    Dim lookForURL As String = .RequestURL?.ToString.ToUpperInvariant
-                    Dim requestURL As String = request.RequestUri.ToString.ToUpperInvariant()
-                    urlMatches = lookForURL = requestURL
-                Else
-                    urlMatches = Regex.Match(request.RequestUri.ToString, .Expression.SearchPattern, .Expression.SearchOptions).Success
-                End If
-                If urlMatches Then
-                    For Each requestHeader As HttpHeader In request.Headers
-                        requestHeaders.Add(New KeyValuePair(Of String, String)(requestHeader.Name, requestHeader.Value))
-                    Next
-                End If
-#End Region
-            ElseIf .By = FindyBy.None Then
-
+        Dim requestHeaders As New List(Of KeyValuePair(Of String, String))
+        Dim addHeaders As Boolean
+        With Scrape
+            addHeaders = Regex.IsMatch(If(.Where = LookIn.Host, request.Host, If(.Where = LookIn.RequestURL, request.RequestUri.ToString, String.Empty)), .What, .How)
+            If addHeaders Then
+                For Each requestHeader As HttpHeader In request.Headers
+                    requestHeaders.Add(New KeyValuePair(Of String, String)(requestHeader.Name, requestHeader.Value))
+                Next
+                If requestHeaders.Any Then RaiseEvent Found(Me, New SnifferEventArgs(request.RequestUri, requestHeaders))
             End If
-            If requestHeaders.Any Then RaiseEvent Found(Me, New SnifferEventArgs(requestHeaders))
         End With
 
     End Sub
@@ -210,73 +193,14 @@ Public Class Sniffer
 
     End Function
 End Class
-Public Enum FindyBy
+Public Enum LookIn
     None
-    RequestURL
     Host
+    RequestURL
     Body
 End Enum
-Public NotInheritable Class ByPattern
-    Implements IEquatable(Of ByPattern)
-    Public Property SearchPattern As String
-    Public Property SearchOptions As RegexOptions = RegexOptions.None
-    Public Overrides Function GetHashCode() As Integer
-        Return SearchPattern.GetHashCode Xor SearchOptions.GetHashCode
-    End Function
-    Public Overloads Function Equals(ByVal other As ByPattern) As Boolean Implements IEquatable(Of ByPattern).Equals
-        If other Is Nothing Then
-            Return Me Is Nothing
-        Else
-            Return SearchPattern = other.SearchPattern AndAlso SearchOptions = other.SearchOptions
-        End If
-    End Function
-    Public Shared Operator =(ByVal value1 As ByPattern, ByVal value2 As ByPattern) As Boolean
-        If value1 Is Nothing Then
-            Return value2 Is Nothing
-        ElseIf value2 Is Nothing Then
-            Return value1 Is Nothing
-        Else
-            Return value1.Equals(value2)
-        End If
-    End Operator
-    Public Shared Operator <>(ByVal value1 As ByPattern, ByVal value2 As ByPattern) As Boolean
-        Return Not value1 = value2
-    End Operator
-    Public Overrides Function Equals(ByVal obj As Object) As Boolean
-        If TypeOf obj Is ByPattern Then
-            Return CType(obj, ByPattern) = Me
-        Else
-            Return False
-        End If
-    End Function
-End Class
-Public NotInheritable Class SearchRequest
-    Public Sub New()
-    End Sub
-    Public Sub New(searchValue As String, searchBy As FindyBy)
-        Values.Add(searchValue)
-        By = searchBy
-    End Sub
-    Public Property Host As String
-    Public Property RequestURL As Uri
-    Public ReadOnly Property Values As New List(Of String)
-    Public ReadOnly Property UpperValues As List(Of String)
-        Get
-            Return (From v In Values Select v.ToUpperInvariant).ToList
-        End Get
-    End Property
-    Public Property Expression As ByPattern
-    Private By_ As FindyBy = FindyBy.None
-    Public Property By As FindyBy
-        Get
-            If By_ = FindyBy.None Then
-                If Host IsNot Nothing Then By_ = FindyBy.Host
-                If RequestURL IsNot Nothing Then By_ = FindyBy.RequestURL
-            End If
-            Return By_
-        End Get
-        Set(value As FindyBy)
-            By_ = value
-        End Set
-    End Property
+Public NotInheritable Class Filter
+    Public Property What As String
+    Public Property Where As LookIn
+    Public Property How As RegexOptions
 End Class

@@ -2235,7 +2235,7 @@ Public Module Functions
                     Content = SR.ReadToEnd
                 End Using
             Catch ex As IOException
-                MsgBox(ex.Message)
+                Return ex.Message
             End Try
             Return Content
         Else
