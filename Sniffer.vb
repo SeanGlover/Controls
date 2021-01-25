@@ -156,15 +156,26 @@ Public Class Sniffer
 
         Dim request As Http.Request = e.HttpClient.Request
         RaiseEvent Alert(request, New AlertEventArgs(request.Url.ToUpperInvariant))
-        Dim requestHeaders As New List(Of KeyValuePair(Of String, String))
+        Dim headersRequest As New List(Of KeyValuePair(Of String, String))(request.Headers.Select(Function(h) New KeyValuePair(Of String, String)(h.Name, h.Value)))
+        Dim headersResponse As New List(Of KeyValuePair(Of String, String))(e.HttpClient.Response.Headers.Select(Function(h) New KeyValuePair(Of String, String)(h.Name, h.Value)))
+        Dim headers As New List(Of KeyValuePair(Of String, String))
         Dim addHeaders As Boolean
         With Scrape
-            addHeaders = Regex.IsMatch(If(.Where = LookIn.Host, request.Host, If(.Where = LookIn.RequestURL, request.RequestUri.ToString, String.Empty)), .What, .How)
+            If .Where = LookIn.RequestHeaders Then
+                addHeaders = headersRequest.Select(Function(h) h.Key).Contains(.What)
+
+            ElseIf .Where = LookIn.ResponseHeaders Then
+                addHeaders = headersResponse.Select(Function(h) h.Key).Contains(.What)
+
+            Else
+                addHeaders = Regex.IsMatch(If(.Where = LookIn.Host, request.Host, If(.Where = LookIn.RequestURL, request.RequestUri.ToString, String.Empty)), .What, .How)
+
+            End If
             If addHeaders Then
                 For Each requestHeader As HttpHeader In request.Headers
-                    requestHeaders.Add(New KeyValuePair(Of String, String)(requestHeader.Name, requestHeader.Value))
+                    headers.Add(New KeyValuePair(Of String, String)(requestHeader.Name, requestHeader.Value))
                 Next
-                If requestHeaders.Any Then RaiseEvent Found(Me, New SnifferEventArgs(request.RequestUri, requestHeaders))
+                If headers.Any Then RaiseEvent Found(Me, New SnifferEventArgs(request.RequestUri, headers))
             End If
         End With
 
@@ -197,6 +208,8 @@ Public Enum LookIn
     None
     Host
     RequestURL
+    RequestHeaders
+    ResponseHeaders
     Body
 End Enum
 Public NotInheritable Class Filter

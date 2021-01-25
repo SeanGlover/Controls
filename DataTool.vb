@@ -821,7 +821,7 @@ Public Class DataTool
     }
 #Region " EXPORT DATA "
     Private WithEvents Grid_DatabaseExport As New ToolStripMenuItem With {.Text = "Database",
-        .Image = My.Resources.Cloud.ToBitmap,
+        .Image = My.Resources.Db2.ToBitmap,
         .ImageScaling = ToolStripItemImageScaling.None,
         .Font = GothicFont}
 #End Region
@@ -953,7 +953,7 @@ Public Class DataTool
     Private WithEvents DragNode As Node
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Private WithEvents TSMIConnections As New ToolStripMenuItem With {.Text = "Connections",
-        .Image = My.Resources.Cloud.ToBitmap,
+        .Image = My.Resources.Db2.ToBitmap,
         .Font = GothicFont}
     Private ReadOnly TT_Submit As New ToolTip With {.ShowAlways = True, .ToolTipTitle = "New connection:"}
     Private WithEvents TSMI_Comment As New ToolStripMenuItem With {.Text = "Comment",
@@ -1466,7 +1466,6 @@ Public Class DataTool
     End Function
     Private Function ActiveScript() As Script
         Dim scriptActive As Script = DirectCast(ActivePane()?.Tag, Script)
-        If scriptActive IsNot Nothing Then SaveAs.Text = scriptActive.Name
         Return scriptActive
     End Function
 #End Region
@@ -2354,6 +2353,7 @@ Public Class DataTool
         Dim changedNode As Node = FileTree.Nodes.ItemByTag(changedScript)
         changedNode.Text = e.CurrentName
         If changedScript.Visible Then changedScript.TabPage.ItemText = changedScript.Name
+        SaveAs.Text = e.CurrentName
         SaveAs_SetImage()
         Script_Tabs.Refresh()
 
@@ -5228,7 +5228,6 @@ WHERE CAST(X AS SMALLINT)=" & gridColumns.Count
         'Optional e As Object = Nothing .... allows for other EventArgs to come here for resizing
         'Must use ActivePane if sender is a Worker, otherwise the Get throws a cross-thread error
         Script_Grid?.Timer?.StopTicking()
-        If sender?.GetType Is GetType(Tab) Then SaveAs.Text = DirectCast(sender, Tab).Text
         If TLP_PaneGrid.ColumnStyles.Count >= 2 Then
 
             Dim Column_1_Width As Integer = 0

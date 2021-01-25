@@ -2635,6 +2635,7 @@ End Class
         End Using
         Parent?.Parent?.Invalidate()
     End Sub
+
 #Region "IDisposable Support"
     Private DisposedValue As Boolean ' To detect redundant calls IDisposable
     Protected Overridable Sub Dispose(disposing As Boolean)
@@ -2661,6 +2662,16 @@ End Class
         GC.SuppressFinalize(Me)
     End Sub
 #End Region
+
+    Public Overrides Function ToString() As String
+
+        Dim kvp As New List(Of String)
+        For Each item In Cells
+            kvp.Add(item.Value.ToString())
+        Next
+        Return $"[{Cells.Count}] {Join(kvp.ToArray, "; ")}"
+
+    End Function
 End Class
 '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 '- WORK IN PROGRESS ... MUST MIRROR DataRow.ItemArray
@@ -2842,9 +2853,6 @@ End Class
             End If
         End Set
     End Property
-    Public Overrides Function ToString() As String
-        Return Join({Name, Text, DataType.ToString}, ", ")
-    End Function
     Private Style_ As CellStyle
     Public Property Style As CellStyle
         Get
@@ -2861,6 +2869,7 @@ End Class
         End Set
     End Property
     Friend ReadOnly Property StyleSet As Boolean
+
 #Region "IDisposable Support"
     Private DisposedValue As Boolean ' To detect redundant calls IDisposable
     Protected Overridable Sub Dispose(disposing As Boolean)
@@ -2890,6 +2899,10 @@ End Class
         GC.SuppressFinalize(Me)
     End Sub
 #End Region
+
+    Public Overrides Function ToString() As String
+        Return Join({Name, Text, DataType.ToString}, ", ")
+    End Function
 End Class
 '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 Public NotInheritable Class StyleEventArgs
