@@ -3982,7 +3982,7 @@ Public Module iData
                                             If cellDate.TimeOfDay.Ticks = 0 Then
                                                 cellString = cellDate.ToShortDateString
                                             Else
-                                                cellString = cellDate.ToString("M/d/yyyy h:mm tt", InvariantCulture)
+                                                cellString = cellDate.ToString("yyyy-MM-dd HH:mm:ss.ffffff", InvariantCulture)
                                             End If
 
                                         ElseIf column.DataType Is GetType(Double) Or column.DataType Is GetType(Decimal) Then

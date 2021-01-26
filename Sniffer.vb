@@ -9,46 +9,47 @@ Imports System.Text.RegularExpressions
 
 Public Class SnifferEventArgs
     Inherits EventArgs
-    Public ReadOnly Property Id As Integer
+    Public Enum State
+        Request
+        Response
+    End Enum
+    Public Enum Timing
+        Before
+        After
+    End Enum
+    Public ReadOnly Property Method As String
     Public ReadOnly Property RequestURL As Uri
-    Public ReadOnly Property Client As Http.HttpWebClient
     Public ReadOnly Property Headers As New List(Of KeyValuePair(Of String, String))
     Public ReadOnly Property Key As String
     Public ReadOnly Property KeyTime As Date
-    Public ReadOnly Property Before As Boolean
-    Public Sub New()
-    End Sub
-    Public Sub New(e As SessionEventArgs, index As Integer, request As Boolean, Optional after As Boolean = False)
+    Public ReadOnly Property Traffic As State
+    Public ReadOnly Property Sequence As Timing
+
+    Public Sub New(e As SessionEventArgs, request As Boolean, Optional after As Boolean = False)
 
         If e Is Nothing Then Exit Sub
         _Key = String.Format("{0:N}", Guid.NewGuid())
         _KeyTime = Now
-        Client = e.HttpClient
+        Dim Client As Http.HttpWebClient = e.HttpClient
+        _Method = Client.Request.Method
         RequestURL = New Uri(Client.Request.Url)
-        Id = index
-        Before = Not after
+        Traffic = If(request, State.Request, State.Response)
+        Sequence = If(after, Timing.After, Timing.Before)
         For Each header In If(request, Client.Request.Headers, Client.Response.Headers)
             Headers.Add(New KeyValuePair(Of String, String)(header.Name, header.Value))
         Next
 
     End Sub
-    Public Sub New(url As Uri, headers As List(Of KeyValuePair(Of String, String)))
-
-        _Key = String.Format("{0:N}", Guid.NewGuid())
-        _KeyTime = Now
-        _RequestURL = url
-        _Headers = headers
-
-    End Sub
 End Class
 Public Class Sniffer
+    Implements IDisposable
     Public Event Alert(sender As Object, e As AlertEventArgs)
     Public Event RequestAlert(sender As Object, e As SnifferEventArgs)
     Public Event ResponseAlert(sender As Object, e As SnifferEventArgs)
     Public Event Found(sender As Object, e As SnifferEventArgs)
 
     Private WithEvents ProxyServer As ProxyServer
-    Private Const ProxyPort As Integer = 18880
+    Private ReadOnly ProxyPort As Integer = 18880
     Private ReadOnly Property SniffRequests As Integer
     Public Property Name As String
     Public Property Tag As Object
@@ -63,9 +64,13 @@ Public Class Sniffer
             If Not Clients.Contains(value) Then Clients.Add(value)
         End Set
     End Property
-    Public Property Scrape As New Filter
+    Public ReadOnly Property Filters As New List(Of Filter)
     Public ReadOnly Property ClientsString As New List(Of String)
     Public ReadOnly Property Sniffing As Boolean = False
+
+    Public Sub New(Optional portNumber As Integer = 18880)
+        ProxyPort = portNumber
+    End Sub
 
     Public Sub StartSniffing()
 
@@ -100,21 +105,21 @@ Public Class Sniffer
     Private Async Function Proxy_BeforeRequest(Sender As Object, e As SessionEventArgs) As Task Handles ProxyServer.BeforeRequest
         Await Task.Run(Sub()
                            Client = e.HttpClient
-                           RaiseEvent RequestAlert(Me, New SnifferEventArgs(e, Clients.IndexOf(Client), True, False))
-                           RequestEvent(e)
+                           RaiseEvent RequestAlert(Me, New SnifferEventArgs(e, True, False))
+                           RequestEvent(e, True)
                        End Sub).ConfigureAwait(False)
     End Function
     Private Async Function Proxy_BeforeResponse(Sender As Object, e As SessionEventArgs) As Task Handles ProxyServer.BeforeResponse
         Await Task.Run(Sub()
                            Client = e.HttpClient
-                           RaiseEvent ResponseAlert(Me, New SnifferEventArgs(e, Clients.IndexOf(Client), False, False))
-                           RequestEvent(e)
+                           RaiseEvent ResponseAlert(Me, New SnifferEventArgs(e, False, False))
+                           RequestEvent(e, False)
                        End Sub).ConfigureAwait(False)
     End Function
     Private Async Function Proxy_AfterResponse(Sender As Object, e As SessionEventArgs) As Task Handles ProxyServer.AfterResponse
         Await Task.Run(Sub()
                            Client = e.HttpClient
-                           RaiseEvent ResponseAlert(Me, New SnifferEventArgs(e, Clients.IndexOf(Client), False, True))
+                           RaiseEvent ResponseAlert(Me, New SnifferEventArgs(e, False, True))
                            Dim response = Client.Response
                            If Not response.StatusCode = 0 Then
                                RaiseEvent Alert(response, New AlertEventArgs(CStr(response.StatusCode)))
@@ -152,32 +157,29 @@ Public Class Sniffer
                            End If
                        End Sub).ConfigureAwait(False)
     End Function
-    Private Sub RequestEvent(e As SessionEventArgs)
+    Private Sub RequestEvent(e As SessionEventArgs, isRequest As Boolean)
 
-        Dim request As Http.Request = e.HttpClient.Request
-        RaiseEvent Alert(request, New AlertEventArgs(request.Url.ToUpperInvariant))
-        Dim headersRequest As New List(Of KeyValuePair(Of String, String))(request.Headers.Select(Function(h) New KeyValuePair(Of String, String)(h.Name, h.Value)))
-        Dim headersResponse As New List(Of KeyValuePair(Of String, String))(e.HttpClient.Response.Headers.Select(Function(h) New KeyValuePair(Of String, String)(h.Name, h.Value)))
-        Dim headers As New List(Of KeyValuePair(Of String, String))
-        Dim addHeaders As Boolean
-        With Scrape
-            If .Where = LookIn.RequestHeaders Then
-                addHeaders = headersRequest.Select(Function(h) h.Key).Contains(.What)
-
-            ElseIf .Where = LookIn.ResponseHeaders Then
-                addHeaders = headersResponse.Select(Function(h) h.Key).Contains(.What)
-
-            Else
-                addHeaders = Regex.IsMatch(If(.Where = LookIn.Host, request.Host, If(.Where = LookIn.RequestURL, request.RequestUri.ToString, String.Empty)), .What, .How)
-
-            End If
-            If addHeaders Then
-                For Each requestHeader As HttpHeader In request.Headers
-                    headers.Add(New KeyValuePair(Of String, String)(requestHeader.Name, requestHeader.Value))
-                Next
-                If headers.Any Then RaiseEvent Found(Me, New SnifferEventArgs(request.RequestUri, headers))
-            End If
-        End With
+        If Filters.Any Then
+            Dim xxx = e.HttpClient.Request.Method
+            Dim request As Http.Request = e.HttpClient.Request
+            RaiseEvent Alert(request, New AlertEventArgs(request.Url.ToUpperInvariant))
+            Dim headersRequest As New List(Of KeyValuePair(Of String, String))(request.Headers.Select(Function(h) New KeyValuePair(Of String, String)(h.Name, h.Value)))
+            Dim headersResponse As New List(Of KeyValuePair(Of String, String))(e.HttpClient.Response.Headers.Select(Function(h) New KeyValuePair(Of String, String)(h.Name, h.Value)))
+            Dim headers As New List(Of KeyValuePair(Of String, String))
+            Dim matchCount As Integer = 0
+            Filters.ForEach(Sub(fltr)
+                                With fltr
+                                    If .Where = LookIn.RequestHeaderNames Then matchCount += (From hr In headersRequest Where Regex.IsMatch(hr.Key, .What, .How)).Count
+                                    If .Where = LookIn.RequestHeaderValues Then matchCount += (From hr In headersRequest Where Regex.IsMatch(hr.Value, .What, .How)).Count
+                                    If .Where = LookIn.ResponseHeaderNames Then matchCount += (From hr In headersResponse Where Regex.IsMatch(hr.Key, .What, .How)).Count
+                                    If .Where = LookIn.ResponseHeaderValues Then matchCount += (From hr In headersResponse Where Regex.IsMatch(hr.Value, .What, .How)).Count
+                                    If .Where = LookIn.RequestURL Then matchCount += If(Regex.IsMatch(request.RequestUri.ToString, .What, .How), 1, 0)
+                                    If .Where = LookIn.Host Then matchCount += If(Regex.IsMatch(request.Host, .What, .How), 1, 0)
+                                End With
+                            End Sub)
+            Dim addHeaders As Boolean = matchCount > 0 And matchCount = Filters.Count
+            If addHeaders Then RaiseEvent Found(Me, New SnifferEventArgs(e, isRequest, False))
+        End If
 
     End Sub
     Public Function ClientsToString() As String
@@ -203,13 +205,43 @@ Public Class Sniffer
         Return Join(clientData.ToArray, vbNewLine)
 
     End Function
+
+#Region "IDisposable Support"
+    Private DisposedValue As Boolean ' To detect redundant calls IDisposable
+    Protected Overridable Sub Dispose(disposing As Boolean)
+        If Not DisposedValue Then
+            If disposing Then
+                ' TODO: dispose managed state (managed objects).
+                ProxyServer?.Dispose()
+
+            End If
+            ' TODO: free unmanaged resources (unmanaged objects) and override Finalize() below.
+            ' TODO: set large fields to null.
+        End If
+        DisposedValue = True
+    End Sub
+    ' TODO: override Finalize() only if Dispose(disposing As Boolean) above has code to free unmanaged resources.
+    Protected Overrides Sub Finalize()
+        ' Do not change this code.  Put cleanup code in Dispose(disposing As Boolean) above.
+        Dispose(False)
+        MyBase.Finalize()
+    End Sub
+    ' This code added by Visual Basic to correctly implement the disposable pattern.
+    Public Sub Dispose() Implements IDisposable.Dispose
+        ' Do not change this code.  Put cleanup code in Dispose(disposing As Boolean) above.
+        Dispose(True)
+        GC.SuppressFinalize(Me)
+    End Sub
+#End Region
 End Class
 Public Enum LookIn
     None
     Host
     RequestURL
-    RequestHeaders
-    ResponseHeaders
+    RequestHeaderNames
+    RequestHeaderValues
+    ResponseHeaderNames
+    ResponseHeaderValues
     Body
 End Enum
 Public NotInheritable Class Filter

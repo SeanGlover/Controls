@@ -2634,7 +2634,6 @@ Public Module Functions
                                     'IsBoolean
                                     Return GetType(Boolean)
                                 Else
-                                    Stop
                                     Return GetType(String)
                                 End If
                             End If

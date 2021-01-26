@@ -14,9 +14,12 @@ Public NotInheritable Class WebFunctions
             Dim postBytes() As Byte = Text.Encoding.UTF8.GetBytes(body)
             With request
                 .ContentLength = postBytes.Length
-                Using RequestStream As Stream = .GetRequestStream()
-                    RequestStream.Write(postBytes, 0, postBytes.Length)
-                End Using
+                Try
+                    Using RequestStream As Stream = .GetRequestStream()
+                        RequestStream.Write(postBytes, 0, postBytes.Length)
+                    End Using
+                Catch ex As WebException
+                End Try
             End With
         End If
 

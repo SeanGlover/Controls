@@ -1987,6 +1987,12 @@ End Class
         Images
         Strings
     End Enum
+    Public Sub New()
+    End Sub
+    Public Sub New(nameOfColumn As String, typeOfColumn As Type)
+        Name = nameOfColumn
+        _DataType = typeOfColumn
+    End Sub
     Public Sub New(NewColumn As DataColumn)
 
         If NewColumn IsNot Nothing Then
@@ -2311,6 +2317,7 @@ End Class
     Public Overrides Function ToString() As String
         Return Join({Name, DataType.ToString, Format.Key}, ", ")
     End Function
+
 #Region "IDisposable Support"
     Private DisposedValue As Boolean ' To detect redundant calls IDisposable
     Protected Overridable Sub Dispose(disposing As Boolean)
