@@ -6,6 +6,7 @@ Imports Titanium.Web.Proxy
 Imports Titanium.Web.Proxy.EventArguments
 Imports Titanium.Web.Proxy.Models
 Imports System.Text.RegularExpressions
+Imports System.Text
 
 Public Class SnifferEventArgs
     Inherits EventArgs
@@ -67,7 +68,7 @@ Public Class Sniffer
     Public ReadOnly Property Filters As New List(Of Filter)
     Public ReadOnly Property ClientsString As New List(Of String)
     Public ReadOnly Property Sniffing As Boolean = False
-
+    Public ReadOnly Property Body As String
     Public Sub New(Optional portNumber As Integer = 18880)
         ProxyPort = portNumber
     End Sub
@@ -116,65 +117,76 @@ Public Class Sniffer
                            RequestEvent(e, False)
                        End Sub).ConfigureAwait(False)
     End Function
-    Private Async Function Proxy_AfterResponse(Sender As Object, e As SessionEventArgs) As Task Handles ProxyServer.AfterResponse
-        Await Task.Run(Sub()
+    Private Async Function Proxy_AfterResponse(Sender As Object, e As SessionEventArgs) As Task Handles ProxyServer.BeforeResponse
+        Await Task.Run(Async Function()
                            Client = e.HttpClient
                            RaiseEvent ResponseAlert(Me, New SnifferEventArgs(e, False, True))
                            Dim response = Client.Response
                            If Not response.StatusCode = 0 Then
-                               RaiseEvent Alert(response, New AlertEventArgs(CStr(response.StatusCode)))
                                If response.HasBody Then '/// Errors trying to read BodyString as Response is still processing the reading of the Body
-#Region " R E S P O N S E   B O D Y - I N A C T I V E (response.BodyString ) "
+                                   _Body = Await e.GetRequestBodyAsString()
                                    '■■■■■■■■■■■■■■■■■■■■■■■■ Response body is not read yet.
                                    '■■■■■■■■■■■■■■■■■■■■■■■■ Use SessionEventArgs.GetResponseBody() Or SessionEventArgs.GetResponseBodyAsString() method to read the response body
-                                   'Dim responseValues As New List(Of KeyValuePair(Of String, String))
-                                   'Dim bodyResponse As String = response.BodyString
-                                   'With Search
-                                   '    If .By = FindyBy.Body Then
-                                   '        If .Expression Is Nothing Then 'Explicit
-                                   '            For Each searchValue In .Values
-                                   '                If bodyResponse.Contains(searchValue) Then
-                                   '                    responseValues.Add(New KeyValuePair(Of String, String)(searchValue, bodyResponse))
-                                   '                End If
-                                   '            Next
-                                   '        Else 'Regex
-                                   '            Dim bodyMatches = RegexMatches(bodyResponse, .Expression.SearchPattern, .Expression.SearchOptions)
-                                   '            For Each bodyMatch In bodyMatches
-                                   '                responseValues.Add(New KeyValuePair(Of String, String)(bodyMatch.Value, bodyResponse))
-                                   '            Next
-                                   '        End If
-                                   '    End If
-                                   'End With
-                                   'If responseValues.Any Then
-                                   '    For Each responseHead In response.Headers
-                                   '        responseValues.Add(New KeyValuePair(Of String, String)(responseHead.Name, responseHead.Value))
-                                   '    Next
-                                   '    RaiseEvent Found(Me, New SnifferEventArgs(responseValues))
-                                   'End If
-#End Region
                                End If
-                               ClientsString.Add(ClientToString(e.HttpClient))
                            End If
-                       End Sub).ConfigureAwait(False)
+                       End Function).ConfigureAwait(False)
     End Function
     Private Sub RequestEvent(e As SessionEventArgs, isRequest As Boolean)
 
         If Filters.Any Then
-            Dim xxx = e.HttpClient.Request.Method
             Dim request As Http.Request = e.HttpClient.Request
             RaiseEvent Alert(request, New AlertEventArgs(request.Url.ToUpperInvariant))
             Dim headersRequest As New List(Of KeyValuePair(Of String, String))(request.Headers.Select(Function(h) New KeyValuePair(Of String, String)(h.Name, h.Value)))
             Dim headersResponse As New List(Of KeyValuePair(Of String, String))(e.HttpClient.Response.Headers.Select(Function(h) New KeyValuePair(Of String, String)(h.Name, h.Value)))
             Dim headers As New List(Of KeyValuePair(Of String, String))
             Dim matchCount As Integer = 0
+            Dim matches As New List(Of String)
             Filters.ForEach(Sub(fltr)
                                 With fltr
-                                    If .Where = LookIn.RequestHeaderNames Then matchCount += (From hr In headersRequest Where Regex.IsMatch(hr.Key, .What, .How)).Count
-                                    If .Where = LookIn.RequestHeaderValues Then matchCount += (From hr In headersRequest Where Regex.IsMatch(hr.Value, .What, .How)).Count
-                                    If .Where = LookIn.ResponseHeaderNames Then matchCount += (From hr In headersResponse Where Regex.IsMatch(hr.Key, .What, .How)).Count
-                                    If .Where = LookIn.ResponseHeaderValues Then matchCount += (From hr In headersResponse Where Regex.IsMatch(hr.Value, .What, .How)).Count
-                                    If .Where = LookIn.RequestURL Then matchCount += If(Regex.IsMatch(request.RequestUri.ToString, .What, .How), 1, 0)
-                                    If .Where = LookIn.Host Then matchCount += If(Regex.IsMatch(request.Host, .What, .How), 1, 0)
+                                    If .Where = LookIn.RequestHeaderNames Then
+                                        .Matches.AddRange(From hr In headersRequest.Select(Function(hr) Regex.Match(hr.Key, .What, .How)).Where(Function(m) m.Success))
+                                        If .Matches.Any Then
+                                            matches.Add($"{ .Where} {Join(.Matches.Select(Function(h) h.Value).ToArray, ":")}")
+                                            matchCount += 1
+                                        End If
+
+                                    ElseIf .Where = LookIn.RequestHeaderValues Then
+                                        .Matches.AddRange(From hr In headersRequest.Select(Function(hr) Regex.Match(hr.Value, .What, .How)).Where(Function(m) m.Success))
+                                        If .Matches.Any Then
+                                            matches.Add($"{ .Where} {Join(.Matches.Select(Function(h) h.Value).ToArray, ":")}")
+                                            matchCount += 1
+                                        End If
+
+                                    ElseIf .Where = LookIn.ResponseHeaderNames Then
+                                        .Matches.AddRange(From hr In headersResponse.Select(Function(hr) Regex.Match(hr.Key, .What, .How)).Where(Function(m) m.Success))
+                                        If .Matches.Any Then
+                                            matches.Add($"{ .Where} {Join(.Matches.Select(Function(h) h.Value).ToArray, ":")}")
+                                            matchCount += 1
+                                        End If
+
+                                    ElseIf .Where = LookIn.ResponseHeaderValues Then
+                                        .Matches.AddRange(From hr In headersResponse.Select(Function(hr) Regex.Match(hr.Value, .What, .How)).Where(Function(m) m.Success))
+                                        If .Matches.Any Then
+                                            matches.Add($"{ .Where} {Join(.Matches.Select(Function(h) h.Value).ToArray, ":")}")
+                                            matchCount += 1
+                                        End If
+
+                                    ElseIf .Where = LookIn.RequestURL Then
+                                        Dim matchURL As Match = Regex.Match(request.RequestUri.ToString, .What, .How)
+                                        If matchURL.Success Then
+                                            .Matches.Add(matchURL)
+                                            matchCount += 1
+                                            matches.Add($"{ .Where} {matchURL.Value}")
+                                        End If
+
+                                    ElseIf .Where = LookIn.Host Then
+                                        Dim matchHost As Match = Regex.Match(request.Host, .What, .How)
+                                        If matchHost.Success Then
+                                            .Matches.Add(matchHost)
+                                            matchCount += 1
+                                            matches.Add($"{ .Where} {matchHost.Value}")
+                                        End If
+                                    End If
                                 End With
                             End Sub)
             Dim addHeaders As Boolean = matchCount > 0 And matchCount = Filters.Count
@@ -182,29 +194,6 @@ Public Class Sniffer
         End If
 
     End Sub
-    Public Function ClientsToString() As String
-        Return Join((From cs In ClientsString Where cs IsNot Nothing).ToArray, StrDup(20, vbNewLine & Controls.BlackOut & vbNewLine))
-    End Function
-    Private Function ClientToString(client As Titanium.Web.Proxy.Http.HttpWebClient) As String
-
-        Dim clientData As New List(Of String)
-        If client IsNot Nothing Then
-            With client
-                clientData.Add("Request" & StrDup(10, "="))
-                clientData.Add(.Request.RequestUriString)
-                For Each header In .Request.Headers
-                    clientData.Add(Join({header.Name, header.Value}, "="))
-                Next
-                'Body
-                clientData.Add("Response" & StrDup(10, "="))
-                For Each header In .Response.Headers
-                    clientData.Add(Join({header.Name, header.Value}, "="))
-                Next
-            End With
-        End If
-        Return Join(clientData.ToArray, vbNewLine)
-
-    End Function
 
 #Region "IDisposable Support"
     Private DisposedValue As Boolean ' To detect redundant calls IDisposable
@@ -244,8 +233,13 @@ Public Enum LookIn
     ResponseHeaderValues
     Body
 End Enum
+
 Public NotInheritable Class Filter
     Public Property What As String
     Public Property Where As LookIn
-    Public Property How As RegexOptions
+    Public Property How As RegexOptions = RegexOptions.IgnoreCase
+    Public ReadOnly Property Matches As New List(Of Match)
+    Public Overrides Function ToString() As String
+        Return $"{What} => {Where} [{Split(How.ToString, ".").First}]"
+    End Function
 End Class
