@@ -19,6 +19,8 @@ Public Class SnifferEventArgs
         After
     End Enum
     Public ReadOnly Property Method As String
+    Public ReadOnly Property Payload As String
+    Public ReadOnly Property Body As String
     Public ReadOnly Property RequestURL As Uri
     Public ReadOnly Property Headers As New List(Of KeyValuePair(Of String, String))
     Public ReadOnly Property Key As String
@@ -36,6 +38,7 @@ Public Class SnifferEventArgs
         RequestURL = New Uri(Client.Request.Url)
         Traffic = If(request, State.Request, State.Response)
         Sequence = If(after, Timing.After, Timing.Before)
+
         For Each header In If(request, Client.Request.Headers, Client.Response.Headers)
             Headers.Add(New KeyValuePair(Of String, String)(header.Name, header.Value))
         Next
@@ -60,7 +63,8 @@ Public Class Sniffer
     Public Property Tag As Object
     Public ReadOnly Property Filters As New List(Of Filter)
     Public ReadOnly Property Sniffing As Boolean = False
-    Public ReadOnly Property Body As String
+    Public ReadOnly Property Payloads As New Dictionary(Of String, String)
+    Public ReadOnly Property Bodies As New Dictionary(Of String, String)
     Public Sub New(Optional portNumber As Integer = 18880)
         ProxyPort = portNumber
     End Sub
@@ -93,50 +97,83 @@ Public Class Sniffer
 
     End Sub
 
+#Region " Rollback "
+    'Private Async Function Proxy_BeforeRequest(Sender As Object, e As SessionEventArgs) As Task Handles ProxyServer.BeforeRequest
+    '    Await Task.Run(Sub()
+    '                       e.HttpClient.UserData = String.Format("{0:N}", Guid.NewGuid())
+    '                       RaiseEvent RequestAlert(Me, New SnifferEventArgs(e, True, False))
+    '                       ProxyEvent(e, True)
+    '                   End Sub).ConfigureAwait(False)
+    'End Function
+    'Private Async Function Proxy_BeforeResponse(Sender As Object, e As SessionEventArgs) As Task Handles ProxyServer.BeforeResponse
+    '    Await Task.Run(Sub()
+    '                       RaiseEvent ResponseAlert(Me, New SnifferEventArgs(e, False, True))
+    '                       ProxyEvent(e, False)
+    '                   End Sub).ConfigureAwait(False)
+    'End Function
+#End Region
+
     Private Async Function Proxy_BeforeRequest(Sender As Object, e As SessionEventArgs) As Task Handles ProxyServer.BeforeRequest
+
+        Dim clientKey As String = String.Format("{0:N}", Guid.NewGuid())
+        e.HttpClient.UserData = clientKey
+
         Await Task.Run(Sub()
-                           e.HttpClient.UserData = String.Format("{0:N}", Guid.NewGuid())
                            RaiseEvent RequestAlert(Me, New SnifferEventArgs(e, True, False))
-                           RequestEvent(e, True)
+                           ProxyEvent(e, True)
                        End Sub).ConfigureAwait(False)
+        Await Task.Run(Async Function()
+                           If e.HttpClient.Request.HasBody Then
+                               Dim requestBody As String = Await e.GetRequestBodyAsString()
+                               If requestBody.Any Then
+                                   Payloads.Add(clientKey, requestBody)
+                                   'LookIn.Payload Code!
+
+                               End If
+                           End If
+                       End Function).ConfigureAwait(False)
+
     End Function
     Private Async Function Proxy_BeforeResponse(Sender As Object, e As SessionEventArgs) As Task Handles ProxyServer.BeforeResponse
 
-        RaiseEvent ResponseAlert(Me, New SnifferEventArgs(e, False, True))
-        Await Task.Run(Async Function()
+        Await Task.Run(Sub()
                            RaiseEvent ResponseAlert(Me, New SnifferEventArgs(e, False, False))
-                           RequestEvent(e, False)
+                           ProxyEvent(e, False)
+                       End Sub).ConfigureAwait(False)
+        Await Task.Run(Async Function()
                            If e.HttpClient.Response.StatusCode = HttpStatusCode.OK And {"GET", "POST"}.Contains(e.HttpClient.Request.Method) Then
                                If e.HttpClient.Response.ContentType IsNot Nothing AndAlso e.HttpClient.Response.ContentType.Trim().ToLower().Contains("text/html") Then
                                    Dim bodyBytes As Byte() = Await e.GetResponseBody()
                                    e.SetResponseBody(bodyBytes)
                                    Dim responseBody As String = Await e.GetResponseBodyAsString()
                                    e.SetResponseBodyString(responseBody)
-                                   Dim matchCount As Integer = 0
-                                   Filters.ForEach(Sub(fltr)
-                                                       Dim matchString As String = String.Empty
-                                                       With fltr
-                                                           If .Where = LookIn.Body Then
-                                                               Dim matchBody As Match = Regex.Match(If(responseBody, String.Empty), .What, .How)
-                                                               If matchBody.Success Then
-                                                                   matchString = matchBody.Value
-                                                                   matchCount += 1
-                                                                   'StopSniffing()
-                                                                   'Stop
+
+                                   If responseBody.Any Then
+                                       Dim clientKey As String = e.HttpClient.UserData.ToString
+                                       Bodies.Add(clientKey, responseBody)
+
+                                       Dim matchCount As Integer = 0
+                                       Filters.ForEach(Sub(fltr)
+                                                           Dim matchString As String = String.Empty
+                                                           With fltr
+                                                               If .Active Then
+                                                                   If .Where = LookIn.Body Then
+                                                                       Dim matchBody As Match = Regex.Match(If(responseBody, String.Empty), .What, .How)
+                                                                       If matchBody.Success Then
+                                                                           matchString = matchBody.Value
+                                                                           matchCount += 1
+                                                                       End If
+                                                                   End If
+                                                                   If matchString.Any Then .Matches.Add(matchString)
                                                                End If
-                                                           End If
-                                                           If matchString.Any Then .Matches.Add(matchString)
-                                                       End With
-                                                   End Sub)
-                                   Dim hasMatches As Boolean = matchCount > 0 And matchCount >= Filters.Count
-                                   If hasMatches Then
-                                       RaiseEvent Found(Me, New SnifferEventArgs(e, False, False))
-                                       'StopSniffing()
-                                       'Stop
+                                                           End With
+                                                       End Sub)
+                                       Dim hasMatches As Boolean = matchCount > 0 And matchCount >= Filters.Count
+                                       If hasMatches Then RaiseEvent Found(Me, New SnifferEventArgs(e, False, False))
                                    End If
                                End If
                            End If
-                       End Function)
+                       End Function).ConfigureAwait(False)
 
     End Function
     Private Async Function Proxy_AfterResponse(Sender As Object, e As SessionEventArgs) As Task Handles ProxyServer.AfterResponse
@@ -146,72 +183,76 @@ Public Class Sniffer
                            Dim requestBody As Task(Of String) = e.GetResponseBodyAsString()
                            If requestBody IsNot Nothing Then
                            End If
-                       End Sub)
+                       End Sub).ConfigureAwait(False)
     End Function
-    Private Sub RequestEvent(e As SessionEventArgs, isRequest As Boolean)
+    Private Sub ProxyEvent(e As SessionEventArgs, isRequest As Boolean)
 
         If Filters.Any Then
             RaiseEvent Alert(e.HttpClient.Request, New AlertEventArgs(e.HttpClient.Request.Url.ToUpperInvariant))
             Dim matchCount As Integer = 0
+            Dim filterCount As Integer = 0
             Filters.ForEach(Sub(fltr)
                                 Dim matchString As String = String.Empty
                                 With fltr
-                                    Select Case .Where
-                                        Case LookIn.RequestHeaderNames
-                                            For Each hdr In e.HttpClient.Request.Headers
-                                                Dim matchHdrName As Match = Regex.Match(hdr.Name, .What, .How)
-                                                If matchHdrName.Success Then
-                                                    matchString &= matchHdrName.Value & "■"
+                                    If .Active Then
+                                        filterCount += 1
+                                        Select Case .Where
+                                            Case LookIn.RequestHeaderNames
+                                                For Each hdr In e.HttpClient.Request.Headers
+                                                    Dim matchHdrName As Match = Regex.Match(hdr.Name, .What, .How)
+                                                    If matchHdrName.Success Then
+                                                        matchString &= matchHdrName.Value & "■"
+                                                        matchCount += 1
+                                                    End If
+                                                Next
+
+                                            Case LookIn.RequestHeaderValues
+                                                For Each hdr In e.HttpClient.Request.Headers
+                                                    Dim matchHdrValue As Match = Regex.Match(hdr.Value, .What, .How)
+                                                    If matchHdrValue.Success Then
+                                                        matchString &= matchHdrValue.Value & "■"
+                                                        matchCount += 1
+                                                    End If
+                                                Next
+
+                                            Case LookIn.ResponseHeaderNames
+                                                For Each hdr In e.HttpClient.Response.Headers
+                                                    Dim matchHdrName As Match = Regex.Match(hdr.Name, .What, .How)
+                                                    If matchHdrName.Success Then
+                                                        matchString &= matchHdrName.Value & "■"
+                                                        matchCount += 1
+                                                    End If
+                                                Next
+
+                                            Case LookIn.ResponseHeaderValues
+                                                For Each hdr In e.HttpClient.Response.Headers
+                                                    Dim matchHdrValue As Match = Regex.Match(hdr.Value, .What, .How)
+                                                    If matchHdrValue.Success Then
+                                                        matchString &= matchHdrValue.Value & "■"
+                                                        matchCount += 1
+                                                    End If
+                                                Next
+
+                                            Case LookIn.Host
+                                                Dim matchHost As Match = Regex.Match(e.HttpClient.Request.RequestUri.ToString, .What, .How)
+                                                If matchHost.Success Then
                                                     matchCount += 1
+                                                    matchString = matchHost.Value
                                                 End If
-                                            Next
 
-                                        Case LookIn.RequestHeaderValues
-                                            For Each hdr In e.HttpClient.Request.Headers
-                                                Dim matchHdrValue As Match = Regex.Match(hdr.Value, .What, .How)
-                                                If matchHdrValue.Success Then
-                                                    matchString &= matchHdrValue.Value & "■"
+                                            Case LookIn.RequestURL
+                                                Dim matchURL As Match = Regex.Match(e.HttpClient.Request.RequestUri.ToString, .What, .How)
+                                                If matchURL.Success Then
                                                     matchCount += 1
+                                                    matchString = matchURL.Value
                                                 End If
-                                            Next
 
-                                        Case LookIn.ResponseHeaderNames
-                                            For Each hdr In e.HttpClient.Response.Headers
-                                                Dim matchHdrName As Match = Regex.Match(hdr.Name, .What, .How)
-                                                If matchHdrName.Success Then
-                                                    matchString &= matchHdrName.Value & "■"
-                                                    matchCount += 1
-                                                End If
-                                            Next
-
-                                        Case LookIn.ResponseHeaderValues
-                                            For Each hdr In e.HttpClient.Response.Headers
-                                                Dim matchHdrValue As Match = Regex.Match(hdr.Value, .What, .How)
-                                                If matchHdrValue.Success Then
-                                                    matchString &= matchHdrValue.Value & "■"
-                                                    matchCount += 1
-                                                End If
-                                            Next
-
-                                        Case LookIn.Host
-                                            Dim matchHost As Match = Regex.Match(e.HttpClient.Request.RequestUri.ToString, .What, .How)
-                                            If matchHost.Success Then
-                                                matchCount += 1
-                                                matchString = matchHost.Value
-                                            End If
-
-                                        Case LookIn.RequestURL
-                                            Dim matchURL As Match = Regex.Match(e.HttpClient.Request.RequestUri.ToString, .What, .How)
-                                            If matchURL.Success Then
-                                                matchCount += 1
-                                                matchString = matchURL.Value
-                                            End If
-
-                                    End Select
-                                    If matchString.Any Then .Matches.AddRange(Split(matchString, "■"))
+                                        End Select
+                                        If matchString.Any Then .Matches.AddRange(Split(matchString, "■"))
+                                    End If
                                 End With
                             End Sub)
-            Dim hasMatches As Boolean = matchCount > 0 And matchCount >= Filters.Count
+            Dim hasMatches As Boolean = matchCount > 0 And matchCount >= filterCount
             If hasMatches Then RaiseEvent Found(Me, New SnifferEventArgs(e, isRequest, False))
         End If
 
@@ -245,9 +286,11 @@ Public Class Sniffer
     End Sub
 #End Region
 End Class
+
 Public Enum LookIn
     None
     Host
+    Payload
     RequestURL
     RequestHeaderNames
     RequestHeaderValues
@@ -255,12 +298,12 @@ Public Enum LookIn
     ResponseHeaderValues
     Body
 End Enum
-
 Public NotInheritable Class Filter
     Public Property What As String
     Public Property Where As LookIn
     Public Property How As RegexOptions = RegexOptions.IgnoreCase
     Public ReadOnly Property Matches As New List(Of String)
+    Public Property Active As Boolean = True
     Public Overrides Function ToString() As String
         Return $"{What} => {Where} [{Split(How.ToString, ".").First}]"
     End Function
