@@ -22,7 +22,8 @@ Public Class SnifferEventArgs
     Public ReadOnly Property Payload As String
     Public ReadOnly Property Body As String
     Public ReadOnly Property RequestURL As Uri
-    Public ReadOnly Property Headers As New List(Of KeyValuePair(Of String, String))
+    Public ReadOnly Property RequestHeaders As New List(Of KeyValuePair(Of String, String))
+    Public ReadOnly Property ResponseHeaders As New List(Of KeyValuePair(Of String, String))
     Public ReadOnly Property Key As String
     Public ReadOnly Property KeyTime As Date
     Public ReadOnly Property Traffic As State
@@ -38,9 +39,11 @@ Public Class SnifferEventArgs
         RequestURL = New Uri(Client.Request.Url)
         Traffic = If(request, State.Request, State.Response)
         Sequence = If(after, Timing.After, Timing.Before)
-
-        For Each header In If(request, Client.Request.Headers, Client.Response.Headers)
-            Headers.Add(New KeyValuePair(Of String, String)(header.Name, header.Value))
+        For Each hdr In Client.Request.Headers
+            RequestHeaders.Add(New KeyValuePair(Of String, String)(hdr.Name, hdr.Value))
+        Next
+        For Each hdr In Client.Response.Headers
+            ResponseHeaders.Add(New KeyValuePair(Of String, String)(hdr.Name, hdr.Value))
         Next
 
     End Sub

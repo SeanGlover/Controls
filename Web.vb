@@ -262,22 +262,24 @@ Public NotInheritable Class Token
     Public Sub New(tokenString As String)
 
         tokenString = If(tokenString, String.Empty)
-        CookieString = tokenString
+        Try
+            Dim jsonToken As Token = JsonConvert.DeserializeObject(Of Token)(tokenString)
+            If jsonToken IsNot Nothing Then
+                With jsonToken
+                    Name = .Name
+                    Value = .Value
+                    MaxAge = .MaxAge
+                    Domain = .Domain
+                    Path = .Path
+                    Secure = .Secure
+                    HttpOnly = .HttpOnly
+                    SameSite = .SameSite
+                    Expiry_ = .Expiry
+                End With
+            End If
+        Catch ex As JsonReaderException
+        End Try
 
-        Dim jsonToken As Token = JsonConvert.DeserializeObject(Of Token)(tokenString)
-        If jsonToken IsNot Nothing Then
-            With jsonToken
-                Name = .Name
-                Value = .Value
-                MaxAge = .MaxAge
-                Domain = .Domain
-                Path = .Path
-                Secure = .Secure
-                HttpOnly = .HttpOnly
-                SameSite = .SameSite
-                Expiry_ = Expiry
-            End With
-        End If
         Exit Sub
         'https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie
         'A <cookie-name> can be any US-ASCII characters, except control characters, spaces, or tabs. It also must not contain a separator character like the following: ( ) < > @ , ; : \ " / [ ] ? = { }.
@@ -355,7 +357,6 @@ Public NotInheritable Class Token
         End If
 
     End Sub
-    Public ReadOnly Property CookieString As String
     Public Property Name As String
     Public Property Value As String
     Public ReadOnly Property MaxAge As Long 'Max-Age=<number> Optional, Number of seconds until the cookie expires. A zero or negative number will expire the cookie immediately. If both Expires and Max-Age are set, Max-Age has precedence
@@ -378,11 +379,7 @@ Public NotInheritable Class Token
     End Property
     Public ReadOnly Property RemainingTime As TimeSpan
         Get
-            If Valid Then
-                Return Expiry.Subtract(Now)
-            Else
-                Return New TimeSpan()
-            End If
+            Return If(Valid(), Expiry.Subtract(Now), New TimeSpan)
         End Get
     End Property
     Public ReadOnly Property Valid As Boolean
