@@ -3977,6 +3977,7 @@ Public Module iData
                                     If IsDBNull(rowCell) Or rowCell Is Nothing Then
                                         cellString = String.Empty
                                     Else
+                                        '// Dates
                                         If column.DataType Is GetType(Date) Then
                                             Dim cellDate As Date = DirectCast(rowCell, Date)
                                             If cellDate.TimeOfDay.Ticks = 0 Then
@@ -3985,6 +3986,7 @@ Public Module iData
                                                 cellString = cellDate.ToString("yyyy-MM-dd HH:mm:ss.ffffff", InvariantCulture)
                                             End If
 
+                                            '// Numbers
                                         ElseIf column.DataType Is GetType(Double) Or column.DataType Is GetType(Decimal) Then
                                             Dim nfi As NumberFormatInfo = New CultureInfo("en-US", False).NumberFormat
                                             'Displays a value with the default separator (".")
@@ -3993,7 +3995,8 @@ Public Module iData
                                             cellString = doubleValue.ToString("N", nfi)
 
                                         Else
-                                            cellString = rowCell.ToString
+                                            '// Assume string
+                                            cellString = Regex.Replace(rowCell.ToString, "[\n]", "<br/>")
                                         End If
                                     End If
                                     strings.Add(rowIndex, cellString)

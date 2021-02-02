@@ -6,7 +6,6 @@ Imports Titanium.Web.Proxy
 Imports Titanium.Web.Proxy.EventArguments
 Imports Titanium.Web.Proxy.Models
 Imports System.Text.RegularExpressions
-Imports System.Text
 
 Public Class SnifferEventArgs
     Inherits EventArgs
@@ -21,33 +20,161 @@ Public Class SnifferEventArgs
     Public ReadOnly Property Method As String
     Public ReadOnly Property Payload As String
     Public ReadOnly Property Body As String
+    Public ReadOnly Property Code_cSharp As String
     Public ReadOnly Property RequestURL As Uri
     Public ReadOnly Property RequestHeaders As New List(Of KeyValuePair(Of String, String))
     Public ReadOnly Property ResponseHeaders As New List(Of KeyValuePair(Of String, String))
     Public ReadOnly Property Key As String
     Public ReadOnly Property KeyTime As Date
     Public ReadOnly Property Traffic As State
-    Public ReadOnly Property Sequence As Timing
 
-    Public Sub New(e As SessionEventArgs, request As Boolean, Optional after As Boolean = False)
+    Public Sub New(sender As Sniffer, e As SessionEventArgs, isRequest As Boolean, Optional isFound As Boolean = False)
 
         If e Is Nothing Then Exit Sub
-        _KeyTime = Now
+        KeyTime = Now
         Dim Client As Http.HttpWebClient = e.HttpClient
-        _Key = Client.UserData.ToString
-        _Method = Client.Request.Method
+        Key = Client.UserData.ToString
+        Method = Client.Request.Method
         RequestURL = New Uri(Client.Request.Url)
-        Traffic = If(request, State.Request, State.Response)
-        Sequence = If(after, Timing.After, Timing.Before)
+
         For Each hdr In Client.Request.Headers
             RequestHeaders.Add(New KeyValuePair(Of String, String)(hdr.Name, hdr.Value))
         Next
         For Each hdr In Client.Response.Headers
             ResponseHeaders.Add(New KeyValuePair(Of String, String)(hdr.Name, hdr.Value))
         Next
+        If isRequest Then
+            Traffic = State.Request
+            Payload = If(sender.Payloads.ContainsKey(_Key), sender.Payloads(_Key), Nothing)
+
+            If sender.Code_AllRequests Or sender.Code_FoundRequests And isFound Then
+                Dim lines As New List(Of String) From
+{
+$"HttpWebRequest xRqst = (HttpWebRequest)(WebRequest.Create(""{RequestURL}""));",
+$"xRqst.Method =""{_Method.ToUpperInvariant}"";"
+}
+                Dim contentType As Content_Type
+                'application/x-json-stream
+                'application/octet-stream
+                'application/x-www-form-urlencoded
+                'application/x-www-form-urlencoded;charset=UTF-8
+                'application/binary
+                RequestHeaders.ForEach(Sub(hdr)
+                                           Dim headName As String = hdr.Key.ToLowerInvariant
+                                           Dim headValue As String = hdr.Value.ToLowerInvariant
+                                           Select Case headName
+                                               Case "connection"
+                                                   lines.Add($"xRqst.KeepAlive = {(headValue = "keep-alive").ToString.ToLowerInvariant};")
+
+                                               Case "accept"
+                                                   'copyRequest.Accept = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*;q=0.8,application/signed-exchange;v=b3;q=0.9";
+                                                   lines.Add($"xRqst.Accept = ""{hdr.Value}"";")
+
+                                               Case "accept-language"
+                                                   'copyRequest.Headers.Set(HttpRequestHeader.AcceptLanguage, "en-US,en;q=0.5");
+                                                   lines.Add($"xRqst.Headers.Set(HttpRequestHeader.AcceptLanguage, ""{hdr.Value}"");")
+
+                                               Case "accept-encoding"
+                                                   'copyRequest.Headers.Set(HttpRequestHeader.AcceptEncoding, "gzip, deflate, br");
+                                                   lines.Add($"xRqst.Headers.Set(HttpRequestHeader.AcceptEncoding, ""{hdr.Value}"");")
+
+                                               Case "cache-control"
+                                                   'copyRequest.Headers.Add("Cache-Control", "max-age=0");
+                                                   lines.Add($"xRqst.Headers.Add(""Cache-Control"", ""{hdr.Value}"");")
+
+                                               Case "content-type"
+                                                   'cisRequest.ContentType = "application/x-www-form-urlencoded";
+                                                   lines.Add($"xRqst.ContentType = ""{hdr.Value}"";")
+                                                   For Each item In [Enum].GetNames(GetType(Content_Type))
+                                                       If headValue.Contains(item.Replace("_", "-")) Then
+                                                           contentType = CType([Enum].Parse(GetType(Content_Type), item, True), Content_Type)
+                                                       End If
+                                                   Next
+
+                                               Case "content-length"
+                                                 'Handled in POST SetPayload
+
+                                               Case "cookie"
+                                                   'copyRequest.Headers.Set(HttpRequestHeader.Cookie, IBM_Cookies);
+                                                   lines.Add($"xRqst.Headers.Set(HttpRequestHeader.Cookie, ""{hdr.Value}"");")
+
+                                               Case "expect"
+                                                   lines.Add($"xRqst.Expect = ""{hdr.Value}"";")
+
+                                               Case "host"
+                                                   lines.Add($"xRqst.Host = ""{hdr.Value}"";")
+
+                                               Case "If-modified-since"
+                                                   lines.Add($"xRqst.IfModifiedSince = ""{hdr.Value}"";")
+
+                                               Case "origin"
+                                                 'Do nothing with this
+
+                                               Case "referer"
+                                                   'copyRequest.Referer = "https://w3-01.ibm.com/isc/customerfulfillment/tools/cisinvoicing/mivweb/us/SearchInvoice.wss";
+                                                   lines.Add($"xRqst.Referer = ""{hdr.Value}"";")
+
+                                               Case "sec-fetch-site", "sec-fetch-mode", "sec-fetch-user", "sec-fetch-dest", "upgrade-insecure-requests"
+                                                   'copyRequest.Headers.Add("Sec-Fetch-Site", "same-origin");
+                                                   'copyRequest.Headers.Add("Sec-Fetch-Mode", "navigate");
+                                                   'copyRequest.Headers.Add("Sec-Fetch-User", "?1");
+                                                   'copyRequest.Headers.Add("Sec-Fetch-Dest", "document");
+                                                   'copyRequest.Headers.Add("Upgrade-Insecure-Requests", "1");
+                                                   lines.Add($"xRqst.Headers.Add(""{hdr.Key}"", ""{hdr.Value}"");")
+
+                                               Case "user-agent"
+                                                   'copyRequest.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Safari/537.36";
+                                                   lines.Add($"xRqst.UserAgent = ""{hdr.Value}"";")
+
+                                               Case Else
+                                                   lines.Add($"xRqst.Headers.Add(""{hdr.Key}"", ""{hdr.Value}"");")
+
+                                           End Select
+                                           'copyRequest.ServicePoint.Expect100Continue = False;
+                                       End Sub)
+
+                If If(Payload, String.Empty).Any And {"POST", "PUT"}.Contains(Method.ToUpperInvariant) Then
+                    If contentType = Content_Type.www_form_urlencoded Then
+                        Try
+                            Dim fields As New List(Of String())(Split(Payload, "&").Select(Function(f) Split(f, "=")))
+                            fields.Sort(Function(x, y)
+                                            Return x(0).CompareTo(y(0))
+                                        End Function)
+                            Dim payString As String = String.Join(Environment.NewLine, fields.Where(Function(f) f(1).Any).Select(Function(f) "{" & $" ""{f(0)}"", ""{f(1)}"" " & "},").ToArray())
+                            payString = payString.Remove(payString.Length - 1, 1)
+                            lines.Add("Dictionary<string, object> parameters = new Dictionary<string, object>() {" + $"{Environment.NewLine}{payString}{Environment.NewLine}" + "};")
+
+                        Catch ex As IndexOutOfRangeException
+                            lines.Add("Dictionary<string, object> parameters = new Dictionary<string, object>() {" + $"{Environment.NewLine}{Payload}{Environment.NewLine}" + "};")
+
+                        End Try
+
+                    ElseIf contentType = Content_Type.x_json_stream Then
+                        lines.Add("Dictionary<string, object> parameters = new Dictionary<string, object>() {" + $"{Environment.NewLine}{Payload}{Environment.NewLine}" + "};")
+
+                    End If
+                    lines.Add("SetPayload(parameters, xRqst);")
+                End If
+
+                lines.AddRange({"try", "{", "HttpWebResponse xResponse = (HttpWebResponse)xRqst.GetResponse();", "}"})
+                lines.AddRange({"catch", "{", "}"})
+                Code_cSharp = Join(lines.ToArray, Environment.NewLine)
+            End If
+
+        Else
+            Traffic = State.Response
+            Body = If(sender.Bodies.ContainsKey(_Key), sender.Bodies(_Key), Nothing)
+        End If
 
     End Sub
 End Class
+Public Enum Content_Type
+    none
+    x_json_stream
+    octet_stream
+    www_form_urlencoded '...also: application/x-www-form-urlencoded;charset=UTF-8
+    binary
+End Enum
 Public Class Sniffer
     ' https://github.com/justcoding121/Titanium-Web-Proxy/blob/develop/examples/Titanium.Web.Proxy.Examples.Basic/ProxyTestController.cs
 
@@ -62,12 +189,14 @@ Public Class Sniffer
     Private ReadOnly ProxyPort As Integer = 18880
 
     Private SniffRequests As Integer
+    Public Property Code_FoundRequests As Boolean
+    Public Property Code_AllRequests As Boolean
     Public Property Name As String
     Public Property Tag As Object
     Public ReadOnly Property Filters As New List(Of Filter)
     Public ReadOnly Property Sniffing As Boolean = False
-    Public ReadOnly Property Payloads As New Dictionary(Of String, String)
-    Public ReadOnly Property Bodies As New Dictionary(Of String, String)
+    Friend ReadOnly Property Payloads As New Dictionary(Of String, String)
+    Friend ReadOnly Property Bodies As New Dictionary(Of String, String)
     Public Sub New(Optional portNumber As Integer = 18880)
         ProxyPort = portNumber
     End Sub
@@ -132,7 +261,7 @@ Public Class Sniffer
                            End If
                        End Function).ConfigureAwait(False)
         Await Task.Run(Sub()
-                           RaiseEvent RequestAlert(Me, New SnifferEventArgs(e, True, False))
+                           RaiseEvent RequestAlert(Me, New SnifferEventArgs(Me, e, True))
                            ProxyEvent(e, True)
                        End Sub).ConfigureAwait(False)
 
@@ -168,20 +297,20 @@ Public Class Sniffer
                                                            End With
                                                        End Sub)
                                        Dim hasMatches As Boolean = matchCount > 0 And matchCount >= Filters.Count
-                                       If hasMatches Then RaiseEvent Found(Me, New SnifferEventArgs(e, False, False))
+                                       If hasMatches Then RaiseEvent Found(Me, New SnifferEventArgs(Me, e, False, False))
                                    End If
                                End If
                            End If
                        End Function).ConfigureAwait(False)
         Await Task.Run(Sub()
-                           RaiseEvent ResponseAlert(Me, New SnifferEventArgs(e, False, False))
+                           RaiseEvent ResponseAlert(Me, New SnifferEventArgs(Me, e, False))
                            ProxyEvent(e, False)
                        End Sub).ConfigureAwait(False)
 
     End Function
     Private Async Function Proxy_AfterResponse(Sender As Object, e As SessionEventArgs) As Task Handles ProxyServer.AfterResponse
 
-        RaiseEvent ResponseAlert(Me, New SnifferEventArgs(e, False, True))
+        RaiseEvent ResponseAlert(Me, New SnifferEventArgs(Me, e, False))
         Await Task.Run(Sub()
                            Dim requestBody As Task(Of String) = e.GetResponseBodyAsString()
                            If requestBody IsNot Nothing Then
@@ -256,7 +385,7 @@ Public Class Sniffer
                                 End With
                             End Sub)
             Dim hasMatches As Boolean = matchCount > 0 And matchCount >= filterCount
-            If hasMatches Then RaiseEvent Found(Me, New SnifferEventArgs(e, isRequest, False))
+            If hasMatches Then RaiseEvent Found(Me, New SnifferEventArgs(Me, e, isRequest, False))
         End If
 
     End Sub
