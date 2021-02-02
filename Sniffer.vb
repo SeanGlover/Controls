@@ -27,7 +27,30 @@ Public Class SnifferEventArgs
     Public ReadOnly Property Key As String
     Public ReadOnly Property KeyTime As Date
     Public ReadOnly Property Traffic As State
+    Public Sub New(e As SessionEventArgs, isRequest As Boolean, body As String)
 
+        If e Is Nothing Then Exit Sub
+        KeyTime = Now
+        Dim Client As Http.HttpWebClient = e.HttpClient
+        Key = Client.UserData.ToString
+        Method = Client.Request.Method
+        RequestURL = New Uri(Client.Request.Url)
+
+        For Each hdr In Client.Request.Headers
+            RequestHeaders.Add(New KeyValuePair(Of String, String)(hdr.Name, hdr.Value))
+        Next
+        For Each hdr In Client.Response.Headers
+            ResponseHeaders.Add(New KeyValuePair(Of String, String)(hdr.Name, hdr.Value))
+        Next
+        If isRequest Then
+            Traffic = State.Request
+            Payload = body
+        Else
+            Traffic = State.Response
+            Me.Body = body
+        End If
+
+    End Sub
     Public Sub New(sender As Sniffer, e As SessionEventArgs, isRequest As Boolean, Optional isFound As Boolean = False)
 
         If e Is Nothing Then Exit Sub
@@ -183,6 +206,7 @@ Public Class Sniffer
     Public Event RequestAlert(sender As Object, e As SnifferEventArgs)
     Public Event ResponseAlert(sender As Object, e As SnifferEventArgs)
     Public Event Found(sender As Object, e As SnifferEventArgs)
+    Public Event BodyAlert(sender As Object, e As SnifferEventArgs)
 
     Private WithEvents ProxyServer As ProxyServer
 
@@ -256,7 +280,7 @@ Public Class Sniffer
                                If requestBody.Any Then
                                    Payloads.Add(clientKey, requestBody)
                                    'LookIn.Payload Code!
-
+                                   RaiseEvent BodyAlert(Me, New SnifferEventArgs(e, True, requestBody))
                                End If
                            End If
                        End Function).ConfigureAwait(False)
@@ -279,6 +303,7 @@ Public Class Sniffer
                                    If responseBody.Any Then
                                        Dim clientKey As String = e.HttpClient.UserData.ToString
                                        Bodies.Add(clientKey, responseBody)
+                                       RaiseEvent BodyAlert(Me, New SnifferEventArgs(e, False, responseBody))
 
                                        Dim matchCount As Integer = 0
                                        Filters.ForEach(Sub(fltr)
@@ -297,7 +322,7 @@ Public Class Sniffer
                                                            End With
                                                        End Sub)
                                        Dim hasMatches As Boolean = matchCount > 0 And matchCount >= Filters.Count
-                                       If hasMatches Then RaiseEvent Found(Me, New SnifferEventArgs(Me, e, False, False))
+                                       If hasMatches Then RaiseEvent Found(Me, New SnifferEventArgs(Me, e, False, True))
                                    End If
                                End If
                            End If
@@ -310,7 +335,7 @@ Public Class Sniffer
     End Function
     Private Async Function Proxy_AfterResponse(Sender As Object, e As SessionEventArgs) As Task Handles ProxyServer.AfterResponse
 
-        RaiseEvent ResponseAlert(Me, New SnifferEventArgs(Me, e, False))
+        'RaiseEvent ResponseAlert(Me, New SnifferEventArgs(Me, e, False))
         Await Task.Run(Sub()
                            Dim requestBody As Task(Of String) = e.GetResponseBodyAsString()
                            If requestBody IsNot Nothing Then
@@ -385,7 +410,7 @@ Public Class Sniffer
                                 End With
                             End Sub)
             Dim hasMatches As Boolean = matchCount > 0 And matchCount >= filterCount
-            If hasMatches Then RaiseEvent Found(Me, New SnifferEventArgs(Me, e, isRequest, False))
+            If hasMatches Then RaiseEvent Found(Me, New SnifferEventArgs(Me, e, isRequest, True))
         End If
 
     End Sub
