@@ -121,10 +121,6 @@ Public Class Sniffer
         Dim clientKey As String = String.Format("{0:N}", Guid.NewGuid())
         e.HttpClient.UserData = clientKey
 
-        Await Task.Run(Sub()
-                           RaiseEvent RequestAlert(Me, New SnifferEventArgs(e, True, False))
-                           ProxyEvent(e, True)
-                       End Sub).ConfigureAwait(False)
         Await Task.Run(Async Function()
                            If e.HttpClient.Request.HasBody Then
                                Dim requestBody As String = Await e.GetRequestBodyAsString()
@@ -135,14 +131,14 @@ Public Class Sniffer
                                End If
                            End If
                        End Function).ConfigureAwait(False)
+        Await Task.Run(Sub()
+                           RaiseEvent RequestAlert(Me, New SnifferEventArgs(e, True, False))
+                           ProxyEvent(e, True)
+                       End Sub).ConfigureAwait(False)
 
     End Function
     Private Async Function Proxy_BeforeResponse(Sender As Object, e As SessionEventArgs) As Task Handles ProxyServer.BeforeResponse
 
-        Await Task.Run(Sub()
-                           RaiseEvent ResponseAlert(Me, New SnifferEventArgs(e, False, False))
-                           ProxyEvent(e, False)
-                       End Sub).ConfigureAwait(False)
         Await Task.Run(Async Function()
                            If e.HttpClient.Response.StatusCode = HttpStatusCode.OK And {"GET", "POST"}.Contains(e.HttpClient.Request.Method) Then
                                If e.HttpClient.Response.ContentType IsNot Nothing AndAlso e.HttpClient.Response.ContentType.Trim().ToLower().Contains("text/html") Then
@@ -177,6 +173,10 @@ Public Class Sniffer
                                End If
                            End If
                        End Function).ConfigureAwait(False)
+        Await Task.Run(Sub()
+                           RaiseEvent ResponseAlert(Me, New SnifferEventArgs(e, False, False))
+                           ProxyEvent(e, False)
+                       End Sub).ConfigureAwait(False)
 
     End Function
     Private Async Function Proxy_AfterResponse(Sender As Object, e As SessionEventArgs) As Task Handles ProxyServer.AfterResponse
