@@ -73,7 +73,7 @@ Public Class SnifferEventArgs
             If sender.Code_AllRequests Or sender.Code_FoundRequests And isFound Then
                 Dim lines As New List(Of String) From
 {
-$"HttpWebRequest xRqst = (HttpWebRequest)(WebRequest.Create(""{RequestURL}""));",
+$"HttpWebRequest xRqst = (HttpWebRequest)WebRequest.Create(""{RequestURL}"");",
 $"xRqst.Method =""{_Method.ToUpperInvariant}"";"
 }
                 Dim contentType As Content_Type
@@ -180,7 +180,7 @@ $"xRqst.Method =""{_Method.ToUpperInvariant}"";"
                 End If
 
                 lines.AddRange({"try", "{", "HttpWebResponse xResponse = (HttpWebResponse)xRqst.GetResponse();", "}"})
-                lines.AddRange({"catch", "{", "}"})
+                lines.AddRange({"catch (WebException we)", "{", "Console.WriteLine(we.Message);", "}"})
                 Code_cSharp = Join(lines.ToArray, Environment.NewLine)
             End If
 
@@ -295,10 +295,12 @@ Public Class Sniffer
         Await Task.Run(Async Function()
                            If e.HttpClient.Response.StatusCode = HttpStatusCode.OK And {"GET", "POST"}.Contains(e.HttpClient.Request.Method) Then
                                If e.HttpClient.Response.ContentType IsNot Nothing AndAlso e.HttpClient.Response.ContentType.Trim().ToLower().Contains("text/html") Then
-                                   Dim bodyBytes As Byte() = Await e.GetResponseBody()
-                                   e.SetResponseBody(bodyBytes)
+
+                                   'Dim bodyBytes As Byte() = Await e.GetResponseBody()
+                                   'e.SetResponseBody(bodyBytes)
+
                                    Dim responseBody As String = Await e.GetResponseBodyAsString()
-                                   e.SetResponseBodyString(responseBody)
+                                   'e.SetResponseBodyString(responseBody)
 
                                    If responseBody.Any Then
                                        Dim clientKey As String = e.HttpClient.UserData.ToString

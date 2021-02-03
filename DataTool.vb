@@ -375,8 +375,17 @@ End Class
         End Get
     End Property
     Friend Function File_Text() As String
-        Dim kvp = JsonConvert.DeserializeObject(Of KeyValuePair(Of String, String))(ReadText(Path))
-        Return kvp.Value
+        If File.Exists(Path) Then
+            Try
+                Dim kvp = JsonConvert.DeserializeObject(Of KeyValuePair(Of String, String))(ReadText(Path))
+                Return kvp.Value
+            Catch ex As Newtonsoft.Json.JsonException
+                Return Nothing
+            End Try
+        Else
+            Return Nothing
+        End If
+
     End Function
     Friend ReadOnly Property CreatedString As String
         Get

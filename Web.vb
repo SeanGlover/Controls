@@ -116,7 +116,7 @@ Public NotInheritable Class WebFunctions
                             If {"HOST", "ACCEPT", "REFERER", "USER-AGENT", "CONTENT-TYPE"}.Contains(key.ToUpperInvariant) Then
                                 codeList.Add("." & Replace(key, "-", String.Empty) & "=" & """" & value & """")
 
-                            ElseIf key.ToUpperInvariant = "CONNECTIUON" Then
+                            ElseIf key.ToUpperInvariant = "CONNECTION" Then
                                 codeList.Add(".KeepAlive=" & "" & If(value.ToUpperInvariant = "KEEP-ALIVE", "True", "False") & "")
 
                             ElseIf key.ToUpperInvariant = "CONTENT-LENGTH" Then
