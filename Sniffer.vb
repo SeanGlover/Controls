@@ -74,7 +74,9 @@ Public Class SnifferEventArgs
                 Dim lines As New List(Of String) From
 {
 $"HttpWebRequest xRqst = (HttpWebRequest)WebRequest.Create(""{RequestURL}"");",
-$"xRqst.Method =""{_Method.ToUpperInvariant}"";"
+$"xRqst.Method =""{_Method.ToUpperInvariant}"";",
+$"xRqst.AllowAutoRedirect = true;",
+$"xRqst.MaximumAutomaticRedirections = 50;"
 }
                 Dim contentType As Content_Type
                 'application/x-json-stream
@@ -206,8 +208,9 @@ Public Class Sniffer
     Public Event RequestAlert(sender As Object, e As SnifferEventArgs)
     Public Event ResponseAlert(sender As Object, e As SnifferEventArgs)
     Public Event Found(sender As Object, e As SnifferEventArgs)
-    Public Event BodyAlert(sender As Object, e As SnifferEventArgs)
-
+    Public Event Payload(sender As Object, e As SnifferEventArgs)
+    Public Event BodyBefore(sender As Object, e As SnifferEventArgs)
+    Public Event BodyAfter(sender As Object, e As SnifferEventArgs)
     Private WithEvents ProxyServer As ProxyServer
 
     Private ReadOnly ProxyPort As Integer = 18880
@@ -280,7 +283,7 @@ Public Class Sniffer
                                If requestBody.Any Then
                                    Payloads.Add(clientKey, requestBody)
                                    'LookIn.Payload Code!
-                                   RaiseEvent BodyAlert(Me, New SnifferEventArgs(e, True, requestBody))
+                                   RaiseEvent Payload(Me, New SnifferEventArgs(e, True, requestBody))
                                End If
                            End If
                        End Function).ConfigureAwait(False)
@@ -305,7 +308,7 @@ Public Class Sniffer
                                    If responseBody.Any Then
                                        Dim clientKey As String = e.HttpClient.UserData.ToString
                                        Bodies.Add(clientKey, responseBody)
-                                       RaiseEvent BodyAlert(Me, New SnifferEventArgs(e, False, responseBody))
+                                       RaiseEvent BodyBefore(Me, New SnifferEventArgs(e, False, responseBody))
 
                                        Dim matchCount As Integer = 0
                                        Filters.ForEach(Sub(fltr)
@@ -339,9 +342,7 @@ Public Class Sniffer
 
         Await Task.Run(Async Function()
                            Dim responseBody As String = Await e.GetResponseBodyAsString()
-                           If responseBody IsNot Nothing Then
-                               RaiseEvent BodyAlert(Me, New SnifferEventArgs(e, False, responseBody))
-                           End If
+                           If responseBody IsNot Nothing Then RaiseEvent BodyAfter(Me, New SnifferEventArgs(e, False, responseBody))
                        End Function).ConfigureAwait(False)
     End Function
     Private Sub ProxyEvent(e As SessionEventArgs, isRequest As Boolean)
