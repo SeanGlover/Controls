@@ -337,12 +337,12 @@ Public Class Sniffer
     End Function
     Private Async Function Proxy_AfterResponse(Sender As Object, e As SessionEventArgs) As Task Handles ProxyServer.AfterResponse
 
-        'RaiseEvent ResponseAlert(Me, New SnifferEventArgs(Me, e, False))
-        Await Task.Run(Sub()
-                           Dim requestBody As Task(Of String) = e.GetResponseBodyAsString()
-                           If requestBody IsNot Nothing Then
+        Await Task.Run(Async Function()
+                           Dim responseBody As String = Await e.GetResponseBodyAsString()
+                           If responseBody IsNot Nothing Then
+                               RaiseEvent BodyAlert(Me, New SnifferEventArgs(e, False, responseBody))
                            End If
-                       End Sub).ConfigureAwait(False)
+                       End Function).ConfigureAwait(False)
     End Function
     Private Sub ProxyEvent(e As SessionEventArgs, isRequest As Boolean)
 
@@ -350,7 +350,9 @@ Public Class Sniffer
             RaiseEvent Alert(e.HttpClient.Request, New AlertEventArgs(e.HttpClient.Request.Url.ToUpperInvariant))
             Dim matchCount As Integer = 0
             Dim filterCount As Integer = 0
+            Dim filterMatches As New Dictionary(Of Filter, List(Of String))
             Filters.ForEach(Sub(fltr)
+                                filterMatches.Add(fltr, New List(Of String))
                                 Dim matchString As String = String.Empty
                                 With fltr
                                     If .Active Then
@@ -407,12 +409,20 @@ Public Class Sniffer
                                                 End If
 
                                         End Select
-                                        If matchString.Any Then .Matches.AddRange(Split(matchString, "■"))
+                                        If matchString.Any Then
+                                            matchString = matchString.Remove(matchString.Length - 1, 1)
+                                            filterMatches(fltr).AddRange(Split(matchString, "■"))
+                                        End If
                                     End If
                                 End With
                             End Sub)
             Dim hasMatches As Boolean = matchCount > 0 And matchCount >= filterCount
-            If hasMatches Then RaiseEvent Found(Me, New SnifferEventArgs(Me, e, isRequest, True))
+            If hasMatches Then
+                For Each fltr In filterMatches
+                    fltr.Key.Matches.AddRange(fltr.Value)
+                Next
+                RaiseEvent Found(Me, New SnifferEventArgs(Me, e, isRequest, True))
+            End If
         End If
 
     End Sub
