@@ -1760,9 +1760,8 @@ Public Class ColumnCollection
 
     End Function
     Public Shadows Sub Clear()
-        'AllSized = False
-        'Elapsed.Clear()
         MyBase.Clear()
+        Parent?.Invalidate()
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Private Sub Await_Modify(sender As Object, e As EventArgs) Handles Me.CollectionSizingEnd
@@ -2428,6 +2427,10 @@ Public Class RowCollection
         Return newRow
 
     End Function
+    Public Shadows Sub Clear()
+        MyBase.Clear()
+        Parent?.Invalidate()
+    End Sub
     Public Sub SortBy(Column As Column)
 
         If Column IsNot Nothing Then

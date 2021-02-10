@@ -690,21 +690,32 @@ Public NotInheritable Class ConnectionCollection
         Using SR As New StreamReader(Path)
             content = SR.ReadToEnd()
         End Using
-        Dim cnxnDict = JsonConvert.DeserializeObject(Of Dictionary(Of String, Dictionary(Of String, String)))(content)
-        For Each cnxn In cnxnDict
-            Dim cnxnProperties As New Dictionary(Of String, String)(cnxn.Value)
-            cnxnProperties("UID") = DeKrypt(cnxn.Value("UID"))
-            cnxnProperties("PWD") = DeKrypt(cnxn.Value("PWD"))
-            Dim connectionString As String = String.Join(";", (From c In cnxnProperties Select $"{c.Key}={c.Value}").ToArray)
-            Add(New Connection(connectionString))
-        Next
+        Try
+            Dim cnxnDict = JsonConvert.DeserializeObject(Of Dictionary(Of String, Dictionary(Of String, String)))(content)
+            For Each cnxn In cnxnDict
+                Dim cnxnProperties As New Dictionary(Of String, String)(cnxn.Value)
+                cnxnProperties("UID") = DeKrypt(cnxn.Value("UID"))
+                cnxnProperties("PWD") = DeKrypt(cnxn.Value("PWD"))
+                Dim connectionString As String = String.Join(";", (From c In cnxnProperties Select $"{c.Key}={c.Value}").ToArray)
+                Add(New Connection(connectionString))
+            Next
+        Catch ex As JsonException
+        End Try
 
     End Sub
     Public Sub New(Connections As String)
 
-        For Each ConnectionString In Split(Connections, vbNewLine)
-            Add(New Connection(ConnectionString))
-        Next
+        Try
+            Dim cnxnDict = JsonConvert.DeserializeObject(Of Dictionary(Of String, Dictionary(Of String, String)))(Connections)
+            For Each cnxn In cnxnDict
+                Dim cnxnProperties As New Dictionary(Of String, String)(cnxn.Value)
+                cnxnProperties("UID") = DeKrypt(cnxn.Value("UID"))
+                cnxnProperties("PWD") = DeKrypt(cnxn.Value("PWD"))
+                Dim connectionString As String = String.Join(";", (From c In cnxnProperties Select $"{c.Key}={c.Value}").ToArray)
+                Add(New Connection(connectionString))
+            Next
+        Catch ex As JsonException
+        End Try
 
     End Sub
     Public Sub New(Connections As List(Of String))
