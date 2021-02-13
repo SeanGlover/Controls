@@ -257,6 +257,7 @@ Public Class Sniffer
     Public Property CodeStyle As RequestFormat
     Public Property Name As String
     Public Property Tag As Object
+    Public Property WatchBody As Boolean
     Public ReadOnly Property Filters As New List(Of Filter)
     Public ReadOnly Property Sniffing As Boolean = False
     Friend ReadOnly Property Payloads As New Dictionary(Of String, String)
@@ -298,6 +299,10 @@ Public Class Sniffer
         Dim clientKey As String = String.Format("{0:N}", Guid.NewGuid())
         e.HttpClient.UserData = clientKey
 
+        Await Task.Run(Sub()
+                           ProxyEvent(e, True)
+                           RaiseEvent RequestAlert(Me, New SnifferEventArgs(Me, e, True))
+                       End Sub).ConfigureAwait(False)
         Await Task.Run(Async Function()
                            If e.HttpClient.Request.HasBody Then
                                Dim requestBody As String = Await e.GetRequestBodyAsString()
@@ -308,28 +313,41 @@ Public Class Sniffer
                                End If
                            End If
                        End Function).ConfigureAwait(False)
-        Await Task.Run(Sub()
-                           RaiseEvent RequestAlert(Me, New SnifferEventArgs(Me, e, True))
-                           ProxyEvent(e, True)
-                       End Sub).ConfigureAwait(False)
 
     End Function
     Private Async Function Proxy_BeforeResponse(Sender As Object, e As SessionEventArgs) As Task Handles ProxyServer.BeforeResponse
 
+        Await Task.Run(Sub()
+                           ProxyEvent(e, False)
+                           RaiseEvent ResponseAlert(Me, New SnifferEventArgs(Me, e, False))
+                       End Sub).ConfigureAwait(False)
+        If WatchBody Then Await Proxy_ResponseBody(e, True)
+
+    End Function
+    Private Async Function Proxy_AfterResponse(Sender As Object, e As SessionEventArgs) As Task Handles ProxyServer.AfterResponse
+        If WatchBody Then Await Proxy_ResponseBody(e, False)
+    End Function
+    Private Async Function Proxy_ResponseBody(e As SessionEventArgs, before As Boolean) As Task
+
         Await Task.Run(Async Function()
                            If e.HttpClient.Response.StatusCode = HttpStatusCode.OK And {"GET", "POST"}.Contains(e.HttpClient.Request.Method) Then
                                If e.HttpClient.Response.ContentType IsNot Nothing AndAlso e.HttpClient.Response.ContentType.Trim().ToLower().Contains("text/html") Then
+                                   Dim responseBody As String = Await e.GetResponseBodyAsString()
 
+                                   '////// This deals with sending messages back to the browser
                                    'Dim bodyBytes As Byte() = Await e.GetResponseBody()
                                    'e.SetResponseBody(bodyBytes)
-
-                                   Dim responseBody As String = Await e.GetResponseBodyAsString()
                                    'e.SetResponseBodyString(responseBody)
 
                                    If responseBody.Any Then
                                        Dim clientKey As String = e.HttpClient.UserData.ToString
                                        Bodies.Add(clientKey, responseBody)
-                                       RaiseEvent BodyBefore(Me, New SnifferEventArgs(e, False, responseBody))
+                                       Dim sea As New SnifferEventArgs(e, False, responseBody)
+                                       If before Then
+                                           RaiseEvent BodyBefore(Me, sea)
+                                       Else
+                                           RaiseEvent BodyAfter(Me, sea)
+                                       End If
 
                                        Dim filterMatches As New Dictionary(Of Filter, List(Of String))
                                        Dim countFilters As Integer = 0
@@ -349,67 +367,24 @@ Public Class Sniffer
                                                        End Sub)
                                        Dim hasMatches As Boolean = countMatches > 0 And countMatches = countFilters
                                        If hasMatches Then
-                                           For Each fltr In filterMatches
-                                               fltr.Key.Matches.AddRange(fltr.Value)
-                                           Next
-                                           Dim sea As New SnifferEventArgs(Me, e, False, True)
+                                           sea = New SnifferEventArgs(Me, e, False, True)
                                            RaiseEvent Found(Me, sea)
                                        End If
                                    End If
                                End If
                            End If
                        End Function).ConfigureAwait(False)
-        Await Task.Run(Sub()
-                           RaiseEvent ResponseAlert(Me, New SnifferEventArgs(Me, e, False))
-                           ProxyEvent(e, False)
-                       End Sub).ConfigureAwait(False)
 
-    End Function
-    Private Async Function Proxy_AfterResponse(Sender As Object, e As SessionEventArgs) As Task Handles ProxyServer.AfterResponse
-
-        Await Task.Run(Async Function()
-                           Dim responseBody As String = Await e.GetResponseBodyAsString()
-                           If responseBody.Any Then
-                               Dim filterMatches As New Dictionary(Of Filter, List(Of String))
-                               Dim countFilters As Integer = 0
-                               Dim countMatches As Integer = 0
-                               Filters.ForEach(Sub(fltr)
-                                                   With fltr
-                                                       If .Active And .Where = LookIn.Body Then
-                                                           filterMatches.Add(fltr, New List(Of String))
-                                                           countFilters += 1
-                                                           Dim matchBody As Match = Regex.Match(responseBody, .What, .How)
-                                                           If matchBody.Success Then
-                                                               countMatches += 1
-                                                               filterMatches(fltr).Add(matchBody.Value)
-                                                           End If
-                                                       End If
-                                                   End With
-                                               End Sub)
-                               Dim hasMatches As Boolean = countMatches > 0 And countMatches = countFilters
-                               If hasMatches Then
-                                   For Each fltr In filterMatches
-                                       fltr.Key.Matches.AddRange(fltr.Value)
-                                   Next
-                                   Dim sea As New SnifferEventArgs(Me, e, False, True)
-                                   RaiseEvent Found(Me, sea)
-                               End If
-
-                               RaiseEvent BodyAfter(Me, New SnifferEventArgs(e, False, responseBody))
-                           End If
-                       End Function).ConfigureAwait(False)
     End Function
     Private Sub ProxyEvent(e As SessionEventArgs, isRequest As Boolean)
 
         If Filters.Any Then
             RaiseEvent Alert(e.HttpClient.Request, New AlertEventArgs(e.HttpClient.Request.Url.ToUpperInvariant))
-            Dim filterMatches As New Dictionary(Of Filter, List(Of String))
             Dim countFilters As Integer = 0
             Dim countMatches As Integer = 0
             Filters.ForEach(Sub(fltr)
                                 With fltr
                                     If .Active Then
-                                        filterMatches.Add(fltr, New List(Of String))
                                         Dim matchString As String = String.Empty
                                         countFilters += 1
                                         Dim matched As Boolean = False
@@ -451,7 +426,7 @@ Public Class Sniffer
                                                 Next
 
                                             Case LookIn.Host
-                                                Dim matchHost As Match = Regex.Match(e.HttpClient.Request.RequestUri.ToString, .What, .How)
+                                                Dim matchHost As Match = Regex.Match(e.HttpClient.Request.Host.ToString, .What, .How)
                                                 If matchHost.Success Then
                                                     matchString = matchHost.Value
                                                     matched = True
@@ -465,19 +440,12 @@ Public Class Sniffer
                                                 End If
 
                                         End Select
-                                        If matched Then
-                                            countMatches += 1
-                                            If matchString.EndsWith("■") Then matchString = matchString.Remove(matchString.Length - 1, 1)
-                                            filterMatches(fltr).AddRange(Split(matchString, "■"))
-                                        End If
+                                        If matched Then countMatches += 1
                                     End If
                                 End With
                             End Sub)
             Dim hasMatches As Boolean = countMatches > 0 And countMatches = countFilters
             If hasMatches Then
-                For Each fltr In filterMatches
-                    fltr.Key.Matches.AddRange(fltr.Value)
-                Next
                 Dim sea As New SnifferEventArgs(Me, e, isRequest, True)
                 RaiseEvent Found(Me, sea)
             End If
@@ -526,11 +494,32 @@ Public Enum LookIn
     Body
 End Enum
 Public NotInheritable Class Filter
+    Implements IEquatable(Of Filter)
+    Public Property Name As String
     Public Property What As String
     Public Property Where As LookIn
     Public Property How As RegexOptions = RegexOptions.IgnoreCase
-    Public ReadOnly Property Matches As New List(Of String)
     Public Property Active As Boolean = True
+
+    Public Overrides Function GetHashCode() As Integer
+        Return If(What, String.Empty).GetHashCode Xor Where.GetHashCode Xor How.GetHashCode Xor Active.GetHashCode
+    End Function
+    Public Overloads Function Equals(other As Filter) As Boolean Implements IEquatable(Of Filter).Equals
+        Return If(What, String.Empty) = If(other.What, String.Empty) And Where = other.Where And How = other.How And Active = other.Active
+    End Function
+    Public Shared Operator =(value1 As Filter, value2 As Filter) As Boolean
+        Return value1.Equals(value2)
+    End Operator
+    Public Shared Operator <>(value1 As Filter, value2 As Filter) As Boolean
+        Return Not value1 = value2
+    End Operator
+    Public Overrides Function Equals(obj As Object) As Boolean
+        If TypeOf obj Is Filter Then
+            Return CType(obj, Filter) = Me
+        Else
+            Return False
+        End If
+    End Function
     Public Overrides Function ToString() As String
         Return $"{What} => {Where} [{Split(How.ToString, ".").First}]"
     End Function

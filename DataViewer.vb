@@ -1136,7 +1136,7 @@ Public Class DataViewer
                                     HeaderSelect.Text = LiteralString("Select")
                                     HeaderSelect.Image = My.Resources.okNot.ToBitmap
                                 End If
-                                Dim columnValues As Dictionary(Of String, List(Of Cell)) = DistinctValues(.Column.Name)
+                                Dim columnValues As Dictionary(Of String, List(Of Cell)) = If(DistinctValues.Any, DistinctValues(.Column.Name), New Dictionary(Of String, List(Of Cell)))
                                 If Not columnValues.Any Then 'Get them, otherwise don't
                                     For Each row In Rows
                                         Dim rowCell As Cell = row.Cells(.Column.Name)

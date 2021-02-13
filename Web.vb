@@ -239,12 +239,6 @@ Public NotInheritable Class WebFunctions
 
     End Function
 End Class
-Public NotInheritable Class TokenEventArgs
-    Public ReadOnly Property Token As Token
-    Public Sub New(eventToken As Token)
-        Token = eventToken
-    End Sub
-End Class
 Public Enum SameSiteValue
     None
     Strict
@@ -253,9 +247,6 @@ End Enum
 Public NotInheritable Class Token
     Implements IEquatable(Of Token)
 
-    Public Event Expired(sender As Object, e As TokenEventArgs)
-    Public Event Expiring(sender As Object, e As TokenEventArgs)
-    Private WithEvents ExpiryTimer As New Timer With {.Interval = 1000}
     Public Sub New()
         'Allows user to create and initialize {}
     End Sub
@@ -274,7 +265,7 @@ Public NotInheritable Class Token
                     Secure = .Secure
                     HttpOnly = .HttpOnly
                     SameSite = .SameSite
-                    Expiry_ = .Expiry
+                    Expiry = .Expiry
                 End With
             End If
         Catch ex As JsonReaderException
@@ -334,7 +325,7 @@ Public NotInheritable Class Token
                                               Dim expiresMatch = Regex.Match(te, "(?<=expires=)[^;]{1,}", RegexOptions.IgnoreCase)
                                               If expiresMatch.Success Then
                                                   Dim parsedDate = Date.Parse(expiresMatch.Value, New Globalization.CultureInfo("en-US"))
-                                                  Expiry_ = parsedDate
+                                                  Expiry = parsedDate
                                               End If
 
                                               Dim secureMatch = Regex.Match(te, "(?<=secure)", RegexOptions.IgnoreCase)
@@ -351,8 +342,6 @@ Public NotInheritable Class Token
                 Else
                     '???
                 End If
-            Else
-                ExpiryTimer.Start()
             End If
         End If
 
@@ -365,18 +354,7 @@ Public NotInheritable Class Token
     Public ReadOnly Property Secure As Boolean  'Secure Optional, A secure cookie is only sent to the server when a request is made with the https: scheme
     Public ReadOnly Property HttpOnly As Boolean 'Forbids JavaScript from accessing the cookie, for example, through the Document.cookie property
     Public ReadOnly Property SameSite As SameSiteValue '(Strict|Lax|None) ... Can be follwed with: Strict-Transport-Security: max-age=10886400
-    Private Expiry_ As Date
     Public Property Expiry As Date
-        Get
-            Return Expiry_
-        End Get
-        Set(value As Date)
-            If Expiry_ <> value Then
-                Expiry_ = value
-                ExpiryTimer.Start()
-            End If
-        End Set
-    End Property
     Public ReadOnly Property RemainingTime As TimeSpan
         Get
             Return If(Valid(), Expiry.Subtract(Now), New TimeSpan)
@@ -387,16 +365,6 @@ Public NotInheritable Class Token
             Return Now < Expiry
         End Get
     End Property
-    Private Sub ExpiryTimer_Tick() Handles ExpiryTimer.Tick
-
-        If Valid Then
-            If RemainingTime.TotalSeconds < 60 Then RaiseEvent Expiring(Me, New TokenEventArgs(Me))
-        Else
-            ExpiryTimer.Stop()
-            RaiseEvent Expired(Me, New TokenEventArgs(Me))
-        End If
-
-    End Sub
 
     Public Overrides Function GetHashCode() As Integer
         Return If(Name, String.Empty).GetHashCode Xor If(Value, String.Empty).GetHashCode Xor Expiry.GetHashCode Xor MaxAge.GetHashCode Xor If(Domain, String.Empty).GetHashCode Xor If(Path, String.Empty).GetHashCode Xor Secure.GetHashCode Xor HttpOnly.GetHashCode Xor SameSite.GetHashCode
