@@ -569,10 +569,11 @@ Public Class Prompt
             characterGroups.Add(characterGroups.Count, typeString)
             Dim wordSizes As New Dictionary(Of Integer, Size)
             For Each group In characterGroups
-                wordSizes.Add(group.Key, MeasureText(group.Value, Font))
+                wordSizes.Add(group.Key, If(Trim(group.Value).Any, MeasureText(group.Value, Font), New Size))
             Next
             Dim rowHeight As Integer = wordSizes.Values.Max(Function(w) w.Height)
             Dim largestWord As Integer = wordSizes.Values.Max(Function(w) w.Width)
+            'Stop
 #End Region
 #Region " #1 Get best size for the Form "
             If Datasource Is Nothing Then

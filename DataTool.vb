@@ -3474,14 +3474,6 @@ Public Class DataTool
 
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Private Sub Execute_OKd(sender As Object, e As ResponseEventArgs)
-
-        With DirectCast(sender, DDL)
-            Dim ddlScript As Script = DirectCast(.Tag, Script)
-            RaiseEvent Alert(ddlScript, New AlertEventArgs("Running procedure " & ddlScript.Name))
-        End With
-
-    End Sub
     Private Sub Execute_Completed(sender As Object, e As ResponseEventArgs)
 
         Cursor.Current = Cursors.Default
