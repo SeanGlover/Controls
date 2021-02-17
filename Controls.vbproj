@@ -175,7 +175,6 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="RicherTextBox.vb" />
-    <Compile Include="Sniffer.vb" />
     <Compile Include="Tabs.vb" />
     <Compile Include="TreeViewer.vb" />
     <Compile Include="Web.vb" />
