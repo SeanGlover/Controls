@@ -1170,6 +1170,13 @@ Public Module Functions
 
     End Function
 
+    Public Sub SetSafeControlPropertyValue(Item As Control, PropertyName As String, PropertyValue As Object)
+        ThreadHelperClass.SetSafeControlPropertyValue(Item, PropertyName, PropertyValue)
+    End Sub
+    Public Sub SetSafeToolStripItemPropertyValue(Item As ToolStripItem, PropertyName As String, PropertyValue As Object)
+        ThreadHelperClass.SetSafeToolStripItemPropertyValue(Item, PropertyName, PropertyValue)
+    End Sub
+
     Private Enum CharacterType
         None
         Space
@@ -3840,11 +3847,11 @@ Public NotInheritable Class CustomRenderer
 
     End Sub
 End Class
-Public Module ThreadHelperClass
+Public NotInheritable Class ThreadHelperClass
     Delegate Sub SetToolPropertyCallback(tsi As ToolStripItem, n As String, v As Object)
     Delegate Sub SetPropertyCallback(c As Control, n As String, v As Object)
     Delegate Sub GetPropertyCallback(c As Control, n As String)
-    Public Sub SetSafeControlPropertyValue(Item As Control, PropertyName As String, PropertyValue As Object)
+    Public Shared Sub SetSafeControlPropertyValue(Item As Control, PropertyName As String, PropertyValue As Object)
 
         If Item IsNot Nothing Then
             Try
@@ -3869,7 +3876,7 @@ Public Module ThreadHelperClass
         End If
 
     End Sub
-    Public Sub SetSafeToolStripItemPropertyValue(Item As ToolStripItem, PropertyName As String, PropertyValue As Object)
+    Public Shared Sub SetSafeToolStripItemPropertyValue(Item As ToolStripItem, PropertyName As String, PropertyValue As Object)
 
         If Item IsNot Nothing Then
             Try
@@ -3894,7 +3901,7 @@ Public Module ThreadHelperClass
         End If
 
     End Sub
-    Public Function GetSafeControlPropertyValue(Item As Control, PropertyName As String) As Object
+    Public Shared Function GetSafeControlPropertyValue(Item As Control, PropertyName As String) As Object
 
         If Item Is Nothing Then
             Return Nothing
@@ -3924,17 +3931,7 @@ Public Module ThreadHelperClass
         End If
 
     End Function
-#Region " FUNCTIONING PARALLEL.FOREACH - BUT IS SLOOOOWW "
-    'Dim myOptions As ParallelOptions = New ParallelOptions With {
-    '    .MaxDegreeOfParallelism = Environment.ProcessorCount
-    '}
-    'Dim consolidatedProperties As New List(Of InvoicesResponse_Properties)
-    'Parallel.ForEach(tokenGroups, myOptions, Sub(tokenGroup)
-    '                                             consolidatedProperties.AddRange(Table_pdfs(tokenGroup.Rows, tokenGroup.token))
-    '                                         End Sub)
-#End Region
-
-End Module
+End Class
 Public NotInheritable Class AlertEventArgs
     Inherits EventArgs
     Public ReadOnly Property Message As String

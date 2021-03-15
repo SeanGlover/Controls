@@ -41,7 +41,6 @@ Public NotInheritable Class ImageCombo
         .ShowAlways = False
     }
     Friend Toolstrip As New ToolStripDropDown With {.AutoClose = False, .AutoSize = False, .Padding = New Padding(0), .DropShadowEnabled = False, .BackColor = Color.Transparent}
-    Friend Mouse_Region As New MouseRegion
     '[0 Image]       [1 Search]      [2 Text]     [3 Eye]       [4 Clear]       [5 DropDown]
     Private ImageBounds As New Rectangle
     Private ImageClickBounds As New Rectangle 'Full height
@@ -57,7 +56,6 @@ Public NotInheritable Class ImageCombo
     Private ReadOnly DropImage As Image
     Private DropBounds As New Rectangle
     Private DropClickBounds As New Rectangle 'Full height
-    Private HighlightBounds As New Rectangle
     Private CursorBounds As New Rectangle
     Private SelectionBounds As New Rectangle
     Private WithEvents CursorBlinkTimer As New Timer With {.Interval = 600}
@@ -222,7 +220,8 @@ Public NotInheritable Class ImageCombo
                     e.Graphics.DrawImage(ClearTextImage, ClearTextBounds)
                     e.Graphics.DrawImage(DropImage, DropBounds)
                     Using mouseOverBrush As New SolidBrush(Color.FromArgb(60, SelectionColor))
-                        e.Graphics.FillRectangle(mouseOverBrush, HighlightBounds)
+                        Dim highlightBounds As Rectangle = If(Mouse_Region = MouseRegion.Image, ImageClickBounds, If(Mouse_Region = MouseRegion.Search, SearchBounds, If(Mouse_Region = MouseRegion.Eye, EyeBounds, If(Mouse_Region = MouseRegion.ClearText, ClearTextBounds, If(Mouse_Region = MouseRegion.DropDown, DropClickBounds, New Rectangle)))))
+                        e.Graphics.FillRectangle(mouseOverBrush, highlightBounds)
                     End Using
                     If _HasFocus And CursorShouldBeVisible Then
                         Using Pen As New Pen(SelectionColor)
@@ -402,6 +401,7 @@ Public NotInheritable Class ImageCombo
 
 #End Region
 #Region " PROPERTIES "
+    Friend Property Mouse_Region As MouseRegion
     Public Property CheckOnSelect As Boolean = False
     Public Property CheckboxStyle As CheckStyle = CheckStyle.Slide
     Public Property MultiSelect As Boolean
@@ -1115,13 +1115,11 @@ Public NotInheritable Class ImageCombo
 
         If e IsNot Nothing Then
             Bounds_Set()
+            Dim redraw As Boolean = False
             Dim xy As Point = e.Location
             Dim lastMouseRegion As MouseRegion = Mouse_Region
             Mouse_Region = If(ImageClickBounds.Contains(xy), MouseRegion.Image, If(SearchBounds.Contains(xy), MouseRegion.Search, If(TextMouseBounds.Contains(xy), MouseRegion.Text, If(EyeClickBounds.Contains(xy), MouseRegion.Eye, If(ClearTextClickBounds.Contains(xy), MouseRegion.ClearText, If(DropClickBounds.Contains(xy), MouseRegion.DropDown, MouseRegion.None))))))
-            If lastMouseRegion <> Mouse_Region Then
-                HighlightBounds = If(Mouse_Region = MouseRegion.Image, ImageClickBounds, If(Mouse_Region = MouseRegion.Search, SearchBounds, If(Mouse_Region = MouseRegion.Eye, EyeBounds, If(Mouse_Region = MouseRegion.ClearText, ClearTextBounds, If(Mouse_Region = MouseRegion.DropDown, DropClickBounds, New Rectangle)))))
-                Invalidate()
-            End If
+            redraw = Mouse_Region <> lastMouseRegion
             If MouseLeftDown.Key And e.Button = MouseButtons.Left Then
                 Dim startEnd As Integer() = {CursorIndex, GetLetterIndex(e.X)}
                 If MouseLeftDown.Value <> startEnd.Last Then
@@ -1130,9 +1128,10 @@ Public NotInheritable Class ImageCombo
                     Dim rightMost As Integer = startEnd.Max
                     _CursorIndex = leftMost
                     SelectionIndex = rightMost
-                    Invalidate()
+                    redraw = True
                 End If
             End If
+            If redraw Then Invalidate()
         End If
         MyBase.OnMouseMove(e)
 
@@ -1157,10 +1156,12 @@ Public NotInheritable Class ImageCombo
 
             ElseIf Mouse_Region = MouseRegion.Text Then
                 CursorShouldBeVisible = True
+                CursorBlinkTimer.Stop()
                 CursorBlinkTimer.Start()
                 CursorIndex = GetLetterIndex(e.X)
                 SelectionIndex = CursorIndex
                 If e.Button = MouseButtons.Left Then MouseLeftDown = New KeyValuePair(Of Boolean, Integer)(True, SelectionIndex)
+                If Visible Then MoveMouse(PointToScreen(e.Location))
 
             ElseIf Mouse_Region = MouseRegion.Eye Then
                 TextIsVisible = Not TextIsVisible
@@ -1206,6 +1207,7 @@ Public NotInheritable Class ImageCombo
                 Loop
 #End Region
                 SelectionIndex = Index
+                If Visible Then MoveMouse(PointToScreen(e.Location))
                 Invalidate()
             End If
         End If
@@ -1309,8 +1311,10 @@ Public NotInheritable Class ImageCombo
     Public Sub SelectAll()
 
         CursorIndex = 0
-        _SelectionIndex = LetterWidths.Keys.Last
-        Invalidate()
+        Mouse_Region = MouseRegion.Text
+        SelectionStart = 0
+        SelectionIndex = LetterWidths.Keys.Last
+        If Visible Then MoveMouse(PointToScreen(New Point(0, 0)))
 
     End Sub
     Private Sub Items_Changed() Handles DropItems_.Changed

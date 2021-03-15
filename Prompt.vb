@@ -1015,7 +1015,7 @@ Public NotInheritable Class WaitTimer
             If value <> Picture_ Then
                 TickTimer.Interval = If(value = ImageType.Circle, 100, If(value = ImageType.Spin, 250, 300))
                 Picture_ = value
-                If value = ImageType.Circle Then SetSafeControlPropertyValue(TickForm, "BackgroundImage", DrawProgress(0, TickColor))
+                If value = ImageType.Circle Then ThreadHelperClass.SetSafeControlPropertyValue(TickForm, "BackgroundImage", DrawProgress(0, TickColor))
                 If value = ImageType.Spin Then SetSafeControlPropertyValue(TickForm, "BackgroundImage", My.Resources.Spin1)
             End If
         End Set

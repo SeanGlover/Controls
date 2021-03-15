@@ -1069,6 +1069,7 @@ Public Class DataTool
         'Connections.View()
         For Each Connection In Connections
             RaiseEvent Alert(Me, New AlertEventArgs("Initializing " & Connection.DataSource))
+            AddHandler Connection.PasswordChanged, AddressOf Connection_PasswordChanged
 #Region " TOP LEVEL "
             Dim ColorKeys = ColorImages()
             Dim ColorImage As Image = ColorKeys(Connection.BackColor)
@@ -1183,13 +1184,16 @@ Public Class DataTool
                     .HintText = "Value",
                     .Enabled = False,
                     .Font = GothicFont}
+                Connection.Tag = addvalueControl
                 .Controls.Add(addControl, 0, 0)
                 .Controls.Add(addkeyControl, 1, 0)
                 .Controls.Add(addvalueControl, 2, 0)
-                AddHandler addkeyControl.TextChanged, AddressOf ConnectionProperty_Change
+
+                AddHandler addkeyControl.TextChanged, AddressOf ConnectionProperty_Changing
                 AddHandler addkeyControl.ValueSubmitted, AddressOf ConnectionProperty_Submitted
                 AddHandler addkeyControl.ValueChanged, AddressOf ConnectionNewKeyProperty_Selected
-                AddHandler addvalueControl.TextChanged, AddressOf ConnectionProperty_Change
+
+                AddHandler addvalueControl.TextChanged, AddressOf ConnectionProperty_Changing
                 AddHandler addvalueControl.ValueSubmitted, AddressOf ConnectionProperty_Submitted
 #End Region
                 Dim rowIndex As Integer = 1
@@ -1214,8 +1218,8 @@ Public Class DataTool
                     .Controls.Add(deleteControl, 0, rowIndex)
                     .Controls.Add(keyControl, 1, rowIndex)
                     .Controls.Add(valueControl, 2, rowIndex)
-                    AddHandler deleteControl.Click, AddressOf ConnectionProperty_Change
-                    AddHandler valueControl.TextChanged, AddressOf ConnectionProperty_Change
+                    AddHandler deleteControl.Click, AddressOf ConnectionProperty_Changing
+                    AddHandler valueControl.TextChanged, AddressOf ConnectionProperty_Changing
                     AddHandler valueControl.ValueSubmitted, AddressOf ConnectionProperty_Submitted
                     rowIndex += 1
                 Next
@@ -1480,6 +1484,17 @@ Public Class DataTool
 #End Region
 
 #Region " CONNECTION MANAGEMENT "
+    Private Sub Connection_PasswordChanged(sender As Object, e As ConnectionChangedEventArgs)
+
+        Dim changedConnection As Connection = DirectCast(sender, Connection)
+        Dim addvalueControl As ImageCombo = DirectCast(changedConnection.Tag, ImageCombo)
+        With addvalueControl
+            RemoveHandler .TextChanged, AddressOf ConnectionProperty_Changing
+            .Text = changedConnection.Password
+            AddHandler .TextChanged, AddressOf ConnectionProperty_Changing
+        End With
+
+    End Sub
     Private Sub SetConnection(newConnection As Connection)
 
         Using scriptActive As Script = ActiveScript()
@@ -1513,9 +1528,9 @@ Public Class DataTool
         End With
         Dim newValue As ImageCombo = DirectCast(tlpRows(0)(2), ImageCombo)
         With newValue
-            RemoveHandler .TextChanged, AddressOf ConnectionProperty_Change
+            RemoveHandler .TextChanged, AddressOf ConnectionProperty_Changing
             .Text = Nothing
-            AddHandler .TextChanged, AddressOf ConnectionProperty_Change
+            AddHandler .TextChanged, AddressOf ConnectionProperty_Changing
             .HintText = "Property value"
         End With
 
@@ -1539,12 +1554,12 @@ Public Class DataTool
             End With
             Dim valueControl As ImageCombo = DirectCast(tlpRows(rowIndex)(2), ImageCombo)
             With valueControl
-                RemoveHandler .TextChanged, AddressOf ConnectionProperty_Change
+                RemoveHandler .TextChanged, AddressOf ConnectionProperty_Changing
                 .Enabled = propertyIsUsed
                 .Text = If(propertyIsUsed, openingConnection.Properties(connectionProperty.Key), String.Empty)
                 .BackColor = backColor
                 .ForeColor = foreColor
-                AddHandler .TextChanged, AddressOf ConnectionProperty_Change
+                AddHandler .TextChanged, AddressOf ConnectionProperty_Changing
                 deleteControl.Image = If(.Enabled, My.Resources.Close.ToBitmap, My.Resources.Plus)
             End With
             rowIndex += 1
@@ -1562,61 +1577,54 @@ Public Class DataTool
         End With
 
     End Sub
-    Private Sub ConnectionProperty_Change(sender As Object, e As EventArgs)
+    Private Sub ConnectionProperty_Changing(sender As Object, e As EventArgs)
 
+        ' // change the width, make the submit button yellow if text is different
         Dim senderControl As Control = DirectCast(sender, Control)
         Dim tlpProperties As TableLayoutPanel = DirectCast(senderControl.Parent, TableLayoutPanel)
         Dim tlpConnection As TableLayoutPanel = DirectCast(tlpProperties.Parent, TableLayoutPanel)
         Dim submitButton As Button = DirectCast(tlpConnection.Controls(0), Button) ' S U B M I T   B U T T O N
-        Dim existingConnection As Connection = DirectCast(tlpProperties.Tag, Connection)
         Dim tlpRows = TLP.GetRows(tlpProperties)
-        Dim valueWidth As Integer = 0
         Dim connectionProperties As New Dictionary(Of Integer, String)
+        Dim existingConnection As Connection = DirectCast(tlpProperties.Tag, Connection)
 
         For Each row In tlpRows
-            Dim rowButton As Button = DirectCast(row.Value(0), Button)
+            Dim rowDeleteAdd As Button = DirectCast(row.Value(0), Button)
             Dim rowKeyCombo As ImageCombo = DirectCast(row.Value(1), ImageCombo)
             Dim rowValueCombo As ImageCombo = DirectCast(row.Value(2), ImageCombo)
-            Dim rowButtonClicked = rowButton Is senderControl
+            Dim rowButtonClicked = rowDeleteAdd Is senderControl
             With rowValueCombo
-                RemoveHandler .TextChanged, AddressOf ConnectionProperty_Change
+                RemoveHandler .TextChanged, AddressOf ConnectionProperty_Changing
                 If rowButtonClicked Then
                     .Enabled = Not .Enabled
                     If .Enabled Then .Text = existingConnection.Properties(rowKeyCombo.Text)
                 Else
-                    .Enabled = rowKeyCombo.Text.Any And .Text.Any
+                    '.Enabled = rowKeyCombo.Text.Any And .Text.Any ' // when sender is an ImageCombo, clearing the Text disables the Control...which is annoying
                 End If
                 If .Enabled Then
                     'Include in consideration ... but reset to default
-                    rowButton.Image = My.Resources.Close.ToBitmap
+                    rowDeleteAdd.Image = My.Resources.Close.ToBitmap
                     .BackColor = Color.White
                     .ForeColor = Color.Black
-
                     If row.Key = 0 Then
                         rowKeyCombo.DataSource = existingConnection.PropertiesEmpty
                     Else
                         rowKeyCombo.BackColor = Color.White
                     End If
-
-                    Dim rowValueWidth As Integer = MeasureText(.Text, .Font).Width
-                    If valueWidth < rowValueWidth Then valueWidth = rowValueWidth
                     connectionProperties.Add(existingConnection.PropertyIndices(rowKeyCombo.Text), Join({rowKeyCombo.Text, .Text}, "="))
 
                 ElseIf row.Key > 0 Then
                     'Remove from consideration
-                    rowButton.Image = My.Resources.Plus
+                    rowDeleteAdd.Image = My.Resources.Plus
                     rowKeyCombo.BackColor = Color.Gainsboro
                     .BackColor = Color.Gainsboro
                     .ForeColor = Color.DarkGray
                 End If
-                AddHandler .TextChanged, AddressOf ConnectionProperty_Change
+                AddHandler .TextChanged, AddressOf ConnectionProperty_Changing
             End With
         Next
 
-        If senderControl.GetType Is GetType(ImageCombo) Then
-            'ImageCombo text changing ... Modify width
-            ResizeConnections(tlpConnection, tlpProperties)
-        End If
+        ResizeConnections(tlpConnection, tlpProperties)
 
         Dim orderedProperties As New List(Of String)(connectionProperties.OrderBy(Function(k) k.Key).Select(Function(v) v.Value))
         Dim newConnectionString As String = Join(orderedProperties.ToArray, ";")
