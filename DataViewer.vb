@@ -1299,12 +1299,7 @@ Public Class DataViewer
 #End Region
                 ElseIf e.KeyCode = Keys.A AndAlso Control.ModifierKeys = Keys.Control Then
 #Region " SELECT ALL "
-                    Rows.ForEach(Function(row) As Row
-                                     For Each cell In row.Cells.Values
-                                         cell.Selected = True
-                                     Next
-                                     Return Nothing
-                                 End Function)
+                    SelectAll()
 #End Region
                 ElseIf e.KeyCode = Keys.X AndAlso Control.ModifierKeys = Keys.Control And Not IsReadOnly Then
 #Region " CUT "
@@ -1316,42 +1311,7 @@ Public Class DataViewer
 #End Region
                 ElseIf e.KeyCode = Keys.C AndAlso Control.ModifierKeys = Keys.Control Then
 #Region " COPY "
-                    Dim selectedCells As New Dictionary(Of Cell, Integer)
-                    Dim selectedHeaders As New List(Of String)
-                    Rows.ForEach(Function(row) As Row
-                                     For Each cell In row.Cells.Values.Where(Function(c) c.Selected)
-                                         If Not selectedHeaders.Contains(cell.Name) Then selectedHeaders.Add(cell.Name) 'Don't use the Cell.DataType - Need an Aggregate DataType
-                                         selectedCells.Add(cell, row.Index)
-                                     Next
-                                     Return Nothing
-                                 End Function)
-                    If selectedCells.Any Then
-                        Clipboard.Clear()
-                        If selectedCells.Count = 1 Then
-                            Clipboard.SetText(If(selectedCells.First.Key.Text, String.Empty))
-                            CopyTimer.Tag = -1
-                        Else
-                            Using copyTable As New DataTable
-                                With copyTable
-                                    For Each columnName In selectedHeaders
-                                        Dim viewerColumn As Column = Columns.Item(columnName)
-                                        Dim columnType As Type = If(viewerColumn.DataType = GetType(DateAndTime), GetType(Date), viewerColumn.DataType)
-                                        .Columns.Add(columnName, columnType)
-                                    Next
-                                    Dim selectedRows = (From sc In selectedCells Group sc By rowIndex = sc.Value Into rowGroup = Group
-                                                        Select New With {.Index = rowIndex, .rowValues = (From c In rowGroup Order By c.Key.Index Select c.Key.Value).ToArray}).ToDictionary(Function(k) k.Index, Function(v) v.rowValues)
-                                    For Each row In selectedRows.Values
-                                        .Rows.Add(row)
-                                    Next
-                                End With
-                                Dim htmlTable As String = DataTableToHtml(copyTable, Columns.HeaderStyle, Rows.RowStyle)
-                                ClipboardHelper.CopyToClipboard(htmlTable)
-                                CopyTimer.Tag = copyTable.Rows.Count
-                            End Using
-                        End If
-                    End If
-                    Invalidate()
-                    CopyTimer.Start()
+                    CopySelectedRows()
 #End Region
                 ElseIf e.KeyCode = Keys.V AndAlso Control.ModifierKeys = Keys.Control And Not IsReadOnly Then
 #Region " PASTE "
@@ -1610,6 +1570,54 @@ Public Class DataViewer
 
     End Sub
 #End Region
+    Public Sub SelectAll()
+        Rows.ForEach(Function(row) As Row
+                         For Each cell In row.Cells.Values
+                             cell.Selected = True
+                         Next
+                         Return Nothing
+                     End Function)
+    End Sub
+    Public Sub CopySelectedRows()
+
+        Dim selectedCells As New Dictionary(Of Cell, Integer)
+        Dim selectedHeaders As New List(Of String)
+        Rows.ForEach(Function(row) As Row
+                         For Each cell In row.Cells.Values.Where(Function(c) c.Selected)
+                             If Not selectedHeaders.Contains(cell.Name) Then selectedHeaders.Add(cell.Name) 'Don't use the Cell.DataType - Need an Aggregate DataType
+                             selectedCells.Add(cell, row.Index)
+                         Next
+                         Return Nothing
+                     End Function)
+        If selectedCells.Any Then
+            Clipboard.Clear()
+            If selectedCells.Count = 1 Then
+                Clipboard.SetText(If(selectedCells.First.Key.Text, String.Empty))
+                CopyTimer.Tag = -1
+            Else
+                Using copyTable As New DataTable
+                    With copyTable
+                        For Each columnName In selectedHeaders
+                            Dim viewerColumn As Column = Columns.Item(columnName)
+                            Dim columnType As Type = If(viewerColumn.DataType = GetType(DateAndTime), GetType(Date), viewerColumn.DataType)
+                            .Columns.Add(columnName, columnType)
+                        Next
+                        Dim selectedRows = (From sc In selectedCells Group sc By rowIndex = sc.Value Into rowGroup = Group
+                                            Select New With {.Index = rowIndex, .rowValues = (From c In rowGroup Order By c.Key.Index Select c.Key.Value).ToArray}).ToDictionary(Function(k) k.Index, Function(v) v.rowValues)
+                        For Each row In selectedRows.Values
+                            .Rows.Add(row)
+                        Next
+                    End With
+                    Dim htmlTable As String = DataTableToHtml(copyTable, Columns.HeaderStyle, Rows.RowStyle)
+                    ClipboardHelper.CopyToClipboard(htmlTable)
+                    CopyTimer.Tag = copyTable.Rows.Count
+                End Using
+            End If
+        End If
+        Invalidate()
+        CopyTimer.Start()
+
+    End Sub
 End Class
 '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 Public Class ColumnCollection
