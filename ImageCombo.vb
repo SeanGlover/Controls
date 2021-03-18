@@ -1161,7 +1161,6 @@ Public NotInheritable Class ImageCombo
                 CursorIndex = GetLetterIndex(e.X)
                 SelectionIndex = CursorIndex
                 If e.Button = MouseButtons.Left Then MouseLeftDown = New KeyValuePair(Of Boolean, Integer)(True, SelectionIndex)
-                If Visible Then MoveMouse(PointToScreen(e.Location))
 
             ElseIf Mouse_Region = MouseRegion.Eye Then
                 TextIsVisible = Not TextIsVisible
@@ -1207,7 +1206,6 @@ Public NotInheritable Class ImageCombo
                 Loop
 #End Region
                 SelectionIndex = Index
-                If Visible Then MoveMouse(PointToScreen(e.Location))
                 Invalidate()
             End If
         End If
@@ -1314,7 +1312,6 @@ Public NotInheritable Class ImageCombo
         Mouse_Region = MouseRegion.Text
         SelectionStart = 0
         SelectionIndex = LetterWidths.Keys.Last
-        If Visible Then MoveMouse(PointToScreen(New Point(0, 0)))
 
     End Sub
     Private Sub Items_Changed() Handles DropItems_.Changed

@@ -1479,6 +1479,7 @@ Public Class DataTool
     End Function
     Private Function ActiveScript() As Script
         Dim scriptActive As Script = DirectCast(ActivePane()?.Tag, Script)
+        SaveAs.Text = scriptActive?.Name
         Return scriptActive
     End Function
 #End Region
