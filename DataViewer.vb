@@ -333,307 +333,316 @@ Public Class DataViewer
             If BackgroundImage IsNot Nothing Then e.Graphics.DrawImage(BackgroundImage, CenterItem(BackgroundImage.Size))
 #Region " DRAW HEADERS "
             With Columns
-                Dim HeadFullBounds As New Rectangle(-HScroll.Value, 0, {1, .HeadBounds.Width}.Max, .HeadBounds.Height)
-                If .HeaderStyle.Theme = Theme.None Then
-                    If .HeaderStyle.BackImage Is Nothing Then
-                        Using LinearBrush As New LinearGradientBrush(HeadFullBounds, .HeaderStyle.BackColor, .HeaderStyle.ShadeColor, LinearGradientMode.Vertical)
-                            e.Graphics.FillRectangle(LinearBrush, HeadFullBounds)
-                        End Using
+                Try
+                    Dim HeadFullBounds As New Rectangle(-HScroll.Value, 0, {1, .HeadBounds.Width}.Max, .HeadBounds.Height)
+                    If .HeaderStyle.Theme = Theme.None Then
+                        If .HeaderStyle.BackImage Is Nothing Then
+                            Using LinearBrush As New LinearGradientBrush(HeadFullBounds, .HeaderStyle.BackColor, .HeaderStyle.ShadeColor, LinearGradientMode.Vertical)
+                                e.Graphics.FillRectangle(LinearBrush, HeadFullBounds)
+                            End Using
+                        Else
+                            e.Graphics.DrawImage(.HeaderStyle.BackImage, HeadFullBounds)
+                        End If
                     Else
-                        e.Graphics.DrawImage(.HeaderStyle.BackImage, HeadFullBounds)
+                        e.Graphics.DrawImage(GlossyImages(.HeaderStyle.Theme), HeadFullBounds)
                     End If
-                Else
-                    e.Graphics.DrawImage(GlossyImages(.HeaderStyle.Theme), HeadFullBounds)
-                End If
-                If .Any Then
-                    ControlPaint.DrawBorder3D(e.Graphics, HeadFullBounds, Border3DStyle.Sunken)
-                    Dim ColumnStart As Integer = ColumnIndex(HScroll.Value)
-                    VisibleColumns.Clear()
-                    Try
-                        For ColumnIndex As Integer = ColumnStart To {Columns.Count - 1, ColumnStart + 30}.Min
-                            Dim Column As Column = Columns(ColumnIndex)
-                            With Column
-                                If .Visible Then
-                                    Dim HeadBounds As Rectangle = .HeadBounds
-                                    HeadBounds.Offset(-HScroll.Value, 0)
-                                    If HeadBounds.Left >= Width Then Exit For
-                                    VisibleColumns.Add(Column, HeadBounds)
-                                    If .HeaderStyle.Theme = Theme.None Then
-                                        If .HeaderStyle.BackImage Is Nothing Then
-                                            Using LinearBrush As New LinearGradientBrush(HeadBounds, .HeaderStyle.BackColor, .HeaderStyle.ShadeColor, LinearGradientMode.Vertical)
-                                                e.Graphics.FillRectangle(LinearBrush, HeadBounds)
-                                            End Using
+                    If .Any Then
+                        ControlPaint.DrawBorder3D(e.Graphics, HeadFullBounds, Border3DStyle.Sunken)
+                        Dim ColumnStart As Integer = ColumnIndex(HScroll.Value)
+                        VisibleColumns.Clear()
+                        Try
+                            For ColumnIndex As Integer = ColumnStart To {Columns.Count - 1, ColumnStart + 30}.Min
+                                Dim Column As Column = Columns(ColumnIndex)
+                                With Column
+                                    If .Visible Then
+                                        Dim HeadBounds As Rectangle = .HeadBounds
+                                        HeadBounds.Offset(-HScroll.Value, 0)
+                                        If HeadBounds.Left >= Width Then Exit For
+                                        VisibleColumns.Add(Column, HeadBounds)
+                                        If .HeaderStyle.Theme = Theme.None Then
+                                            If .HeaderStyle.BackImage Is Nothing Then
+                                                Using LinearBrush As New LinearGradientBrush(HeadBounds, .HeaderStyle.BackColor, .HeaderStyle.ShadeColor, LinearGradientMode.Vertical)
+                                                    e.Graphics.FillRectangle(LinearBrush, HeadBounds)
+                                                End Using
+                                            Else
+                                                e.Graphics.DrawImage(.HeaderStyle.BackImage, HeadBounds)
+                                            End If
                                         Else
-                                            e.Graphics.DrawImage(.HeaderStyle.BackImage, HeadBounds)
+                                            e.Graphics.DrawImage(GlossyImages(.HeaderStyle.Theme), HeadBounds)
                                         End If
-                                    Else
-                                        e.Graphics.DrawImage(GlossyImages(.HeaderStyle.Theme), HeadBounds)
-                                    End If
-                                    e.Graphics.DrawRectangle(Pens.Silver, HeadBounds)
+                                        e.Graphics.DrawRectangle(Pens.Silver, HeadBounds)
 #Region " [0] DRAW HEADER IMAGE "
-                                    Dim imageSize As Size = .SizeImage
-                                    Dim imageTop As Integer = CInt((HeadBounds.Height - imageSize.Height) / 2)
-                                    Dim ImageBounds As New Rectangle(New Point(HeadBounds.Left + If(imageSize.Width = 0, 0, 2), imageTop), imageSize)
-                                    If .Image IsNot Nothing Then
-                                        e.Graphics.DrawImage(.Image, ImageBounds)
-                                        'e.Graphics.DrawRectangle(Pens.Yellow, ImageBounds)
-                                    End If
+                                        Dim imageSize As Size = .SizeImage
+                                        Dim imageTop As Integer = CInt((HeadBounds.Height - imageSize.Height) / 2)
+                                        Dim ImageBounds As New Rectangle(New Point(HeadBounds.Left + If(imageSize.Width = 0, 0, 2), imageTop), imageSize)
+                                        If .Image IsNot Nothing Then
+                                            e.Graphics.DrawImage(.Image, ImageBounds)
+                                            'e.Graphics.DrawRectangle(Pens.Yellow, ImageBounds)
+                                        End If
 #End Region
 #Region " [3] DRAW SORT TRIANGLE "
-                                    Dim sortSize As Size = .SizeSort
-                                    Dim sortTop As Integer = CInt((HeadBounds.Height - sortSize.Height) / 2)
-                                    Dim sortBounds As New Rectangle(HeadBounds.Right - (.SizeSort.Width + If(sortSize.Width = 0, 0, 4)), sortTop, .SizeSort.Width, .SizeSort.Height) '4 is 2+Sort+2
-                                    If Not .SortOrder = SortOrder.None Then e.Graphics.DrawImage(If(.SortOrder = SortOrder.Ascending, My.Resources.SortDown, My.Resources.SortUp), sortBounds)
+                                        Dim sortSize As Size = .SizeSort
+                                        Dim sortTop As Integer = CInt((HeadBounds.Height - sortSize.Height) / 2)
+                                        Dim sortBounds As New Rectangle(HeadBounds.Right - (.SizeSort.Width + If(sortSize.Width = 0, 0, 4)), sortTop, .SizeSort.Width, .SizeSort.Height) '4 is 2+Sort+2
+                                        If Not .SortOrder = SortOrder.None Then e.Graphics.DrawImage(If(.SortOrder = SortOrder.Ascending, My.Resources.SortDown, My.Resources.SortUp), sortBounds)
 #End Region
 #Region " [2] DRAW FILTER "
-                                    Dim filterSize As Size = .SizeFilter
-                                    Dim filterTop As Integer = CInt((HeadBounds.Height - filterSize.Height) / 2)
-                                    Dim filterBounds As New Rectangle(sortBounds.Left - filterSize.Width, filterTop, filterSize.Width, filterSize.Height)
-                                    If .Filtered Then e.Graphics.DrawImage(My.Resources.FilterCancel, filterBounds)
+                                        Dim filterSize As Size = .SizeFilter
+                                        Dim filterTop As Integer = CInt((HeadBounds.Height - filterSize.Height) / 2)
+                                        Dim filterBounds As New Rectangle(sortBounds.Left - filterSize.Width, filterTop, filterSize.Width, filterSize.Height)
+                                        If .Filtered Then e.Graphics.DrawImage(My.Resources.FilterCancel, filterBounds)
 #End Region
 #Region " [1] DRAW HEADER TEXT "
-                                    Dim textLeft As Integer = ImageBounds.Right + If(ImageBounds.Width = 0, 0, 2)
-                                    Dim textTop As Integer = CInt((HeadBounds.Height - .SizeText.Height) / 2)
-                                    Dim TextBounds As Rectangle = New Rectangle(textLeft, textTop, filterBounds.Left - textLeft, .SizeText.Height)
-                                    'TextRenderer.DrawText(e.Graphics, .Text, .HeaderStyle.Font, TextBounds, .HeaderStyle.ForeColor, Color.Transparent, .HeaderStyle.Alignment)
-                                    Using headerTextBrush As New SolidBrush(.HeaderStyle.ForeColor)
-                                        e.Graphics.DrawString(
-                                            .Text,
-                                            .HeaderStyle.Font,
-                                            headerTextBrush,
-                                            TextBounds,
-                                            .HeaderStyle.Alignment
-                                        )
-                                    End Using
+                                        Dim textLeft As Integer = ImageBounds.Right + If(ImageBounds.Width = 0, 0, 2)
+                                        Dim textTop As Integer = CInt((HeadBounds.Height - .SizeText.Height) / 2)
+                                        Dim TextBounds As Rectangle = New Rectangle(textLeft, textTop, filterBounds.Left - textLeft, .SizeText.Height)
+                                        'TextRenderer.DrawText(e.Graphics, .Text, .HeaderStyle.Font, TextBounds, .HeaderStyle.ForeColor, Color.Transparent, .HeaderStyle.Alignment)
+                                        Using headerTextBrush As New SolidBrush(.HeaderStyle.ForeColor)
+                                            e.Graphics.DrawString(
+                                                .Text,
+                                                .HeaderStyle.Font,
+                                                headerTextBrush,
+                                                TextBounds,
+                                                .HeaderStyle.Alignment
+                                            )
+                                        End Using
 #End Region
-                                    e.Graphics.DrawRectangle(Pens.Silver, HeadBounds)
-                                    If Column Is _MouseData.Column Then
-                                        If _MouseData.CurrentAction = MouseInfo.Action.MouseOverHead Then
-                                            Using HighlightBrush As New SolidBrush(Color.FromArgb(128, Color.Yellow))
-                                                e.Graphics.FillRectangle(HighlightBrush, HeadBounds)
-                                            End Using
+                                        e.Graphics.DrawRectangle(Pens.Silver, HeadBounds)
+                                        If Column Is _MouseData.Column Then
+                                            If _MouseData.CurrentAction = MouseInfo.Action.MouseOverHead Then
+                                                Using HighlightBrush As New SolidBrush(Color.FromArgb(128, Color.Yellow))
+                                                    e.Graphics.FillRectangle(HighlightBrush, HeadBounds)
+                                                End Using
+                                            End If
                                         End If
                                     End If
-                                End If
-                            End With
-                        Next
-                    Catch ex As IndexOutOfRangeException
-                    End Try
+                                End With
+                            Next
+                        Catch ex As IndexOutOfRangeException
+                        End Try
 #Region " DRAW HEADER EDGE "
-                    With _MouseData
-                        If .CurrentAction = MouseInfo.Action.MouseOverHeadEdge Then
-                            Dim EdgeBounds As Rectangle = .Column.EdgeBounds
-                            EdgeBounds.Offset(-HScroll.Value, 0)
-                            Using HighlightBrush As New SolidBrush(Color.FromArgb(128, Color.LimeGreen))
-                                e.Graphics.FillRectangle(HighlightBrush, EdgeBounds)
-                            End Using
-                        End If
-                    End With
+                        With _MouseData
+                            If .CurrentAction = MouseInfo.Action.MouseOverHeadEdge Then
+                                Dim EdgeBounds As Rectangle = .Column.EdgeBounds
+                                EdgeBounds.Offset(-HScroll.Value, 0)
+                                Using HighlightBrush As New SolidBrush(Color.FromArgb(128, Color.LimeGreen))
+                                    e.Graphics.FillRectangle(HighlightBrush, EdgeBounds)
+                                End Using
+                            End If
+                        End With
 #End Region
 #End Region
-                    Dim tipCells As New Dictionary(Of Rectangle, String)
+                        Dim tipCells As New Dictionary(Of Rectangle, String)
 #Region " DRAW ROWS "
-                    If Rows.Any Then
-                        Dim Top As Integer = HeaderHeight
-                        Dim RowStart As Integer = RowIndex(VScroll.Value)
-                        Dim drawBounds As Rectangle = PointsToRectangle(MouseData.SelectPointA, MouseData.SelectPointB)
-                        VisibleRows.Clear()
-                        For RowIndex As Integer = RowStart To {RowStart + VisibleRowCount, Rows.Count - 1}.Min
-                            Dim Row = Rows(RowIndex)
-                            Dim MouseOverRow As Boolean = _MouseData.Row Is Row And _MouseData.CurrentAction = MouseInfo.Action.MouseOverGrid
-                            With Row
-                                Dim RowBounds = New Rectangle(0, Top, HeadFullBounds.Width, RowHeight)
-                                RowBounds.Offset(-HScroll.Value, 0)
-                                VisibleRows.Add(Row, RowBounds)
-                                If RowBounds.Top >= Bottom Then Exit For
-                                Dim rowStyle As CellStyle = If(.StyleChanged, .Style, If(.Selected, Rows.SelectionRowStyle, If(RowIndex Mod 2 = 0, Rows.RowStyle, Rows.AlternatingRowStyle)))
-                                If rowStyle.Theme = Theme.None Then
-                                    Using LinearBrush As New LinearGradientBrush(RowBounds, rowStyle.BackColor, rowStyle.ShadeColor, LinearGradientMode.Vertical)
-                                        e.Graphics.FillRectangle(LinearBrush, RowBounds)
-                                    End Using
-                                Else
-                                    e.Graphics.DrawImage(GlossyImages(rowStyle.Theme), RowBounds)
-                                End If
+                        Try
+                            If Rows.Any Then
+                                Dim Top As Integer = HeaderHeight
+                                Dim RowStart As Integer = RowIndex(VScroll.Value)
+                                Dim drawBounds As Rectangle = PointsToRectangle(MouseData.SelectPointA, MouseData.SelectPointB)
+                                VisibleRows.Clear()
+                                For RowIndex As Integer = RowStart To {RowStart + VisibleRowCount, Rows.Count - 1}.Min
+                                    Dim Row = Rows(RowIndex)
+                                    Dim MouseOverRow As Boolean = _MouseData.Row Is Row And _MouseData.CurrentAction = MouseInfo.Action.MouseOverGrid
+                                    With Row
+                                        Dim RowBounds = New Rectangle(0, Top, HeadFullBounds.Width, RowHeight)
+                                        RowBounds.Offset(-HScroll.Value, 0)
+                                        VisibleRows.Add(Row, RowBounds)
+                                        If RowBounds.Top >= Bottom Then Exit For
+                                        Dim rowStyle As CellStyle = If(.StyleChanged, .Style, If(.Selected, Rows.SelectionRowStyle, If(RowIndex Mod 2 = 0, Rows.RowStyle, Rows.AlternatingRowStyle)))
+                                        If rowStyle.Theme = Theme.None Then
+                                            Using LinearBrush As New LinearGradientBrush(RowBounds, rowStyle.BackColor, rowStyle.ShadeColor, LinearGradientMode.Vertical)
+                                                e.Graphics.FillRectangle(LinearBrush, RowBounds)
+                                            End Using
+                                        Else
+                                            e.Graphics.DrawImage(GlossyImages(rowStyle.Theme), RowBounds)
+                                        End If
 #Region " DRAW CELLS "
-                                For Each Column In VisibleColumns.Keys
-                                    With Column
-                                        Dim CellBounds As New Rectangle(.HeadBounds.Left, RowBounds.Top, .HeadBounds.Width, RowBounds.Height)
-                                        CellBounds.Offset(-HScroll.Value, 0)
-                                        Dim rowCell As Cell = Row.Cells(Column.Name)
-                                        Dim MouseOverCell As Boolean = _MouseData.Cell Is rowCell And _MouseData.CurrentAction = MouseInfo.Action.MouseOverGrid
-                                        With rowCell
-                                            Dim cellValue As Object = .Value
-                                            Dim drawCellAsSelected As Boolean = If(FullRowSelect, Row.Selected, .Selected)
-                                            Dim cellStyle = If(.StyleSet, .Style, If(drawCellAsSelected, If(Row.SelectionStyle.Theme = Theme.None And Row.SelectionStyle.BackImage Is Nothing, Rows.SelectionRowStyle, Row.SelectionStyle), rowStyle))
-                                            If MouseData.CurrentAction = MouseInfo.Action.GridSelecting Then .Selected = drawBounds.IntersectsWith(CellBounds)
+                                        For Each Column In VisibleColumns.Keys
+                                            With Column
+                                                Dim CellBounds As New Rectangle(.HeadBounds.Left, RowBounds.Top, .HeadBounds.Width, RowBounds.Height)
+                                                CellBounds.Offset(-HScroll.Value, 0)
+                                                Dim rowCell As Cell = Row.Cells(Column.Name)
+                                                Dim MouseOverCell As Boolean = _MouseData.Cell Is rowCell And _MouseData.CurrentAction = MouseInfo.Action.MouseOverGrid
+                                                With rowCell
+                                                    Dim cellValue As Object = .Value
+                                                    Dim drawCellAsSelected As Boolean = If(FullRowSelect, Row.Selected, .Selected)
+                                                    Dim cellStyle = If(.StyleSet, .Style, If(drawCellAsSelected, If(Row.SelectionStyle.Theme = Theme.None And Row.SelectionStyle.BackImage Is Nothing, Rows.SelectionRowStyle, Row.SelectionStyle), rowStyle))
+                                                    If MouseData.CurrentAction = MouseInfo.Action.GridSelecting Then .Selected = drawBounds.IntersectsWith(CellBounds)
 #Region " C E L L   B A C K G R O U N D "
-                                            If drawCellAsSelected Then   'Already drew the entire row before "DRAW CELLS" Region
-                                                If cellStyle.Theme = Theme.None Then
-                                                    Using LinearBrush As New LinearGradientBrush(CellBounds, cellStyle.BackColor, cellStyle.ShadeColor, LinearGradientMode.Vertical)
-                                                        e.Graphics.FillRectangle(LinearBrush, CellBounds)
-                                                    End Using
-                                                Else
-                                                    e.Graphics.DrawImage(GlossyImages(cellStyle.Theme), CellBounds)
-                                                End If
-                                            End If
+                                                    If drawCellAsSelected Then   'Already drew the entire row before "DRAW CELLS" Region
+                                                        If cellStyle.Theme = Theme.None Then
+                                                            Using LinearBrush As New LinearGradientBrush(CellBounds, cellStyle.BackColor, cellStyle.ShadeColor, LinearGradientMode.Vertical)
+                                                                e.Graphics.FillRectangle(LinearBrush, CellBounds)
+                                                            End Using
+                                                        Else
+                                                            e.Graphics.DrawImage(GlossyImages(cellStyle.Theme), CellBounds)
+                                                        End If
+                                                    End If
 #End Region
-                                            If cellValue Is Nothing Or .Text = Date.MinValue.ToShortDateString Then
+                                                    If cellValue Is Nothing Or .Text = Date.MinValue.ToShortDateString Then
 #Region " C E L L   N U L L "
-                                                Using NullBrush As New SolidBrush(Color.FromArgb(128, Color.Gainsboro))
-                                                    e.Graphics.FillRectangle(NullBrush, CellBounds)
-                                                End Using
-                                                Using textBrush As New SolidBrush(cellStyle.ForeColor)
-                                                    e.Graphics.DrawString("(null)",
-                                                                          If(MouseOverRow, New Font(cellStyle.Font, FontStyle.Underline), cellStyle.Font),
-                                                                          textBrush,
-                                                                          CellBounds,
-                                                                          Column.GridStyle.Alignment)
-                                                End Using
+                                                        Using NullBrush As New SolidBrush(Color.FromArgb(128, Color.Gainsboro))
+                                                            e.Graphics.FillRectangle(NullBrush, CellBounds)
+                                                        End Using
+                                                        Using textBrush As New SolidBrush(cellStyle.ForeColor)
+                                                            e.Graphics.DrawString("(null)",
+                                                                                  If(MouseOverRow, New Font(cellStyle.Font, FontStyle.Underline), cellStyle.Font),
+                                                                                  textBrush,
+                                                                                  CellBounds,
+                                                                                  Column.GridStyle.Alignment)
+                                                        End Using
 #End Region
-                                            Else
-                                                '///////////  KNOWN ISSUES
-                                                '///////////  CHANGING A NON-IMAGE VALUE TO AN IMAGE WILL SWITCH THE COLUMN FORMAT TO IMAGES WHICH THROWS AN ERROR @ Dim ImageWidth As Integer
-                                                '///////////  ALSO FILLING A DATATABLE WITH IMAGES BEFORE SETTING TO THE DATAVIEWER.DATASOURCE WON'T SET THE ROWHEIGHT CORRECTLY
-                                                If .Column.Format.Key = Column.TypeGroup.Images Or .Column.Format.Key = Column.TypeGroup.Booleans Then
-                                                    Dim EdgePadding As Integer = 1 'all sides to ensure Image doesn't touch the edge of the Cell Rectangle
-                                                    Dim MaxImageWidth As Integer = CellBounds.Width - EdgePadding * 2
-                                                    Dim MaxImageHeight As Integer = CellBounds.Height - EdgePadding * 2
-                                                    Dim ImageWidth As Integer = {If(.ValueImage Is Nothing, 0, .ValueImage.Width), MaxImageWidth}.Min
-                                                    Dim ImageHeight As Integer = {If(.ValueImage Is Nothing, 0, .ValueImage.Height), MaxImageHeight}.Min
-                                                    Dim xOffset As Integer = CInt((CellBounds.Width - ImageWidth) / 2)
-                                                    Dim yOffset As Integer = CInt((CellBounds.Height - ImageHeight) / 2)
-                                                    Dim imageBounds As New Rectangle(CellBounds.X + xOffset, CellBounds.Y + yOffset, ImageWidth, ImageHeight)
-                                                    If .Column.Format.Key = Column.TypeGroup.Booleans Then
-                                                        Dim useWhite As Boolean = BackColorToForeColor(cellStyle.BackColor) = Color.White
-                                                        Dim imageName As String = If(.ValueBoolean, String.Empty, "un") & "checked" & If(useWhite, "White", "Black")
-                                                        e.Graphics.DrawImage(Base64ToImage(CheckImages(imageName)), imageBounds)
                                                     Else
-                                                        If .ValueImage IsNot Nothing Then e.Graphics.DrawImage(.ValueImage, imageBounds)
+                                                        '///////////  KNOWN ISSUES
+                                                        '///////////  CHANGING A NON-IMAGE VALUE TO AN IMAGE WILL SWITCH THE COLUMN FORMAT TO IMAGES WHICH THROWS AN ERROR @ Dim ImageWidth As Integer
+                                                        '///////////  ALSO FILLING A DATATABLE WITH IMAGES BEFORE SETTING TO THE DATAVIEWER.DATASOURCE WON'T SET THE ROWHEIGHT CORRECTLY
+                                                        If .Column.Format.Key = Column.TypeGroup.Images Or .Column.Format.Key = Column.TypeGroup.Booleans Then
+                                                            Dim EdgePadding As Integer = 1 'all sides to ensure Image doesn't touch the edge of the Cell Rectangle
+                                                            Dim MaxImageWidth As Integer = CellBounds.Width - EdgePadding * 2
+                                                            Dim MaxImageHeight As Integer = CellBounds.Height - EdgePadding * 2
+                                                            Dim ImageWidth As Integer = {If(.ValueImage Is Nothing, 0, .ValueImage.Width), MaxImageWidth}.Min
+                                                            Dim ImageHeight As Integer = {If(.ValueImage Is Nothing, 0, .ValueImage.Height), MaxImageHeight}.Min
+                                                            Dim xOffset As Integer = CInt((CellBounds.Width - ImageWidth) / 2)
+                                                            Dim yOffset As Integer = CInt((CellBounds.Height - ImageHeight) / 2)
+                                                            Dim imageBounds As New Rectangle(CellBounds.X + xOffset, CellBounds.Y + yOffset, ImageWidth, ImageHeight)
+                                                            If .Column.Format.Key = Column.TypeGroup.Booleans Then
+                                                                Dim useWhite As Boolean = BackColorToForeColor(cellStyle.BackColor) = Color.White
+                                                                Dim imageName As String = If(.ValueBoolean, String.Empty, "un") & "checked" & If(useWhite, "White", "Black")
+                                                                e.Graphics.DrawImage(Base64ToImage(CheckImages(imageName)), imageBounds)
+                                                            Else
+                                                                If .ValueImage IsNot Nothing Then e.Graphics.DrawImage(.ValueImage, imageBounds)
+                                                            End If
+                                                            If MouseOverRow Then
+                                                                Using yellowBrush As New SolidBrush(Color.FromArgb(128, Color.Yellow))
+                                                                    e.Graphics.FillRectangle(yellowBrush, imageBounds)
+                                                                End Using
+                                                            End If
+                                                        Else
+                                                            If .StyleSet Then
+                                                                Using backBrush As New SolidBrush(.Style.BackColor)
+                                                                    e.Graphics.FillRectangle(backBrush, CellBounds)
+                                                                End Using
+                                                            End If
+                                                            Dim cellText As String = .Text 'Getting .Text also Sets the .Image based on the Column.DataType
+                                                            Using textBrush As New SolidBrush(cellStyle.ForeColor)
+                                                                e.Graphics.DrawString(cellText,
+                                                                                      If(MouseOverRow, New Font(cellStyle.Font, FontStyle.Underline), cellStyle.Font),
+                                                                                      textBrush,
+                                                                                      CellBounds,
+                                                                                      Column.GridStyle.Alignment)
+                                                            End Using
+                                                        End If
                                                     End If
-                                                    If MouseOverRow Then
-                                                        Using yellowBrush As New SolidBrush(Color.FromArgb(128, Color.Yellow))
-                                                            e.Graphics.FillRectangle(yellowBrush, imageBounds)
-                                                        End Using
+                                                    If .TipText IsNot Nothing Then
+                                                        Dim triangleHeight As Single = 8
+                                                        Dim trianglePoints As New List(Of PointF) From {New PointF(CellBounds.Right - triangleHeight, CellBounds.Top),
+                                                New PointF(CellBounds.Right, CellBounds.Top),
+                                                New PointF(CellBounds.Right, CellBounds.Top + triangleHeight)}
+                                                        e.Graphics.FillPolygon(Brushes.DarkOrange, trianglePoints.ToArray)
+                                                        If MouseOverCell Then tipCells.Add(CellBounds, .TipText)
                                                     End If
-                                                Else
-                                                    If .StyleSet Then
-                                                        Using backBrush As New SolidBrush(.Style.BackColor)
-                                                            e.Graphics.FillRectangle(backBrush, CellBounds)
-                                                        End Using
-                                                    End If
-                                                    Dim cellText As String = .Text 'Getting .Text also Sets the .Image based on the Column.DataType
-                                                    Using textBrush As New SolidBrush(cellStyle.ForeColor)
-                                                        e.Graphics.DrawString(cellText,
-                                                                              If(MouseOverRow, New Font(cellStyle.Font, FontStyle.Underline), cellStyle.Font),
-                                                                              textBrush,
-                                                                              CellBounds,
-                                                                              Column.GridStyle.Alignment)
-                                                    End Using
-                                                End If
-                                            End If
-                                            If .TipText IsNot Nothing Then
-                                                Dim triangleHeight As Single = 8
-                                                Dim trianglePoints As New List(Of PointF) From {New PointF(CellBounds.Right - triangleHeight, CellBounds.Top),
-                                        New PointF(CellBounds.Right, CellBounds.Top),
-                                        New PointF(CellBounds.Right, CellBounds.Top + triangleHeight)}
-                                                e.Graphics.FillPolygon(Brushes.DarkOrange, trianglePoints.ToArray)
-                                                If MouseOverCell Then tipCells.Add(CellBounds, .TipText)
-                                            End If
-                                        End With
-                                        ControlPaint.DrawBorder3D(e.Graphics, CellBounds, Border3DStyle.SunkenOuter)
+                                                End With
+                                                ControlPaint.DrawBorder3D(e.Graphics, CellBounds, Border3DStyle.SunkenOuter)
+                                            End With
+                                        Next
+#End Region
+                                        Top += RowHeight
                                     End With
                                 Next
-#End Region
-                                Top += RowHeight
-                            End With
-                        Next
-                    End If
-#End Region
-                    If VisibleRows.Any Then
-                        Dim BottomRow As Rectangle = VisibleRows.Last.Value
-#Region " VERTICAL BOUNDARY "
-                        With HeadFullBounds
-                            If .Right < Width Then
-                                Using VerticalPen As New Pen(Color.Silver, 1) With {.DashStyle = DashStyle.DashDot}
-                                    e.Graphics.DrawLine(VerticalPen, New Point(.Right, .Bottom), New Point(.Right, {BottomRow.Bottom, ClientSize.Height}.Min))
-                                End Using
                             End If
-                        End With
+                        Catch ex As InvalidOperationException
+                        End Try
+#End Region
+                        Try
+                            If VisibleRows.Any Then
+                                Dim BottomRow As Rectangle = VisibleRows.Last.Value
+#Region " VERTICAL BOUNDARY "
+                                With HeadFullBounds
+                                    If .Right < Width Then
+                                        Using VerticalPen As New Pen(Color.Silver, 1) With {.DashStyle = DashStyle.DashDot}
+                                            e.Graphics.DrawLine(VerticalPen, New Point(.Right, .Bottom), New Point(.Right, {BottomRow.Bottom, ClientSize.Height}.Min))
+                                        End Using
+                                    End If
+                                End With
 #End Region
 #Region " HORIZONTAL BOUNDARY "
-                        With BottomRow
-                            If .Bottom < Height Then
-                                Using HorizontalPen As New Pen(Color.Silver, 1) With {.DashStyle = DashStyle.DashDot}
-                                    e.Graphics.DrawLine(HorizontalPen, New Point(0, .Bottom), New Point({ .Right, ClientSize.Width}.Min, .Bottom))
-                                End Using
-                            End If
-                        End With
+                                With BottomRow
+                                    If .Bottom < Height Then
+                                        Using HorizontalPen As New Pen(Color.Silver, 1) With {.DashStyle = DashStyle.DashDot}
+                                            e.Graphics.DrawLine(HorizontalPen, New Point(0, .Bottom), New Point({ .Right, ClientSize.Width}.Min, .Bottom))
+                                        End Using
+                                    End If
+                                End With
 #End Region
 #Region " OVERLAYS "
-                        For Each tipCell In tipCells
-                            Dim tipMessage As String = tipCell.Value
-                            Using tipFont = New Font(Font.FontFamily, 15, FontStyle.Regular)
-                                Dim tipSize As SizeF = e.Graphics.MeasureString(tipMessage, tipFont, StringTrimming.None)
-                                Dim tipRectangle As New Rectangle(New Point(tipCell.Key.Right + 28, tipCell.Key.Top - 20), tipSize.ToSize)
-                                tipRectangle.Inflate(8, 8)
-                                Using copyPath As GraphicsPath = DrawSpeechBubble(tipRectangle)
-                                    Using backBrush As New SolidBrush(Color.FromArgb(200, Color.GhostWhite))
-                                        e.Graphics.FillPath(backBrush, copyPath)
-                                        Using copyPen As New Pen(Brushes.DarkGray, 2)
-                                            e.Graphics.DrawPath(copyPen, copyPath)
+                                For Each tipCell In tipCells
+                                    Dim tipMessage As String = tipCell.Value
+                                    Using tipFont = New Font(Font.FontFamily, 15, FontStyle.Regular)
+                                        Dim tipSize As SizeF = e.Graphics.MeasureString(tipMessage, tipFont, StringTrimming.None)
+                                        Dim tipRectangle As New Rectangle(New Point(tipCell.Key.Right + 28, tipCell.Key.Top - 20), tipSize.ToSize)
+                                        tipRectangle.Inflate(8, 8)
+                                        Using copyPath As GraphicsPath = DrawSpeechBubble(tipRectangle)
+                                            Using backBrush As New SolidBrush(Color.FromArgb(200, Color.GhostWhite))
+                                                e.Graphics.FillPath(backBrush, copyPath)
+                                                Using copyPen As New Pen(Brushes.DarkGray, 2)
+                                                    e.Graphics.DrawPath(copyPen, copyPath)
+                                                End Using
+                                            End Using
                                         End Using
+                                        Dim textAlignment As New StringFormat With {.Alignment = StringAlignment.Center, .LineAlignment = StringAlignment.Center, .FormatFlags = StringFormatFlags.NoWrap}
+                                        e.Graphics.DrawString(tipMessage, tipFont, Brushes.Black, tipRectangle, textAlignment)
                                     End Using
-                                End Using
-                                Dim textAlignment As New StringFormat With {.Alignment = StringAlignment.Center, .LineAlignment = StringAlignment.Center, .FormatFlags = StringFormatFlags.NoWrap}
-                                e.Graphics.DrawString(tipMessage, tipFont, Brushes.Black, tipRectangle, textAlignment)
-                            End Using
-                        Next
-                        Dim copyValue As Integer = DirectCast(CopyTimer.Tag, Integer)
-                        If Math.Abs(copyValue) > 0 Then
-                            Dim imageOffsetXY As Integer = 3
-                            Dim imageWH As Integer = My.Resources.Copied.Width
-                            Dim bannerWidth As Integer
-                            Dim copyMessage As String = "Copied"
-                            If copyValue < 0 Then
-                                copyMessage = Join({copyMessage, "value", Clipboard.GetText})
-                            Else
-                                copyMessage = Join({copyMessage, copyValue, "row" & If(copyValue = 1, String.Empty, "s")})
-                            End If
-                            If copyMessage.Length >= 30 Then copyMessage = copyMessage.Substring(0, 30) & "..."
-                            Using messageFont = New Font(Font.FontFamily, 15, FontStyle.Bold)
-                                bannerWidth = imageOffsetXY + imageWH + CInt(e.Graphics.MeasureString(copyMessage, messageFont, StringTrimming.None).Width) + imageOffsetXY
-                                Dim bannerSize As New Size(bannerWidth, imageOffsetXY + imageWH + imageOffsetXY)
-                                Dim bannerRectangle As New Rectangle(New Point(imageWH, imageWH), bannerSize)
-                                Dim imageRectangle As New Rectangle(bannerRectangle.Left + imageOffsetXY, bannerRectangle.Top + imageOffsetXY, imageWH, imageWH)
-                                Dim textRectangle As New Rectangle(imageRectangle.Right,
-                                                                   bannerRectangle.Top,
-                                                                   bannerRectangle.Width - imageOffsetXY - imageRectangle.Width,
-                                                                   bannerRectangle.Height)
-                                Using copyPath As GraphicsPath = DrawRoundedRectangle(bannerRectangle, 22)
-                                    Using copyPen As New Pen(Brushes.DarkGray, 2)
-                                        e.Graphics.DrawPath(copyPen, copyPath)
+                                Next
+                                Dim copyValue As Integer = DirectCast(CopyTimer.Tag, Integer)
+                                If Math.Abs(copyValue) > 0 Then
+                                    Dim imageOffsetXY As Integer = 3
+                                    Dim imageWH As Integer = My.Resources.Copied.Width
+                                    Dim bannerWidth As Integer
+                                    Dim copyMessage As String = "Copied"
+                                    If copyValue < 0 Then
+                                        copyMessage = Join({copyMessage, "value", Clipboard.GetText})
+                                    Else
+                                        copyMessage = Join({copyMessage, copyValue, "row" & If(copyValue = 1, String.Empty, "s")})
+                                    End If
+                                    If copyMessage.Length >= 30 Then copyMessage = copyMessage.Substring(0, 30) & "..."
+                                    Using messageFont = New Font(Font.FontFamily, 15, FontStyle.Bold)
+                                        bannerWidth = imageOffsetXY + imageWH + CInt(e.Graphics.MeasureString(copyMessage, messageFont, StringTrimming.None).Width) + imageOffsetXY
+                                        Dim bannerSize As New Size(bannerWidth, imageOffsetXY + imageWH + imageOffsetXY)
+                                        Dim bannerRectangle As New Rectangle(New Point(imageWH, imageWH), bannerSize)
+                                        Dim imageRectangle As New Rectangle(bannerRectangle.Left + imageOffsetXY, bannerRectangle.Top + imageOffsetXY, imageWH, imageWH)
+                                        Dim textRectangle As New Rectangle(imageRectangle.Right,
+                                                                           bannerRectangle.Top,
+                                                                           bannerRectangle.Width - imageOffsetXY - imageRectangle.Width,
+                                                                           bannerRectangle.Height)
+                                        Using copyPath As GraphicsPath = DrawRoundedRectangle(bannerRectangle, 22)
+                                            Using copyPen As New Pen(Brushes.DarkGray, 2)
+                                                e.Graphics.DrawPath(copyPen, copyPath)
+                                            End Using
+                                            Using copyBrush As New SolidBrush(Color.FromArgb(208, Color.GhostWhite))
+                                                e.Graphics.FillPath(copyBrush, copyPath)
+                                            End Using
+                                        End Using
+                                        e.Graphics.DrawImage(My.Resources.Copied, imageRectangle)
+                                        Dim textAlignment As New StringFormat With {.Alignment = StringAlignment.Near, .LineAlignment = StringAlignment.Center, .FormatFlags = StringFormatFlags.NoWrap}
+                                        e.Graphics.DrawString(copyMessage, messageFont, Brushes.Black, textRectangle, textAlignment)
                                     End Using
-                                    Using copyBrush As New SolidBrush(Color.FromArgb(208, Color.GhostWhite))
-                                        e.Graphics.FillPath(copyBrush, copyPath)
-                                    End Using
-                                End Using
-                                e.Graphics.DrawImage(My.Resources.Copied, imageRectangle)
-                                Dim textAlignment As New StringFormat With {.Alignment = StringAlignment.Near, .LineAlignment = StringAlignment.Center, .FormatFlags = StringFormatFlags.NoWrap}
-                                e.Graphics.DrawString(copyMessage, messageFont, Brushes.Black, textRectangle, textAlignment)
-                            End Using
-                        End If
+                                End If
 #End Region
+                            End If
+                        Catch ex1 As InvalidOperationException
+                        End Try
+                    Else
+                        TextRenderer.DrawText(e.Graphics,
+                                              Name,
+                                              Font,
+                                              HeadFullBounds,
+                                              .HeaderStyle.ForeColor,
+                                              Color.Transparent,
+                                              TextFormatFlags.HorizontalCenter Or TextFormatFlags.VerticalCenter)
+                        ControlPaint.DrawBorder3D(e.Graphics, HeadFullBounds, Border3DStyle.Sunken)
                     End If
-                Else
-                    TextRenderer.DrawText(e.Graphics,
-                                          Name,
-                                          Font,
-                                          HeadFullBounds,
-                                          .HeaderStyle.ForeColor,
-                                          Color.Transparent,
-                                          TextFormatFlags.HorizontalCenter Or TextFormatFlags.VerticalCenter)
-                    ControlPaint.DrawBorder3D(e.Graphics, HeadFullBounds, Border3DStyle.Sunken)
-                End If
+                Catch ex As InvalidOperationException
+                End Try
             End With
             ControlPaint.DrawBorder3D(e.Graphics, ClientRectangle, Border3DStyle.Sunken)
         End If
