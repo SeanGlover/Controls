@@ -984,12 +984,12 @@ End Class
                 If value <> _Properties("PWD") Then
                     RaiseEvent PasswordChanged(Me, New ConnectionChangedEventArgs(_Properties("PWD"), value))
                     _Properties("PWD") = value
-                    TestPassed_ = TriState.UseDefault
+                    _TestPassed = TriState.UseDefault
                 End If
             Else
                 If value.Any Then _Properties.Add("PWD", value)
                 RaiseEvent PasswordChanged(Me, New ConnectionChangedEventArgs(String.Empty, value))
-                TestPassed_ = TriState.UseDefault
+                _TestPassed = TriState.UseDefault
             End If
         End Set
     End Property
@@ -1015,12 +1015,8 @@ End Class
             If _Properties.ContainsKey("hostname") Then Properties("hostname") = value
         End Set
     End Property
-    Private TestPassed_ As TriState = TriState.UseDefault
-    Public ReadOnly Property TestPassed As TriState
-        Get
-            Return TestPassed_
-        End Get
-    End Property
+    Public ReadOnly Property TestPassed As TriState = TriState.UseDefault
+    Public ReadOnly Property TestMessage As String
     Public ReadOnly Property CanConnect As Boolean
         Get
             Return TestPassed = TriState.True OrElse TestPassed = TriState.UseDefault And Not MissingUserID And Not MissingPassword
@@ -1121,6 +1117,7 @@ End Class
     End Sub
     Public Sub Test(Optional async As Boolean = False)
 
+        _TestMessage = Nothing
         If CanConnect Then
             Dim testSelect As String = If(Language = QueryLanguage.Netezza, "select current_timestamp FROM _v_dual", "SELECT * FROM SYSIBM.SYSDUMMY1")
             Using testSQL As New SQL(Me, testSelect) With {.NoPrompt = True}
@@ -1140,14 +1137,15 @@ End Class
     Private Sub TestResults(sender As Object, testResponse As ResponseEventArgs)
 
         With testResponse
+            _TestMessage = .Message
             If .Succeeded Then
-                TestPassed_ = TriState.True
+                _TestPassed = TriState.True
 
             ElseIf .RunError.Type = Errors.Item.ConnectionFailure Then
-                TestPassed_ = TriState.UseDefault
+                _TestPassed = TriState.UseDefault
 
             Else
-                TestPassed_ = TriState.False
+                _TestPassed = TriState.False
 
             End If
             RaiseEvent TestCompleted(Me, New ConnectionTestEventArgs(testResponse))

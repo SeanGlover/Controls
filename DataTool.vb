@@ -1143,14 +1143,41 @@ Public Class DataTool
                 .Text = "S U B M I T".ToUpperInvariant,
                 .Dock = DockStyle.Fill,
                 .Height = 30,
+                .Font = GothicFont,
+                .BackgroundImage = Nothing,
+                .FlatStyle = FlatStyle.System
+                }
+            Dim buttonTest As New Button With {.Margin = New Padding(0),
+                .Text = "T E S T".ToUpperInvariant,
+                .Dock = DockStyle.Fill,
+                .Height = 30,
+                .Font = GothicFont,
+                .BackgroundImage = Nothing,
+                .FlatStyle = FlatStyle.System,
+                .Tag = Connection
+                }
+            Dim tlpButtons As New TableLayoutPanel With {.ColumnCount = 2,
+                .RowCount = 1,
+                .Margin = New Padding(0),
+                .CellBorderStyle = TableLayoutPanelCellBorderStyle.None,
+                .BorderStyle = BorderStyle.None,
                 .Font = GothicFont}
+            With tlpButtons
+                .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Percent, .Width = 50})
+                .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Percent, .Width = 50})
+                .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 30})
+                .Controls.Add(buttonSubmit, 0, 0)
+                .Controls.Add(buttonTest, 1, 0)
+                .Dock = DockStyle.Fill
+            End With
             With tlpConnection
                 .ColumnStyles.Add(New ColumnStyle With {.SizeType = SizeType.Absolute, .Width = 300})
                 .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 30})
                 .RowStyles.Add(New RowStyle With {.SizeType = SizeType.Absolute, .Height = 16})
-                .Controls.Add(buttonSubmit, 0, 0)
+                .Controls.Add(tlpButtons, 0, 0)
             End With
             AddHandler buttonSubmit.Click, AddressOf ConnectionProperty_Submitted
+            AddHandler buttonTest.Click, AddressOf ConnectionProperty_TestClicked
 
             Dim tlpProperties As New TableLayoutPanel With {.ColumnCount = 3,
                 .RowCount = 1 + Connection.PropertyIndices.Count,
@@ -1519,6 +1546,21 @@ Public Class DataTool
         Dim tsmiConnection As ToolStripMenuItem = DirectCast(sender, ToolStripMenuItem)
         Dim openingConnection As Connection = DirectCast(tsmiConnection.Tag, Connection)
         Dim tlpConnection As TableLayoutPanel = DirectCast(DirectCast(tsmiConnection.DropDownItems(0), ToolStripControlHost).Control, TableLayoutPanel)
+        Dim tlpButtons As TableLayoutPanel = DirectCast(tlpConnection.Controls(0), TableLayoutPanel)
+        Dim submitButton As Button = DirectCast(tlpButtons.GetControlFromPosition(0, 0), Button)
+        Dim testButton As Button = DirectCast(tlpButtons.GetControlFromPosition(1, 0), Button)
+
+        With submitButton
+            .BackgroundImage = Nothing
+            .BackgroundImageLayout = Nothing
+            .FlatStyle = FlatStyle.System
+        End With
+        With testButton
+            .BackgroundImage = Nothing
+            .BackgroundImageLayout = Nothing
+            .FlatStyle = FlatStyle.System
+        End With
+
         Dim tlpProperties As TableLayoutPanel = DirectCast(tlpConnection.GetControlFromPosition(0, 1), TableLayoutPanel)
         Dim tlpRows As Dictionary(Of Integer, List(Of Control)) = TLP.GetRows(tlpProperties)
         Dim newKey As ImageCombo = DirectCast(tlpRows(0)(1), ImageCombo)
@@ -1533,12 +1575,6 @@ Public Class DataTool
             .Text = Nothing
             AddHandler .TextChanged, AddressOf ConnectionProperty_Changing
             .HintText = "Property value"
-        End With
-
-        Dim buttonSubmit As Button = DirectCast(tlpConnection.GetControlFromPosition(0, 0), Button)
-        With buttonSubmit
-            .BackgroundImage = Nothing
-            .FlatStyle = FlatStyle.System
         End With
 
         Dim rowIndex As Integer = 1
@@ -1584,7 +1620,8 @@ Public Class DataTool
         Dim senderControl As Control = DirectCast(sender, Control)
         Dim tlpProperties As TableLayoutPanel = DirectCast(senderControl.Parent, TableLayoutPanel)
         Dim tlpConnection As TableLayoutPanel = DirectCast(tlpProperties.Parent, TableLayoutPanel)
-        Dim submitButton As Button = DirectCast(tlpConnection.Controls(0), Button) ' S U B M I T   B U T T O N
+        Dim tlpButtons As TableLayoutPanel = DirectCast(tlpConnection.Controls(0), TableLayoutPanel)
+        Dim submitButton As Button = DirectCast(tlpButtons.Controls(0), Button) ' S U B M I T   B U T T O N
         Dim tlpRows = TLP.GetRows(tlpProperties)
         Dim connectionProperties As New Dictionary(Of Integer, String)
         Dim existingConnection As Connection = DirectCast(tlpProperties.Tag, Connection)
@@ -1649,7 +1686,8 @@ Public Class DataTool
         With DirectCast(sender, ImageCombo)
             Dim tlpProperties As TableLayoutPanel = DirectCast(.Parent, TableLayoutPanel)
             Dim tlpConnection As TableLayoutPanel = DirectCast(tlpProperties.Parent, TableLayoutPanel)
-            Dim submitButton As Button = DirectCast(tlpConnection.Controls(0), Button) ' S U B M I T   B U T T O N
+            Dim tlpButtons As TableLayoutPanel = DirectCast(tlpConnection.Controls(0), TableLayoutPanel)
+            Dim submitButton As Button = DirectCast(tlpButtons.Controls(0), Button) ' S U B M I T   B U T T O N
             ConnectionProperty_Submitted(submitButton, New EventArgs)
         End With
 
@@ -1657,7 +1695,8 @@ Public Class DataTool
     Private Sub ConnectionProperty_Submitted(sender As Object, e As EventArgs)
 
         Dim buttonSubmit As Button = DirectCast(sender, Button)
-        Dim tlpConnection As TableLayoutPanel = DirectCast(buttonSubmit.Parent, TableLayoutPanel)
+        Dim tlpButtons As TableLayoutPanel = DirectCast(buttonSubmit.Parent, TableLayoutPanel)
+        Dim tlpConnection As TableLayoutPanel = DirectCast(tlpButtons.Parent, TableLayoutPanel)
         Dim tlpProperties As TableLayoutPanel = DirectCast(tlpConnection.GetControlFromPosition(0, 1), TableLayoutPanel)
         Dim connectionSubmitted As Connection = DirectCast(tlpProperties.Tag, Connection)
         Dim tsmiConnection As ToolStripMenuItem = DirectCast(TSMIConnections.DropDownItems(connectionSubmitted.ToString), ToolStripMenuItem)
@@ -1681,7 +1720,8 @@ Public Class DataTool
 
         Dim tsmiConnection_ As ToolStripMenuItem = DirectCast(sender, ToolStripMenuItem)
         Dim tlpConnection As TableLayoutPanel = DirectCast(DirectCast(tsmiConnection_.DropDownItems(0), ToolStripControlHost).Control, TableLayoutPanel)
-        Dim buttonSubmit As Button = DirectCast(tlpConnection.GetControlFromPosition(0, 0), Button)
+        Dim tlpButtons As TableLayoutPanel = DirectCast(tlpConnection.Controls(0), TableLayoutPanel)
+        Dim buttonSubmit As Button = DirectCast(tlpButtons.GetControlFromPosition(0, 0), Button)
         TT_Submit.Hide(buttonSubmit)
 
     End Sub
@@ -1717,6 +1757,20 @@ Public Class DataTool
         End With
         TLP.SetSize(tlpConnection)
         tlpProperties.Size = sizeProperties
+
+    End Sub
+    Private Sub ConnectionProperty_TestClicked(sender As Object, e As EventArgs)
+
+        Dim testButton As Button = DirectCast(sender, Button)
+        Dim testConnection As Connection = DirectCast(testButton.Tag, Connection)
+        testConnection.Test()
+
+        With testButton
+            .BackgroundImageLayout = ImageLayout.Stretch
+            .FlatStyle = FlatStyle.Flat
+            .BackgroundImage = If(testConnection.TestPassed = TriState.True, My.Resources.glossyGreen, If(testConnection.TestPassed = TriState.False, My.Resources.glossyRed, My.Resources.glossyYellow))
+            If Not testConnection.TestPassed = TriState.True Then TT_Submit.Show(testConnection.TestMessage, testButton, New Point(-3, -(5 + .Height + 5)))
+        End With
 
     End Sub
 #End Region
@@ -4293,7 +4347,7 @@ Public Class DataTool
         If ClockLoadTime Then Stop_Watch.Start()
         ExpandCollapseOnOff(HandlerAction.Remove)
 #Region " FILL TABLE WITH DATABASE OBJECTS "
-        Dim ActiveConnections = Connections.Where(Function(c) c.CanConnect).Take(1000)
+        Dim ActiveConnections = Connections.Where(Function(c) c.CanConnect)
         If SelectedConnections IsNot Nothing AndAlso SelectedConnections.Any Then ActiveConnections = ActiveConnections.Where(Function(c) SelectedConnections.Contains(c))
         Dim SuccessCount As Integer = 0
         For Each Connection In ActiveConnections
@@ -4375,40 +4429,44 @@ Public Class DataTool
         With Tree_Objects
             For Each DataSource In ObjectsDictionary.Keys
                 Dim SourceNode = .Nodes.Item(DataSource)
-                SourceNode.Name = DataSource
-                Dim Connection_ As Connection = DirectCast(SourceNode.Tag, Connection)
-                Dim Owners = ObjectsDictionary(DataSource)
-                For Each Owner In Owners
-                    Dim OwnerNode = SourceNode.Nodes.Add(New Node With {
-                                        .Text = Owner.Key,
-                                        .Name = Owner.Key,
-                                        .BackColor = If(Owner.Key = Connection_.UserID, Color.Gainsboro, Color.Transparent),
-                                        .CanAdd = False,
-                                        .CanDragDrop = False,
-                                        .CanEdit = False,
-                                        .CanRemove = False
-                                        })
-                    For Each ObjectType In Owner.Value
-                        Dim TypeImage As Image = Nothing
-                        If ObjectType.Key = SystemObject.ObjectType.Routine Then TypeImage = My.Resources.Gear
-                        If ObjectType.Key = SystemObject.ObjectType.Table Then TypeImage = My.Resources.Table
-                        If ObjectType.Key = SystemObject.ObjectType.Trigger Then TypeImage = My.Resources.Zap
-                        If ObjectType.Key = SystemObject.ObjectType.View Then TypeImage = My.Resources.Eye
-                        For Each Item In ObjectType.Value
-                            Dim NameNode As Node = OwnerNode.Nodes.Add(New Node With {
-                                        .Name = Item.Name,
-                                        .Text = Item.Name,
-                                        .Image = TypeImage,
-                                        .Checked = True,
-                                        .Tag = Item,
-                                        .CanAdd = False,
-                                        .CanDragDrop = True,
-                                        .CanFavorite = True,
-                                        .Favorite = Item.Favorite
-                                        })
+                If SourceNode IsNot Nothing Then
+                    SourceNode.Name = DataSource
+                    Dim Connection_ As Connection = DirectCast(SourceNode.Tag, Connection)
+                    Dim Owners = ObjectsDictionary(DataSource)
+                    For Each Owner In Owners
+                        Dim OwnerNode = SourceNode.Nodes.Add(New Node With {
+                                            .Text = Owner.Key,
+                                            .Name = Owner.Key,
+                                            .BackColor = If(Owner.Key = Connection_.UserID, Color.Gainsboro, Color.Transparent),
+                                            .CanAdd = False,
+                                            .CanDragDrop = False,
+                                            .CanEdit = False,
+                                            .CanRemove = False
+                                            })
+                        For Each ObjectType In Owner.Value
+                            Dim TypeImage As Image = Nothing
+                            If ObjectType.Key = SystemObject.ObjectType.Routine Then TypeImage = My.Resources.Gear
+                            If ObjectType.Key = SystemObject.ObjectType.Table Then TypeImage = My.Resources.Table
+                            If ObjectType.Key = SystemObject.ObjectType.Trigger Then TypeImage = My.Resources.Zap
+                            If ObjectType.Key = SystemObject.ObjectType.View Then TypeImage = My.Resources.Eye
+                            For Each Item In ObjectType.Value
+                                Dim NameNode As Node = OwnerNode.Nodes.Add(New Node With {
+                                            .Name = Item.Name,
+                                            .Text = Item.Name,
+                                            .Image = TypeImage,
+                                            .Checked = True,
+                                            .Tag = Item,
+                                            .CanAdd = False,
+                                            .CanDragDrop = True,
+                                            .CanFavorite = True,
+                                            .Favorite = Item.Favorite
+                                            })
+                            Next
                         Next
                     Next
-                Next
+                Else
+                    'Stop
+                End If
             Next
             If ClockLoadTime Then
                 Intervals.Add("Populate Treeview", Stop_Watch.Elapsed)

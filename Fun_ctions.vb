@@ -3126,21 +3126,13 @@ Public NotInheritable Class SafeWalk
     Public Shared Function EnumerateFiles(Path As String, SearchPattern As String, SearchOpt As SearchOption) As IEnumerable(Of String)
 
         Try
-            'Dim Path As String = Desktop
-            'Dim searchPattern As String = "*.txt"
-            Try
-                Dim di As DirectoryInfo = New DirectoryInfo(Path)
-                Dim directories As DirectoryInfo() = di.GetDirectories(SearchPattern, SearchOpt)
-                Dim files As FileInfo() = di.GetFiles(SearchPattern, SearchOpt)
-                Return files.Select(Function(f) f.FullName)
+            Dim di As DirectoryInfo = New DirectoryInfo(Path)
+            Dim files As FileInfo() = di.GetFiles(SearchPattern, SearchOpt)
+            Return files.Select(Function(f) f.FullName)
 
-            Catch ex As DirectoryNotFoundException
-                Return Enumerable.Empty(Of String)()
-
-            End Try
-
-        Catch ex As UnauthorizedAccessException
+        Catch ex As DirectoryNotFoundException
             Return Enumerable.Empty(Of String)()
+
         End Try
 
     End Function
