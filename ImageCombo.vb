@@ -1193,19 +1193,18 @@ Public NotInheritable Class ImageCombo
             If Not Mouse_Region = MouseRegion.DropDown And LetterWidths.Any Then
                 Dim CurrentIndex As Integer = GetLetterIndex(e.X)
                 Dim Index As Integer = {CurrentIndex, Text.Length - 1}.Min
-#Region " LOOK BACK "
+                '// look back
                 Do While (Index >= 0 AndAlso Text.Substring(Index, 1) <> " ")
                     Index -= 1
                 Loop
                 CursorIndex = Index + 1
-#End Region
+                '// look ahead
                 Index = CurrentIndex
-#Region " LOOK AHEAD "
-                Do While (Index < Text.Length AndAlso Text.Substring(Index, 1) <> " ")
+                Do While Index < Text.Length AndAlso Text.Substring(Index, 1) <> " "
                     Index += 1
                 Loop
-#End Region
                 SelectionIndex = Index
+                MoveMouse(Cursor.Position)
                 Invalidate()
             End If
         End If
@@ -1312,6 +1311,7 @@ Public NotInheritable Class ImageCombo
         Mouse_Region = MouseRegion.Text
         SelectionStart = 0
         SelectionIndex = LetterWidths.Keys.Last
+        MoveMouse(Cursor.Position)
 
     End Sub
     Private Sub Items_Changed() Handles DropItems_.Changed
