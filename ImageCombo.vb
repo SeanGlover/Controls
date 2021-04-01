@@ -95,7 +95,6 @@ Public NotInheritable Class ImageCombo
         SetStyle(ControlStyles.UserMouse, True)
         BackColor = Color.WhiteSmoke
         BackColor = SystemColors.Window
-        BorderStyle = Border3DStyle.Flat
         DropDown = New ImageComboDropDown(Me)
         Items = New ItemCollection(Me)
         EyeImage = Base64ToImage(EyeString)
@@ -116,8 +115,10 @@ Public NotInheritable Class ImageCombo
 
     Private Sub CursorBlinkTimer_Tick() Handles CursorBlinkTimer.Tick
 
-        CursorShouldBeVisible = Not CursorShouldBeVisible
-        Invalidate()
+        If If(Text, String.Empty).Any Then
+            CursorShouldBeVisible = Not CursorShouldBeVisible
+            Invalidate()
+        End If
 
     End Sub
     Private Sub TextTimer_Tick() Handles TextTimer.Tick
@@ -127,6 +128,7 @@ Public NotInheritable Class ImageCombo
 
     End Sub
 #Region " DRAWING "
+
     Protected Overrides Sub OnPaint(e As PaintEventArgs)
 
         If e IsNot Nothing Then
@@ -223,7 +225,7 @@ Public NotInheritable Class ImageCombo
                         Dim highlightBounds As Rectangle = If(Mouse_Region = MouseRegion.Image, ImageClickBounds, If(Mouse_Region = MouseRegion.Search, SearchBounds, If(Mouse_Region = MouseRegion.Eye, EyeBounds, If(Mouse_Region = MouseRegion.ClearText, ClearTextBounds, If(Mouse_Region = MouseRegion.DropDown, DropClickBounds, New Rectangle)))))
                         e.Graphics.FillRectangle(mouseOverBrush, highlightBounds)
                     End Using
-                    If _HasFocus And CursorShouldBeVisible Then
+                    If HasFocus And CursorShouldBeVisible Then
                         Using Pen As New Pen(SelectionColor)
                             e.Graphics.DrawLine(Pen, CursorBounds.X, CursorBounds.Y, CursorBounds.X, CursorBounds.Bottom)
                         End Using
@@ -231,16 +233,26 @@ Public NotInheritable Class ImageCombo
                 End If
 #End Region
             End If
-            If Image IsNot Nothing Then e.Graphics.DrawImage(Image, ImageBounds)
-            ControlPaint.DrawBorder3D(e.Graphics, ClientRectangle, BorderStyle)
-            If HighlightOnFocus And _HasFocus Then
-                Dim PenWidth As Integer = 2
-                Using Pen As New Pen(Color.FromArgb(64, FocusColor), PenWidth)
+
+            If HighlightOnFocus And HasFocus Then
+                Using Pen As New Pen(FocusColor, BorderWidth)
                     Dim BorderRectangle As Rectangle = ClientRectangle
-                    BorderRectangle.Inflate(-PenWidth, -PenWidth)
-                    e.Graphics.DrawRectangle(Pen, BorderRectangle)
+                    BorderRectangle.Inflate(-BorderWidth, -BorderWidth)
+                    e.Graphics.DrawRectangle(Pen, ClientRectangle)
                 End Using
+
+            Else
+                Dim drawBorder As Boolean = Not BorderColor = Color.Transparent
+                Dim penColor As Color = If(drawBorder, BorderColor, BackColor)
+                Dim penWidth As Integer = If(drawBorder, BorderWidth, 4)
+                Using Pen As New Pen(penColor, penWidth)
+                    Dim BorderRectangle As Rectangle = ClientRectangle
+                    BorderRectangle.Inflate(-penWidth, -penWidth)
+                    e.Graphics.DrawRectangle(Pen, ClientRectangle)
+                End Using
+
             End If
+            If Image IsNot Nothing Then e.Graphics.DrawImage(Image, ImageBounds)
         End If
 
     End Sub
@@ -404,6 +416,8 @@ Public NotInheritable Class ImageCombo
     Friend Property Mouse_Region As MouseRegion
     Public Property CheckOnSelect As Boolean = False
     Public Property CheckboxStyle As CheckStyle = CheckStyle.Slide
+    Public Property BorderColor As Color = Color.Gainsboro
+    Public Property BorderWidth As Byte = 2
     Public Property MultiSelect As Boolean
     Private ButtonTheme_ As Theme = Theme.Gray
     Public Property ButtonTheme As Theme
@@ -608,7 +622,7 @@ Public NotInheritable Class ImageCombo
     End Property
     Public Property HighlightColor As Color = Color.LimeGreen
     Public Property HighlightOnFocus As Boolean
-    Private _HasFocus As Boolean = False
+    Private ReadOnly Property HasFocus As Boolean = False
     Public Property FocusColor As Color = Color.DarkBlue
     Public Property SelectionColor As Color = Color.Black
     Public Property MaxItems As Integer = 15
@@ -805,7 +819,6 @@ Public NotInheritable Class ImageCombo
             SelectedFont_ = value
         End Set
     End Property
-    Public Property BorderStyle As Border3DStyle = Border3DStyle.Adjust
     Public ReadOnly Property TextSize As Size
 #End Region
 #Region " EVENTS "

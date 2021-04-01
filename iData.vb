@@ -4194,11 +4194,12 @@ Public Module iData
                              Optional ShowFile As Boolean = False,
                              Optional DisplayMessages As TriState = TriState.False,
                              Optional IncludeHeaders As Boolean = True,
-                             Optional NotifyCreatedFormattedFile As Boolean = False)
+                             Optional NotifyCreatedFormattedFile As Boolean = False,
+                             Optional SheetCode As Dictionary(Of String, String) = Nothing)
         If Table IsNot Nothing Then
             Using ds As New DataSet
                 ds.Tables.Add(Table.Copy)
-                DataSetToExcel(ds, ExcelPath, FormatSheet, ShowFile, DisplayMessages, IncludeHeaders, NotifyCreatedFormattedFile)
+                DataSetToExcel(ds, ExcelPath, FormatSheet, ShowFile, DisplayMessages, IncludeHeaders, NotifyCreatedFormattedFile, SheetCode)
             End Using
         End If
 
@@ -4209,7 +4210,8 @@ Public Module iData
                              Optional ShowFile As Boolean = False,
                              Optional DisplayMessages As TriState = TriState.False,
                              Optional IncludeHeaders As Boolean = True,
-                             Optional NotifyCreatedFormattedFile As Boolean = False)
+                             Optional NotifyCreatedFormattedFile As Boolean = False,
+                             Optional SheetCode As Dictionary(Of String, String) = Nothing)
 
         If TableSet IsNot Nothing Then
             TableSet.Namespace = ExcelPath
@@ -4256,6 +4258,11 @@ Public Module iData
                     Next
                     With Sheet
                         .Name = Table.TableName
+                        If SheetCode IsNot Nothing AndAlso SheetCode.ContainsKey(.Name) Then
+                            Dim project As Microsoft.Vbe.Interop.VBProject = App.VBE.VBProjects.Item(1)
+                            Dim sheetComponent As Microsoft.Vbe.Interop.VBComponent = project.VBComponents.Item(.Name)
+                            sheetComponent.CodeModule.AddFromString(SheetCode(.Name))
+                        End If
                         Dim TableRange As String = String.Format(InvariantCulture, "A1:{0}{1}", ExcelColName(Table.Columns.Count), Table.Rows.Count + 1)
                         .Range(TableRange, Type.Missing).Value2 = rawData
                     End With
@@ -4293,72 +4300,46 @@ Public Module iData
 
         RaiseEvent Alerts(workBook, New AlertEventArgs($"Formatting Excel Workbook {excelPath} at {startTime.ToLongTimeString}"))
 
-#Region " FORMAT BOOK "
-        Dim startRow As Integer = 2 'Assumes headers!!!
-        For Each table As DataTable In tableSet.Tables
-            Dim addVBA As Boolean = False
-            Dim sheetName As String = table.TableName
-            Dim Sheet As Excel.Worksheet = DirectCast(workBook.Sheets(sheetName), Excel.Worksheet)
-            Sheet.Select()
-            With excelApplication
-                .DisplayAlerts = False
-                .ActiveWindow.SplitRow = 1
-                .ActiveWindow.FreezePanes = True
-            End With
-            Dim TableRange As String = String.Format(InvariantCulture, "A1:{0}{1}", ExcelColName(table.Columns.Count), table.Rows.Count + 1)
-            With Sheet
-                .Name = sheetName
-                .Cells.VerticalAlignment = Excel.XlVAlign.xlVAlignCenter
-                With .Range(TableRange, Type.Missing)
-                    .AutoFilter(1, Type.Missing, Excel.XlAutoFilterOperator.xlAnd, Type.Missing, True)
-                    With .FormatConditions
-                        .Delete()
-                        .Add(Excel.XlFormatConditionType.xlExpression, Formula1:="=MOD(ROW(A2),2)=1")
-                        With DirectCast(.Item(1), Excel.FormatCondition)
-                            .SetFirstPriority()
-                            With .Interior
-                                .PatternColorIndex = Excel.XlPattern.xlPatternAutomatic
-                                .ThemeColor = Excel.XlThemeColor.xlThemeColorDark1
-                                .TintAndShade = -0.0499893185216834
+        Try
+            For Each table As DataTable In tableSet.Tables
+                Dim sheetName As String = table.TableName
+                Dim Sheet As Excel.Worksheet = DirectCast(workBook.Sheets(sheetName), Excel.Worksheet)
+                Sheet.Select()
+                With excelApplication
+                    .DisplayAlerts = False
+                    .ActiveWindow.SplitRow = 1
+                    .ActiveWindow.FreezePanes = True
+                End With
+                Dim TableRange As String = String.Format(InvariantCulture, "A1:{0}{1}", ExcelColName(table.Columns.Count), table.Rows.Count + 1)
+                With Sheet
+                    .Name = sheetName
+                    .Cells.VerticalAlignment = Excel.XlVAlign.xlVAlignCenter
+                    With .Range(TableRange, Type.Missing)
+                        .AutoFilter(1, Type.Missing, Excel.XlAutoFilterOperator.xlAnd, Type.Missing, True)
+                        With .FormatConditions
+                            .Delete()
+                            .Add(Excel.XlFormatConditionType.xlExpression, Formula1:="=MOD(ROW(A2),2)=1")
+                            With DirectCast(.Item(1), Excel.FormatCondition)
+                                .SetFirstPriority()
+                                With .Interior
+                                    .PatternColorIndex = Excel.XlPattern.xlPatternAutomatic
+                                    .ThemeColor = Excel.XlThemeColor.xlThemeColorDark1
+                                    .TintAndShade = -0.0499893185216834
+                                End With
+                                .StopIfTrue = False
                             End With
-                            .StopIfTrue = False
                         End With
-                    End With
-                    .WrapText = False
-                    With .Font
-                        .Bold = True
-                        .Name = "Trebuchet MS"      'Sakkal Majalla
-                        .Size = 8
-                    End With
-                    For Each Column As DataColumn In table.Columns
-                        Dim columnValues As New List(Of String)(DataColumnToStrings(Column, False))
-                        Dim isHyperlink As Boolean = (From v In columnValues Where Regex.Match(v, "(?<=<a href="")[^""]{1,}", RegexOptions.None).Success).Any
-                        Dim ColumnRange As Excel.Range = .Range(.Cells(startRow, Column.Ordinal + 1), .Cells(startRow, Column.Ordinal + 1)).EntireColumn
-                        If isHyperlink Then
-                            addVBA = True
-                            ColumnRange.NumberFormat = "@"
-                            ColumnRange.HorizontalAlignment = Excel.XlHAlign.xlHAlignLeft
-                            Dim rowIndex As Integer = startRow
-                            For Each row In table.AsEnumerable
-                                Dim cellLink As String = If(row(Column).ToString, String.Empty)
-                                If cellLink.Any Then
-                                    Dim cellAddress As String = Regex.Match(cellLink, "(?<=<a href="")[^""]{1,}", RegexOptions.None).Value
-                                    Dim cellText As String = Regex.Match(cellLink, "(?<=>)[^■]{1,}(?=<\/a>)", RegexOptions.None).Value
-                                    Dim cellRange As Excel.Range = .Range(.Cells(rowIndex, Column.Ordinal + 1), .Cells(rowIndex, Column.Ordinal + 1))
-                                    Dim cellComment As Excel.Comment = cellRange.AddComment(cellAddress)
-                                    With cellComment
-                                        With .Shape
-                                            .Width = 800
-                                            .Height = CSng(cellRange.Height) * 2
-                                            .AutoShapeType = Microsoft.Office.Core.MsoAutoShapeType.msoShapeRoundedRectangle
-                                        End With
-                                    End With
-                                    cellRange.Value = cellText
-                                    cellRange.Font.Color = Color.CornflowerBlue  'Color.FromArgb(5, 99, 133)
-                                End If
-                                rowIndex += 1
-                            Next
-                        Else
+                        .WrapText = False
+
+                        With .Font
+                            .Bold = True
+                            .Name = "Trebuchet MS"      'Sakkal Majalla
+                            .Size = 8
+                        End With
+
+                        Const startRow As Integer = 2 'Assumes headers!!!
+                        For Each Column As DataColumn In table.Columns
+                            Dim ColumnRange As Excel.Range = .Range(.Cells(startRow, Column.Ordinal + 1), .Cells(startRow, Column.Ordinal + 1)).EntireColumn
                             Dim ColumnType As Type = GetDataType(Column)
                             Dim CR As String = ColumnRange.Address
                             Select Case ColumnType
@@ -4388,44 +4369,25 @@ Public Module iData
                                         End If
                                     End If
                             End Select
-                        End If
-                    Next
-                    Dim TopRowRange As String = String.Format(InvariantCulture, "A1:{0}{1}", ExcelColName(table.Columns.Count), 1)
-                    With .Range(TopRowRange, Type.Missing)
-                        .Interior.Color = Color.Gainsboro
-                        With .Font
-                            .Bold = True
-                            .Name = "Trebuchet MS"
-                            .Size = 9
+                        Next
+                        Dim TopRowRange As String = String.Format(InvariantCulture, "A1:{0}{1}", ExcelColName(table.Columns.Count), 1)
+                        With .Range(TopRowRange, Type.Missing)
+                            .Interior.Color = Color.Gainsboro
+                            With .Font
+                                .Bold = True
+                                .Name = "Trebuchet MS"
+                                .Size = 9
+                            End With
+                            .HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter
                         End With
-                        .HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter
+                        .EntireColumn.AutoFit()
                     End With
-                    .EntireColumn.AutoFit()
                 End With
-            End With
-            If addVBA Then
-                Dim code As String() = {"If Not Target.Comment Is Nothing Then",
-    "Target.Font.Color = RGB(149, 79, 114)",
-    "Dim chromePath As String",
-    "chromePath = """"""C:\Program Files\Mozilla Firefox\firefox.exe""""""",
-    "Shell chromePath & "" - url "" & Target.Comment.Text, vbMaximizedFocus",
-    "End If"
-    }
-                Dim sb As New System.Text.StringBuilder
-                sb.Append("Private Sub Worksheet_SelectionChange(Target As Range)" & vbNewLine)
-                Dim lines As New List(Of String)(From c In code Select vbTab & c & vbNewLine)
-                For Each line In lines
-                    sb.Append(line)
-                Next
-                sb.Append("End Sub")
-
-                Dim project As Microsoft.Vbe.Interop.VBProject = excelApplication.VBE.VBProjects.Item(1)
-                Dim sheetComponent As Microsoft.Vbe.Interop.VBComponent = project.VBComponents.Item("Sheet1")
-                sheetComponent.CodeModule.AddFromString(sb.ToString)
-            End If
-            ReleaseObject(Sheet)
-        Next
-#End Region
+                ReleaseObject(Sheet)
+            Next
+        Catch ex As COMException
+            RaiseEvent Alerts(workBook, New AlertEventArgs($"Formatting Excel Workbook {excelPath} failed"))
+        End Try
 
     End Sub
     Private Function ExcelColName(Col As Integer) As String
@@ -4451,38 +4413,6 @@ Public Module iData
         End If
 
     End Function
-    Private Sub Create_VBA(Book As Excel.Workbook, subLine As String, code As String())
-
-        If Book IsNot Nothing And subLine IsNot Nothing And code IsNot Nothing Then
-            Dim sb As New System.Text.StringBuilder
-            Dim xlModule As Microsoft.Vbe.Interop.VBComponent
-            Dim prj As Microsoft.Vbe.Interop.VBProject = Book.VBProject
-
-            prj = Book.VBProject
-
-            'build string with module code
-            sb.Append(subLine & vbNewLine)
-            Dim lines As New List(Of String)(From c In code Select vbTab & c & vbNewLine)
-            For Each line In lines
-                sb.Append(line)
-            Next
-            sb.Append("End Sub")
-
-            ' set an object for the New module to create
-            xlModule = Book.VBProject.VBComponents.Add(Microsoft.Vbe.Interop.vbext_ComponentType.vbext_ct_StdModule)
-
-            ' add the macro to the spreadsheet
-            xlModule.CodeModule.AddFromString(sb.ToString())
-
-            'Dim xlModule As Microsoft.Vbe.Interop.VBComponent
-            'Dim prj As Microsoft.Vbe.Interop.VBProject = workBook.VBProject
-            'xlModule = workBook.VBProject.VBComponents.Add(Microsoft.Vbe.Interop.vbext_ComponentType.vbext_ct_StdModule)
-            'xlModule.Name = "Web_" & table.TableName
-            'xlModule.CodeModule.AddFromString(sb.ToString)
-
-        End If
-
-    End Sub
     Private Function ApplicationElements(userName As String) As KeyValuePair(Of String, Date)
 
         If userName Is Nothing Then
@@ -4504,69 +4434,73 @@ Public Module iData
     End Sub
     Private Sub ReleaseExcel(excelBook As Excel.Workbook)
 
-        Dim excelApplication As Excel.Application = excelBook.Application
-        Dim appData = ApplicationElements(excelBook.Comments)
-        Dim notifyState As TriState = If(appData.Key.EndsWith("☻", StringComparison.InvariantCulture), TriState.True, If(appData.Key.EndsWith("☺", StringComparison.InvariantCulture), TriState.UseDefault, TriState.False))
-        Dim excelPath As String = Replace(appData.Key, "☻", String.Empty)
-        Dim startTime As Date = appData.Value
-        Dim failSave As String = String.Empty
-
-        Dim xlFileFormat = Excel.XlFileFormat.xlWorkbookDefault
-        If excelPath.ToUpperInvariant.EndsWith(".XLSM", StringComparison.InvariantCulture) Then xlFileFormat = Excel.XlFileFormat.xlOpenXMLWorkbookMacroEnabled
-        If excelPath.ToUpperInvariant.EndsWith(".XLSB", StringComparison.InvariantCulture) Then xlFileFormat = Excel.XlFileFormat.xlExcel12
-        If excelPath.ToUpperInvariant.EndsWith(".CSV", StringComparison.InvariantCulture) Then xlFileFormat = Excel.XlFileFormat.xlCSVWindows
-        If excelPath.ToUpperInvariant.EndsWith(".TXT", StringComparison.InvariantCulture) Then xlFileFormat = Excel.XlFileFormat.xlTextWindows
-        'xlWorkbookDefault	            51	Workbook default	                *.xlsx
-        'xlOpenXMLWorkbookMacroEnabled	52	Open XML Workbook Macro Enabled	    *.xlsm
-        'xlExcel12	                    50	Excel Binary Workbook	            *.xlsb
-        'xlCSVWindows	                23	Windows CSV	                        *.csv
-        'xlTextWindows	                20	Windows Text	                    *.txt
-
         Try
-            excelBook.SaveAs(excelPath, xlFileFormat)
-            excelBook.Close()
+            Dim excelApplication As Excel.Application = excelBook.Application
+            Dim appData = ApplicationElements(excelBook.Comments)
+            Dim notifyState As TriState = If(appData.Key.EndsWith("☻", StringComparison.InvariantCulture), TriState.True, If(appData.Key.EndsWith("☺", StringComparison.InvariantCulture), TriState.UseDefault, TriState.False))
+            Dim excelPath As String = Replace(appData.Key, "☻", String.Empty)
+            Dim startTime As Date = appData.Value
+            Dim failSave As String = String.Empty
 
-        Catch ex As ExternalException
-            failSave = ex.Message
+            Dim xlFileFormat = Excel.XlFileFormat.xlWorkbookDefault
+            If excelPath.ToUpperInvariant.EndsWith(".XLSM", StringComparison.InvariantCulture) Then xlFileFormat = Excel.XlFileFormat.xlOpenXMLWorkbookMacroEnabled
+            If excelPath.ToUpperInvariant.EndsWith(".XLSB", StringComparison.InvariantCulture) Then xlFileFormat = Excel.XlFileFormat.xlExcel12
+            If excelPath.ToUpperInvariant.EndsWith(".CSV", StringComparison.InvariantCulture) Then xlFileFormat = Excel.XlFileFormat.xlCSVWindows
+            If excelPath.ToUpperInvariant.EndsWith(".TXT", StringComparison.InvariantCulture) Then xlFileFormat = Excel.XlFileFormat.xlTextWindows
+            'xlWorkbookDefault	            51	Workbook default	                *.xlsx
+            'xlOpenXMLWorkbookMacroEnabled	52	Open XML Workbook Macro Enabled	    *.xlsm
+            'xlExcel12	                    50	Excel Binary Workbook	            *.xlsb
+            'xlCSVWindows	                23	Windows CSV	                        *.csv
+            'xlTextWindows	                20	Windows Text	                    *.txt
+
+            Try
+                excelBook.SaveAs(excelPath, xlFileFormat)
+                excelBook.Close()
+
+            Catch ex As ExternalException
+                failSave = ex.Message
+
+            End Try
+
+            If failSave.Any Then
+                RaiseEvent Alerts(excelBook, New AlertEventArgs("There was an error writing the Excel file with the message: " & failSave))
+                If notifyState = TriState.UseDefault Then
+                    Using finishedNotice As New Prompt
+                        finishedNotice.TitleBarImage = My.Resources.Excel
+                        finishedNotice.Show("There was an error writing the Excel file with the message:", failSave, Prompt.IconOption.OK)
+                    End Using
+                End If
+            Else
+                Dim finishedMessage As String = $"Excel Workbook ready at {excelPath} Total time: {TimespanToString(startTime, Now)}"
+                RaiseEvent Alerts(excelBook, New AlertEventArgs(finishedMessage))
+                If notifyState = TriState.UseDefault Then
+                    Using finishedNotice As New Prompt
+                        finishedNotice.TitleBarImage = My.Resources.Excel
+                        finishedNotice.Show("Successfully created file", finishedMessage, Prompt.IconOption.OK)
+                    End Using
+                End If
+            End If
+
+            ReleaseObject(excelBook)
+
+            'Release the Application object
+            excelApplication.Quit()
+            ReleaseObject(excelApplication)
+
+            'Collect the unreferenced objects
+            GC.Collect()
+            GC.WaitForPendingFinalizers()
+
+            Dim Windows = Process.GetProcesses
+            For Each ExcelProcess In From w In Windows Where w.ProcessName.ToUpperInvariant.Contains("EXCEL") And w.MainWindowTitle.Length = 0 Select w
+                Try
+                    ExcelProcess.Kill()
+                Catch ex As Win32Exception
+                End Try
+            Next
+        Catch ex As COMException
 
         End Try
-
-        If failSave.Any Then
-            RaiseEvent Alerts(excelBook, New AlertEventArgs("There was an error writing the Excel file with the message: " & failSave))
-            If notifyState = TriState.UseDefault Then
-                Using finishedNotice As New Prompt
-                    finishedNotice.TitleBarImage = My.Resources.Excel
-                    finishedNotice.Show("There was an error writing the Excel file with the message:", failSave, Prompt.IconOption.OK)
-                End Using
-            End If
-        Else
-            Dim finishedMessage As String = $"Excel Workbook ready at {excelPath} Total time: {TimespanToString(startTime, Now)}"
-            RaiseEvent Alerts(excelBook, New AlertEventArgs(finishedMessage))
-            If notifyState = TriState.UseDefault Then
-                Using finishedNotice As New Prompt
-                    finishedNotice.TitleBarImage = My.Resources.Excel
-                    finishedNotice.Show("Successfully created file", finishedMessage, Prompt.IconOption.OK)
-                End Using
-            End If
-        End If
-
-        ReleaseObject(excelBook)
-
-        'Release the Application object
-        excelApplication.Quit()
-        ReleaseObject(excelApplication)
-
-        'Collect the unreferenced objects
-        GC.Collect()
-        GC.WaitForPendingFinalizers()
-
-        Dim Windows = Process.GetProcesses
-        For Each ExcelProcess In From w In Windows Where w.ProcessName.ToUpperInvariant.Contains("EXCEL") And w.MainWindowTitle.Length = 0 Select w
-            Try
-                ExcelProcess.Kill()
-            Catch ex As Win32Exception
-            End Try
-        Next
 
     End Sub
     Private Sub ReleaseObject(Item As Object)

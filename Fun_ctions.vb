@@ -3850,20 +3850,16 @@ Public NotInheritable Class ThreadHelperClass
                 Dim t As Type = Item.GetType
                 If Item.InvokeRequired Then
                     Dim d As SetPropertyCallback = New SetPropertyCallback(AddressOf SetSafeControlPropertyValue)
-                    Try
-                        Item.Invoke(d, New Object() {Item, PropertyName, PropertyValue})
-                    Catch ex As TargetInvocationException
-                    End Try
+                    Item.Invoke(d, New Object() {Item, PropertyName, PropertyValue})
 
                 Else
                     Dim pi As PropertyInfo = t.GetProperty(PropertyName)
-                    Try
-                        pi.SetValue(Item, PropertyValue)
-                    Catch ex As TargetInvocationException
-                    End Try
+                    pi.SetValue(Item, PropertyValue)
+
                 End If
             Catch ex As ObjectDisposedException
-
+            Catch ex As InvalidAsynchronousStateException
+            Catch ex As TargetInvocationException
             End Try
         End If
 
@@ -3875,20 +3871,15 @@ Public NotInheritable Class ThreadHelperClass
                 Dim t As Type = Item.GetType
                 If Item.Owner.InvokeRequired Then
                     Dim d As SetToolPropertyCallback = New SetToolPropertyCallback(AddressOf SetSafeToolStripItemPropertyValue)
-                    Try
-                        Item.Owner.Invoke(d, New Object() {Item, PropertyName, PropertyValue})
-                    Catch ex As TargetInvocationException
-                    End Try
+                    Item.Owner.Invoke(d, New Object() {Item, PropertyName, PropertyValue})
 
                 Else
                     Dim pi As PropertyInfo = t.GetProperty(PropertyName)
-                    Try
-                        pi.SetValue(Item, PropertyValue)
-                    Catch ex As TargetInvocationException
-                    End Try
+                    pi.SetValue(Item, PropertyValue)
                 End If
             Catch ex As ObjectDisposedException
-
+            Catch ex As InvalidAsynchronousStateException
+            Catch ex As TargetInvocationException
             End Try
         End If
 
