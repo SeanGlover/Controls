@@ -4496,6 +4496,7 @@ Public Module iData
                 Try
                     ExcelProcess.Kill()
                 Catch ex As Win32Exception
+                Catch ex As InvalidOperationException
                 End Try
             Next
         Catch ex As COMException
