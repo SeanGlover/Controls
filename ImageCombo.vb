@@ -23,7 +23,9 @@ Public Enum ImageComboMode
 End Enum 'Leave Public since other controls need access
 Public Enum MathSymbol
     GreaterThan
+    GreaterThanEquals
     LessThan
+    LessThanEquals
     Equals
     NotEquals
 End Enum 'Leave Public since DatePicker also uses
@@ -454,13 +456,15 @@ Public NotInheritable Class ImageCombo
         End Set
     End Property
     Private ReadOnly Property MathSymbols As New Dictionary(Of MathSymbol, String()) From
-                    {
+        {
             {MathSymbol.Equals, {"=", "="}},
-            {MathSymbol.GreaterThan, {"≥", ">="}},
-            {MathSymbol.LessThan, {"≤", "<="}},
+            {MathSymbol.GreaterThanEquals, {"≥", ">="}},
+            {MathSymbol.GreaterThan, {">", ">"}},
+            {MathSymbol.LessThan, {"<", "<"}},
+            {MathSymbol.LessThanEquals, {"≤", "<="}},
             {MathSymbol.NotEquals, {"≠", "<>"}}
-            }
-    Public ReadOnly Property SearchItem As MathSymbol
+        }
+    Public Property SearchItem As MathSymbol
     Private ReadOnly Property SearchDrawString As String
         Get
             Return MathSymbols(SearchItem).First
@@ -1161,8 +1165,8 @@ Public NotInheritable Class ImageCombo
                 RaiseEvent ImageClicked(Me, New ImageComboEventArgs)
 
             ElseIf Mouse_Region = MouseRegion.Search Then
-                '= > < ≠
                 '0 1 2 3
+                '= > < ≠
                 Dim nextIndex As Integer = MathSymbols.Keys.ToList.IndexOf(SearchItem)
                 nextIndex = If(nextIndex + 1 = MathSymbols.Count, 0, nextIndex + 1)
                 _SearchItem = MathSymbols.Keys.ToList(nextIndex)

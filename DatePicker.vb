@@ -182,14 +182,16 @@ Public Class DatePicker
             End If
         End Set
     End Property
-    Private ReadOnly MathSymbols As New Dictionary(Of MathSymbol, String()) From
-                    {
+    Private ReadOnly Property MathSymbols As New Dictionary(Of MathSymbol, String()) From
+        {
             {MathSymbol.Equals, {"=", "="}},
-            {MathSymbol.GreaterThan, {"≥", ">="}},
-            {MathSymbol.LessThan, {"≤", "<="}},
+            {MathSymbol.GreaterThanEquals, {"≥", ">="}},
+            {MathSymbol.GreaterThan, {">", ">"}},
+            {MathSymbol.LessThan, {"<", "<"}},
+            {MathSymbol.LessThanEquals, {"≤", "<="}},
             {MathSymbol.NotEquals, {"≠", "<>"}}
-            }
-    Public ReadOnly Property SearchItem As MathSymbol
+        }
+    Public Property SearchItem As MathSymbol
     Private ReadOnly Property SearchDrawString As String
         Get
             Return MathSymbols(SearchItem).First
@@ -446,8 +448,8 @@ Public Class DatePicker
                 DropDown.Visible = Not DropDown.Visible
 
             ElseIf MouseOver = MouseRegion.Search Then
-                '= > < ≠
                 '0 1 2 3
+                '= > < ≠
                 Dim nextIndex As Integer = MathSymbols.Keys.ToList.IndexOf(SearchItem)
                 nextIndex = If(nextIndex + 1 = MathSymbols.Count, 0, nextIndex + 1)
                 _SearchItem = MathSymbols.Keys.ToList(nextIndex)
