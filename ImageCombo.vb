@@ -28,6 +28,7 @@ Public Enum MathSymbol
     LessThanEquals
     Equals
     NotEquals
+    Between
 End Enum 'Leave Public since DatePicker also uses
 Public Enum CheckStyle
     None
@@ -135,7 +136,7 @@ Public NotInheritable Class ImageCombo
 
         If e IsNot Nothing Then
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
-
+            'e.Graphics.TextRenderingHint = Drawing.Text.TextRenderingHint.AntiAlias
             If Mode = ImageComboMode.Button Then
 #Region " BUTTON PROPERTIES "
                 e.Graphics.DrawImage(If(InBounds, GlossyDictionary(If(ButtonMouseTheme = Theme.None, Theme.Gray, ButtonMouseTheme)), GlossyDictionary(If(ButtonTheme = Theme.None, Theme.Gray, ButtonTheme))), ClientRectangle)
@@ -210,12 +211,13 @@ Public NotInheritable Class ImageCombo
                     If Mode = ImageComboMode.Searchbox Then
                         Using searchBrush As New SolidBrush(Color.Transparent)
                             e.Graphics.FillRectangle(searchBrush, SearchBounds)
-                            Using sf As New StringFormat With {
-                                                .Alignment = StringAlignment.Center,
-                                                .LineAlignment = StringAlignment.Center
-                                                }
+                            Using sf As New StringFormat With
+                                        {
+                                            .Alignment = StringAlignment.Center,
+                                            .LineAlignment = StringAlignment.Center
+                                        }
                                 Using searchFont As New Font("Tahoma", 16)
-                                    e.Graphics.DrawString(SearchDrawString, searchFont, Brushes.Black, SearchBounds, sf)
+                                    e.Graphics.DrawString(MathSymbols(SearchItem).First, searchFont, Brushes.Black, SearchBounds, sf)
                                 End Using
                             End Using
                         End Using
@@ -455,21 +457,29 @@ Public NotInheritable Class ImageCombo
             Invalidate()
         End Set
     End Property
-    Private ReadOnly Property MathSymbols As New Dictionary(Of MathSymbol, String()) From
+    Private ReadOnly Property MathSymbols As Dictionary(Of MathSymbol, String())
+        Get
+            If AcceptValues = ValueTypes.Any Then
+                Return New Dictionary(Of MathSymbol, String()) From
+        {
+{MathSymbol.Equals, {"=", "="}},
+{MathSymbol.NotEquals, {"≠", "<>"}}
+        }
+            Else
+                Return New Dictionary(Of MathSymbol, String()) From
         {
             {MathSymbol.Equals, {"=", "="}},
             {MathSymbol.GreaterThanEquals, {"≥", ">="}},
             {MathSymbol.GreaterThan, {">", ">"}},
             {MathSymbol.LessThan, {"<", "<"}},
             {MathSymbol.LessThanEquals, {"≤", "<="}},
-            {MathSymbol.NotEquals, {"≠", "<>"}}
+            {MathSymbol.NotEquals, {"≠", "<>"}},
+            {MathSymbol.Between, {"↹", "Between"}}
         }
-    Public Property SearchItem As MathSymbol
-    Private ReadOnly Property SearchDrawString As String
-        Get
-            Return MathSymbols(SearchItem).First
+            End If
         End Get
     End Property
+    Public Property SearchItem As MathSymbol
     Public ReadOnly Property SearchString As String
         Get
             Return MathSymbols(SearchItem).Last
@@ -477,87 +487,92 @@ Public NotInheritable Class ImageCombo
     End Property
     Public ReadOnly Property ErrorText As String
         Get
-            If ValueError Then
+            Dim errorMessage As String = Nothing
+            If If(Text, String.Empty).Any Then
                 If AcceptValues = ValueTypes.Decimals Then
-                    If Amount > MaxAcceptValue Then
-                        Return Join({"Amount exceeds maximum value of", MaxAcceptValue})
+                    Dim amountErrors As New List(Of String)
+                    For Each amount As Double In Amounts
+                        If amount = Double.MaxValue Then
+                            amountErrors.Add($"{amount:C2} is not recognized as a decimal")
 
-                    ElseIf Amount < MinAcceptValue Then
-                        Return Join({"Amount is below the minimum value of", MinAcceptValue})
+                        ElseIf amount > MaxAcceptValue Then
+                            amountErrors.Add($"{amount:C2} exceeds the maximum value of {MaxAcceptValue:C2}")
 
-                    Else
-                        Return Join({"Typed value is not recognized as a decimal"})
-                    End If
+                        ElseIf amount < MinAcceptValue Then
+                            amountErrors.Add($"{amount:C2} does not meet the minimum value of {MinAcceptValue:C2}")
+
+                        Else
+                        End If
+                    Next
+                    If amountErrors.Any Then errorMessage = String.Join(Environment.NewLine, amountErrors)
 
                 ElseIf AcceptValues = ValueTypes.Integers Then
-                    If Number > MaxAcceptValue Then
-                        Return Join({"Number exceeds maximum value of", CInt(MaxAcceptValue)})
+                    Dim amountErrors As New List(Of String)
+                    For Each number As Long In Numbers
+                        If number = Long.MaxValue Then
+                            amountErrors.Add($"{number:N0} is not recognized as a whole number")
 
-                    ElseIf Number < MinAcceptValue Then
-                        Return Join({"Number is below the minimum value of", CInt(MaxAcceptValue)})
+                        ElseIf number > MaxAcceptValue Then
+                            amountErrors.Add($"{number:N0} exceeds the maximum value of {MaxAcceptValue:N}")
 
-                    Else
-                        Return Join({"Typed value is not recognized as a whole number"})
-                    End If
+                        ElseIf number < MinAcceptValue Then
+                            amountErrors.Add($"{number:N0} does not meet the minimum value of {MinAcceptValue:N}")
+
+                        Else
+                        End If
+                    Next
+                    If amountErrors.Any Then errorMessage = String.Join(Environment.NewLine, amountErrors)
 
                 Else 'Any ... duhh
-                    If Text.Length < MinAcceptValue Then
-                        Return Join({"Length of value is below", MinAcceptValue, "characters"})
-                    Else
-                        Return Join({"Length of value exceeds", MaxAcceptValue, "characters"})
-                    End If
+                    errorMessage = If(Text.Length < MinAcceptValue, $"{Text} does not meet the minimum length of {MinAcceptValue:N0} characters", If(Text.Length > MaxAcceptValue, $"{Text} exceeds the minimum length of {MaxAcceptValue:N0} characters", Nothing))
+
                 End If
-            Else
-                Return Nothing
             End If
+            Return errorMessage
         End Get
     End Property
     Public ReadOnly Property ValueError As Boolean
         Get
-            If Text.Any Then
-                Dim canParse As Boolean
-                If AcceptValues = ValueTypes.Decimals Then
-                    Dim amount As Double
-                    canParse = Double.TryParse(Text, Globalization.NumberStyles.Any, Globalization.CultureInfo.CreateSpecificCulture("en-US"), amount)
-                    Return If(canParse, amount > MaxAcceptValue Or amount < MinAcceptValue, True)
-
-                ElseIf AcceptValues = ValueTypes.Integers Then
-                    Dim number As Long
-                    canParse = Long.TryParse(Text, Globalization.NumberStyles.Any, Globalization.CultureInfo.CreateSpecificCulture("en-US"), number)
-                    Return If(canParse, number > MaxAcceptValue Or number < MinAcceptValue, True)
-
-                Else
-                    Return Text.Length > MaxAcceptValue Or Text.Length < MinAcceptValue
-
-                End If
-            Else
-                Return False
-            End If
+            Return ErrorText IsNot Nothing
         End Get
     End Property
     Public Property AcceptValues As ValueTypes
     Public Property MaxAcceptValue As Double = Double.MaxValue
     Public Property MinAcceptValue As Double = -Double.MaxValue
+    Public ReadOnly Property Amounts As Double()
+        Get
+            Dim amountList As New List(Of Double)
+            For Each amount As String In Split(Text, ";")
+                Dim amountText As Double = 0
+                Dim canParse As Boolean = Double.TryParse(amount, Globalization.NumberStyles.Any, Globalization.CultureInfo.CreateSpecificCulture("en-US"), amountText)
+                amountList.Add(If(canParse, amountText, Double.MaxValue))
+            Next
+            Return amountList.ToArray
+        End Get
+    End Property
     Public ReadOnly Property Amount As Double
         Get
-            Dim _Amount As Double
-            Dim canParse As Boolean = Double.TryParse(Text, Globalization.NumberStyles.Any, Globalization.CultureInfo.CreateSpecificCulture("en-US"), _Amount)
-            If canParse Then
-                Return _Amount
-            Else
-                Return 0
-            End If
+            Dim amountText As Double = 0
+            Dim canParse As Boolean = Double.TryParse(Text, Globalization.NumberStyles.Any, Globalization.CultureInfo.CreateSpecificCulture("en-US"), amountText)
+            Return amountText
+        End Get
+    End Property
+    Public ReadOnly Property Numbers As Long()
+        Get
+            Dim longList As New List(Of Long)
+            For Each amount As String In Split(Text, ";")
+                Dim amountText As Long = 0
+                Dim canParse As Boolean = Long.TryParse(amount, Globalization.NumberStyles.Any, Globalization.CultureInfo.CreateSpecificCulture("en-US"), amountText)
+                longList.Add(If(canParse, amountText, Long.MaxValue))
+            Next
+            Return longList.ToArray
         End Get
     End Property
     Public ReadOnly Property Number As Long
         Get
-            Dim _Number As Long
-            Dim canParse As Boolean = Long.TryParse(Text, Globalization.NumberStyles.Any, Globalization.CultureInfo.CreateSpecificCulture("en-US"), _Number)
-            If canParse Then
-                Return _Number
-            Else
-                Return 0
-            End If
+            Dim longText As Long = 0
+            Dim canParse As Boolean = Long.TryParse(Text, Globalization.NumberStyles.Any, Globalization.CultureInfo.CreateSpecificCulture("en-US"), longText)
+            Return longText
         End Get
     End Property
     Public Overrides Function ToString() As String
@@ -921,6 +936,7 @@ Public NotInheritable Class ImageCombo
 
     End Sub
     Public Event ImageClicked(sender As Object, e As ImageComboEventArgs)
+    Public Event SearchCriterionChanged(sender As Object, e As ImageComboEventArgs)
     Public Event ClearTextClicked(sender As Object, e As ImageComboEventArgs)
     Public Event ValueSubmitted(sender As Object, e As ImageComboEventArgs)
     Public Event TextPaused(sender As Object, e As ImageComboEventArgs)
@@ -1169,7 +1185,8 @@ Public NotInheritable Class ImageCombo
                 '= > < ≠
                 Dim nextIndex As Integer = MathSymbols.Keys.ToList.IndexOf(SearchItem)
                 nextIndex = If(nextIndex + 1 = MathSymbols.Count, 0, nextIndex + 1)
-                _SearchItem = MathSymbols.Keys.ToList(nextIndex)
+                SearchItem = MathSymbols.Keys.ToList(nextIndex)
+                RaiseEvent SearchCriterionChanged(Me, New ImageComboEventArgs)
 
             ElseIf Mouse_Region = MouseRegion.Text Then
                 CursorShouldBeVisible = True
