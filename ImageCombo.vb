@@ -1269,16 +1269,11 @@ Public NotInheritable Class ImageCombo
             SelectionIndex = 0
         End If
         Bounds_Set()
-        Try
-            If ErrorTip IsNot Nothing Then
-                If ValueError Then
-                    'ErrorTip.Show(ErrorText.ToString(InvariantCulture), Me, New Point(Width, 0))
-                Else
-                    'ErrorTip.Hide(Me)
-                End If
-            End If
-        Catch ex As ObjectDisposedException
-        End Try
+        If ValueError Then
+            'ErrorTip.Show(ErrorText.ToString(InvariantCulture), Me, New Point(Width, 0))
+        Else
+            'ErrorTip.Hide(Me)
+        End If
         MyBase.OnTextChanged(e)
 
     End Sub

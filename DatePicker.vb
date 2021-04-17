@@ -141,7 +141,7 @@ Public Class DatePicker
     End Property
     Private ReadOnly Property HOffset As Integer
     Private ReadOnly Property VOffset As Integer
-    Private ReadOnly Property ValueIsNull As Boolean
+    Public ReadOnly Property ValueIsNull As Boolean
         Get
             Return Value = Date.MinValue
         End Get
