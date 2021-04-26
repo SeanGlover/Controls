@@ -1097,6 +1097,9 @@ Public NotInheritable Class ImageCombo
                     Dim Value As Integer = If(e.KeyCode = Keys.Up, -1, 1)
                     SelectedIndex += Value
 #End Region
+                ElseIf e.KeyCode = Keys.OemSemicolon And Mode = ImageComboMode.Searchbox And AcceptValues <> ValueTypes.Any Then
+                    SearchItem = MathSymbol.Between
+                    RaiseEvent SearchCriterionChanged(Me, New ImageComboEventArgs)
                 End If
                 KeyedValue = Text
                 Invalidate()
