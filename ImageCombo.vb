@@ -292,7 +292,7 @@ Public NotInheritable Class ImageCombo
             With ImageBounds
                 If hasImage Then
                     Dim Padding As Integer = {0, CInt((Height - Image.Height) / 2)}.Max     'Might be negative if Image.Height > Height
-                    .X = Spacing
+                    .X = Spacing * 2
                     .Y = Padding
                     .Width = Image.Width
                     .Height = {Height, Image.Height}.Min
