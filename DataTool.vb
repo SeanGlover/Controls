@@ -830,7 +830,7 @@ Public Class DataTool
     }
 #Region " EXPORT DATA "
     Private WithEvents Grid_DatabaseExport As New ToolStripMenuItem With {.Text = "Database",
-        .Image = My.Resources.Db2.ToBitmap,
+        .Image = My.Resources.Db2Cloud.ToBitmap,
         .ImageScaling = ToolStripItemImageScaling.None,
         .Font = GothicFont}
 #End Region
@@ -962,7 +962,7 @@ Public Class DataTool
     Private WithEvents DragNode As Node
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
     Private WithEvents TSMIConnections As New ToolStripMenuItem With {.Text = "Connections",
-        .Image = My.Resources.Db2.ToBitmap,
+        .Image = My.Resources.Db2Cloud.ToBitmap,
         .Font = GothicFont}
     Private ReadOnly TT_Submit As New ToolTip With {.ShowAlways = True, .ToolTipTitle = "New connection:"}
     Private WithEvents TSMI_Comment As New ToolStripMenuItem With {.Text = "Comment",
@@ -1464,7 +1464,7 @@ Public Class DataTool
     Private Sub UpdateParentIcon_Text()
 
         Dim ParentForm As Form = TryCast(Parent, Form)
-        If ParentForm IsNot Nothing Then ParentForm.Icon = My.Resources.Db2
+        If ParentForm IsNot Nothing Then ParentForm.Icon = My.Resources.Db2Cloud
 
     End Sub
 #End Region

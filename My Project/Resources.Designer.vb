@@ -261,9 +261,9 @@ Namespace My.Resources
         '''<summary>
         '''  Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
         '''</summary>
-        Friend ReadOnly Property Db2() As System.Drawing.Icon
+        Friend ReadOnly Property Db2Cloud() As System.Drawing.Icon
             Get
-                Dim obj As Object = ResourceManager.GetObject("Db2", resourceCulture)
+                Dim obj As Object = ResourceManager.GetObject("Db2Cloud", resourceCulture)
                 Return CType(obj,System.Drawing.Icon)
             End Get
         End Property
