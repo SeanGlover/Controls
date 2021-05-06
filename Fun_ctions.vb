@@ -3847,12 +3847,12 @@ Public NotInheritable Class ThreadHelperClass
 
         If Item IsNot Nothing Then
             Try
-                Dim t As Type = Item.GetType
                 If Item.InvokeRequired Then
                     Dim d As SetPropertyCallback = New SetPropertyCallback(AddressOf SetSafeControlPropertyValue)
                     Item.Invoke(d, New Object() {Item, PropertyName, PropertyValue})
 
                 Else
+                    Dim t As Type = Item.GetType
                     Dim pi As PropertyInfo = t.GetProperty(PropertyName)
                     pi.SetValue(Item, PropertyValue)
 
@@ -3868,12 +3868,12 @@ Public NotInheritable Class ThreadHelperClass
 
         If Item IsNot Nothing Then
             Try
-                Dim t As Type = Item.GetType
                 If Item.Owner.InvokeRequired Then
                     Dim d As SetToolPropertyCallback = New SetToolPropertyCallback(AddressOf SetSafeToolStripItemPropertyValue)
                     Item.Owner.Invoke(d, New Object() {Item, PropertyName, PropertyValue})
 
                 Else
+                    Dim t As Type = Item.GetType
                     Dim pi As PropertyInfo = t.GetProperty(PropertyName)
                     pi.SetValue(Item, PropertyValue)
                 End If

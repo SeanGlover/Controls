@@ -135,6 +135,7 @@ Public NotInheritable Class ImageCombo
     Protected Overrides Sub OnPaint(e As PaintEventArgs)
 
         If e IsNot Nothing Then
+            Bounds_Set()
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
             'e.Graphics.TextRenderingHint = Drawing.Text.TextRenderingHint.AntiAlias
             If Mode = ImageComboMode.Button Then
@@ -1005,8 +1006,6 @@ Public NotInheritable Class ImageCombo
     Protected Overrides Sub OnKeyDown(e As KeyEventArgs)
 
         Mouse_Region = MouseRegion.Text
-        CursorShouldBeVisible = True
-        CursorBlinkTimer.Start()
         TextTimer.Start()
 
         If e IsNot Nothing Then
@@ -1102,6 +1101,9 @@ Public NotInheritable Class ImageCombo
                     RaiseEvent SearchCriterionChanged(Me, New ImageComboEventArgs)
                 End If
                 KeyedValue = Text
+                CursorShouldBeVisible = True
+                CursorBlinkTimer.Stop()
+                CursorBlinkTimer.Start()
                 Invalidate()
 
             Catch ex As IndexOutOfRangeException
@@ -1115,8 +1117,6 @@ Public NotInheritable Class ImageCombo
     Protected Overrides Sub OnKeyPress(e As KeyPressEventArgs)
 
         If IsReadOnly Then Exit Sub
-        CursorShouldBeVisible = True
-        CursorBlinkTimer.Start()
         TextTimer.Start()
 
         If e IsNot Nothing Then
@@ -1134,6 +1134,10 @@ Public NotInheritable Class ImageCombo
                     _SelectionIndex = CursorIndex
                     Text = ProposedText
                     ShowMatches(Text)
+                    CursorShouldBeVisible = True
+                    CursorBlinkTimer.Stop()
+                    CursorBlinkTimer.Start()
+                    Invalidate()
                 End If
 
             Catch ex As IndexOutOfRangeException
@@ -1193,11 +1197,12 @@ Public NotInheritable Class ImageCombo
 
             ElseIf Mouse_Region = MouseRegion.Text Then
                 CursorShouldBeVisible = True
-                CursorBlinkTimer.Stop()
-                CursorBlinkTimer.Start()
                 CursorIndex = GetLetterIndex(e.X)
                 SelectionIndex = CursorIndex
                 If e.Button = MouseButtons.Left Then MouseLeftDown = New KeyValuePair(Of Boolean, Integer)(True, SelectionIndex)
+                CursorShouldBeVisible = True
+                CursorBlinkTimer.Stop()
+                CursorBlinkTimer.Start()
 
             ElseIf Mouse_Region = MouseRegion.Eye Then
                 TextIsVisible = Not TextIsVisible
