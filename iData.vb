@@ -1113,7 +1113,7 @@ End Class
     End Function
     Public Sub Save()
         _Properties("NEWPWD") = String.Empty
-        Parent.Save()
+        Parent?.Save()
     End Sub
     Public Sub Test(Optional async As Boolean = False)
 
