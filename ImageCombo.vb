@@ -20,6 +20,7 @@ Public Enum ImageComboMode
     FontPicker
     RegEx
     Searchbox
+    Linkbox
 End Enum 'Leave Public since other controls need access
 Public Enum MathSymbol
     GreaterThan
@@ -141,14 +142,6 @@ Public NotInheritable Class ImageCombo
             If Mode = ImageComboMode.Button Then
 #Region " BUTTON PROPERTIES "
                 e.Graphics.DrawImage(If(InBounds, GlossyDictionary(If(ButtonMouseTheme = Theme.None, Theme.Gray, ButtonMouseTheme)), GlossyDictionary(If(ButtonTheme = Theme.None, Theme.Gray, ButtonTheme))), ClientRectangle)
-                Dim penTangle As Rectangle = ClientRectangle
-                penTangle.Inflate(-2, -2)
-                penTangle.Offset(-1, -1)
-                Using borderBrush As New SolidBrush(HighlightColor)
-                    Using borderPen As New Pen(If(InBounds, borderBrush, Brushes.DarkGray), 3)
-                        e.Graphics.DrawRectangle(borderPen, penTangle)
-                    End Using
-                End Using
                 Using buttonAlignment As StringFormat = New StringFormat With {
                     .LineAlignment = StringAlignment.Center,
                     .Alignment = If(HorizontalAlignment = HorizontalAlignment.Center, StringAlignment.Center, If(HorizontalAlignment = HorizontalAlignment.Left, StringAlignment.Near, StringAlignment.Far))
@@ -163,6 +156,48 @@ Public NotInheritable Class ImageCombo
                     End Using
                 End Using
 #End Region
+            ElseIf Mode = ImageComboMode.Linkbox Then
+                Using backBrush As New SolidBrush(BackColor)
+                    e.Graphics.FillRectangle(backBrush, ClientRectangle)
+                End Using
+                Dim paddedBounds As Rectangle
+                With Margin
+                    paddedBounds = New Rectangle(.Left, .Top, Width - (.Left + .Right), Height - (.Top + .Bottom))
+                End With
+                Using backBrush As New SolidBrush(Color.Yellow)
+                    e.Graphics.FillRectangle(backBrush, paddedBounds)
+                End Using
+                Dim penTangle As Rectangle = paddedBounds
+                penTangle.Inflate(-1, -1)
+                Using borderBrush As New SolidBrush(If(InBounds, HighlightBorderColor, BorderColor))
+                    Using borderPen As New Pen(borderBrush, 2)
+                        e.Graphics.DrawRectangle(borderPen, penTangle)
+                    End Using
+                End Using
+                Using linkFormat As StringFormat = New StringFormat With {
+                    .LineAlignment = StringAlignment.Center,
+                    .Alignment = If(HorizontalAlignment = HorizontalAlignment.Center, StringAlignment.Center, If(HorizontalAlignment = HorizontalAlignment.Left, StringAlignment.Near, StringAlignment.Far))
+                }
+                    Using foreBrush As New SolidBrush(ForeColor)
+                        e.Graphics.DrawString(Replace(Text, "&", "&&"),
+                                                                                  Font,
+                                                                                  foreBrush,
+                                                                                  paddedBounds,
+                                                                                  linkFormat)
+                        Dim range = New CharacterRange(0, Text.Length)
+                        linkFormat.SetMeasurableCharacterRanges({range})
+                        Dim regions = e.Graphics.MeasureCharacterRanges(Text, Font, paddedBounds, linkFormat)
+                        Dim accurateBoundings As RectangleF = regions.First.GetBounds(e.Graphics)
+                        Dim accurateBounds As New Rectangle(CInt(accurateBoundings.X), CInt(accurateBoundings.Y), CInt(accurateBoundings.Width), CInt(accurateBoundings.Height))
+                        If Mouse_Region = MouseRegion.Text Then
+                            Using linkBrush As New SolidBrush(LinkColor)
+                                Using linkPen As New Pen(linkBrush, 2)
+                                    e.Graphics.DrawLine(linkPen, New Point(accurateBounds.Left, accurateBounds.Bottom), New Point(accurateBounds.Right, accurateBounds.Bottom))
+                                End Using
+                            End Using
+                        End If
+                    End Using
+                End Using
             Else
 #Region " REGULAR PROPERTIES "
                 Using backBrush As New SolidBrush(BackColor)
@@ -239,8 +274,8 @@ Public NotInheritable Class ImageCombo
 #End Region
             End If
 
-            If HighlightOnFocus And HasFocus Then
-                Using Pen As New Pen(FocusColor, BorderWidth)
+            If HighlightBorderOnFocus And HasFocus Then
+                Using Pen As New Pen(HighlightBorderColor, BorderWidth)
                     Dim BorderRectangle As Rectangle = ClientRectangle
                     BorderRectangle.Inflate(-BorderWidth, -BorderWidth)
                     e.Graphics.DrawRectangle(Pen, ClientRectangle)
@@ -248,11 +283,11 @@ Public NotInheritable Class ImageCombo
 
             Else
                 Dim drawBorder As Boolean = Not BorderColor = Color.Transparent
-                Dim penColor As Color = If(drawBorder, BorderColor, BackColor)
-                Dim penWidth As Integer = If(drawBorder, BorderWidth, 4)
-                Using Pen As New Pen(penColor, penWidth)
+                '// a border needs to be drawn otherwise annoying flickering
+                Using Pen As New Pen(If(drawBorder, BorderColor, BackColor), BorderWidth)
                     Dim BorderRectangle As Rectangle = ClientRectangle
-                    BorderRectangle.Inflate(-penWidth, -penWidth)
+                    Dim offset As Integer = CInt(-Pen.Width / 2)
+                    BorderRectangle.Inflate(offset * 2, offset * 2)
                     e.Graphics.DrawRectangle(Pen, ClientRectangle)
                 End Using
 
@@ -421,8 +456,6 @@ Public NotInheritable Class ImageCombo
     Friend Property Mouse_Region As MouseRegion
     Public Property CheckOnSelect As Boolean = False
     Public Property CheckboxStyle As CheckStyle = CheckStyle.Slide
-    Public Property BorderColor As Color = Color.Gainsboro
-    Public Property BorderWidth As Byte = 2
     Public Property MultiSelect As Boolean
     Private ButtonTheme_ As Theme = Theme.Gray
     Public Property ButtonTheme As Theme
@@ -619,7 +652,7 @@ Public NotInheritable Class ImageCombo
                     Next
 
                 ElseIf value = ImageComboMode.Button Then
-                    HighlightOnFocus = True
+                    HighlightBorderOnFocus = True
 
                 ElseIf value = ImageComboMode.Searchbox Then
                     _SearchItem = MathSymbol.Equals
@@ -640,11 +673,14 @@ Public NotInheritable Class ImageCombo
             Return DropItems_
         End Get
     End Property
-    Public Property HighlightColor As Color = Color.LimeGreen
-    Public Property HighlightOnFocus As Boolean
+    Public Property BorderWidth As Byte = 2
+    Public Property BorderColor As Color = Color.Gainsboro
+    Public Property HighlightBorderColor As Color = Color.LimeGreen
+    Public Property HighlightBorderOnFocus As Boolean
     Private ReadOnly Property HasFocus As Boolean = False
-    Public Property FocusColor As Color = Color.DarkBlue
     Public Property SelectionColor As Color = Color.Black
+    Public Property LinkColor As Color = Color.Blue
+    Public Property LinkAddress As String = String.Empty
     Public Property MaxItems As Integer = 15
     Private _HorizontalAlignment As HorizontalAlignment = HorizontalAlignment.Left
     Public Property HorizontalAlignment As HorizontalAlignment

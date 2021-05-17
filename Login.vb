@@ -9,8 +9,8 @@ Public NotInheritable Class Login
         Vertical
     End Enum
     Public Event ValuesSubmitted(ByVal sender As Object, ByVal e As LoginEventArgs)
-    Public ReadOnly Property UID As New ImageCombo With {.Image = My.Resources.UID, .HighlightOnFocus = True, .HintText = "User ID", .WrapText = False, .Name = "UID"}
-    Public ReadOnly Property PWD As New ImageCombo With {.Image = My.Resources.Password, .HighlightOnFocus = True, .HintText = "Password", .WrapText = False, .Name = "PWD", .PasswordProtected = True}
+    Public ReadOnly Property UID As New ImageCombo With {.Image = My.Resources.UID, .HighlightBorderOnFocus = True, .HintText = "User ID", .WrapText = False, .Name = "UID"}
+    Public ReadOnly Property PWD As New ImageCombo With {.Image = My.Resources.Password, .HighlightBorderOnFocus = True, .HintText = "Password", .WrapText = False, .Name = "PWD", .PasswordProtected = True}
     Private MyCredentials As New Credentials
     Public Sub New()
 
