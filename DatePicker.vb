@@ -21,11 +21,11 @@ Public Class DatePicker
     Private MouseOver As New MouseRegion
     Friend Toolstrip As New ToolStripDropDown With {.AutoClose = False, .AutoSize = False, .Padding = New Padding(0), .DropShadowEnabled = False, .BackColor = Color.Transparent, .Visible = False}
 
-    Private ReadOnly Property SearchBounds As Rectangle
-        Get
-            Return New Rectangle(2, 0, If(HasSearch, 16, 0), Height)
-        End Get
-    End Property
+    Private SearchBounds As New Rectangle
+    Private DateBounds As New Rectangle
+    Private YearBounds As New Rectangle
+    Private MonthBounds As New Rectangle
+    Private DayBounds As New Rectangle
 
     Private ReadOnly ClearTextImage As Image = Base64ToImage(ClearTextString)
     Private ClearTextBounds As New Rectangle
@@ -34,9 +34,15 @@ Public Class DatePicker
     Private ReadOnly DropImage As Image = Base64ToImage(DropString)
     Private DropBounds As New Rectangle
     Private DropDrawBounds As New Rectangle
-    Private DropRectangle As Rectangle, Points() As Point
+    Private DropRectangle As Rectangle
+    Private DropPoints As Point()
+
+    Private PaddedBounds As New Rectangle
 
     Private Field As Integer = 0
+    'Private HOffset As Integer
+    'Private VOffset As Integer
+    Private InBounds As Boolean
     Private ReadOnly SB As New System.Text.StringBuilder With {.Capacity = 2}
 
     Public Sub New()
@@ -65,14 +71,23 @@ Public Class DatePicker
             Using backBrush As New SolidBrush(BackColor)
                 e.Graphics.FillRectangle(backBrush, ClientRectangle)
             End Using
+            '// a border needs to be drawn otherwise annoying flickering
+            Dim borderBounds As Rectangle = ClientRectangle
+            Using Pen As New Pen(BackColor, 2)
+                e.Graphics.DrawRectangle(Pen, borderBounds)
+                borderBounds.Inflate(-1, -1)
+                e.Graphics.DrawRectangle(Pen, borderBounds)
+                borderBounds.Inflate(-1, -1)
+                e.Graphics.DrawRectangle(Pen, borderBounds)
+            End Using
             Using Brush As New SolidBrush(Color.FromArgb(128, Color.Blue))
-                e.Graphics.FillPolygon(Brush, Points)
+                e.Graphics.FillPolygon(Brush, DropPoints)
             End Using
             Using Pen As New Pen(Brushes.Silver)
-                e.Graphics.DrawLines(Pen, Points)
+                e.Graphics.DrawLines(Pen, DropPoints)
             End Using
             If HasSearch Then
-                Dim searchBounds = New Rectangle(2, 0, 16, Height)
+                Dim searchBounds = New Rectangle(2 + PaddedBounds.X, 0, 16, PaddedBounds.Height)
                 Using searchBrush As New SolidBrush(Color.Transparent)
                     e.Graphics.FillRectangle(searchBrush, searchBounds)
                     Using sf As New StringFormat With {
@@ -86,19 +101,41 @@ Public Class DatePicker
                 End Using
             End If
             If ValueIsNull Then
-                If HintText IsNot Nothing Then
-                    Dim hintBounds As Rectangle = If(HasSearch, New Rectangle(HOffset, 0, ClientRectangle.Width - VOffset, ClientRectangle.Height), ClientRectangle)
-                    TextRenderer.DrawText(e.Graphics, HintText, Font, hintBounds, Color.DarkGray, TextFormatFlags.VerticalCenter)
-                End If
+                If HintText IsNot Nothing Then TextRenderer.DrawText(e.Graphics, HintText, Font, DateBounds, Color.DarkGray, TextFormatFlags.VerticalCenter)
             Else
                 If Not SelectionPixelStart = SelectionPixelEnd Then
-                    Dim SelectRectangle As Rectangle = New Rectangle(SelectionPixelStart, 2, SelectionPixelEnd - SelectionPixelStart, Height - 4)
-                    Using selectionBrush As New SolidBrush(Color.FromArgb(60, Color.Gainsboro))
-                        e.Graphics.FillRectangle(selectionBrush, SelectRectangle)
+                    Using foreBrush As New SolidBrush(ForeColor)
+                        TextRenderer.DrawText(e.Graphics, ValueString, Font, DateBounds, ForeColor, Color.Transparent, TextFormatFlags.NoPadding Or TextFormatFlags.VerticalCenter)
                     End Using
-                    e.Graphics.DrawRectangle(Pens.DarkSlateGray, SelectRectangle)
+                    Using sf As StringFormat = New StringFormat With
+                    {
+                    .LineAlignment = StringAlignment.Center,
+                    .Alignment = If(HorizontalAlignment = HorizontalAlignment.Center, StringAlignment.Center, If(HorizontalAlignment = HorizontalAlignment.Left, StringAlignment.Near, StringAlignment.Far))
+                    }
+                        Dim range = New CharacterRange(0, ValueString.Length)
+                        sf.SetMeasurableCharacterRanges({range})
+                        Dim regions = e.Graphics.MeasureCharacterRanges(ValueString, Font, DateBounds, sf)
+                        If regions.Any Then
+                            Dim accurateBoundings As RectangleF = regions.First.GetBounds(e.Graphics)
+                            Dim textTop As Integer = {PaddedBounds.Y + BorderWidth + 2, CInt(accurateBoundings.Y) - 4}.Min
+                            Dim accurateBounds As New Rectangle(SelectionPixelStart, textTop, SelectionPixelEnd - SelectionPixelStart, PaddedBounds.Height - (1 + textTop * 2))
+                            Using dateBrush As New SolidBrush(Color.Silver)
+                                Using datePen As New Pen(dateBrush, 1)
+                                    e.Graphics.DrawRectangle(datePen, accurateBounds)
+                                End Using
+                            End Using
+                            Using fillBrush As New SolidBrush(Color.FromArgb(64, Color.Silver))
+                                e.Graphics.FillRectangle(fillBrush, accurateBounds)
+                            End Using
+                            'If Value = New Date(2021, 5, 30) Then Stop
+                        End If
+                        'e.Graphics.DrawString(ValueString,
+                        '                              Font,
+                        '                              foreBrush,
+                        '                              DateBounds,
+                        '                              sf)
+                    End Using
                 End If
-                TextRenderer.DrawText(e.Graphics, Microsoft.VisualBasic.Format(_Value, _Format), Font, New Point(HOffset, VOffset), ForeColor, TextFormatFlags.NoPadding)
             End If
             If MouseOver = MouseRegion.Search Or MouseOver = MouseRegion.Drop Or MouseOver = MouseRegion.Clear Then
                 Dim regionBounds As Rectangle = If(MouseOver = MouseRegion.Search, SearchBounds, If(MouseOver = MouseRegion.Drop, DropDrawBounds, ClearTextDrawBounds))
@@ -109,14 +146,98 @@ Public Class DatePicker
                     e.Graphics.DrawRectangle(Pen, regionBounds)
                 End Using
             End If
+
+            Dim colorBorder As Color = If(HighlightBorderOnFocus And InBounds, HighlightBorderColor, If(BorderColor = Color.Transparent, BackColor, BorderColor))
+            borderBounds = New Rectangle(PaddedBounds.X, PaddedBounds.Y, PaddedBounds.Width - 1, PaddedBounds.Height - 1)
+            For i = 0 To BorderWidth - 1
+                Using Pen As New Pen(colorBorder, 1)
+                    e.Graphics.DrawRectangle(Pen, borderBounds)
+                End Using
+                borderBounds.Inflate(-1, -1)
+            Next
             e.Graphics.DrawImage(ClearTextImage, ClearTextBounds)
-            ControlPaint.DrawBorder3D(e.Graphics, ClientRectangle, Border3DStyle.SunkenInner)
         End If
+
+    End Sub
+    Private Sub Bounds_Set()
+
+        With Margin
+            PaddedBounds = New Rectangle(.Left, .Top, Width - (.Left + .Right), Height - (.Top + .Bottom))
+        End With
+
+        Const spacing As Integer = 2
+        With SearchBounds
+            .X = PaddedBounds.X + If(HasSearch, spacing, 0)
+            .Y = PaddedBounds.Y
+            .Width = If(HasSearch, 16, 0)
+            .Height = PaddedBounds.Height
+        End With
+
+        Const DropArrowW As Integer = 8
+        Const DropArrowH As Integer = 4
+
+        DropRectangle = New Rectangle(PaddedBounds.Width - 1 - 16, 1, 16, PaddedBounds.Height - spacing)
+        Dim LeftPt As Integer = DropRectangle.Left + CInt((DropRectangle.Width - DropArrowW) / 2)
+        Dim RightPt As Integer = LeftPt + DropArrowW
+        Dim MidPt As Integer = LeftPt + CInt(DropArrowW / 2)
+        Dim DropY As Integer = CInt((PaddedBounds.Height - DropArrowH) / 2)
+        DropPoints = {New Point(LeftPt, DropY), New Point(RightPt, DropY), New Point(MidPt, DropY + DropArrowH)}
+
+        '// SearchBounds | TextBounds | ClearTextBounds | DropBounds
+
+        With DropBounds
+            'V LOOKS BETTER WHEN NOT RESIZED
+            .X = PaddedBounds.Right - (DropImage.Width + spacing)
+            .Y = {0, CInt((PaddedBounds.Height - DropImage.Height) / 2)}.Max     'Might be negative if DropImage.Height > PaddedBounds.Height
+            .Width = DropImage.Width
+            .Height = {PaddedBounds.Height, DropImage.Height}.Min
+            DropDrawBounds.X = .X : DropDrawBounds.Y = 0 : DropDrawBounds.Width = .Width : DropDrawBounds.Height = PaddedBounds.Height
+        End With
+        With ClearTextBounds
+            If ValueIsNull Then
+                .X = DropBounds.Left
+                .Y = 0
+                .Width = 0
+                .Height = PaddedBounds.Height
+                ClearTextDrawBounds = ClearTextBounds
+            Else
+                'X LOOKS BETTER WHEN NOT RESIZED
+                .X = PaddedBounds.Right - ({DropBounds.Width, ClearTextImage.Width}.Sum + spacing)
+                .Y = {0, CInt((PaddedBounds.Height - ClearTextImage.Height) / 2)}.Max
+                .Width = ClearTextImage.Width
+                .Height = {PaddedBounds.Height, ClearTextImage.Height}.Min
+                ClearTextDrawBounds.X = .X : ClearTextDrawBounds.Y = 0 : ClearTextDrawBounds.Width = .Width : ClearTextDrawBounds.Height = PaddedBounds.Height
+            End If
+        End With
+        With DateBounds
+            .X = SearchBounds.Right + spacing
+            .Y = PaddedBounds.Top
+            .Width = ClearTextBounds.Left - SearchBounds.Right
+            .Height = PaddedBounds.Height
+            _PixelList = { .X}.Union(Enumerable.Range(1, ValueString.Length).Select(Function(i) TextLength(ValueString.Substring(0, i)))).ToList
+        End With
+
+        Dim fieldMatches = RegexMatches(ValueString, "[A-Za-z0-9]{1,}")
+        Dim indexField As Integer = If(fieldMatches.Any, fieldMatches(Field).Index, 0)
+        _SelectionPixelStart = PixelList(indexField)
+        _SelectionPixelEnd = PixelList(indexField + ValueSections(Field).Length)
+        'If Value = New Date(2021, 5, 30) Then Stop
+
+        Invalidate()
 
     End Sub
 
 #Region " Properties & Fields "
+    Public Property BorderWidth As Byte = 2
+    Public Property BorderColor As Color = Color.Gainsboro
+    Public Property HighlightBorderColor As Color = Color.LimeGreen
+    Public Property HighlightBorderOnFocus As Boolean
     Friend ReadOnly Property DropDown As MonthCalendarDropDown
+    Private ReadOnly Property ValueString As String
+        Get
+            Return String.Format("{0:" & _Format & "}", {_Value})
+        End Get
+    End Property
     Private ReadOnly Property ValueSections As List(Of String)
         Get
             Return Regex.Split(ValueString, "[^A-Za-z0-9]+").ToList
@@ -127,7 +248,7 @@ Public Class DatePicker
             Return Regex.Split(Format, "[^A-Za-z0-9]+").ToList
         End Get
     End Property
-    Private _Format As String = "dddd, MMM/dd/yyyy"
+    Private _Format As String = "dddd, MMM-dd-yyyy"
     Public Property Format As String
         Get
             Return _Format
@@ -135,12 +256,10 @@ Public Class DatePicker
         Set(value As String)
             If _Format <> value Then
                 _Format = value
-                ResizeMe()
+                Bounds_Set()
             End If
         End Set
     End Property
-    Private ReadOnly Property HOffset As Integer
-    Private ReadOnly Property VOffset As Integer
     Public ReadOnly Property ValueIsNull As Boolean
         Get
             Return Value = Date.MinValue
@@ -163,7 +282,7 @@ Public Class DatePicker
                     Text = Nothing
                     If HintText IsNot Nothing Then Invalidate()
                 Else
-                    ResizeMe()
+                    Bounds_Set()
                     Date_Changed(New DateRangeEventArgs(dateValue, dateValue))
                 End If
             End If
@@ -202,11 +321,6 @@ Public Class DatePicker
             Return MathSymbols(SearchItem).Last
         End Get
     End Property
-    Private ReadOnly Property ValueString As String
-        Get
-            Return Microsoft.VisualBasic.Format(Value, Format)
-        End Get
-    End Property
     Private _HorizontalAlignment As HorizontalAlignment
     Public Property HorizontalAlignment As HorizontalAlignment
         Get
@@ -215,13 +329,13 @@ Public Class DatePicker
         Set(value As HorizontalAlignment)
             If _HorizontalAlignment <> value Then
                 _HorizontalAlignment = value
-                ResizeMe()
+                Bounds_Set()
             End If
         End Set
     End Property
     Public ReadOnly Property Selection As String
         Get
-            If SelectionPixelEnd = SelectionPixelStart Or _SelectionPixelStart < 0 Or _SelectionPixelEnd < 0 Then
+            If SelectionPixelEnd = SelectionPixelStart Or SelectionPixelStart < 0 Or SelectionPixelEnd < 0 Then
                 Return String.Empty
             Else
                 Return ValueString.Substring(SelectionStart, SelectionEnd - SelectionStart)
@@ -270,6 +384,12 @@ Public Class DatePicker
         Value = e.Start
     End Sub
 #Region " Overrides "
+    Protected Overrides Sub OnMouseEnter(e As EventArgs)
+        InBounds = True
+    End Sub
+    Protected Overrides Sub OnMouseLeave(e As EventArgs)
+        InBounds = False
+    End Sub
     Protected Overrides Sub OnPreviewKeyDown(e As PreviewKeyDownEventArgs)
 
         If e IsNot Nothing Then
@@ -315,7 +435,7 @@ Public Class DatePicker
         If e IsNot Nothing Then
             If e.KeyCode = Keys.Left Then
                 Field = If(Field = 0, UBound(FormatSections.ToArray), Field - 1)
-                ResizeMe()
+                Bounds_Set()
 
             ElseIf e.KeyCode = Keys.C AndAlso Control.ModifierKeys = Keys.Control Then
                 Clipboard.Clear()
@@ -340,7 +460,7 @@ Public Class DatePicker
 
             ElseIf e.KeyCode = Keys.Right Then
                 Field = If(Field = UBound(FormatSections.ToArray), 0, Field + 1)
-                ResizeMe()
+                Bounds_Set()
 
             ElseIf e.KeyCode = Keys.Enter Then
                 RaiseEvent DateSubmitted(Me, New DateRangeEventArgs(Value, Value))
@@ -372,7 +492,7 @@ Public Class DatePicker
                     Text = Text.Substring(0, S) & String.Empty & Text.Substring(SelectionEnd, Text.Length - SelectionEnd)
                     _SelectionPixelStart = TextLength(Text.Substring(0, S))
                 End If
-                _SelectionPixelEnd = _SelectionPixelStart
+                _SelectionPixelEnd = SelectionPixelStart
 
             End If
             Invalidate()
@@ -381,11 +501,11 @@ Public Class DatePicker
 
     End Sub
     Protected Overrides Sub OnSizeChanged(e As EventArgs)
-        ResizeMe()
+        Bounds_Set()
         MyBase.OnSizeChanged(e)
     End Sub
     Protected Overrides Sub OnFontChanged(e As EventArgs)
-        ResizeMe()
+        Bounds_Set()
         DropDown.Font = Font
         MyBase.OnFontChanged(e)
     End Sub
@@ -409,15 +529,15 @@ Public Class DatePicker
                 MouseOver = MouseRegion.Clear
 
             Else
-                If e.X >= _PixelList.First And e.X <= _PixelList.Last Then
+                If e.X >= PixelList.First And e.X <= PixelList.Last Then
                     If Not ValueIsNull Then
-                        Dim Position As Integer = (From I In _PixelList Where e.X <= I).First
+                        Dim Position As Integer = (From I In PixelList Where e.X <= I).First
                         Try
-                            Dim mouseMatch = Regex.Match(ValueString(_PixelList.Skip(1).ToList.IndexOf(Position)), "[^A-Za-z0-9]+")
+                            Dim mouseMatch = Regex.Match(ValueString(PixelList.Skip(1).ToList.IndexOf(Position)), "[^A-Za-z0-9]+")
                             If mouseMatch.Length = 0 Then
-                                Field = Regex.Replace(ValueString.Substring(0, _PixelList.IndexOf(Position)), "[A-Za-z0-9]|[ ]", String.Empty).Length
+                                Field = Regex.Replace(ValueString.Substring(0, PixelList.IndexOf(Position)), "[A-Za-z0-9]|[ ]", String.Empty).Length
                                 MouseOver = If(Field = 0, MouseRegion.WeekDay, If(Field = 1, MouseRegion.Month, If(Field = 2, MouseRegion.Day, MouseRegion.Year)))
-                                ResizeMe()
+                                Bounds_Set()
                             Else
                                 MouseOver = MouseRegion.None
                             End If
@@ -467,77 +587,12 @@ Public Class DatePicker
     End Sub
 #End Region
 #End Region
-#Region " Helper Methods "
+
     Private Function TextLength(T As String) As Integer
-        Dim Padding As Integer = If(T.Length = 0, 0, (2 * TextRenderer.MeasureText(T.First, Font).Width) - TextRenderer.MeasureText(T.First & T.First, Font).Width)
-        Return HOffset + TextRenderer.MeasureText(T, Font).Width - Padding
+        Dim spacing As Integer = If(T.Length = 0, 0, (2 * TextRenderer.MeasureText(T.First, Font).Width) - TextRenderer.MeasureText(T.First & T.First, Font).Width)
+        Return DateBounds.Left + TextRenderer.MeasureText(T, Font).Width - spacing
     End Function
-    Private Sub ResizeMe()
 
-        Dim Margin As Integer = 2
-        Dim DropArrowW As Integer = 8, DropArrowH As Integer = 4
-        DropRectangle = New Rectangle(Width - 1 - 16, 1, 16, Height - 2)
-        Dim LeftPt As Integer = DropRectangle.Left + Convert.ToInt32((DropRectangle.Width - DropArrowW) / 2), RightPt As Integer = LeftPt + DropArrowW, MidPt As Integer = LeftPt + Convert.ToInt32(DropArrowW / 2)
-        Dim DropY As Integer = Convert.ToInt32((Height - DropArrowH) / 2)
-        Points = {New Point(LeftPt, DropY), New Point(RightPt, DropY), New Point(MidPt, DropY + DropArrowH)}
-        Dim TextSize As Size = TextRenderer.MeasureText(ValueString, Font)
-        Dim TextHoriOffset As Integer
-        If HorizontalAlignment = HorizontalAlignment.Left Then
-            TextHoriOffset = 0
-        ElseIf HorizontalAlignment = HorizontalAlignment.Center Then
-            TextHoriOffset = Convert.ToInt32((Width - TextSize.Width) / 2)
-        ElseIf HorizontalAlignment = HorizontalAlignment.Right Then
-            TextHoriOffset = Convert.ToInt32(Width - TextSize.Width)
-        End If
-        _HOffset = 3 + TextHoriOffset + SearchBounds.Width
-        _VOffset = 1 + Convert.ToInt32((Height - TextSize.Height) / 2)
-        _PixelList = {HOffset}.Union(Enumerable.Range(1, ValueString.Length).Select(Function(i) TextLength(ValueString.Substring(0, i)))).ToList
-        Dim Index As Integer = 0, Start As Integer = 0
-        Dim Separator As Boolean
-        For Each Letter As String In ValueString
-            Dim letterIntersect As New List(Of Char)(Letter.Intersect("abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray))
-            If letterIntersect.Count = 1 And Separator Then
-                Index += 1
-                Separator = False
-            End If
-            If Not letterIntersect.Any Then
-                Separator = True
-            End If
-            If Index = Field Then Exit For
-            Start += 1
-        Next
-        _SelectionPixelStart = _PixelList(Start)
-        _SelectionPixelEnd = _PixelList(Start + ValueSections(Field).Length)
-
-#Region " DROPDOWN BOUNDS "
-        'V LOOKS BETTER WHEN NOT RESIZED
-        Dim Padding As Integer = {0, Convert.ToInt32((Height - DropImage.Height) / 2)}.Max     'Might be negative if DropImage.Height > Height
-        DropBounds.X = ClientRectangle.Right - (DropImage.Width + Margin)
-        DropBounds.Y = Padding
-        DropBounds.Width = DropImage.Width
-        DropBounds.Height = {Height, DropImage.Height}.Min
-        DropDrawBounds.X = DropBounds.X : DropDrawBounds.Y = 0 : DropDrawBounds.Width = DropBounds.Width : DropDrawBounds.Height = Height
-#End Region
-#Region " CLEARTEXT BOUNDS "
-        If ValueIsNull Then
-            ClearTextBounds.X = DropBounds.Left
-            ClearTextBounds.Y = 0
-            ClearTextBounds.Width = 0
-            ClearTextBounds.Height = Height
-            ClearTextDrawBounds = ClearTextBounds
-        Else
-            'X LOOKS BETTER WHEN NOT RESIZED
-            ClearTextBounds.X = ClientRectangle.Right - ({DropBounds.Width, ClearTextImage.Width}.Sum + Margin)
-            ClearTextBounds.Y = {0, Convert.ToInt32((Height - ClearTextImage.Height) / 2)}.Max
-            ClearTextBounds.Width = ClearTextImage.Width
-            ClearTextBounds.Height = {Height, ClearTextImage.Height}.Min
-            ClearTextDrawBounds.X = ClearTextBounds.X : ClearTextDrawBounds.Y = 0 : ClearTextDrawBounds.Width = ClearTextBounds.Width : ClearTextDrawBounds.Height = Height
-        End If
-#End Region
-        Invalidate()
-
-    End Sub
-#End Region
     Friend NotInheritable Class MonthCalendarDropDown
         Inherits MonthCalendar
         Public Sub New(DatePicker As DatePicker)

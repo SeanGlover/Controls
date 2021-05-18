@@ -1530,6 +1530,37 @@ Public Module Functions
         End If
 
     End Function
+    Public Function GetPreferredBrowser() As KeyValuePair(Of String, String)
+        Const userChoice As String = "Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice"
+        Dim nameAndPath As KeyValuePair(Of String, String) = New KeyValuePair(Of String, String)("Unknown", String.Empty)
+
+        Using userChoiceKey As Microsoft.Win32.RegistryKey = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(userChoice)
+
+            If userChoiceKey IsNot Nothing Then
+                Dim progIdValue As Object = userChoiceKey.GetValue("Progid")
+
+                If progIdValue IsNot Nothing Then
+                    Dim progId As String = progIdValue.ToString()
+
+                    If progId = "ChromeHTML" Then
+                        nameAndPath = New KeyValuePair(Of String, String)("Chrome", "C:\Program Files\Google\Chrome\Application\Chrome.exe")
+                    ElseIf progId = "FirefoxURL" Then
+                        nameAndPath = New KeyValuePair(Of String, String)("Firefox", "C:\Program Files\Mozilla Firefox\firefox.exe")
+                    ElseIf progId = "IE.HTTP" Then
+                        nameAndPath = New KeyValuePair(Of String, String)("InternetExplorer", "C:\Program Files\Internet Explorer\iexplore.exe")
+                    ElseIf progId = "AppXq0fevzme2pys62n3e0fbqa7peapykr8v" Then
+                        nameAndPath = New KeyValuePair(Of String, String)("Edge", "C:\Program Files (x86)\Microsoft\Edge\msedge.exe")
+                    ElseIf progId = "OperaStable" Then
+                        nameAndPath = New KeyValuePair(Of String, String)("Opera", Nothing)
+                    ElseIf progId = "SafariHTML" Then
+                        nameAndPath = New KeyValuePair(Of String, String)("Safari", Nothing)
+                    End If
+                End If
+            End If
+        End Using
+
+        Return nameAndPath
+    End Function
 
     Public Function Bulletize(Items As String()) As String
 

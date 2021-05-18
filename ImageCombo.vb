@@ -45,12 +45,14 @@ Public NotInheritable Class ImageCombo
         .ShowAlways = False
     }
     Friend Toolstrip As New ToolStripDropDown With {.AutoClose = False, .AutoSize = False, .Padding = New Padding(0), .DropShadowEnabled = False, .BackColor = Color.Transparent}
+    Private PaddedBounds As New Rectangle
     '[0 Image]       [1 Search]      [2 Text]     [3 Eye]       [4 Clear]       [5 DropDown]
     Private ImageBounds As New Rectangle
     Private ImageClickBounds As New Rectangle 'Full height
     Private SearchBounds As New Rectangle
     Friend TextBounds As New Rectangle
     Private TextMouseBounds As New Rectangle
+    Private LinkBounds As New Rectangle
     Private ReadOnly EyeImage As Image
     Private EyeBounds As New Rectangle
     Private EyeClickBounds As New Rectangle 'Full height
@@ -70,6 +72,8 @@ Public NotInheritable Class ImageCombo
     Private Const Spacing As Byte = 2
     Private KeyedValue As String
     Private LastValue As String
+    Private MouseLeftDown As New KeyValuePair(Of Boolean, Integer)
+    Private MouseXY As Point
     Private ReadOnly GlossyDictionary As Dictionary(Of Theme, Image) = GlossyImages
 
     Friend Enum MouseRegion
@@ -77,6 +81,7 @@ Public NotInheritable Class ImageCombo
         Image
         Search
         Text
+        Link
         Eye
         ClearText
         DropDown
@@ -138,7 +143,18 @@ Public NotInheritable Class ImageCombo
         If e IsNot Nothing Then
             Bounds_Set()
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
-            'e.Graphics.TextRenderingHint = Drawing.Text.TextRenderingHint.AntiAlias
+            Using backBrush As New SolidBrush(BackColor)
+                e.Graphics.FillRectangle(backBrush, ClientRectangle)
+            End Using
+            '// a border needs to be drawn otherwise annoying flickering
+            Dim borderBounds As Rectangle = ClientRectangle
+            Using Pen As New Pen(BackColor, 2)
+                e.Graphics.DrawRectangle(Pen, borderBounds)
+                borderBounds.Inflate(-1, -1)
+                e.Graphics.DrawRectangle(Pen, borderBounds)
+                borderBounds.Inflate(-1, -1)
+                e.Graphics.DrawRectangle(Pen, borderBounds)
+            End Using
             If Mode = ImageComboMode.Button Then
 #Region " BUTTON PROPERTIES "
                 e.Graphics.DrawImage(If(InBounds, GlossyDictionary(If(ButtonMouseTheme = Theme.None, Theme.Gray, ButtonMouseTheme)), GlossyDictionary(If(ButtonTheme = Theme.None, Theme.Gray, ButtonTheme))), ClientRectangle)
@@ -157,23 +173,6 @@ Public NotInheritable Class ImageCombo
                 End Using
 #End Region
             ElseIf Mode = ImageComboMode.Linkbox Then
-                Using backBrush As New SolidBrush(BackColor)
-                    e.Graphics.FillRectangle(backBrush, ClientRectangle)
-                End Using
-                Dim paddedBounds As Rectangle
-                With Margin
-                    paddedBounds = New Rectangle(.Left, .Top, Width - (.Left + .Right), Height - (.Top + .Bottom))
-                End With
-                Using backBrush As New SolidBrush(Color.Yellow)
-                    e.Graphics.FillRectangle(backBrush, paddedBounds)
-                End Using
-                Dim penTangle As Rectangle = paddedBounds
-                penTangle.Inflate(-1, -1)
-                Using borderBrush As New SolidBrush(If(InBounds, HighlightBorderColor, BorderColor))
-                    Using borderPen As New Pen(borderBrush, 2)
-                        e.Graphics.DrawRectangle(borderPen, penTangle)
-                    End Using
-                End Using
                 Using linkFormat As StringFormat = New StringFormat With {
                     .LineAlignment = StringAlignment.Center,
                     .Alignment = If(HorizontalAlignment = HorizontalAlignment.Center, StringAlignment.Center, If(HorizontalAlignment = HorizontalAlignment.Left, StringAlignment.Near, StringAlignment.Far))
@@ -182,27 +181,31 @@ Public NotInheritable Class ImageCombo
                         e.Graphics.DrawString(Replace(Text, "&", "&&"),
                                                                                   Font,
                                                                                   foreBrush,
-                                                                                  paddedBounds,
+                                                                                  PaddedBounds,
                                                                                   linkFormat)
                         Dim range = New CharacterRange(0, Text.Length)
                         linkFormat.SetMeasurableCharacterRanges({range})
-                        Dim regions = e.Graphics.MeasureCharacterRanges(Text, Font, paddedBounds, linkFormat)
-                        Dim accurateBoundings As RectangleF = regions.First.GetBounds(e.Graphics)
-                        Dim accurateBounds As New Rectangle(CInt(accurateBoundings.X), CInt(accurateBoundings.Y), CInt(accurateBoundings.Width), CInt(accurateBoundings.Height))
-                        If Mouse_Region = MouseRegion.Text Then
-                            Using linkBrush As New SolidBrush(LinkColor)
-                                Using linkPen As New Pen(linkBrush, 2)
-                                    e.Graphics.DrawLine(linkPen, New Point(accurateBounds.Left, accurateBounds.Bottom), New Point(accurateBounds.Right, accurateBounds.Bottom))
-                                End Using
-                            End Using
+                        Dim regions = e.Graphics.MeasureCharacterRanges(Text, Font, PaddedBounds, linkFormat)
+                        If regions.Any Then
+                            Dim accurateBoundings As RectangleF = regions.First.GetBounds(e.Graphics)
+                            With LinkBounds
+                                .X = CInt(accurateBoundings.X)
+                                .Y = CInt(accurateBoundings.Y)
+                                .Width = CInt(accurateBoundings.Width)
+                                .Height = CInt(accurateBoundings.Height)
+                                If .Contains(MouseXY) Then
+                                    Using linkBrush As New SolidBrush(LinkColor)
+                                        Using linkPen As New Pen(linkBrush, 1)
+                                            e.Graphics.DrawLine(linkPen, New Point(.Left, .Bottom), New Point(.Right, .Bottom))
+                                        End Using
+                                    End Using
+                                End If
+                            End With
                         End If
                     End Using
                 End Using
             Else
 #Region " REGULAR PROPERTIES "
-                Using backBrush As New SolidBrush(BackColor)
-                    e.Graphics.FillRectangle(backBrush, ClientRectangle)
-                End Using
                 If Text.Any Then
                     If PasswordProtected And Not TextIsVisible Then
                         Dim lettersRight As Integer = LetterWidths.Values.Last.Value
@@ -265,7 +268,7 @@ Public NotInheritable Class ImageCombo
                         Dim highlightBounds As Rectangle = If(Mouse_Region = MouseRegion.Image, ImageClickBounds, If(Mouse_Region = MouseRegion.Search, SearchBounds, If(Mouse_Region = MouseRegion.Eye, EyeBounds, If(Mouse_Region = MouseRegion.ClearText, ClearTextBounds, If(Mouse_Region = MouseRegion.DropDown, DropClickBounds, New Rectangle)))))
                         e.Graphics.FillRectangle(mouseOverBrush, highlightBounds)
                     End Using
-                    If HasFocus And CursorShouldBeVisible Then
+                    If InBounds And CursorShouldBeVisible Then
                         Using Pen As New Pen(SelectionColor)
                             e.Graphics.DrawLine(Pen, CursorBounds.X, CursorBounds.Y, CursorBounds.X, CursorBounds.Bottom)
                         End Using
@@ -273,25 +276,14 @@ Public NotInheritable Class ImageCombo
                 End If
 #End Region
             End If
-
-            If HighlightBorderOnFocus And HasFocus Then
-                Using Pen As New Pen(HighlightBorderColor, BorderWidth)
-                    Dim BorderRectangle As Rectangle = ClientRectangle
-                    BorderRectangle.Inflate(-BorderWidth, -BorderWidth)
-                    e.Graphics.DrawRectangle(Pen, ClientRectangle)
+            Dim colorBorder As Color = If(HighlightBorderOnFocus And InBounds, HighlightBorderColor, If(BorderColor = Color.Transparent, BackColor, BorderColor))
+            borderBounds = New Rectangle(PaddedBounds.X, PaddedBounds.Y, PaddedBounds.Width - 1, PaddedBounds.Height - 1)
+            For i = 0 To BorderWidth - 1
+                Using Pen As New Pen(colorBorder, 1)
+                    e.Graphics.DrawRectangle(Pen, borderBounds)
                 End Using
-
-            Else
-                Dim drawBorder As Boolean = Not BorderColor = Color.Transparent
-                '// a border needs to be drawn otherwise annoying flickering
-                Using Pen As New Pen(If(drawBorder, BorderColor, BackColor), BorderWidth)
-                    Dim BorderRectangle As Rectangle = ClientRectangle
-                    Dim offset As Integer = CInt(-Pen.Width / 2)
-                    BorderRectangle.Inflate(offset * 2, offset * 2)
-                    e.Graphics.DrawRectangle(Pen, ClientRectangle)
-                End Using
-
-            End If
+                borderBounds.Inflate(-1, -1)
+            Next
             If Image IsNot Nothing Then e.Graphics.DrawImage(Image, ImageBounds)
         End If
 
@@ -323,29 +315,31 @@ Public NotInheritable Class ImageCombo
     End Property
     Private Sub Bounds_Set()
 
+        With Margin
+            PaddedBounds = New Rectangle(.Left, .Top, Width - (.Left + .Right), Height - (.Top + .Bottom))
+        End With
         Dim hasImage As Boolean = Image IsNot Nothing
         If Mode = ImageComboMode.Button Then
             With ImageBounds
                 If hasImage Then
-                    Dim Padding As Integer = {0, CInt((Height - Image.Height) / 2)}.Max     'Might be negative if Image.Height > Height
                     .X = Spacing * 2
-                    .Y = Padding
+                    .Y = {PaddedBounds.Y, CInt((PaddedBounds.Height - Image.Height) / 2)}.Max     'Might be negative if Image.Height > PaddedBounds.Height
                     .Width = Image.Width
-                    .Height = {Height, Image.Height}.Min
+                    .Height = {PaddedBounds.Height, Image.Height}.Min
                 Else
                     .X = Spacing
                     .Y = 0
                     .Width = 0
-                    .Height = Height
+                    .Height = PaddedBounds.Height
                 End If
-                ImageClickBounds.X = .X : ImageClickBounds.Y = 0 : ImageClickBounds.Width = .Width : ImageClickBounds.Height = Height
+                ImageClickBounds.X = .X : ImageClickBounds.Y = 0 : ImageClickBounds.Width = .Width : ImageClickBounds.Height = PaddedBounds.Height
             End With
             With TextBounds
                 .X = ImageBounds.Right + Spacing          'LOOKS BETTER OFFSET BY A FEW PIXELS
                 .Y = 0
                 .Width = Width - ({ImageBounds.Width, DropBounds.Width, ClearTextBounds.Width, EyeBounds.Width}.Sum + Spacing + Spacing + Spacing)
-                .Height = Height
-                TextMouseBounds.X = .X : TextMouseBounds.Y = 0 : TextMouseBounds.Width = .Width : TextMouseBounds.Height = Height
+                .Height = PaddedBounds.Height
+                TextMouseBounds.X = .X : TextMouseBounds.Y = 0 : TextMouseBounds.Width = .Width : TextMouseBounds.Height = PaddedBounds.Height
             End With
         Else
             Dim hasText As Boolean = Text.Any
@@ -359,72 +353,71 @@ Public NotInheritable Class ImageCombo
             End If
             With ImageBounds
                 If hasImage Then
-                    Dim Padding As Integer = {0, CInt((Height - Image.Height) / 2)}.Max     'Might be negative if Image.Height > Height
                     .X = Spacing
-                    .Y = Padding
+                    .Y = {PaddedBounds.Y, CInt((PaddedBounds.Height - Image.Height) / 2)}.Max     'Might be negative if Image.Height > PaddedBounds.Height
                     .Width = Image.Width
-                    .Height = {Height, Image.Height}.Min
+                    .Height = {PaddedBounds.Height, Image.Height}.Min
                 Else
                     .X = Spacing
                     .Y = 0
                     .Width = 0
-                    .Height = Height
+                    .Height = PaddedBounds.Height
                 End If
-                ImageClickBounds.X = .X : ImageClickBounds.Y = 0 : ImageClickBounds.Width = .Width : ImageClickBounds.Height = Height
+                ImageClickBounds.X = .X : ImageClickBounds.Y = 0 : ImageClickBounds.Width = .Width : ImageClickBounds.Height = PaddedBounds.Height
             End With
             With SearchBounds
                 .X = ImageBounds.Right
                 .Y = 0
                 .Width = If(Mode = ImageComboMode.Searchbox, 16, 0)
-                .Height = Height
+                .Height = PaddedBounds.Height
             End With
             With DropBounds
                 If hasDrop Then
                     'V LOOKS BETTER WHEN NOT RESIZED
-                    Dim Padding As Integer = {0, CInt((Height - DropImage.Height) / 2)}.Max     'Might be negative if DropImage.Height > Height
+                    Dim Padding As Integer = {0, CInt((PaddedBounds.Height - DropImage.Height) / 2)}.Max     'Might be negative if DropImage.Height > PaddedBounds.Height
                     .X = Width - (DropImage.Width + Spacing)
                     .Y = Padding
                     .Width = DropImage.Width
-                    .Height = {Height, DropImage.Height}.Min
-                    DropClickBounds.X = .X : DropClickBounds.Y = 0 : DropClickBounds.Width = .Width : DropClickBounds.Height = Height
+                    .Height = {PaddedBounds.Height, DropImage.Height}.Min
+                    DropClickBounds.X = .X : DropClickBounds.Y = 0 : DropClickBounds.Width = .Width : DropClickBounds.Height = PaddedBounds.Height
                 Else
                     .X = Width
                     .Y = 0
                     .Width = 0
-                    .Height = Height
+                    .Height = PaddedBounds.Height
                     DropClickBounds = DropBounds
                 End If
             End With
             With ClearTextBounds
                 If hasClear Then
                     'X LOOKS BETTER WHEN NOT RESIZED
-                    Dim Padding As Integer = {0, CInt((Height - ClearTextImage.Height) / 2)}.Max     'Might be negative if ClearTextImage.Height > Height
+                    Dim Padding As Integer = {0, CInt((PaddedBounds.Height - ClearTextImage.Height) / 2)}.Max     'Might be negative if ClearTextImage.Height > PaddedBounds.Height
                     .X = Width - ({DropBounds.Width, ClearTextImage.Width}.Sum + Spacing)
                     .Y = Padding
                     .Width = ClearTextImage.Width
-                    .Height = {Height, ClearTextImage.Height}.Min
-                    ClearTextClickBounds.X = .X : ClearTextClickBounds.Y = 0 : ClearTextClickBounds.Width = .Width : ClearTextClickBounds.Height = Height
+                    .Height = {PaddedBounds.Height, ClearTextImage.Height}.Min
+                    ClearTextClickBounds.X = .X : ClearTextClickBounds.Y = 0 : ClearTextClickBounds.Width = .Width : ClearTextClickBounds.Height = PaddedBounds.Height
                 Else
                     .X = DropBounds.Left
                     .Y = 0
                     .Width = 0
-                    .Height = Height
+                    .Height = PaddedBounds.Height
                     ClearTextClickBounds = ClearTextBounds
                 End If
             End With
             With EyeBounds
                 If hasEye Then
-                    Dim Padding As Integer = {0, CInt((Height - EyeImage.Height) / 2)}.Max     'Might be negative if EyeImage.Height > Height
+                    Dim Padding As Integer = {0, CInt((PaddedBounds.Height - EyeImage.Height) / 2)}.Max     'Might be negative if EyeImage.Height > PaddedBounds.Height
                     .X = Width - ({DropBounds.Width, ClearTextBounds.Width, EyeImage.Width}.Sum + Spacing)
                     .Y = Padding
                     .Width = EyeImage.Width
-                    .Height = {Height, EyeImage.Height}.Min
-                    EyeClickBounds.X = .X : EyeClickBounds.Y = 0 : EyeClickBounds.Width = .Width : EyeClickBounds.Height = Height
+                    .Height = {PaddedBounds.Height, EyeImage.Height}.Min
+                    EyeClickBounds.X = .X : EyeClickBounds.Y = 0 : EyeClickBounds.Width = .Width : EyeClickBounds.Height = PaddedBounds.Height
                 Else
                     .X = ClearTextBounds.Left
                     .Y = 0
                     .Width = 0
-                    .Height = Height
+                    .Height = PaddedBounds.Height
                     EyeClickBounds = EyeBounds
                 End If
             End With
@@ -432,14 +425,14 @@ Public NotInheritable Class ImageCombo
                 .X = SearchBounds.Right + Spacing          'LOOKS BETTER OFFSET BY A FEW PIXELS
                 .Y = 0
                 .Width = Width - ({ImageBounds.Width, SearchBounds.Width, DropBounds.Width, ClearTextBounds.Width, EyeBounds.Width}.Sum + Spacing + Spacing + Spacing)
-                .Height = Height
-                TextMouseBounds.X = .X : TextMouseBounds.Y = 0 : TextMouseBounds.Width = .Width : TextMouseBounds.Height = Height
+                .Height = PaddedBounds.Height
+                TextMouseBounds.X = .X : TextMouseBounds.Y = 0 : TextMouseBounds.Width = .Width : TextMouseBounds.Height = PaddedBounds.Height
             End With
             With CursorBounds
                 .X = {Spacing, GetxPos(CursorIndex)}.Max
                 .Y = Spacing
                 .Width = 1
-                .Height = Height - Spacing * 2
+                .Height = PaddedBounds.Height - Spacing * 2
             End With
             With SelectionBounds
                 .X = {GetxPos(SelectionIndex), CursorBounds.X}.Min
@@ -677,7 +670,6 @@ Public NotInheritable Class ImageCombo
     Public Property BorderColor As Color = Color.Gainsboro
     Public Property HighlightBorderColor As Color = Color.LimeGreen
     Public Property HighlightBorderOnFocus As Boolean
-    Private ReadOnly Property HasFocus As Boolean = False
     Public Property SelectionColor As Color = Color.Black
     Public Property LinkColor As Color = Color.Blue
     Public Property LinkAddress As String = String.Empty
@@ -998,14 +990,6 @@ Public NotInheritable Class ImageCombo
     Friend Sub OnItemChecked(ComboItem As ComboItem)
         RaiseEvent ItemChecked(Me, New ImageComboEventArgs(ComboItem))
     End Sub
-    Private Sub BorderDraw(sender As Object, e As EventArgs) Handles Me.GotFocus
-        _HasFocus = True
-        Invalidate()
-    End Sub
-    Private Sub BorderNoDraw(sender As Object, e As EventArgs) Handles Me.LostFocus
-        _HasFocus = False
-        Invalidate()
-    End Sub
     Private Sub On_PreviewKeyDown(sender As Object, e As PreviewKeyDownEventArgs)
 
         If e IsNot Nothing Then
@@ -1017,6 +1001,10 @@ Public NotInheritable Class ImageCombo
 
     End Sub
 #Region " PROTECTED OVERRIDES "
+    Protected Overrides Sub OnPaddingChanged(e As EventArgs)
+        Bounds_Set()
+        MyBase.OnPaddingChanged(e)
+    End Sub
     Protected Overrides Sub OnLeave(e As EventArgs)
 
         If Not LastValue = KeyedValue Then RaiseEvent ValueChanged(Me, New ImageComboEventArgs)
@@ -1190,11 +1178,12 @@ Public NotInheritable Class ImageCombo
     Protected Overrides Sub OnMouseMove(e As MouseEventArgs)
 
         If e IsNot Nothing Then
+            MouseXY = e.Location
             Bounds_Set()
-            Dim redraw As Boolean = False
+            Dim redraw As Boolean
             Dim xy As Point = e.Location
             Dim lastMouseRegion As MouseRegion = Mouse_Region
-            Mouse_Region = If(ImageClickBounds.Contains(xy), MouseRegion.Image, If(SearchBounds.Contains(xy), MouseRegion.Search, If(TextMouseBounds.Contains(xy), MouseRegion.Text, If(EyeClickBounds.Contains(xy), MouseRegion.Eye, If(ClearTextClickBounds.Contains(xy), MouseRegion.ClearText, If(DropClickBounds.Contains(xy), MouseRegion.DropDown, MouseRegion.None))))))
+            Mouse_Region = If(ImageClickBounds.Contains(xy), MouseRegion.Image, If(SearchBounds.Contains(xy), MouseRegion.Search, If(TextMouseBounds.Contains(xy), If(LinkBounds.Contains(xy), MouseRegion.Link, MouseRegion.Text), If(EyeClickBounds.Contains(xy), MouseRegion.Eye, If(ClearTextClickBounds.Contains(xy), MouseRegion.ClearText, If(DropClickBounds.Contains(xy), MouseRegion.DropDown, MouseRegion.None))))))
             redraw = Mouse_Region <> lastMouseRegion
             If MouseLeftDown.Key And e.Button = MouseButtons.Left Then
                 Dim startEnd As Integer() = {CursorIndex, GetLetterIndex(e.X)}
@@ -1212,7 +1201,6 @@ Public NotInheritable Class ImageCombo
         MyBase.OnMouseMove(e)
 
     End Sub
-    Private MouseLeftDown As New KeyValuePair(Of Boolean, Integer)
     Protected Overrides Sub OnMouseDown(e As MouseEventArgs)
 
         If e IsNot Nothing Then
@@ -1239,6 +1227,11 @@ Public NotInheritable Class ImageCombo
                 CursorShouldBeVisible = True
                 CursorBlinkTimer.Stop()
                 CursorBlinkTimer.Start()
+                If Mode = ImageComboMode.Linkbox And LinkBounds.Contains(e.Location) And LinkAddress.Any Then
+                    '// open a url
+                    Dim kvp = GetPreferredBrowser()
+                    Process.Start(kvp.Key, LinkAddress)
+                End If
 
             ElseIf Mouse_Region = MouseRegion.Eye Then
                 TextIsVisible = Not TextIsVisible
