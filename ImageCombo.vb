@@ -64,6 +64,7 @@ Public NotInheritable Class ImageCombo
     Private DropClickBounds As New Rectangle 'Full height
     Private CursorBounds As New Rectangle
     Private SelectionBounds As New Rectangle
+    Private ProtectedBounds As New Rectangle
     Private WithEvents CursorBlinkTimer As New Timer With {.Interval = 600}
     Private CursorShouldBeVisible As Boolean = True
     Private WithEvents TextTimer As New Timer With {.Interval = 250}
@@ -208,9 +209,8 @@ Public NotInheritable Class ImageCombo
 #Region " REGULAR PROPERTIES "
                 If Text.Any Then
                     If PasswordProtected And Not TextIsVisible Then
-                        Dim lettersRight As Integer = LetterWidths.Values.Last.Value
-                        Using Brush As New HatchBrush(HatchStyle.LightUpwardDiagonal, SystemColors.WindowText, BackColor)
-                            e.Graphics.FillRectangle(Brush, New Rectangle(ImageBounds.Width, 0, lettersRight - ImageBounds.Width, Height))
+                        Using Brush As New HatchBrush(HatchStyle.LightUpwardDiagonal, Color.Gray, Color.WhiteSmoke)
+                            e.Graphics.FillRectangle(Brush, ProtectedBounds)
                         End Using
 
                     Else
@@ -268,7 +268,7 @@ Public NotInheritable Class ImageCombo
                         Dim highlightBounds As Rectangle = If(Mouse_Region = MouseRegion.Image, ImageClickBounds, If(Mouse_Region = MouseRegion.Search, SearchBounds, If(Mouse_Region = MouseRegion.Eye, EyeBounds, If(Mouse_Region = MouseRegion.ClearText, ClearTextBounds, If(Mouse_Region = MouseRegion.DropDown, DropClickBounds, New Rectangle)))))
                         e.Graphics.FillRectangle(mouseOverBrush, highlightBounds)
                     End Using
-                    If InBounds And CursorShouldBeVisible Then
+                    If CursorShouldBeVisible Then
                         Using Pen As New Pen(SelectionColor)
                             e.Graphics.DrawLine(Pen, CursorBounds.X, CursorBounds.Y, CursorBounds.X, CursorBounds.Bottom)
                         End Using
@@ -337,7 +337,7 @@ Public NotInheritable Class ImageCombo
             With TextBounds
                 .X = ImageBounds.Right + Spacing          'LOOKS BETTER OFFSET BY A FEW PIXELS
                 .Y = 0
-                .Width = Width - ({ImageBounds.Width, DropBounds.Width, ClearTextBounds.Width, EyeBounds.Width}.Sum + Spacing + Spacing + Spacing)
+                .Width = PaddedBounds.Right - ({ImageBounds.Width, DropBounds.Width, ClearTextBounds.Width, EyeBounds.Width}.Sum + Spacing + Spacing + Spacing)
                 .Height = PaddedBounds.Height
                 TextMouseBounds.X = .X : TextMouseBounds.Y = 0 : TextMouseBounds.Width = .Width : TextMouseBounds.Height = PaddedBounds.Height
             End With
@@ -353,33 +353,32 @@ Public NotInheritable Class ImageCombo
             End If
             With ImageBounds
                 If hasImage Then
-                    .X = Spacing
-                    .Y = {PaddedBounds.Y, CInt((PaddedBounds.Height - Image.Height) / 2)}.Max     'Might be negative if Image.Height > PaddedBounds.Height
+                    .X = PaddedBounds.X + Spacing
+                    .Y = PaddedBounds.Top + CInt((PaddedBounds.Height - Image.Height) / 2)
                     .Width = Image.Width
                     .Height = {PaddedBounds.Height, Image.Height}.Min
                 Else
-                    .X = Spacing
+                    .X = PaddedBounds.X
                     .Y = 0
                     .Width = 0
                     .Height = PaddedBounds.Height
                 End If
-                ImageClickBounds.X = .X : ImageClickBounds.Y = 0 : ImageClickBounds.Width = .Width : ImageClickBounds.Height = PaddedBounds.Height
+                ImageClickBounds.X = .X : ImageClickBounds.Y = PaddedBounds.Top : ImageClickBounds.Width = .Width : ImageClickBounds.Height = PaddedBounds.Height
             End With
             With SearchBounds
                 .X = ImageBounds.Right
-                .Y = 0
+                .Y = PaddedBounds.Top
                 .Width = If(Mode = ImageComboMode.Searchbox, 16, 0)
                 .Height = PaddedBounds.Height
             End With
             With DropBounds
                 If hasDrop Then
                     'V LOOKS BETTER WHEN NOT RESIZED
-                    Dim Padding As Integer = {0, CInt((PaddedBounds.Height - DropImage.Height) / 2)}.Max     'Might be negative if DropImage.Height > PaddedBounds.Height
-                    .X = Width - (DropImage.Width + Spacing)
-                    .Y = Padding
+                    .X = PaddedBounds.Right - (DropImage.Width + Spacing)
+                    .Y = PaddedBounds.Top + CInt((PaddedBounds.Height - DropImage.Height) / 2)
                     .Width = DropImage.Width
                     .Height = {PaddedBounds.Height, DropImage.Height}.Min
-                    DropClickBounds.X = .X : DropClickBounds.Y = 0 : DropClickBounds.Width = .Width : DropClickBounds.Height = PaddedBounds.Height
+                    DropClickBounds.X = .X : DropClickBounds.Y = PaddedBounds.Top : DropClickBounds.Width = .Width : DropClickBounds.Height = PaddedBounds.Height
                 Else
                     .X = Width
                     .Y = 0
@@ -391,12 +390,11 @@ Public NotInheritable Class ImageCombo
             With ClearTextBounds
                 If hasClear Then
                     'X LOOKS BETTER WHEN NOT RESIZED
-                    Dim Padding As Integer = {0, CInt((PaddedBounds.Height - ClearTextImage.Height) / 2)}.Max     'Might be negative if ClearTextImage.Height > PaddedBounds.Height
-                    .X = Width - ({DropBounds.Width, ClearTextImage.Width}.Sum + Spacing)
-                    .Y = Padding
+                    .X = PaddedBounds.Right - ({DropBounds.Width, ClearTextImage.Width}.Sum + Spacing)
+                    .Y = PaddedBounds.Top + CInt((PaddedBounds.Height - ClearTextImage.Height) / 2)
                     .Width = ClearTextImage.Width
                     .Height = {PaddedBounds.Height, ClearTextImage.Height}.Min
-                    ClearTextClickBounds.X = .X : ClearTextClickBounds.Y = 0 : ClearTextClickBounds.Width = .Width : ClearTextClickBounds.Height = PaddedBounds.Height
+                    ClearTextClickBounds.X = .X : ClearTextClickBounds.Y = .Y : ClearTextClickBounds.Width = .Width : ClearTextClickBounds.Height = PaddedBounds.Height
                 Else
                     .X = DropBounds.Left
                     .Y = 0
@@ -407,12 +405,11 @@ Public NotInheritable Class ImageCombo
             End With
             With EyeBounds
                 If hasEye Then
-                    Dim Padding As Integer = {0, CInt((PaddedBounds.Height - EyeImage.Height) / 2)}.Max     'Might be negative if EyeImage.Height > PaddedBounds.Height
-                    .X = Width - ({DropBounds.Width, ClearTextBounds.Width, EyeImage.Width}.Sum + Spacing)
-                    .Y = Padding
+                    .X = PaddedBounds.Right - ({DropBounds.Width, ClearTextBounds.Width, EyeImage.Width}.Sum + Spacing)
+                    .Y = PaddedBounds.Top + CInt((PaddedBounds.Height - EyeImage.Height) / 2)
                     .Width = EyeImage.Width
                     .Height = {PaddedBounds.Height, EyeImage.Height}.Min
-                    EyeClickBounds.X = .X : EyeClickBounds.Y = 0 : EyeClickBounds.Width = .Width : EyeClickBounds.Height = PaddedBounds.Height
+                    EyeClickBounds.X = .X : EyeClickBounds.Y = PaddedBounds.Top : EyeClickBounds.Width = .Width : EyeClickBounds.Height = PaddedBounds.Height
                 Else
                     .X = ClearTextBounds.Left
                     .Y = 0
@@ -423,26 +420,107 @@ Public NotInheritable Class ImageCombo
             End With
             With TextBounds
                 .X = SearchBounds.Right + Spacing          'LOOKS BETTER OFFSET BY A FEW PIXELS
-                .Y = 0
-                .Width = Width - ({ImageBounds.Width, SearchBounds.Width, DropBounds.Width, ClearTextBounds.Width, EyeBounds.Width}.Sum + Spacing + Spacing + Spacing)
+                .Y = PaddedBounds.Y
+                .Width = PaddedBounds.Right - ({ImageBounds.Width, SearchBounds.Width, DropBounds.Width, ClearTextBounds.Width, EyeBounds.Width}.Sum + Spacing + Spacing + Spacing)
                 .Height = PaddedBounds.Height
-                TextMouseBounds.X = .X : TextMouseBounds.Y = 0 : TextMouseBounds.Width = .Width : TextMouseBounds.Height = PaddedBounds.Height
+                TextMouseBounds.X = .X : TextMouseBounds.Y = PaddedBounds.Top : TextMouseBounds.Width = .Width : TextMouseBounds.Height = PaddedBounds.Height
             End With
             With CursorBounds
-                .X = {Spacing, GetxPos(CursorIndex)}.Max
-                .Y = Spacing
+                .X = {Spacing, Get_LetterBoundsLeft(CursorIndex)}.Max
+                .Y = PaddedBounds.Y + Spacing
                 .Width = 1
                 .Height = PaddedBounds.Height - Spacing * 2
             End With
             With SelectionBounds
-                .X = {GetxPos(SelectionIndex), CursorBounds.X}.Min
-                .Y = Spacing
-                .Width = Math.Abs(GetxPos(CursorIndex) - GetxPos(SelectionIndex))
-                .Height = CursorBounds.Height
+                .X = Get_LetterBoundsLeft(SelectionStart)
+                .Y = PaddedBounds.Y
+                .Width = Math.Abs(Get_LetterBoundsLeft(SelectionStart) - Get_LetterBoundsLeft(SelectionEnd))
+                .Height = PaddedBounds.Height
+            End With
+            With ProtectedBounds
+                .X = TextBounds.Left
+                .Y = PaddedBounds.Y
+                .Width = Math.Abs(Get_LetterBoundsLeft(0) - Get_LetterBoundsLeft(LetterWidths.Keys.Last))
+                .Height = PaddedBounds.Height
             End With
         End If
 
     End Sub
+    Private Function Get_LetterBoundsLeft(indexLetter As Integer) As Integer
+
+        '// Example    A B C D E
+        '// LetterWidths dictionary is an incremental left value based on the letter index. Has a minimum count of 1 where [0]=TextBounds.X
+        '// A, Index[0], Left = 2 (spacing)
+        '// B, Index[1], Left = 2 + A.Width
+        '// C, Index[2], Left = 2 + AB.Width
+        '// D, Index[3], Left = 2 + ABC.Width
+        '// E, Index[4], Left = 2 + ABCD.Width
+        '// , Index[5], Left = 2 + ABCDE.Width
+        '// *** 6 entries in a 5-letter word. [0] is left of letter[0] and [n] is right of letter[n]
+
+        indexLetter = {0, indexLetter}.Max '// ensures Index not less than 0
+        indexLetter = {1 + Get_LastLetterIndex(), indexLetter}.Min '// ensures not greater than 1+length
+        Return LetterWidths(indexLetter)
+
+    End Function
+    Public ReadOnly Property LetterWidths As Dictionary(Of Integer, Integer)
+        Get
+            '// Dictionary(Of Integer, KeyValuePair(Of String, Integer))
+            '// Letter Index, {Start, Width}
+            Dim widths As New Dictionary(Of Integer, Integer) From
+            {
+                {0, TextBounds.X}
+            }
+            If If(Text, String.Empty).Any Then
+                '// Example    A B C D E
+                '// LetterWidths dictionary is an incremental left value based on the letter index. Has a minimum count of 1 where [0]=TextBounds.X
+                '// A, Index[0], Left = 2 (spacing)
+                '// B, Index[1], Left = 2 + A.Width
+                '// C, Index[2], Left = 2 + AB.Width
+                '// D, Index[3], Left = 2 + ABC.Width
+                '// E, Index[4], Left = 2 + ABCD.Width
+                '// , Index[5], Left = 2 + ABCDE.Width
+                '// *** 6 entries in a 5-letter word. [0] is left of letter[0] and [n] is right of letter[n]
+
+                '// letter padding can be determined by measuring the width of A * 2 vs measuring the same letter as AA
+                Dim wordPadding As Integer = TextRenderer.MeasureText("A", Font).Width * 2 - TextRenderer.MeasureText("AA", Font).Width
+                'Dim words As New List(Of KeyValuePair(Of String, Integer))
+                'Dim letters As New List(Of KeyValuePair(Of String, Integer))
+                For i As Integer = 1 To Text.Length
+                    Dim growingWord As String = Text.Substring(0, i)
+                    Dim wordLeft As Integer = TextBounds.Left + TextRenderer.MeasureText(growingWord, Font).Width - wordPadding
+                    widths.Add(i, wordLeft)
+                    'words.Add(New KeyValuePair(Of String, Integer)(growingWord, wordLeft))
+                    'Dim letter As String = Text.Substring(i - 1, 1)
+                    'Dim letterWidth As Integer = TextRenderer.MeasureText(letter, Font).Width - wordPadding
+                    'letters.Add(New KeyValuePair(Of String, Integer)(letter, letterWidth))
+                Next
+            End If
+            Return widths
+        End Get
+    End Property
+    Private Function Get_LastLetterIndex() As Integer
+        Return {If(Text, String.Empty).Length - 1, 0}.Max
+    End Function
+    Private Function Get_LetterIndex(xCoordinate As Integer) As Integer
+
+        '// avoid IndexOutOfRangeException by bounding input value
+        xCoordinate = {0, xCoordinate}.Max
+
+        If xCoordinate > LetterWidths.Last.Value Then
+            Return LetterWidths.Last.Key
+
+        Else
+            Dim lettersBefore As New List(Of KeyValuePair(Of Integer, Integer))(LetterWidths.Where(Function(lw) lw.Value <= {xCoordinate, TextBounds.X}.Max))
+            Dim xBefore = If(lettersBefore.Any, lettersBefore.Last, LetterWidths.First)
+
+            Dim lettersAfter As New List(Of KeyValuePair(Of Integer, Integer))(LetterWidths.Where(Function(lw) lw.Value >= {xCoordinate, TextBounds.X}.Max))
+            Dim xAfter = If(lettersAfter.Any, lettersAfter.First, LetterWidths.Last)
+
+            Return If(xCoordinate - xBefore.Value <= xAfter.Value - xCoordinate, xBefore.Key, xAfter.Key)
+        End If
+
+    End Function
 
 #End Region
 #Region " PROPERTIES "
@@ -734,10 +812,10 @@ Public NotInheritable Class ImageCombo
             Return If(Items.Any And SelectedIndex >= 0 And SelectedIndex < Items.Count, Items(SelectedIndex), Nothing)
         End Get
     End Property
-    Private _SelectedIndex As Integer = -1
+    Private SelectedIndex_ As Integer = -1
     Public Property SelectedIndex As Integer
         Get
-            Return _SelectedIndex
+            Return SelectedIndex_
         End Get
         Set(value As Integer)
             If Not (value < 0 Or value >= Items.Count) Then
@@ -746,87 +824,82 @@ Public NotInheritable Class ImageCombo
                     Dim LastSelected As New List(Of ComboItem)(From CI In Items Where CI.Selected)
                     If LastSelected.Any Then LastSelected.First._Selected = False
                 End If
-                _SelectedIndex = value
+                SelectedIndex_ = value
                 Items(value)._Selected = True
                 Invalidate()
             End If
         End Set
     End Property
-    Public ReadOnly Property LetterWidths As Dictionary(Of Integer, KeyValuePair(Of String, Integer))
-        Get
-            Dim widths As New Dictionary(Of Integer, KeyValuePair(Of String, Integer)) From {
-                {0, New KeyValuePair(Of String, Integer)("Spacing", TextBounds.X)}
-            }
-            If Text.Any Then
-                For i As Integer = 1 To Text.Length
-                    Dim letter As String = Text.Substring(0, i)
-                    widths.Add(i, New KeyValuePair(Of String, Integer)(letter, TextLength(letter)))
-                Next
-            End If
-            Return widths
-        End Get
-    End Property
+    Public Sub SelectAll()
+
+        Mouse_Region = MouseRegion.Text
+        CursorIndex = 0
+        SelectionStart = 0
+        SelectionEnd = LetterWidths.Keys.Last
+        Invalidate()
+
+    End Sub
+    Private SelectionStart_ As Integer
     Public Property SelectionStart As Integer
         Get
-            Return {CursorIndex, SelectionIndex}.Min
+            Return SelectionStart_
         End Get
         Set(value As Integer)
-            CursorIndex = value
-        End Set
-    End Property
-    Public Property SelectionLength As Integer
-        Get
-            Return Math.Abs(CursorIndex - SelectionIndex)
-        End Get
-        Set(value As Integer)
-            SelectionIndex = SelectionStart + value
-        End Set
-    End Property
-    Public Property SelectionEnd As Integer
-        Get
-            Return {CursorIndex, SelectionIndex}.Min
-        End Get
-        Set(value As Integer)
-            SelectionIndex = value
-        End Set
-    End Property
-    Private _CursorIndex As Integer
-    Private Property CursorIndex As Integer
-        Get
-            Return _CursorIndex
-        End Get
-        Set(value As Integer)
-            If value <> _CursorIndex And value >= 0 And value < LetterWidths.Count Then
-                _CursorIndex = value
+            If value <> SelectionStart_ Then
+                value = {0, value}.Max
+                SelectionStart_ = {value, If(Text, String.Empty).Length}.Min
                 Invalidate()
             End If
         End Set
     End Property
-    Private _SelectionIndex As Integer
-    Public Property SelectionIndex As Integer
+    Private SelectionEnd_ As Integer
+    Public Property SelectionEnd As Integer
         Get
-            Return _SelectionIndex
+            Return SelectionEnd_
         End Get
         Set(value As Integer)
-            If value <> _SelectionIndex And value >= 0 And value < LetterWidths.Count Then
-                _SelectionIndex = value
+            If value <> SelectionEnd_ Then
+                value = {0, value}.Max
+                SelectionEnd_ = {value, If(Text, String.Empty).Length}.Min
                 Invalidate()
             End If
         End Set
     End Property
     Public ReadOnly Property Selection As String
         Get
-            If CursorIndex = SelectionIndex Then
-                Return String.Empty
-            Else
-                Return Text.Substring(SelectionStart, SelectionLength)
-            End If
+            Return If(Text, String.Empty).Substring({SelectionStart, SelectionEnd}.Min, SelectionLength)
         End Get
     End Property
+    Private SelectionLength_ As Integer
+    Public Property SelectionLength As Integer
+        Get
+            SelectionLength_ = Math.Abs(SelectionEnd - SelectionStart)
+            Return SelectionLength_
+        End Get
+        Set(value As Integer)
+            value = {0, value}.Max '// ensures > 0
+            SelectionLength_ = {1 + Get_LastLetterIndex() - SelectionStart, value}.Min '// ensures not greater than available length ( from start )
+            SelectionEnd = SelectionStart + SelectionLength_
+        End Set
+    End Property
+    Private CursorIndex_ As Integer
+    Private Property CursorIndex As Integer
+        Get
+            Return CursorIndex_
+        End Get
+        Set(value As Integer)
+            If value <> CursorIndex_ Then
+                value = {0, value}.Max
+                CursorIndex_ = {value, If(Text, String.Empty).Length}.Min
+                Invalidate()
+            End If
+        End Set
+    End Property
+
     Private SelectedColor_ As Color
     Public Property SelectedColor As Color
         Get
-            SelectedColor_ = If(Mode = ImageComboMode.ColorPicker And SelectionIndex >= 0, SelectedItem.Color, Color.Transparent)
+            SelectedColor_ = If(Mode = ImageComboMode.ColorPicker And SelectionStart >= 0, SelectedItem.Color, Color.Transparent)
             Return SelectedColor_
         End Get
         Set(value As Color)
@@ -835,7 +908,7 @@ Public NotInheritable Class ImageCombo
                 Dim indexItem As Integer = 0
                 For Each item In Items
                     If item.Color = value Then
-                        _SelectedIndex = indexItem
+                        SelectedIndex_ = indexItem
                         Items(SelectedIndex)._Selected = True
                         Text = value.Name
                         Exit For
@@ -849,7 +922,7 @@ Public NotInheritable Class ImageCombo
     Private SelectedFont_ As Font
     Public Property SelectedFont As Font
         Get
-            If Mode = ImageComboMode.FontPicker And SelectionIndex >= 0 Then
+            If Mode = ImageComboMode.FontPicker And SelectionStart >= 0 Then
                 Return SelectedItem.Font
             Else
                 Return Nothing
@@ -862,7 +935,7 @@ Public NotInheritable Class ImageCombo
                     If item.Font.FontFamily.Name = value.FontFamily.Name Then Exit For
                     indexItem += 1
                 Next
-                SelectionIndex = indexItem
+                SelectionStart = indexItem
             End If
             SelectedFont_ = value
         End Set
@@ -977,7 +1050,7 @@ Public NotInheritable Class ImageCombo
     Friend Sub OnItemSelected(ComboItem As ComboItem, DropDownVisible As Boolean)
 
         If Not ComboItem.Index = SelectedIndex Then
-            _SelectedIndex = ComboItem.Index
+            SelectedIndex_ = ComboItem.Index
             Text = ComboItem.Text
             RaiseEvent SelectionChanged(Me, New ImageComboEventArgs(ComboItem))
             RaiseEvent ValueChanged(Me, New ImageComboEventArgs(ComboItem))
@@ -1037,33 +1110,62 @@ Public NotInheritable Class ImageCombo
                 Dim S As Integer = CursorIndex
                 If e.KeyCode = Keys.Left Or e.KeyCode = Keys.Right Then
 #Region " MOVE LEFT Or RIGHT "
-                    Dim Value As Integer = If(e.KeyCode = Keys.Left, -1, 1)
-                    If Control.ModifierKeys = Keys.Shift Then
-                        SelectionIndex += Value
+                    Dim movingLeft As Boolean = e.KeyCode = Keys.Left
+                    Dim selecting As Boolean = Control.ModifierKeys = Keys.Shift
+                    If selecting Then
+                        If movingLeft Then
+                            CursorIndex -= 1
+                            SelectionStart = CursorIndex
+
+                        Else
+                            CursorIndex += 1
+                            SelectionEnd = CursorIndex
+                        End If
                     Else
-                        CursorIndex += Value
-                        SelectionIndex = CursorIndex
+                        If movingLeft Then
+                            If SelectionStart = SelectionEnd Then
+                                CursorIndex -= 1
+                            Else
+                                CursorIndex = SelectionStart
+                            End If
+
+                        Else
+                            If SelectionStart = SelectionEnd Then
+                                CursorIndex += 1
+                            Else
+                                CursorIndex = SelectionEnd
+                            End If
+                        End If
+                        SelectionStart_ = CursorIndex
+                        SelectionEnd = SelectionStart
                     End If
+                    'If Control.ModifierKeys = Keys.Shift Then
+                    '    SelectionStart += Value
+                    '    CursorIndex = SelectionStart
+                    'Else
+                    '    CursorIndex += Value
+                    'End If
 #End Region
                 ElseIf e.KeyCode = Keys.Back Or e.KeyCode = Keys.Delete And Not IsReadOnly Then
 #Region " REMOVE BACK Or AHEAD "
-                    If CursorIndex = SelectionIndex Then
-                        If e.KeyCode = Keys.Back Then
-                            If Not S = 0 Then
+                    If If(Text, String.Empty).Any Then
+                        If Selection.Any Then
+                            '// for either delete or backspace the selected text is removed
+                            Text = Text.Remove(SelectionStart, SelectionLength)
+                            SelectionEnd_ = SelectionStart
+                            CursorIndex_ = SelectionStart
+                        Else
+                            If e.KeyCode = Keys.Back And CursorIndex >= 1 Then
                                 CursorIndex -= 1
-                                SelectionIndex = CursorIndex
-                                Text = Text.Remove(S - 1, 1)
-                            End If
-                        ElseIf e.KeyCode = Keys.Delete Then
-                            If Not S = Text.Length Then
-                                Text = Text.Remove(S, 1)
+                                Text = Text.Remove(CursorIndex, 1)
+                                SelectionStart_ = CursorIndex
+                                SelectionEnd_ = CursorIndex
+                            ElseIf e.KeyCode = Keys.Delete And CursorIndex <= Get_LastLetterIndex Then
+                                Text = Text.Remove(CursorIndex, 1)
+                                SelectionStart_ = CursorIndex
+                                SelectionEnd_ = CursorIndex
                             End If
                         End If
-                    Else
-                        Dim TextLength As Integer = SelectionLength
-                        CursorIndex = SelectionStart
-                        SelectionIndex = CursorIndex
-                        Text = Text.Remove(SelectionStart, TextLength)
                     End If
 #End Region
                 ElseIf e.KeyCode = Keys.A AndAlso Control.ModifierKeys = Keys.Control Then
@@ -1072,36 +1174,44 @@ Public NotInheritable Class ImageCombo
 #End Region
                 ElseIf e.KeyCode = Keys.X AndAlso Control.ModifierKeys = Keys.Control And Not IsReadOnly Then
 #Region " CUT "
-                    Dim TextSelection As String = Selection
-                    CursorIndex = SelectionStart
-                    SelectionIndex = CursorIndex
-                    Clipboard.SetText(TextSelection)
-                    Text = Text.Remove(SelectionStart, TextSelection.Length)
-                    RaiseEvent TextCopied(Me, Nothing)
+                    If If(Text, String.Empty).Any Then
+                        If Selection.Any Then Clipboard.SetText(Selection)
+                        CursorIndex = SelectionStart
+                        Text = Text.Remove(SelectionStart, Selection.Length)
+                        SelectionEnd = SelectionStart
+                        RaiseEvent TextCopied(Me, Nothing)
+                    End If
 #End Region
                 ElseIf e.KeyCode = Keys.C AndAlso Control.ModifierKeys = Keys.Control Then
 #Region " COPY "
-                    Clipboard.Clear()
-                    If Selection.Any Then
-                        Clipboard.SetText(Selection)
-                    Else
+                    If If(Text, String.Empty).Any And Selection.Any Then
                         Clipboard.Clear()
+                        Clipboard.SetText(Selection)
                     End If
                     RaiseEvent TextCopied(Me, Nothing)
 #End Region
                 ElseIf e.KeyCode = Keys.V AndAlso Control.ModifierKeys = Keys.Control And Not IsReadOnly Then
 #Region " PASTE "
-                    S = SelectionStart
-                    Text = Text.Remove(SelectionStart, SelectionLength)
-                    Dim ClipboardText As String = Nothing
+                    Dim ClipboardText As String = String.Empty
                     Try
                         ClipboardText = Clipboard.GetText()
-                        Text = Text.Insert(S, ClipboardText)
-                        CursorIndex = S + ClipboardText.Length
-                        SelectionIndex = CursorIndex
-                        RaiseEvent TextPasted(Me, Nothing)
                     Catch ex As Runtime.InteropServices.ExternalException
                     End Try
+                    If ClipboardText.Any Then
+                        If Selection.Any Then
+                            '// replacing text
+                            Text = Text.Remove(SelectionStart, SelectionLength)
+                            Text = Text.Insert(SelectionStart, ClipboardText)
+                            CursorIndex = SelectionStart
+                            SelectionLength = ClipboardText.Length
+                        Else
+                            '// inserting text
+                            Text = Text.Insert(SelectionStart, ClipboardText)
+                            SelectionStart += ClipboardText.Length
+                            CursorIndex = SelectionStart
+                            SelectionEnd = SelectionStart
+                        End If
+                    End If
 #End Region
                 ElseIf e.KeyCode = Keys.Enter Then
 #Region " SUBMIT "
@@ -1154,8 +1264,9 @@ Public NotInheritable Class ImageCombo
                     Catch ex As IndexOutOfRangeException
                         Stop
                     End Try
-                    _CursorIndex = SelectionStart + 1
-                    _SelectionIndex = CursorIndex
+                    CursorIndex_ = SelectionStart + 1
+                    SelectionStart_ = CursorIndex
+                    SelectionEnd_ = SelectionStart
                     Text = ProposedText
                     ShowMatches(Text)
                     CursorShouldBeVisible = True
@@ -1186,21 +1297,31 @@ Public NotInheritable Class ImageCombo
             Mouse_Region = If(ImageClickBounds.Contains(xy), MouseRegion.Image, If(SearchBounds.Contains(xy), MouseRegion.Search, If(TextMouseBounds.Contains(xy), If(LinkBounds.Contains(xy), MouseRegion.Link, MouseRegion.Text), If(EyeClickBounds.Contains(xy), MouseRegion.Eye, If(ClearTextClickBounds.Contains(xy), MouseRegion.ClearText, If(DropClickBounds.Contains(xy), MouseRegion.DropDown, MouseRegion.None))))))
             redraw = Mouse_Region <> lastMouseRegion
             If MouseLeftDown.Key And e.Button = MouseButtons.Left Then
-                Dim startEnd As Integer() = {CursorIndex, GetLetterIndex(e.X)}
-                If MouseLeftDown.Value <> startEnd.Last Then
-                    'Moved to left or right
-                    Dim leftMost As Integer = startEnd.Min
-                    Dim rightMost As Integer = startEnd.Max
-                    _CursorIndex = leftMost
-                    SelectionIndex = rightMost
-                    redraw = True
+                Dim indexMouseDownLetter = MouseLeftDown.Value
+                Dim indexMouseLetter = Get_LetterIndex(e.X)
+                If indexMouseDownLetter = indexMouseLetter Then
+                    SelectionStart = indexMouseDownLetter
+                    SelectionEnd = SelectionStart
+
+                ElseIf indexMouseDownLetter < indexMouseLetter Then
+                    '// selecting right
+                    SelectionStart = indexMouseDownLetter
+                    SelectionEnd = indexMouseLetter
+
+                ElseIf indexMouseDownLetter > indexMouseLetter Then
+                    '// selecting left
+                    SelectionStart = indexMouseLetter
+                    SelectionEnd = indexMouseDownLetter
+
                 End If
+                redraw = True
             End If
             If redraw Then Invalidate()
         End If
         MyBase.OnMouseMove(e)
 
     End Sub
+    Private StopMe As Boolean
     Protected Overrides Sub OnMouseDown(e As MouseEventArgs)
 
         If e IsNot Nothing Then
@@ -1221,9 +1342,11 @@ Public NotInheritable Class ImageCombo
 
             ElseIf Mouse_Region = MouseRegion.Text Then
                 CursorShouldBeVisible = True
-                CursorIndex = GetLetterIndex(e.X)
-                SelectionIndex = CursorIndex
-                If e.Button = MouseButtons.Left Then MouseLeftDown = New KeyValuePair(Of Boolean, Integer)(True, SelectionIndex)
+                CursorIndex = Get_LetterIndex(e.X)
+                SelectionStart = CursorIndex
+                SelectionEnd = SelectionStart
+                If e.Button = MouseButtons.Left Then MouseLeftDown = New KeyValuePair(Of Boolean, Integer)(True, SelectionStart)
+                StopMe = True
                 CursorShouldBeVisible = True
                 CursorBlinkTimer.Stop()
                 CursorBlinkTimer.Start()
@@ -1240,7 +1363,10 @@ Public NotInheritable Class ImageCombo
                 RaiseEvent ClearTextClicked(Me, New ImageComboEventArgs)
                 If IsReadOnly Then Exit Sub
                 Text = String.Empty
-                SelectedIndex = -1
+                SelectedIndex = 0
+                SelectionStart_ = 0
+                SelectionEnd_ = 0
+                SelectionLength_ = 0
 
             ElseIf Mouse_Region = MouseRegion.DropDown Then
                 DropItems_ = Items
@@ -1260,25 +1386,7 @@ Public NotInheritable Class ImageCombo
     Protected Overrides Sub OnMouseDoubleClick(e As MouseEventArgs)
 
         If IsReadOnly Then Exit Sub
-        If e IsNot Nothing Then
-            If Not Mouse_Region = MouseRegion.DropDown And LetterWidths.Any Then
-                Dim CurrentIndex As Integer = GetLetterIndex(e.X)
-                Dim Index As Integer = {CurrentIndex, Text.Length - 1}.Min
-                '// look back
-                Do While (Index >= 0 AndAlso Text.Substring(Index, 1) <> " ")
-                    Index -= 1
-                Loop
-                CursorIndex = Index + 1
-                '// look ahead
-                Index = CurrentIndex
-                Do While Index < Text.Length AndAlso Text.Substring(Index, 1) <> " "
-                    Index += 1
-                Loop
-                SelectionIndex = Index
-                MoveMouse(Cursor.Position)
-                Invalidate()
-            End If
-        End If
+        If e IsNot Nothing And Mouse_Region = MouseRegion.Text Then SelectAll()
         MyBase.OnMouseDoubleClick(e)
 
     End Sub
@@ -1302,8 +1410,10 @@ Public NotInheritable Class ImageCombo
         If Text Is Nothing Then Text = String.Empty
         _TextSize = TextRenderer.MeasureText(Text, Font) 'MeasureText(Text, Font)
         If Not Text.Any Then
-            CursorIndex = 0
-            SelectionIndex = 0
+            CursorIndex_ = 0
+            SelectionStart_ = 0
+            SelectionEnd_ = 0
+            SelectionLength_ = 0
         End If
         Bounds_Set()
         If ValueError Then
@@ -1333,18 +1443,6 @@ Public NotInheritable Class ImageCombo
         DropDown.Font = Font
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-    Private Function GetxPos(Index As Integer) As Integer
-        Return LetterWidths({0, {Text.Length, Index}.Min}.Max).Value
-    End Function
-    Private Function GetLetterIndex(X As Integer) As Integer
-        Return (From lw In LetterWidths.Keys Where LetterWidths(lw).Value <= {X, TextBounds.X}.Max Select lw).Max
-    End Function
-    Private Function TextLength(T As String) As Integer
-
-        Dim Padding As Integer = If(T.Length = 0, 0, (2 * TextRenderer.MeasureText(T.First, Font).Width) - TextRenderer.MeasureText(T.First & T.First, Font).Width)
-        Return TextBounds.Left + TextRenderer.MeasureText(T, Font).Width - Padding
-
-    End Function
     Private Sub ShowMatches(MatchText As String)
 
         Dim dropMatches As New List(Of ComboItem)(Items.Where(Function(ci) ci.Text.ToUpperInvariant.StartsWith(MatchText.ToUpperInvariant, StringComparison.InvariantCulture)))
@@ -1369,15 +1467,6 @@ Public NotInheritable Class ImageCombo
             DropDown.Visible = True
             'If Me.Name = "quickSearch" Then Stop
         End If
-
-    End Sub
-    Public Sub SelectAll()
-
-        CursorIndex = 0
-        Mouse_Region = MouseRegion.Text
-        SelectionStart = 0
-        SelectionIndex = LetterWidths.Keys.Last
-        MoveMouse(Cursor.Position)
 
     End Sub
     Private Sub Items_Changed() Handles DropItems_.Changed
@@ -1702,7 +1791,7 @@ Public Class ImageComboDropDown
                     Next
                 End Using
                 BMP_Shadow = bmp
-                Dim SV As IEnumerable(Of ComboItem) = From S In MatchedItems Where S.Index = ComboParent.SelectionIndex
+                Dim SV As IEnumerable(Of ComboItem) = From S In MatchedItems Where S.Index = ComboParent.SelectionStart
                 If SV.Any Then
                     Dim ScrollValue As Integer = MatchedItems.IndexOf(SV.First)
                     VScroll.Value = CInt(Split((ScrollValue / ComboParent.MaxItems).ToString(InvariantCulture), ".")(0)) * ComboParent.MaxItems * ItemHeight
