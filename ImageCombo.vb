@@ -1415,12 +1415,12 @@ Public NotInheritable Class ImageCombo
             SelectionEnd_ = 0
             SelectionLength_ = 0
         End If
-        Bounds_Set()
         If ValueError Then
             'ErrorTip.Show(ErrorText.ToString(InvariantCulture), Me, New Point(Width, 0))
         Else
             'ErrorTip.Hide(Me)
         End If
+        Invalidate()
         MyBase.OnTextChanged(e)
 
     End Sub
