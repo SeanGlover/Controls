@@ -159,7 +159,8 @@ Public NotInheritable Class ImageCombo
             If Mode = ImageComboMode.Button Then
 #Region " BUTTON PROPERTIES "
                 e.Graphics.DrawImage(If(InBounds, GlossyDictionary(If(ButtonMouseTheme = Theme.None, Theme.Gray, ButtonMouseTheme)), GlossyDictionary(If(ButtonTheme = Theme.None, Theme.Gray, ButtonTheme))), ClientRectangle)
-                Using buttonAlignment As StringFormat = New StringFormat With {
+                e.Graphics.TextRenderingHint = Drawing.Text.TextRenderingHint.AntiAlias
+                Using buttonAlignment = New StringFormat With {
                     .LineAlignment = StringAlignment.Center,
                     .Alignment = If(HorizontalAlignment = HorizontalAlignment.Center, StringAlignment.Center, If(HorizontalAlignment = HorizontalAlignment.Left, StringAlignment.Near, StringAlignment.Far))
                 }

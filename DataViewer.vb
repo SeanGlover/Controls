@@ -1505,7 +1505,7 @@ Public Class DataViewer
                          ExcelPath:=filePath,
                          FormatSheet:=Not filePath.ToUpperInvariant.EndsWith(".CSV", StringComparison.InvariantCulture),
                          ShowFile:=False,
-                         DisplayMessages:=TriState.False,
+                         DisplayMessages:=False,
                          IncludeHeaders:=True,
                          NotifyCreatedFormattedFile:=MessageWhenComplete)
 

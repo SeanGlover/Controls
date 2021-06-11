@@ -6,6 +6,7 @@ Imports System.Drawing
 Imports System.Text.RegularExpressions
 Imports System.Data.Odbc
 Imports System.Data.OleDb
+Imports System.Data.Sql
 Imports Excel = Microsoft.Office.Interop.Excel
 Imports System.ComponentModel
 Imports System.Runtime.InteropServices
@@ -2405,12 +2406,18 @@ End Class
                                 Table.Locale = CultureInfo.InvariantCulture
                                 Table.Namespace = "<DB2>"
                                 _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, Table, Ended - Started)
-
                             End Using
-                        Catch odbcException As OdbcException
+
+                        Catch odbcGeneral As OdbcException
                             Connection_DB.Close()
                             _Ended = Now
-                            _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, odbcException.Message, New Errors(Connection, odbcException.Message))
+                            _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, odbcGeneral.Message, New Errors(Connection, odbcGeneral.Message))
+
+                        Catch outOfRange As ArgumentOutOfRangeException
+                            Connection_DB.Close()
+                            'Year, Month, and Day parameters describe an un-representable
+                            _Ended = Now
+                            _Response = New ResponseEventArgs(InstructionType.SQL, ConnectionString, Instruction, outOfRange.Message, New Errors(Connection, outOfRange.Message))
 
                         End Try
 
@@ -3210,7 +3217,7 @@ Public Class ETL
                 If GetFileNameExtension(ConnectionString).Value = ExtensionNames.Text Then
                     DataTableToTextFile(Table, ConnectionString)
                 ElseIf GetFileNameExtension(ConnectionString).Value = ExtensionNames.Excel Then
-                    DataTableToExcel(Table, ConnectionString, False, False, TriState.False, True, True)
+                    DataTableToExcel(Table, ConnectionString, False, False, False, True, True)
                 Else
                 End If
                 _Message &= If(File.Exists(ConnectionString), Join({"Wrote file to", ConnectionString}), Join({"Did not write file to", ConnectionString})) & vbNewLine
@@ -4192,7 +4199,7 @@ Public Module iData
                              ExcelPath As String,
                              Optional FormatSheet As Boolean = False,
                              Optional ShowFile As Boolean = False,
-                             Optional DisplayMessages As TriState = TriState.False,
+                             Optional DisplayMessages As Boolean = False,
                              Optional IncludeHeaders As Boolean = True,
                              Optional NotifyCreatedFormattedFile As Boolean = False,
                              Optional SheetCode As Dictionary(Of String, String) = Nothing)
@@ -4208,7 +4215,7 @@ Public Module iData
                              ExcelPath As String,
                              Optional FormatSheet As Boolean = False,
                              Optional ShowFile As Boolean = False,
-                             Optional DisplayMessages As TriState = TriState.False,
+                             Optional DisplayMessages As Boolean = False,
                              Optional IncludeHeaders As Boolean = True,
                              Optional NotifyCreatedFormattedFile As Boolean = False,
                              Optional SheetCode As Dictionary(Of String, String) = Nothing)
@@ -4219,10 +4226,10 @@ Public Module iData
             Try
                 Dim App As New Excel.Application
                 Dim Book As Excel.Workbook = App.Workbooks.Add()
-                Book.Comments = Join({ExcelPath & If(DisplayMessages = TriState.False, String.Empty, If(DisplayMessages = TriState.True, "☻", "☺")), DateToDB2Timestamp(Now)}, BlackOut)
+                Book.Comments = Join({ExcelPath & If(DisplayMessages, "☺", String.Empty), DateToDB2Timestamp(Now)}, BlackOut)
                 With App
                     .Visible = ShowFile
-                    .DisplayAlerts = Not DisplayMessages = TriState.False
+                    .DisplayAlerts = DisplayMessages
                 End With
 
                 For Each Table As DataTable In TableSet.Tables
@@ -4295,7 +4302,7 @@ Public Module iData
         Dim tableSet As DataSet = kvp.Value
         Dim excelApplication As Excel.Application = workBook.Application
         Dim dataElements As String() = Split(workBook.Comments, BlackOut)
-        Dim excelPath As String = Replace(Replace(dataElements.First, "☻", String.Empty), "☺", String.Empty)
+        Dim excelPath As String = dataElements.First.Replace("☺", String.Empty)
         Dim startTime As Date = DB2TimestampToDate(dataElements.Last)
 
         RaiseEvent Alerts(workBook, New AlertEventArgs($"Formatting Excel Workbook {excelPath} at {startTime.ToLongTimeString}"))
@@ -4437,8 +4444,8 @@ Public Module iData
         Try
             Dim excelApplication As Excel.Application = excelBook.Application
             Dim appData = ApplicationElements(excelBook.Comments)
-            Dim notifyState As TriState = If(appData.Key.EndsWith("☻", StringComparison.InvariantCulture), TriState.True, If(appData.Key.EndsWith("☺", StringComparison.InvariantCulture), TriState.UseDefault, TriState.False))
-            Dim excelPath As String = Replace(appData.Key, "☻", String.Empty)
+            Dim notify As Boolean = appData.Key.EndsWith("☺")
+            Dim excelPath As String = appData.Key.Replace("☺", String.Empty)
             Dim startTime As Date = appData.Value
             Dim failSave As String = String.Empty
 
@@ -4464,7 +4471,7 @@ Public Module iData
 
             If failSave.Any Then
                 RaiseEvent Alerts(excelBook, New AlertEventArgs("There was an error writing the Excel file with the message: " & failSave))
-                If notifyState = TriState.UseDefault Then
+                If notify Then
                     Using finishedNotice As New Prompt
                         finishedNotice.TitleBarImage = My.Resources.Excel
                         finishedNotice.Show("There was an error writing the Excel file with the message:", failSave, Prompt.IconOption.OK)
@@ -4473,7 +4480,7 @@ Public Module iData
             Else
                 Dim finishedMessage As String = $"Excel Workbook ready at {excelPath} Total time: {TimespanToString(startTime, Now)}"
                 RaiseEvent Alerts(excelBook, New AlertEventArgs(finishedMessage))
-                If notifyState = TriState.UseDefault Then
+                If notify Then
                     Using finishedNotice As New Prompt
                         finishedNotice.TitleBarImage = My.Resources.Excel
                         finishedNotice.Show("Successfully created file", finishedMessage, Prompt.IconOption.OK)
@@ -4740,40 +4747,5 @@ Public Module iData
 
     End Function
 #End Region
-    Friend Function CursorDirection(Point1 As Point, Point2 As Point) As Cursor
-
-        If Point1.X = Point2.X And Point1.Y = Point2.Y Then
-            Return Cursors.Default
-
-        ElseIf Point1.X = Point2.X And Point1.Y < Point2.Y Then
-            Return Cursors.PanNorth
-
-        ElseIf Point1.X = Point2.X And Point1.Y > Point2.Y Then
-            Return Cursors.PanSouth
-
-        ElseIf Point1.X < Point2.X And Point1.Y = Point2.Y Then
-            Return Cursors.PanWest
-
-        ElseIf Point1.X > Point2.X And Point1.Y = Point2.Y Then
-            Return Cursors.PanEast
-
-        ElseIf Point1.X < Point2.X And Point1.Y < Point2.Y Then
-            Return Cursors.PanNW
-
-        ElseIf Point1.X < Point2.X And Point1.Y > Point2.Y Then
-            Return Cursors.PanSW
-
-        ElseIf Point1.X > Point2.X And Point1.Y < Point2.Y Then
-            Return Cursors.PanNE
-
-        ElseIf Point1.X > Point2.X And Point1.Y > Point2.Y Then
-            Return Cursors.PanSE
-
-        Else
-            Return Cursors.Default
-
-        End If
-
-    End Function
 #End Region
 End Module

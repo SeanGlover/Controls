@@ -19,7 +19,7 @@ Public NotInheritable Class ZoneEventArgs
     End Sub
 End Class
 Public NotInheritable Class Zone
-    Friend Sub New(ZoneName As Identifier)
+    Public Sub New(ZoneName As Identifier)
         Name = ZoneName
         Select Case Name
             Case Identifier.Close
@@ -81,10 +81,10 @@ Public NotInheritable Class Zone
 
         End Select
     End Sub
-    Friend ReadOnly Caption As String
-    Friend ReadOnly Property Name As Identifier
+    Public ReadOnly Caption As String
+    Public ReadOnly Property Name As Identifier
     Private ReadOnly _Image As Image
-    Friend ReadOnly Property Image As Image
+    Public ReadOnly Property Image As Image
         Get
             If Selected Then
                 If Name = Identifier.ShowHideReplace Then
@@ -103,7 +103,7 @@ Public NotInheritable Class Zone
         End Get
     End Property
     Private _Selected As Boolean
-    Friend Property Selected As Boolean
+    Public Property Selected As Boolean
         Get
             Return _Selected
         End Get
@@ -116,7 +116,7 @@ Public NotInheritable Class Zone
             End Select
         End Set
     End Property
-    Friend Enum Identifier
+    Public Enum Identifier
         None
         ShowHideReplace
         GotoNext
@@ -137,7 +137,7 @@ End Class
 Public Class FindReplace
     Inherits Control
     Private WithEvents FindTimer As New Timer With {.Interval = 500}
-    Friend ReadOnly Tree As TreeViewer
+    Public ReadOnly Tree As TreeViewer
 
     Private ReadOnly Zones As New Dictionary(Of Zone.Identifier, Zone)
     Private ReadOnly ZonesBounds As New Dictionary(Of Zone, Rectangle)
@@ -227,7 +227,7 @@ Public Class FindReplace
             Return _DataSource
         End Get
         Set(value As Object)
-            If Not value Is _DataSource Then
+            If value IsNot _DataSource Then
                 _DataSource = value
                 If DataSource.GetType Is GetType(String) Then
                     DataType = GetType(String)
@@ -392,38 +392,38 @@ Public Class FindReplace
         End Get
     End Property
     Public ReadOnly Property Values As List(Of Object)
-    Friend ReadOnly Property Zone_Case As Zone
+    Public ReadOnly Property Zone_Case As Zone
         Get
             Return Zones(Zone.Identifier.MatchCase)
         End Get
     End Property
-    Friend ReadOnly Property Zone_Word As Zone
+    Public ReadOnly Property Zone_Word As Zone
         Get
             Return Zones(Zone.Identifier.MatchWord)
         End Get
     End Property
-    Friend ReadOnly Property Zone_Regex As Zone
+    Public ReadOnly Property Zone_Regex As Zone
         Get
             Return Zones(Zone.Identifier.RegEx)
         End Get
     End Property
-    Friend ReadOnly Property Zone_Filter As Zone
+    Public ReadOnly Property Zone_Filter As Zone
         Get
             Return Zones(Zone.Identifier.Filter)
         End Get
     End Property
-    Friend ReadOnly Property Zone_FilterX As Zone
+    Public ReadOnly Property Zone_FilterX As Zone
         Get
             Return Zones(Zone.Identifier.FilterReset)
         End Get
     End Property
-    Friend ReadOnly Property Zone_FiltersX As Zone
+    Public ReadOnly Property Zone_FiltersX As Zone
         Get
             Return Zones(Zone.Identifier.FiltersReset)
         End Get
     End Property
-    Friend ReadOnly Property Zone_GotoClickPoint As Point
-    Friend ReadOnly Property SearchPattern As String
+    Public ReadOnly Property Zone_GotoClickPoint As Point
+    Public ReadOnly Property SearchPattern As String
         Get
             If Zone_Word.Selected Then
                 Return "\b" & FindControl.Text & "\b"
@@ -443,7 +443,7 @@ Public Class FindReplace
             End If
         End Get
     End Property
-    Friend ReadOnly Property SearchOptions As RegexOptions
+    Public ReadOnly Property SearchOptions As RegexOptions
         Get
             If Zone_Case.Selected Then
                 Return RegexOptions.ExplicitCapture
@@ -452,7 +452,7 @@ Public Class FindReplace
             End If
         End Get
     End Property
-    Friend ReadOnly Property Matches As Dictionary(Of Integer, String)
+    Public ReadOnly Property Matches As Dictionary(Of Integer, String)
         Get
             Dim MD As New Dictionary(Of Integer, String)
             If FindControl.Text IsNot Nothing Then
@@ -476,7 +476,7 @@ Public Class FindReplace
         End Get
     End Property
     Private _CurrentMatch As KeyValuePair(Of Integer, String)
-    Friend ReadOnly Property CurrentMatch As KeyValuePair(Of Integer, String)
+    Public ReadOnly Property CurrentMatch As KeyValuePair(Of Integer, String)
         Get
             If Matches.Any Then
                 Return _CurrentMatch
@@ -497,7 +497,7 @@ Public Class FindReplace
         End Get
     End Property
     Private _StartAt As Integer = -1
-    Friend Property StartAt As Integer
+    Public Property StartAt As Integer
         Get
             Return _StartAt
         End Get
@@ -516,8 +516,8 @@ Public Class FindReplace
     End Property
 #End Region
 #Region " EVENTS "
-    Friend Event ZoneClicked(sender As Object, e As ZoneEventArgs)
-    Friend Event FindChanged(sender As Object, e As FindEventArgs)
+    Public Event ZoneClicked(sender As Object, e As ZoneEventArgs)
+    Public Event FindChanged(sender As Object, e As FindEventArgs)
     Private Sub RequestMade(sender As Object, e As EventArgs)
 
         'Future enhancements
@@ -530,13 +530,17 @@ Public Class FindReplace
         ResizeMe()
     End Sub
     Private Sub OnFindTextChanged(sender As Object, e As EventArgs)
+
         FindControl.ForeColor = Color.Black
         FindTimer.Stop()
         FindTimer.Start()
+
     End Sub
     Private Sub FindTimer_Tick(sender As Object, e As EventArgs) Handles FindTimer.Tick
+
         FindTimer.Stop()
         RaiseEvent FindChanged(Me, New FindEventArgs(FindControl.Text))
+
     End Sub
     Private Sub OnControlFocus(sender As Object, e As EventArgs)
 
@@ -663,29 +667,26 @@ Public Class FindReplace
     End Sub
     Protected Overrides Sub OnParentChanged(e As EventArgs)
 
-        Select Case True
-            Case Parent Is Nothing
-                If ParentControl Is Nothing Then
-                    'No change
-                Else
-                    'Control changed to Nothing
-                    RemoveHandler ParentControl.KeyDown, AddressOf ParentCtrlF
+        If Parent Is Nothing Then
+            If ParentControl Is Nothing Then
+                'No change
+            Else
+                'Control changed to Nothing
+                RemoveHandler ParentControl.KeyDown, AddressOf ParentCtrlF
 
-                End If
+            End If
+        Else
+            If ParentControl Is Nothing Then
+                'Nothing to Control
+                AddHandler Parent.KeyDown, AddressOf ParentCtrlF
 
-            Case Parent IsNot Nothing
-                If ParentControl Is Nothing Then
-                    'Nothing to Control
-                    AddHandler Parent.KeyDown, AddressOf ParentCtrlF
+            Else
+                'Changing Controls
+                RemoveHandler ParentControl.KeyDown, AddressOf ParentCtrlF
+                AddHandler Parent.KeyDown, AddressOf ParentCtrlF
 
-                Else
-                    'Changing Controls
-                    RemoveHandler ParentControl.KeyDown, AddressOf ParentCtrlF
-                    AddHandler Parent.KeyDown, AddressOf ParentCtrlF
-
-                End If
-
-        End Select
+            End If
+        End If
         _ParentControl = Parent
         Hide()
         MyBase.OnParentChanged(e)
@@ -694,12 +695,158 @@ Public Class FindReplace
     Private Sub ParentCtrlF(sender As Object, e As KeyEventArgs)
 
         If Control.ModifierKeys = Keys.Control And e.KeyCode = Keys.F Then
+            If Parent.GetType Is GetType(RicherTextBox) Then
+                Dim parentBox As RicherTextBox = DirectCast(Parent, RicherTextBox)
+                If Not parentBox.SelectedText.Length = 0 Then
+                    'RemoveHandler ZoneClicked, AddressOf FindRequest
+                    'RemoveHandler FindControl.TextChanged, AddressOf OnFindTextChanged
+                    'Dim parentText As String = parentBox.SelectedText
+                    'Text = parentText
+                    ''DataSource = parentText
+                    'Dim r As New Random()
+                    'Dim rInt = r.Next(0, 255)
+                    'Dim colors = ColorImages()
+                    'Dim rndColor As Color
+                    'Dim indexColor As Integer
+                    'For Each colorkvp In colors
+                    '    If indexColor = rInt Then
+                    '        rndColor = colorkvp.Key
+                    '        Exit For
+                    '    End If
+                    '    indexColor += 1
+                    'Next
+                    'BackColor = rndColor
+                    'AddHandler ZoneClicked, AddressOf FindRequest
+                    'AddHandler FindControl.TextChanged, AddressOf OnFindTextChanged
+
+                End If
+
+            ElseIf Parent.GetType Is GetType(RichTextBox) Then
+                'Dim parentBox As RichTextBox = DirectCast(Parent, RichTextBox)
+                'If Not parentBox.SelectedText.Length = 0 Then
+                '    'Text = parentBox.SelectedText
+                '    DataSource = Parent.Text
+                'End If
+
+            End If
             Location = New Point(Parent.ClientSize.Width - Width - Spacing, Spacing)
             Visible = True
             FindControl.Focus()
         End If
 
     End Sub
+    'Private Sub FindRequest(sender As Object, e As ZoneEventArgs)
+
+    '    If Parent.GetType Is GetType(RicherTextBox) Then
+    '        Dim parentBox As RicherTextBox = DirectCast(Parent, RicherTextBox)
+    '        Dim Text_Search As String = parentBox.Text
+    '        Select Case e.Zone.Name
+    '            Case Zone.Identifier.MatchCase, Zone.Identifier.MatchWord, Zone.Identifier.RegEx
+    '                FindRequest()
+
+    '            Case Zone.Identifier.Close
+    '                'Remove the Highlights
+    '                With parentBox
+    '                    Dim _SelectionStart As Integer = .SelectionStart
+    '                    .SelectAll()
+    '                    .SelectionBackColor = Color.Transparent
+    '                    .SelectionColor = Color.Black
+    '                    .SelectionStart = _SelectionStart
+    '                    .SelectionLength = 0
+    '                End With
+
+    '            Case Zone.Identifier.GotoNext
+    '                If CurrentMatch.Key >= 0 Then
+    '                    FindRequest()
+    '                    Dim Match = CurrentMatch
+    '                    Dim _rtf As String = parentBox.Rtf
+    '                    Using RTB As New RichTextBox With {.Rtf = _rtf}
+    '                        With RTB
+    '                            .SelectionStart = Match.Key
+    '                            .SelectionLength = Match.Value.Length
+    '                            .SelectionBackColor = Color.DarkBlue
+    '                            .SelectionColor = Color.White
+    '                            _rtf = .Rtf
+    '                        End With
+    '                    End Using
+    '                    With parentBox
+    '                        .Rtf = _rtf
+    '                        .SelectionStart = Match.Key
+    '                        Dim CurrentPosition As Point = .GetPositionFromCharIndex(.SelectionStart)
+    '                        If Not .ClientRectangle.Contains(CurrentPosition) Then .ScrollToCaret()
+    '                        Dim WordLocation As Point = .GetPositionFromCharIndex(Match.Key + Match.Value.Length)
+    '                        Dim Bounds_FaR As New Rectangle(.Width - Width - .VScrollWidth, WordLocation.Y, Width, Height)
+    '                        If Bounds_FaR.Contains(WordLocation) Then Bounds_FaR.Offset(0, .LineHeight)
+    '                        With Me
+    '                            .Location = Bounds_FaR.Location
+    '                            MoveMouse(.PointToScreen(.Zone_GotoClickPoint))
+    '                            .StartAt += Match.Value.Length
+    '                        End With
+    '                    End With
+    '                End If
+
+    '            Case Zone.Identifier.ReplaceOne
+    '                If CurrentMatch.Key >= 0 Then
+    '                    With CurrentMatch
+    '                        Text_Search = Text_Search.Remove(.Key, .Value.Length)
+    '                        Text_Search = Text_Search.Insert(.Key, ReplaceControl.Text)
+    '                    End With
+    '                    parentBox.Text = Text_Search
+    '                    DataSource = Text_Search
+    '                    FindRequest()
+    '                End If
+
+    '            Case Zone.Identifier.ReplaceAll
+    '                If CurrentMatch.Key >= 0 Then
+    '                    Dim ReverseOrderMatches = Matches.OrderByDescending(Function(x) x.Key)
+    '                    For Each Match In ReverseOrderMatches
+    '                        With Match
+    '                            Text_Search = Text_Search.Remove(.Key, .Value.Length)
+    '                            Text_Search = Text_Search.Insert(.Key, ReplaceControl.Text)
+    '                        End With
+    '                    Next
+    '                    parentBox.Text = Text_Search
+    '                    DataSource = Text_Search
+    '                    FindRequest()
+    '                End If
+
+    '        End Select
+    '    End If
+
+    'End Sub
+    'Private Sub FindRequest()
+
+    '    If Parent.GetType Is GetType(RicherTextBox) Then
+    '        Dim parentBox As RicherTextBox = DirectCast(Parent, RicherTextBox)
+    '        If FindControl?.Text.Any Then
+    '            Dim SelectionStart As Integer = parentBox.SelectionStart
+    '            Dim _rtf As String = parentBox.Rtf
+    '            Using RTB As New RichTextBox With {.Rtf = _rtf}
+    '                With RTB
+    '                    For Each Match In Matches
+    '                        .SelectionStart = Match.Key
+    '                        .SelectionLength = Match.Value.Length
+    '                        .SelectionBackColor = Color.Yellow
+    '                        .SelectionColor = Color.Black
+    '                    Next
+    '                    _rtf = .Rtf
+    '                End With
+    '            End Using
+    '            parentBox.Rtf = _rtf
+    '            parentBox.SelectionStart = SelectionStart
+    '        Else
+    '            With parentBox
+    '                Dim _SelectionStart As Integer = .SelectionStart
+    '                .SelectAll()
+    '                .SelectionBackColor = Color.Transparent
+    '                .SelectionColor = Color.Black
+    '                .SelectionStart = _SelectionStart
+    '                .SelectionLength = 0
+    '            End With
+    '        End If
+    '    End If
+
+    'End Sub
 #End Region
 
     Private Sub ResizeMe()
@@ -795,7 +942,7 @@ Public Class FindReplace
         Invalidate()
 
     End Sub
-    Friend Sub Close()
+    Public Sub Close()
         MouseOverZone = Zones(Zone.Identifier.Close)
         Hide()
         RaiseEvent ZoneClicked(Me, New ZoneEventArgs(MouseOverZone))

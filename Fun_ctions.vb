@@ -470,6 +470,41 @@ Public Module Functions
     Public Function CursorOverControl(ControlItem As Control) As Boolean
         Return CursorToControlPosition(ControlItem) = RelativeCursor.Inside
     End Function
+    Friend Function CursorDirection(Point1 As Point, Point2 As Point) As Cursor
+
+        If Point1.X = Point2.X And Point1.Y = Point2.Y Then
+            Return Cursors.Default
+
+        ElseIf Point1.X = Point2.X And Point1.Y < Point2.Y Then
+            Return Cursors.PanNorth
+
+        ElseIf Point1.X = Point2.X And Point1.Y > Point2.Y Then
+            Return Cursors.PanSouth
+
+        ElseIf Point1.X < Point2.X And Point1.Y = Point2.Y Then
+            Return Cursors.PanWest
+
+        ElseIf Point1.X > Point2.X And Point1.Y = Point2.Y Then
+            Return Cursors.PanEast
+
+        ElseIf Point1.X < Point2.X And Point1.Y < Point2.Y Then
+            Return Cursors.PanNW
+
+        ElseIf Point1.X < Point2.X And Point1.Y > Point2.Y Then
+            Return Cursors.PanSW
+
+        ElseIf Point1.X > Point2.X And Point1.Y < Point2.Y Then
+            Return Cursors.PanNE
+
+        ElseIf Point1.X > Point2.X And Point1.Y > Point2.Y Then
+            Return Cursors.PanSE
+
+        Else
+            Return Cursors.Default
+
+        End If
+
+    End Function
     Public Function OrderedMatch(inString As String, inList As List(Of String), Optional ignoreCase As Boolean = True) As List(Of String)
 
         If inString Is Nothing Or inList Is Nothing Then

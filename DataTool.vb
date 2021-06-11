@@ -951,7 +951,7 @@ Public Class DataTool
         .BackColor = Color.WhiteSmoke,
         .ForeColor = Color.DarkViolet,
         .Font = GothicFont}
-    Private ReadOnly OpenFileNode As Node = New Node With {.Text = "File",
+    Private ReadOnly OpenFileNode As New Node With {.Text = "File",
         .Image = My.Resources.open,
         .CanEdit = False,
         .CanRemove = False,
@@ -3602,7 +3602,7 @@ Public Class DataTool
 
                 If isExportRequest Then
                     Dim pathExcel As String = $"{Desktop}\{scriptDone.Name}.xlsx"
-                    DataTableToExcel(e.Table, pathExcel, True, False, TriState.True, True, True)
+                    DataTableToExcel(e.Table, pathExcel, True, False, True, True, True)
                 End If
 
             Else
