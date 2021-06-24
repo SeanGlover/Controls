@@ -689,7 +689,7 @@ Public Class DataViewer
             If value <> AutoSize_ Then
                 AutoSize_ = value
                 If value Then
-                    Columns.ColumnWidths()
+                    Columns.AutoSize()
                     Columns.DistibuteWidths()
                     Size = IdealSize
                 End If
@@ -893,7 +893,7 @@ Public Class DataViewer
     End Sub
     Private Sub RowTimer_Tick() Handles RowTimer.Tick
         RowTimer.Stop()
-        Columns.ColumnWidths()
+        Columns.AutoSize()
         Invalidate()
     End Sub
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
@@ -1844,7 +1844,7 @@ Public Class ColumnCollection
         RaiseEvent CollectionSizingStart(Me, Nothing)
         If Not ColumnsWorker.IsBusy Then ColumnsWorker.RunWorkerAsync()
     End Sub
-    Public Sub ColumnWidths()
+    Public Sub AutoSize()
         For Each Column In Me
             ColumnWidth(Column)
         Next

@@ -708,13 +708,15 @@ Public NotInheritable Class ConnectionCollection
 
         Try
             Dim cnxnDict = JsonConvert.DeserializeObject(Of Dictionary(Of String, Dictionary(Of String, String)))(Connections)
-            For Each cnxn In cnxnDict
-                Dim cnxnProperties As New Dictionary(Of String, String)(cnxn.Value)
-                cnxnProperties("UID") = DeKrypt(cnxn.Value("UID"))
-                cnxnProperties("PWD") = DeKrypt(cnxn.Value("PWD"))
-                Dim connectionString As String = String.Join(";", (From c In cnxnProperties Select $"{c.Key}={c.Value}").ToArray)
-                Add(New Connection(connectionString))
-            Next
+            If cnxnDict IsNot Nothing Then
+                For Each cnxn In cnxnDict
+                    Dim cnxnProperties As New Dictionary(Of String, String)(cnxn.Value)
+                    cnxnProperties("UID") = DeKrypt(cnxn.Value("UID"))
+                    cnxnProperties("PWD") = DeKrypt(cnxn.Value("PWD"))
+                    Dim connectionString As String = String.Join(";", (From c In cnxnProperties Select $"{c.Key}={c.Value}").ToArray)
+                    Add(New Connection(connectionString))
+                Next
+            End If
         Catch ex As JsonException
         End Try
 
@@ -3216,8 +3218,10 @@ Public Class ETL
             If IsFile(ConnectionString) Then
                 If GetFileNameExtension(ConnectionString).Value = ExtensionNames.Text Then
                     DataTableToTextFile(Table, ConnectionString)
+
                 ElseIf GetFileNameExtension(ConnectionString).Value = ExtensionNames.Excel Then
-                    DataTableToExcel(Table, ConnectionString, False, False, False, True, True)
+                    DataTableToExcel(Table, ConnectionString, True, False, False, True, True)
+
                 Else
                 End If
                 _Message &= If(File.Exists(ConnectionString), Join({"Wrote file to", ConnectionString}), Join({"Did not write file to", ConnectionString})) & vbNewLine

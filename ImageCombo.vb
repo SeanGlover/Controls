@@ -112,7 +112,6 @@ Public NotInheritable Class ImageCombo
         DropImage = Base64ToImage(DropString)
         AddHandler BindingSource.DataSourceChanged, AddressOf BindingSourceChanged
         AddHandler PreviewKeyDown, AddressOf On_PreviewKeyDown
-        CursorBlinkTimer.Start()
 
     End Sub
     Protected Overrides Sub InitLayout()
@@ -525,6 +524,23 @@ Public NotInheritable Class ImageCombo
 
 #End Region
 #Region " PROPERTIES "
+    Private CursorBlinks_ As Boolean
+    Public Property CursorBlinks As Boolean
+        Get
+            Return CursorBlinks_
+        End Get
+        Set(value As Boolean)
+            If CursorBlinks_ <> value Then
+                CursorBlinks_ = value
+                If value Then
+                    CursorBlinkTimer.Start()
+                Else
+                    CursorBlinkTimer.Stop()
+                    CursorShouldBeVisible = True
+                End If
+            End If
+        End Set
+    End Property
     Friend Property Mouse_Region As MouseRegion
     Public Property CheckOnSelect As Boolean = False
     Public Property CheckboxStyle As CheckStyle = CheckStyle.Slide
