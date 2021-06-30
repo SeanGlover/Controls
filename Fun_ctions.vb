@@ -892,13 +892,17 @@ Public Module Functions
         If InputString Is Nothing Or Pattern Is Nothing Then
             Return Nothing
         Else
-            Dim matches As New List(Of Match)(From m In Regex.Matches(InputString, Pattern, Options) Select DirectCast(m, Match))
-            If Not ascendingIndex Then
-                matches.Sort(Function(y, x)
-                                 Return x.Index.CompareTo(y.Index)
-                             End Function)
-            End If
-            Return matches
+            Try
+                Dim matches As New List(Of Match)(From m In Regex.Matches(InputString, Pattern, Options) Select DirectCast(m, Match))
+                If Not ascendingIndex Then
+                    matches.Sort(Function(y, x)
+                                     Return x.Index.CompareTo(y.Index)
+                                 End Function)
+                End If
+                Return matches
+            Catch ex As ArgumentException
+                Return New List(Of Match)
+            End Try
         End If
 
     End Function

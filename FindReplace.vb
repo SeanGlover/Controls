@@ -621,7 +621,6 @@ Public Class FindReplace
 
             Case Zone.Identifier.GotoNext
                 If Matches.Any Then
-                    ZoneTip.Show(NextMatchCaption, Me, New Point(0, Height))
                     Dim Match0 As KeyValuePair(Of Integer, String) = Matches.First
                     If CurrentMatch.Value Is Nothing Then
                         _CurrentMatch = Match0
@@ -635,8 +634,9 @@ Public Class FindReplace
                         End If
 
                     End If
-                    RaiseEvent ZoneClicked(Me, New ZoneEventArgs(MouseOverZone))
+                    ZoneTip.Show(NextMatchCaption, Me, New Point(0, Height))
                 End If
+                RaiseEvent ZoneClicked(Me, New ZoneEventArgs(MouseOverZone))
 
             Case Zone.Identifier.ReplaceOne
                 If Matches.Any Then
