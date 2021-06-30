@@ -1654,11 +1654,18 @@ Public Class ColumnCollection
     Public ReadOnly Property HeadBounds As Rectangle
         Get
             Dim border3D As Integer = 3
-            If Count = 0 Then
+            Dim countColumns As Integer = Count
+            If countColumns = 0 Then
                 Dim HeadSize As New Size(Parent.Width, 3 + TextRenderer.MeasureText("XXXXXXXXXXX".ToString(InvariantCulture), HeaderStyle.Font).Height + 3 + border3D)
                 Return New Rectangle(0, 0, HeadSize.Width, {HeadSize.Height, HeaderStyle.Height}.Max)
             Else
-                Return New Rectangle(0, 0, Max(Function(c) c.HeadBounds.Right), Max(Function(c) {c.HeadBounds.Height, HeaderStyle.Height}.Max) + border3D)
+                Dim maxRight As Integer = 0
+                Dim maxHeight As Integer = HeaderStyle.Height + border3D
+                For c = 0 To countColumns - 1
+                    If Me(c).HeadBounds.Right > maxRight Then maxRight = Me(c).HeadBounds.Right
+                    If Me(c).HeadBounds.Height > maxHeight Then maxHeight = Me(c).HeadBounds.Height
+                Next
+                Return New Rectangle(0, 0, maxRight, maxHeight)
             End If
         End Get
     End Property

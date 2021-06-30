@@ -434,37 +434,41 @@ Public Module Functions
     End Enum
     Public Function CursorToControlPosition(ControlItem As Control, Optional RelativeBounds As Rectangle = Nothing) As RelativeCursor
 
-        If ControlItem Is Nothing Then
-            Return RelativeCursor.None
+        Try
+            If ControlItem Is Nothing Then
+                Return RelativeCursor.None
 
-        ElseIf ControlItem.Visible Then
-            Dim CursorPosition As Point = Cursor.Position
-            Dim RelativePoint As Point = ControlItem.PointToScreen(RelativeBounds.Location)
-            Dim RelativeSize As Size = If(RelativeBounds.Width = 0, ControlItem.Size, RelativeBounds.Size)
-            Dim RelativeRectangle As New Rectangle(RelativePoint, RelativeSize)
-            If RelativeRectangle.Contains(CursorPosition) Then
-                Return RelativeCursor.Inside
-            Else
-                If CursorPosition.Y <= RelativeRectangle.Top Then
-                    Return RelativeCursor.Above
-
-                ElseIf CursorPosition.Y >= RelativeRectangle.Bottom Then
-                    Return RelativeCursor.Below
-
-                ElseIf CursorPosition.X <= RelativeRectangle.Left Then
-                    Return RelativeCursor.LeftOf
-
-                ElseIf CursorPosition.X >= RelativeRectangle.Right Then
-                    Return RelativeCursor.RightOf
-
+            ElseIf ControlItem.Visible Then
+                Dim CursorPosition As Point = Cursor.Position
+                Dim RelativePoint As Point = ControlItem.PointToScreen(RelativeBounds.Location)
+                Dim RelativeSize As Size = If(RelativeBounds.Width = 0, ControlItem.Size, RelativeBounds.Size)
+                Dim RelativeRectangle As New Rectangle(RelativePoint, RelativeSize)
+                If RelativeRectangle.Contains(CursorPosition) Then
+                    Return RelativeCursor.Inside
                 Else
-                    Return RelativeCursor.None
+                    If CursorPosition.Y <= RelativeRectangle.Top Then
+                        Return RelativeCursor.Above
 
+                    ElseIf CursorPosition.Y >= RelativeRectangle.Bottom Then
+                        Return RelativeCursor.Below
+
+                    ElseIf CursorPosition.X <= RelativeRectangle.Left Then
+                        Return RelativeCursor.LeftOf
+
+                    ElseIf CursorPosition.X >= RelativeRectangle.Right Then
+                        Return RelativeCursor.RightOf
+
+                    Else
+                        Return RelativeCursor.None
+
+                    End If
                 End If
+            Else
+                Return RelativeCursor.None
             End If
-        Else
-            Return RelativeCursor.None
-        End If
+        Catch ex As ObjectDisposedException
+        Catch ex As Exception
+        End Try
 
     End Function
     Public Function CursorOverControl(ControlItem As Control) As Boolean
