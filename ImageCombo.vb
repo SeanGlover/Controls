@@ -711,12 +711,7 @@ Public NotInheritable Class ImageCombo
             BindingSource.DataSource = value
         End Set
     End Property
-    Private _DataType As Type
     Public ReadOnly Property DataType As Type
-        Get
-            Return GetDataType(Text)
-        End Get
-    End Property
     Private Mode_ As ImageComboMode = ImageComboMode.Combobox
     Public Property Mode As ImageComboMode
         Get
@@ -964,7 +959,14 @@ Public NotInheritable Class ImageCombo
 
         Items.Clear()
         If DataSource IsNot Nothing Then
-            If TypeOf DataSource Is IEnumerable Then
+            If TypeOf DataSource Is Dictionary(Of String, String) Then
+                _DataType = GetType(Dictionary(Of String, String))
+                Dim DictionaryStringString As Dictionary(Of String, String) = DirectCast(DataSource, Dictionary(Of String, String))
+                For Each kvp In DictionaryStringString.OrderBy(Function(v) v.Value)
+                    Items.Add(New ComboItem With {.Name = kvp.Value, .Value = kvp.Key})
+                Next
+
+            ElseIf TypeOf DataSource Is IEnumerable Then
                 Dim Types As New List(Of List(Of Object))((From O In DirectCast(DataSource, IEnumerable).AsQueryable Where Not (IsDBNull(O) Or IsNothing(O)) Group O By Type = O.GetType Into TypeGroup = Group Select TypeGroup.ToList).ToList)
                 If Types.Any Then
                     Dim Data_Type As Type = Types.First.First.GetType
@@ -1043,6 +1045,7 @@ Public NotInheritable Class ImageCombo
                 End If
 
             ElseIf DataSource.GetType Is GetType(DataColumn) Then
+                _DataType = GetType(DataColumn)
                 Dim DataColumn As DataColumn = DirectCast(DataSource, DataColumn)
                 Dim List As New List(Of Object)(From C In DataColumn.Table.Rows Where Not (IsDBNull(DirectCast(C, DataRow)(DataColumn)) Or IsNothing(DirectCast(C, DataRow)(DataColumn))) Select DirectCast(C, DataRow)(DataColumn))
                 DataSource = List.ToArray
@@ -1066,9 +1069,9 @@ Public NotInheritable Class ImageCombo
     Public Event TextCopied(sender As Object, e As EventArgs)
     Friend Sub OnItemSelected(ComboItem As ComboItem, DropDownVisible As Boolean)
 
-        If Not ComboItem.Index = SelectedIndex Then
-            SelectedIndex_ = ComboItem.Index
+        If ComboItem.Index <> SelectedIndex Then
             Text = ComboItem.Text
+            SelectedIndex_ = ComboItem.Index
             RaiseEvent SelectionChanged(Me, New ImageComboEventArgs(ComboItem))
             RaiseEvent ValueChanged(Me, New ImageComboEventArgs(ComboItem))
         End If
@@ -1380,7 +1383,7 @@ Public NotInheritable Class ImageCombo
                 RaiseEvent ClearTextClicked(Me, New ImageComboEventArgs)
                 If IsReadOnly Then Exit Sub
                 Text = String.Empty
-                SelectedIndex = 0
+                SelectedIndex_ = -1
                 SelectionStart_ = 0
                 SelectionEnd_ = 0
                 SelectionLength_ = 0
@@ -1722,7 +1725,7 @@ Public Class ImageComboDropDown
         If e IsNot Nothing Then
             With ComboParent
                 If VScroll.Bounds.Contains(e.Location) Then
-                ElseIf Bounds.Contains(e.Location) And Not VScroll.Bounds.Contains(e.Location) Then
+                ElseIf Bounds.Contains(e.Location) Then
                     Dim VScrollOffset As Point = e.Location
                     VScrollOffset.Offset(0, VScroll.Value)
                     Dim Checked As New List(Of ComboItem)(From CI In VisibleComboItems Where CI.CheckBounds.Contains(VScrollOffset))
@@ -1730,6 +1733,7 @@ Public Class ImageComboDropDown
                         Checked.First.Checked = Not Checked.First.Checked
                         .OnItemChecked(Checked.First)
                         Invalidate()
+
                     Else
                         Dim Selected As New List(Of ComboItem)(From CI In VisibleComboItems Where CI.Bounds.Contains(VScrollOffset))
                         If Selected.Any Then
@@ -1737,7 +1741,7 @@ Public Class ImageComboDropDown
                                 'Dim LastSelected As New List(Of ComboItem)(From CI In Items Where CI.Selected)
                                 'If LastSelected.Any Then LastSelected.First._Selected = False
                             End If
-                            Selected.First._Selected = Not (Selected.First.Selected)
+                            Selected.First._Selected = Not Selected.First.Selected
                             If .CheckOnSelect Then Selected.First.Checked = Not (Selected.First.Checked)
                             .OnItemSelected(Selected.First, Control.ModifierKeys = Keys.Shift)
                         End If

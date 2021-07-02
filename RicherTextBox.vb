@@ -54,6 +54,7 @@ End Structure
 Public NotInheritable Class RicherTextBox
     Inherits RichTextBox
     Public Sub New()
+
         'SetStyle(ControlStyles.AllPaintingInWmPaint, True)
         'SetStyle(ControlStyles.ContainerControl, True)
         'SetStyle(ControlStyles.DoubleBuffer, True)
@@ -64,6 +65,8 @@ Public NotInheritable Class RicherTextBox
         'SetStyle(ControlStyles.UserMouse, True)
         InnerSizeWidth = Size.Width - ClientSize.Width
         InnerSizeHeight = Size.Height - ClientSize.Height
+        FindReplace_add()
+
     End Sub
     'Protected Overloads Overrides ReadOnly Property CreateParams() As CreateParams
     '    Get
@@ -147,9 +150,153 @@ Public NotInheritable Class RicherTextBox
         MyBase.OnMouseUp(e)
     End Sub
     Public ReadOnly Property MouseWord As MouseData
-    ''' <summary>
-    ''' Gets and Sets the Vertical Scroll position of the control.
-    ''' </summary>
+
+#Region " FindReplace "
+    Private WithEvents FindReplace_ As FindReplace
+    Public ReadOnly Property FindReplace As FindReplace
+        Get
+            Return FindReplace_
+        End Get
+    End Property
+    Private HasFindReplace_ As Boolean = True
+    Public Property HasFindReplace As Boolean
+        Get
+            Return HasFindReplace_
+        End Get
+        Set(value As Boolean)
+            If value <> HasFindReplace_ Then
+                HasFindReplace_ = value
+                If value Then
+                    FindReplace_remove()
+                    FindReplace_add()
+
+                Else
+                    FindReplace_remove()
+
+                End If
+            End If
+        End Set
+    End Property
+    Private Sub FindReplace_add()
+
+        FindReplace_ = New FindReplace With {.Margin = New Padding(0), .Visible = False}
+        Controls.Add(FindReplace)
+        AddHandler KeyDown, AddressOf KeyDown_FindReplace
+        AddHandler FindReplace.FindChanged, AddressOf FindRequest
+        AddHandler FindReplace.ZoneClicked, AddressOf FindReplace_zoneClicked
+        FindReplace.DataBindings.Add("DataSource", Me, "Text")
+
+    End Sub
+    Private Sub FindReplace_remove()
+
+        If FindReplace IsNot Nothing Then
+            Controls.Remove(FindReplace)
+            RemoveHandler FindReplace.KeyDown, AddressOf KeyDown_FindReplace
+            RemoveHandler FindReplace.FindChanged, AddressOf FindRequest
+            RemoveHandler FindReplace.ZoneClicked, AddressOf FindReplace_zoneClicked
+            FindReplace_.Dispose()
+        End If
+
+    End Sub
+    Private Sub KeyDown_FindReplace(sender As Object, e As KeyEventArgs)
+
+        If ModifierKeys = Keys.Control Then
+            If e.KeyCode = Keys.F Then
+                FindReplace.Show()
+                If SelectedText.Any Then FindReplace.FindControl.Text = SelectedText
+            End If
+        End If
+
+    End Sub
+    Private Sub FindReplace_zoneClicked(ByVal sender As Object, ByVal e As ZoneEventArgs)
+
+        Dim textSearch As String = Text
+        If e.Zone.Name = Zone.Identifier.MatchCase Or e.Zone.Name = Zone.Identifier.MatchWord Or e.Zone.Name = Zone.Identifier.RegEx Then
+            FindRequest(Nothing, New FindEventArgs(Nothing))
+
+        ElseIf e.Zone.Name = Zone.Identifier.Close Then
+            Dim selectStart As Integer = SelectionStart
+            SelectAll()
+            SelectionBackColor = Color.Transparent
+            SelectionColor = Color.Black
+            SelectionStart = selectStart
+            SelectionLength = 0
+
+        ElseIf e.Zone.Name = Zone.Identifier.GotoNext Then
+            If FindReplace.CurrentMatch.Key >= 0 Then
+                Dim frPoint As Point = FindReplace.PointToClient(PointToScreen(New Point()))
+                FindRequest(Nothing, New FindEventArgs(Nothing))
+                Dim Match = FindReplace.CurrentMatch
+                Dim rtfTemp = Rtf
+                Using RTB As New RichTextBox With
+                    {
+                .Rtf = rtfTemp,
+                .SelectionStart = Match.Key,
+                .SelectionLength = Match.Value.Length,
+                .SelectionBackColor = Color.DarkBlue,
+                .SelectionColor = Color.White
+                    }
+                    rtfTemp = RTB.Rtf
+                End Using
+                Rtf = rtfTemp
+                SelectionStart = Match.Key
+                Dim currentPoint As Point = GetPositionFromCharIndex(SelectionStart)
+                If Not ClientRectangle.Contains(currentPoint) Then ScrollToCaret()
+                FindReplace.Location = New Point(Math.Abs(frPoint.X), Math.Abs(frPoint.Y))
+            End If
+
+        ElseIf e.Zone.Name = Zone.Identifier.ReplaceOne Then
+            If FindReplace.CurrentMatch.Key >= 0 Then
+                textSearch = textSearch.Remove(FindReplace.CurrentMatch.Key, FindReplace.CurrentMatch.Value.Length)
+                textSearch = textSearch.Insert(FindReplace.CurrentMatch.Key, FindReplace.ReplaceControl.Text)
+                Text = textSearch
+                'FindReplace.DataSource = textSearch
+                FindRequest(Nothing, New FindEventArgs(Nothing))
+            End If
+
+        ElseIf e.Zone.Name = Zone.Identifier.ReplaceAll Then
+            If FindReplace.CurrentMatch.Key >= 0 Then
+                Dim ReverseOrderMatches = FindReplace.Matches.OrderByDescending(Function(x) x.Key)
+                For Each match In ReverseOrderMatches
+                    textSearch = textSearch.Remove(match.Key, match.Value.Length)
+                    textSearch = textSearch.Insert(match.Key, FindReplace.ReplaceControl.Text)
+                Next
+                If FindReplace.CurrentMatch.Key >= 0 Then
+                    Text = textSearch
+                    'FindReplace.DataSource = textSearch
+                    FindRequest(Nothing, New FindEventArgs(Nothing))
+                End If
+            End If
+
+        End If
+    End Sub
+    Private Sub FindRequest(ByVal sender As Object, ByVal e As FindEventArgs)
+
+        Dim selectionStartTemp As Integer = SelectionStart
+        SelectAll()
+        SelectionBackColor = Color.Transparent
+        SelectionColor = Color.Black
+        SelectionStart = selectionStartTemp
+        SelectionLength = 0
+
+        If (If(FindReplace.FindControl.Text, String.Empty)).Any() Then
+            Dim rtfTemp As String = Rtf
+            Using RTB As New RichTextBox With {.Rtf = rtfTemp}
+                For Each match In FindReplace.Matches
+                    SelectionStart = match.Key
+                    SelectionLength = match.Value.Length
+                    SelectionBackColor = Color.Yellow
+                    SelectionColor = Color.Black
+                Next
+                rtfTemp = Rtf
+            End Using
+            Rtf = rtfTemp
+            SelectionStart = selectionStartTemp
+        End If
+
+    End Sub
+#End Region
+
     Public Property VScrollPos() As Integer
         Get
             Return NativeMethods.GetScrollPos(Handle, SB_VERT)
