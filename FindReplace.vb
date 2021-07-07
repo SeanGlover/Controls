@@ -22,77 +22,24 @@ Public NotInheritable Class ZoneEventArgs
     End Sub
 End Class
 Public NotInheritable Class Zone
-    Public Sub New(ZoneName As Identifier)
-        Name = ZoneName
-        Select Case Name
-            Case Identifier.Close
-                _Image = New Bitmap(My.Resources.fr_close, New Size(20, 20))
-                Caption = "Close"
-
-            Case Identifier.ExpandWidth
-                '_Image = Base64ToImage("iVBORw0KGgoAAAANSUhEUgAAABMAAAATCAYAAAByUDbMAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjEuNv1OCegAAABMSURBVDhPzY67DQAgCAUZjf2X0kYLroA8Y5RLKI6/9cfdx46VOqfvsqvwM7oEh+kSHKb/g59UnsLmylPYXPk7eFn1AIuqB1hUvTNmEyBwnSer7yuJAAAAAElFTkSuQmCC")
-                _Image = New Bitmap(My.Resources.fr_expand, New Size(20, 20))
-                Caption = "Drag to resize"
-
-            Case Identifier.Filter
-                _Image = Base64ToImage("iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABh0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMS42/U4J6AAAAcVJREFUSEu9lk1LAkEYxxc8iC+n3ijwENTVW1BfoU5FYFL5kpW4vqzaquisMKdO0Rco6rt07wMEBXWI6B4FnbZ5ZmeW9XF2Ncz+8H+cl2d+fxeXQU3boiHm6JQcgoBok1B7GuYh/xEQZl6YksP/8gQR1eZfGNg8oNGjb6qGSVww6Qlj87colDykCVVIpWU96x16U2zTS2xYX81fzOMzYAm3bVvTeGGTlTRdUoXoZ+Rxu0I3WE+MOSIcm0udz+JesBfuBsiQ5T26aHTpPT6km72XnSpdhx4wjI1O/xv3YfhAAJ84gHjR7N/iw2WTvAIYXG1bn3g/2+gXMJwzByYgEXLcJNcYUmmRd+YPvJ4xrCMVnDN5YRpYdEKiuTrpYhj2QY1k/eBgpwgNbbKDOYO0VGDwfpVkfL+54LkTP6XrdK3Wtr5UAfCUom1IbtCoAAaJZEv1BwyH3wLCRZcrCZ44IF9uPsGe6OLCcM7mJUhjBmCwtFOCNCIAA7GdEiRFAFwpu6dmmu35vp5gLnfgJxQAV8mmTpOj4NJOCZInoNShV2weHwcO4p9y4ise0LgTFxn/p+AFqSzFx94FpRgwkaIzvwFL2bat/QBLBgP9DYp+awAAAABJRU5ErkJggg==")
-                Caption = "Filter column"
-
-            Case Identifier.FilterReset
-                _Image = Base64ToImage("iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABh0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMS42/U4J6AAAAa5JREFUSEu9VLtKA0EUTa2EYCSkEAIWNqIkiMVGIwHBzt5ecPPAHY2fYOV3WFrYhWgEq7CKEEG0iDYGYukLtfEB49yd3GFmMpMIuh44d2fuPfecPGAjlNJQGZSDSp6Gwf8LCJNBMaX/BUMPiCCOKrlXk+A3PPMmHfENWoXkMAtp6aI6yT75JHN+6k35OqHfLo66+g5jh5nHwVcEAK/dxBAL2dUX6p7zcFVO7dy50eWOG10Ewvm2MLKqaxkVcyUAebzp9HyqQ+I8X5THt2/W4gkgnGsbC1+arsccqFyQDS+9BAuKAcm+gDE3z30os0p+z+QDNDaBjfXpJFv0FSMy91Yj8+9Kr485kBcG+Qlsu7EYPMFAM5TZ1xzISxei2T3j02AcEPUm4q64mIBi9pt/DgrQIfqmIQJF1dLMvW4O/wXOZQ+5F/TloQ4UmQKq5dlHnKOHfBf9oFiAop8E2MiLBSiyBXRlQmciLxagSA+Al+NJcWJF1tjIiwUokgPYq6R5WUqN4WwQebEARRjgk/QW9nBPvsvEmbiYgOJ6KbNvepHZiAjOckMHznBxEHVQSiPfY2gC9/HDg+kAAAAASUVORK5CYII=")
-                Caption = "Reset filter on column"
-
-            Case Identifier.FiltersReset
-                _Image = Base64ToImage("iVBORw0KGgoAAAANSUhEUgAAACQAAAAYCAYAAACSuF9OAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABh0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMS42/U4J6AAAAn9JREFUSEvNls9rE0EUxxfipZat0Bq81IKHokZtigmY1BRBvRgVhELRk1DaSXbT3Ri8eVmqh/pPeO7Fm9RoBU8af2AUUbD2FFDswZ+o+BvW951k43YyuyFxt/TBJz9mZ977ZPbNEmVlpj9aY1uOhIGtK6pt20onKFh4o3TIDgMS2i0r6sfGE3oxMxBbZb1zYUBCg7Kifmy8HXrF1MOyZEEAISVr9cgKe8GFbpUyX2QJ/4eHRmyBhNSOhXDsl3Pb8jKpJTP9sWKOPr5v7K2IYLyWH2DiGlCd3Xn1uxY5ih36lt+UqbLtZ/jta4/KrSD1kkWnpVJG6v1zfejya6aewG6+zfWcEucEBfI3twpSK2zr1O1zqTfixJtm6tNTfcdFzMEvFq8HBXI3hRwpspy4Y8SftCww058hBcLoObpdifnC5LE1Qoim1Oy+astCc+xr2Tz4E5+76TkqOi6uAZBB/3AHR8QtBik8n+4W9lyXJXDw6jlKfoCIE06zJjEmzgU03pThLvylEc6gA8Qqhdg1WSLwSB9e8Oo5KpLmheqky8XxP+K8H1okO2ecveSuWX/xiQeFXaVyMfNbTAZWc73HUcyr5+gafn2C1v8Sr2Md0Xe6aCU7EsJRXNT2vxMTopcgi6RI3q7n3DgyvIDw4OxaaFFPfuDPDYqG1AiREOeJrJFBhCGE4Anr/eIp1SKDCFrInYxDp8qr5+jaSCPtvwhCCMf9Xn74Ck6hOxmHhLx6LhQhHPNn2tAFqQzwEMKOBi5UMeNV+j7hKQPWQ2hJG63h/w2e3r4yoEuhqfPWNH3ezJP4BQSWWfRkWxECgaKiEHqOxltPGCJrRQYnrX6827at/AWaftX0yNAQzgAAAABJRU5ErkJggg==")
-                Caption = "Reset all filters on columns"
-
-            Case Identifier.GotoNext
-                '_Image = My.Resources.Limit
-                _Image = New Bitmap(My.Resources.fr_next, New Size(20, 20))
-                Caption = "Go to next match"
-
-            Case Identifier.MatchCase
-                '_Image = Base64ToImage("iVBORw0KGgoAAAANSUhEUgAAABUAAAATCAYAAAB/TkaLAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjEuNv1OCegAAAGTSURBVDhPrZHPK0RRGIZn40fZkCwU2UkjokmhmXtnmqamsVKysrCysEQpZkH+ACtWLK1szEIWiqzEwpKUsrGkJhvK4no+fWece++pUdfi6Zz3/d7z3jNnUkEQ/DtOMylOMylOMylO0/f9U3jM5/PLrnkzYkY2m+2iLFCuovO/EDMKhcKSFHLTmq5D0UwzYgZF5/BVLBYHtXQrmsEbgwPml3DN/tDzvHEzD4W55YAWVUWz/4AHO6O+ZE5Y12GD/RO8QqfMQ2HMNTkg76qHd0TzMc/OcaupiK5oriK6MRAovWH4bOl2CcO+nbPhmbqZ+5IjvyBeY8jXRrTgDDYJVJUXeDM5AT0JR+LrmR/Q4VKMbR2+O5ADc5KTd2dfh5pcpFwut+ENayZcinkPF0YbMplMixyAY9EUzIvO5XIzJkP5hHihUoLTai6aoI0UylzezzwT2T3o408dRd+q91uKcYfxWSqVOuwyA0WzcghWRLPuqpaiOuuq7sM/ny/2mL0Lfm6vrdPpdCtev+0ZYsZ/4DSTEaS+AQyj1eAqLTaAAAAAAElFTkSuQmCC")
-                _Image = New Bitmap(My.Resources.fr_case, New Size(20, 20))
-                Caption = "Case-sensitive match"
-
-            Case Identifier.MatchWord
-                '_Image = Base64ToImage("iVBORw0KGgoAAAANSUhEUgAAABUAAAATCAYAAAB/TkaLAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjEuNv1OCegAAAGVSURBVDhPrZQ/S8NQFMU7KAhOIiri4KS4iEOmSJvmD/0AgrjqJOgiiOBgh0g3EQdB8SOITiLiIAh1c3ERFKcuburiouAQzynvPq4vgYp2+DX33XPuyctrSCkMw7TbMDTrNn/d6X21Wn0t6LcpZVmWAwMX4AmG1SK9E7lGuVweQJg8StPVf0OuEUXRMgOx0zNznXI9ncg1EHQFvpIkmTShqdZxUw/9E5cgCKbFY81mYBwGBtW5Rv0BHrUHwxPQDwzHmGlxBtcZ8VgzgWmDBp4r16gbZiDQPiGO4zHqYF/3f5gQegtDS637zNCh9imd/hdce3TfFjwTE3AJtmCsG57Bmx4i8KzRD23F1WwBcduEvhfA4Xnl5ROwfyM9jS1geADXWiSe5/UyFJxKD6FH7OFMR7RXaP/gj5ilCeYl10AYSB2v2WClUglYg3PMLQi+7w+LX4buEPhZq9X6RdDgvOdM0DpYNLXLpvjtIF6jIamLwA5HpebNXbSXu2x/WbDTHamLgL7rrBtgT/cEhhY9yr+wO+0eYfoNCEQi0nknzQMAAAAASUVORK5CYII=")
-                _Image = New Bitmap(My.Resources.fr_word, New Size(20, 20))
-                Caption = "Match whole word"
-
-            Case Identifier.Move
-                '_Image = My.Resources.Move
-                _Image = New Bitmap(My.Resources.fr_move, New Size(20, 20))
-                Caption = "Drag to move"
-
-            Case Identifier.RegEx
-                '_Image = Base64ToImage("iVBORw0KGgoAAAANSUhEUgAAABUAAAATCAYAAAB/TkaLAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjEuNv1OCegAAADNSURBVDhPrZIxCsJAEEVTWHoCK88RhCx4CQstg6XYi1h7ExsLOw/hESwECy8R1jeygWz4JoFN8ZjMy/CKkMx7PzpSpiJlKlJ2URTF2jn3VO9qpFQQK4ltmQyH+rlTnuez5p0RLV0QulqM0CPMN1Swb99GSx/ElkQ+IXpXN4aUCiIXi8EtRF9Q8bxr30ZLFwRK2MDKouaYZ/Z5886IliFYuI7+Q8pUpExFylSkNPh2E+WHICXBQ/htFup9H1ISPI4eNQhOlR+ClKlImYbPvm6MZAhmAxAaAAAAAElFTkSuQmCC")
-                _Image = New Bitmap(My.Resources.fr_regex, New Size(20, 20))
-                Caption = "Match using Regular Expressions"
-
-            Case Identifier.ReplaceAll
-                '_Image = Base64ToImage("iVBORw0KGgoAAAANSUhEUgAAABkAAAANCAYAAABcrsXuAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjEuNv1OCegAAAGKSURBVDhPtZLNK0RhFMZnYaMoHwvJWlLEStM0c+erWErZW5HFWIgSSixYCFkoG7OyUJY2k5K1lYWiLDQbC6mbf0Bz/Z7pPdebbmmSxW/O857nnPe5M3dSURT9O4nNVikUChvQSPJEYrNVXEg9yROJzVZxIR9JnohFPp/vgkU4ZGGlWCwO+YOlUmkCbxXviDrvey6kkcvl+qlrsMV+YH48yOIbZkTdpl5KB0Ew6i6Z1tmxx8wz9dZ20QoxP4agBflxCI0x04KLXmHJO3d4uqJL+HZ9OqMtZMpm0HrQmnSzccXnX3AhjxYgeJBlCOMQ1zxgUAsX6BNqCJvyyuVyL707+dQqnEnzcw7KRyvkye5yvTnmPqUtYFxL2Wx21huqQzMEfxf9YB6XD2v+lxC9uxdpCxnRErWiM8szOoOF7KDfeYhudz6W/yNE86f6h/F+J5kJYV2+n3zuBhV2Q61BM4QXPIC+Nx/2Vf0Qdq6p/h1VuzsOEel0uj2TyXT6PR/8nqS+jx6IgLbvXpT6Avgh79zsR2LpAAAAAElFTkSuQmCC")
-                _Image = New Bitmap(My.Resources.fr_all, New Size(20, 20))
-                Caption = "Replace all matches"
-
-            Case Identifier.ReplaceOne
-                '_Image = Base64ToImage("iVBORw0KGgoAAAANSUhEUgAAABIAAAARCAYAAADQWvz5AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjEuNv1OCegAAAE6SURBVDhPrZK9SsRAFIXTbiEsIlaW/oAoLotICPkPSS+4ryBbaLWljZWVFsq+gYViYWFjY6lPYLHlNhY2PsN4znBnGScDsqvFx7333MmXhCRQSv0L3nARvOEieEOXLMvW8zxXVVVt+vbEG7oYUVmWfd+eeEOXuUQ43AVDcIWLRkVRbFm7mQj5MfobZAOzJ7bok4dRz1Ef2Kdpuis7LYLkFfWRPUF+3xLh0J7pCQ59gFPptQhcWPtrZnVdr3IOnhD/hhHhCTcs0ZpktRZZi0u56x36MeoXOJNdSxSGYYcZdkecjaTHMI5jHRLMU1cURdG+2SdJciAinRnRjoQnnHHnQ86uCLzzQtBFzw/yxv1MRBDeymEKX1CfgSsaSSUT/A7bLRHhe+Pxl+zMBdKVpmmW3fzH8Be84fyo4BugtOMkNlTnWwAAAABJRU5ErkJggg==")
-                _Image = New Bitmap(My.Resources.fr_one, New Size(20, 20))
-                Caption = "Replace next match"
-
-            Case Identifier.ShowHideReplace
-                _Image = New Bitmap(My.Resources.fr_up, New Size(20, 12))
-                Caption = "Show or hide replace"
-
-            Case Identifier.Tip
-                '_Image = My.Resources.LightOff
-                _Image = New Bitmap(My.Resources.fr_light, New Size(20, 20))
-                Caption = "Click to turn off tips"
-                Selected = True
-
-        End Select
-    End Sub
+    Public Enum Identifier
+        None
+        ShowHideReplace
+        GotoNext
+        Close
+        ReplaceOne
+        ReplaceAll
+        ExpandWidth
+        MatchCase
+        MatchWord
+        RegEx
+        Filter
+        FilterReset
+        FiltersReset
+        Switch
+        Tip
+        Move
+    End Enum
     Public ReadOnly Caption As String
     Public ReadOnly Property Name As Identifier
     Private ReadOnly _Image As Image
@@ -130,23 +77,82 @@ Public NotInheritable Class Zone
             End Select
         End Set
     End Property
-    Public Enum Identifier
-        None
-        ShowHideReplace
-        GotoNext
-        Close
-        ReplaceOne
-        ReplaceAll
-        ExpandWidth
-        MatchCase
-        MatchWord
-        RegEx
-        Filter
-        FilterReset
-        FiltersReset
-        Tip
-        Move
-    End Enum
+
+    Public Sub New(ZoneName As Identifier)
+        Name = ZoneName
+        Select Case Name
+            Case Identifier.Close
+                _Image = New Bitmap(My.Resources.fr_close, New Size(20, 20))
+                Caption = "Close"
+
+            Case Identifier.ExpandWidth
+                '_Image = Base64ToImage("iVBORw0KGgoAAAANSUhEUgAAABMAAAATCAYAAAByUDbMAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjEuNv1OCegAAABMSURBVDhPzY67DQAgCAUZjf2X0kYLroA8Y5RLKI6/9cfdx46VOqfvsqvwM7oEh+kSHKb/g59UnsLmylPYXPk7eFn1AIuqB1hUvTNmEyBwnSer7yuJAAAAAElFTkSuQmCC")
+                _Image = My.Resources.fr_expand
+                Caption = "Drag to resize"
+
+            Case Identifier.Filter
+                _Image = Base64ToImage("iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABh0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMS42/U4J6AAAAcVJREFUSEu9lk1LAkEYxxc8iC+n3ijwENTVW1BfoU5FYFL5kpW4vqzaquisMKdO0Rco6rt07wMEBXWI6B4FnbZ5ZmeW9XF2Ncz+8H+cl2d+fxeXQU3boiHm6JQcgoBok1B7GuYh/xEQZl6YksP/8gQR1eZfGNg8oNGjb6qGSVww6Qlj87colDykCVVIpWU96x16U2zTS2xYX81fzOMzYAm3bVvTeGGTlTRdUoXoZ+Rxu0I3WE+MOSIcm0udz+JesBfuBsiQ5T26aHTpPT6km72XnSpdhx4wjI1O/xv3YfhAAJ84gHjR7N/iw2WTvAIYXG1bn3g/2+gXMJwzByYgEXLcJNcYUmmRd+YPvJ4xrCMVnDN5YRpYdEKiuTrpYhj2QY1k/eBgpwgNbbKDOYO0VGDwfpVkfL+54LkTP6XrdK3Wtr5UAfCUom1IbtCoAAaJZEv1BwyH3wLCRZcrCZ44IF9uPsGe6OLCcM7mJUhjBmCwtFOCNCIAA7GdEiRFAFwpu6dmmu35vp5gLnfgJxQAV8mmTpOj4NJOCZInoNShV2weHwcO4p9y4ise0LgTFxn/p+AFqSzFx94FpRgwkaIzvwFL2bat/QBLBgP9DYp+awAAAABJRU5ErkJggg==")
+                Caption = "Filter column"
+
+            Case Identifier.FilterReset
+                _Image = Base64ToImage("iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABh0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMS42/U4J6AAAAa5JREFUSEu9VLtKA0EUTa2EYCSkEAIWNqIkiMVGIwHBzt5ecPPAHY2fYOV3WFrYhWgEq7CKEEG0iDYGYukLtfEB49yd3GFmMpMIuh44d2fuPfecPGAjlNJQGZSDSp6Gwf8LCJNBMaX/BUMPiCCOKrlXk+A3PPMmHfENWoXkMAtp6aI6yT75JHN+6k35OqHfLo66+g5jh5nHwVcEAK/dxBAL2dUX6p7zcFVO7dy50eWOG10Ewvm2MLKqaxkVcyUAebzp9HyqQ+I8X5THt2/W4gkgnGsbC1+arsccqFyQDS+9BAuKAcm+gDE3z30os0p+z+QDNDaBjfXpJFv0FSMy91Yj8+9Kr485kBcG+Qlsu7EYPMFAM5TZ1xzISxei2T3j02AcEPUm4q64mIBi9pt/DgrQIfqmIQJF1dLMvW4O/wXOZQ+5F/TloQ4UmQKq5dlHnKOHfBf9oFiAop8E2MiLBSiyBXRlQmciLxagSA+Al+NJcWJF1tjIiwUokgPYq6R5WUqN4WwQebEARRjgk/QW9nBPvsvEmbiYgOJ6KbNvepHZiAjOckMHznBxEHVQSiPfY2gC9/HDg+kAAAAASUVORK5CYII=")
+                Caption = "Reset filter on column"
+
+            Case Identifier.FiltersReset
+                _Image = Base64ToImage("iVBORw0KGgoAAAANSUhEUgAAACQAAAAYCAYAAACSuF9OAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABh0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMS42/U4J6AAAAn9JREFUSEvNls9rE0EUxxfipZat0Bq81IKHokZtigmY1BRBvRgVhELRk1DaSXbT3Ri8eVmqh/pPeO7Fm9RoBU8af2AUUbD2FFDswZ+o+BvW951k43YyuyFxt/TBJz9mZ977ZPbNEmVlpj9aY1uOhIGtK6pt20onKFh4o3TIDgMS2i0r6sfGE3oxMxBbZb1zYUBCg7Kifmy8HXrF1MOyZEEAISVr9cgKe8GFbpUyX2QJ/4eHRmyBhNSOhXDsl3Pb8jKpJTP9sWKOPr5v7K2IYLyWH2DiGlCd3Xn1uxY5ih36lt+UqbLtZ/jta4/KrSD1kkWnpVJG6v1zfejya6aewG6+zfWcEucEBfI3twpSK2zr1O1zqTfixJtm6tNTfcdFzMEvFq8HBXI3hRwpspy4Y8SftCww058hBcLoObpdifnC5LE1Qoim1Oy+astCc+xr2Tz4E5+76TkqOi6uAZBB/3AHR8QtBik8n+4W9lyXJXDw6jlKfoCIE06zJjEmzgU03pThLvylEc6gA8Qqhdg1WSLwSB9e8Oo5KpLmheqky8XxP+K8H1okO2ecveSuWX/xiQeFXaVyMfNbTAZWc73HUcyr5+gafn2C1v8Sr2Md0Xe6aCU7EsJRXNT2vxMTopcgi6RI3q7n3DgyvIDw4OxaaFFPfuDPDYqG1AiREOeJrJFBhCGE4Anr/eIp1SKDCFrInYxDp8qr5+jaSCPtvwhCCMf9Xn74Ck6hOxmHhLx6LhQhHPNn2tAFqQzwEMKOBi5UMeNV+j7hKQPWQ2hJG63h/w2e3r4yoEuhqfPWNH3ezJP4BQSWWfRkWxECgaKiEHqOxltPGCJrRQYnrX6827at/AWaftX0yNAQzgAAAABJRU5ErkJggg==")
+                Caption = "Reset all filters on columns"
+
+            Case Identifier.GotoNext
+                '_Image = My.Resources.Limit
+                _Image = New Bitmap(My.Resources.fr_next, New Size(20, 20))
+                Caption = "Go to next match"
+
+            Case Identifier.MatchCase
+                '_Image = Base64ToImage("iVBORw0KGgoAAAANSUhEUgAAABUAAAATCAYAAAB/TkaLAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjEuNv1OCegAAAGTSURBVDhPrZHPK0RRGIZn40fZkCwU2UkjokmhmXtnmqamsVKysrCysEQpZkH+ACtWLK1szEIWiqzEwpKUsrGkJhvK4no+fWece++pUdfi6Zz3/d7z3jNnUkEQ/DtOMylOMylOMylO0/f9U3jM5/PLrnkzYkY2m+2iLFCuovO/EDMKhcKSFHLTmq5D0UwzYgZF5/BVLBYHtXQrmsEbgwPml3DN/tDzvHEzD4W55YAWVUWz/4AHO6O+ZE5Y12GD/RO8QqfMQ2HMNTkg76qHd0TzMc/OcaupiK5oriK6MRAovWH4bOl2CcO+nbPhmbqZ+5IjvyBeY8jXRrTgDDYJVJUXeDM5AT0JR+LrmR/Q4VKMbR2+O5ADc5KTd2dfh5pcpFwut+ENayZcinkPF0YbMplMixyAY9EUzIvO5XIzJkP5hHihUoLTai6aoI0UylzezzwT2T3o408dRd+q91uKcYfxWSqVOuwyA0WzcghWRLPuqpaiOuuq7sM/ny/2mL0Lfm6vrdPpdCtev+0ZYsZ/4DSTEaS+AQyj1eAqLTaAAAAAAElFTkSuQmCC")
+                _Image = My.Resources.fr_case
+                Caption = "Case-sensitive match"
+
+            Case Identifier.MatchWord
+                '_Image = Base64ToImage("iVBORw0KGgoAAAANSUhEUgAAABUAAAATCAYAAAB/TkaLAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjEuNv1OCegAAAGVSURBVDhPrZQ/S8NQFMU7KAhOIiri4KS4iEOmSJvmD/0AgrjqJOgiiOBgh0g3EQdB8SOITiLiIAh1c3ERFKcuburiouAQzynvPq4vgYp2+DX33XPuyctrSCkMw7TbMDTrNn/d6X21Wn0t6LcpZVmWAwMX4AmG1SK9E7lGuVweQJg8StPVf0OuEUXRMgOx0zNznXI9ncg1EHQFvpIkmTShqdZxUw/9E5cgCKbFY81mYBwGBtW5Rv0BHrUHwxPQDwzHmGlxBtcZ8VgzgWmDBp4r16gbZiDQPiGO4zHqYF/3f5gQegtDS637zNCh9imd/hdce3TfFjwTE3AJtmCsG57Bmx4i8KzRD23F1WwBcduEvhfA4Xnl5ROwfyM9jS1geADXWiSe5/UyFJxKD6FH7OFMR7RXaP/gj5ilCeYl10AYSB2v2WClUglYg3PMLQi+7w+LX4buEPhZq9X6RdDgvOdM0DpYNLXLpvjtIF6jIamLwA5HpebNXbSXu2x/WbDTHamLgL7rrBtgT/cEhhY9yr+wO+0eYfoNCEQi0nknzQMAAAAASUVORK5CYII=")
+                _Image = My.Resources.fr_word
+                Caption = "Match whole word"
+
+            Case Identifier.Move
+                '_Image = My.Resources.Move
+                _Image = My.Resources.fr_move
+                Caption = "Drag to move"
+
+            Case Identifier.RegEx
+                '_Image = Base64ToImage("iVBORw0KGgoAAAANSUhEUgAAABUAAAATCAYAAAB/TkaLAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjEuNv1OCegAAADNSURBVDhPrZIxCsJAEEVTWHoCK88RhCx4CQstg6XYi1h7ExsLOw/hESwECy8R1jeygWz4JoFN8ZjMy/CKkMx7PzpSpiJlKlJ2URTF2jn3VO9qpFQQK4ltmQyH+rlTnuez5p0RLV0QulqM0CPMN1Swb99GSx/ElkQ+IXpXN4aUCiIXi8EtRF9Q8bxr30ZLFwRK2MDKouaYZ/Z5886IliFYuI7+Q8pUpExFylSkNPh2E+WHICXBQ/htFup9H1ISPI4eNQhOlR+ClKlImYbPvm6MZAhmAxAaAAAAAElFTkSuQmCC")
+                _Image = New Bitmap(My.Resources.fr_regex, New Size(20, 20))
+                Caption = "Match using Regular Expressions"
+
+            Case Identifier.ReplaceAll
+                '_Image = Base64ToImage("iVBORw0KGgoAAAANSUhEUgAAABkAAAANCAYAAABcrsXuAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjEuNv1OCegAAAGKSURBVDhPtZLNK0RhFMZnYaMoHwvJWlLEStM0c+erWErZW5HFWIgSSixYCFkoG7OyUJY2k5K1lYWiLDQbC6mbf0Bz/Z7pPdebbmmSxW/O857nnPe5M3dSURT9O4nNVikUChvQSPJEYrNVXEg9yROJzVZxIR9JnohFPp/vgkU4ZGGlWCwO+YOlUmkCbxXviDrvey6kkcvl+qlrsMV+YH48yOIbZkTdpl5KB0Ew6i6Z1tmxx8wz9dZ20QoxP4agBflxCI0x04KLXmHJO3d4uqJL+HZ9OqMtZMpm0HrQmnSzccXnX3AhjxYgeJBlCOMQ1zxgUAsX6BNqCJvyyuVyL707+dQqnEnzcw7KRyvkye5yvTnmPqUtYFxL2Wx21huqQzMEfxf9YB6XD2v+lxC9uxdpCxnRErWiM8szOoOF7KDfeYhudz6W/yNE86f6h/F+J5kJYV2+n3zuBhV2Q61BM4QXPIC+Nx/2Vf0Qdq6p/h1VuzsOEel0uj2TyXT6PR/8nqS+jx6IgLbvXpT6Avgh79zsR2LpAAAAAElFTkSuQmCC")
+                _Image = My.Resources.fr_all
+                Caption = "Replace all matches"
+
+            Case Identifier.ReplaceOne
+                '_Image = Base64ToImage("iVBORw0KGgoAAAANSUhEUgAAABIAAAARCAYAAADQWvz5AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjEuNv1OCegAAAE6SURBVDhPrZK9SsRAFIXTbiEsIlaW/oAoLotICPkPSS+4ryBbaLWljZWVFsq+gYViYWFjY6lPYLHlNhY2PsN4znBnGScDsqvFx7333MmXhCRQSv0L3nARvOEieEOXLMvW8zxXVVVt+vbEG7oYUVmWfd+eeEOXuUQ43AVDcIWLRkVRbFm7mQj5MfobZAOzJ7bok4dRz1Ef2Kdpuis7LYLkFfWRPUF+3xLh0J7pCQ59gFPptQhcWPtrZnVdr3IOnhD/hhHhCTcs0ZpktRZZi0u56x36MeoXOJNdSxSGYYcZdkecjaTHMI5jHRLMU1cURdG+2SdJciAinRnRjoQnnHHnQ86uCLzzQtBFzw/yxv1MRBDeymEKX1CfgSsaSSUT/A7bLRHhe+Pxl+zMBdKVpmmW3fzH8Be84fyo4BugtOMkNlTnWwAAAABJRU5ErkJggg==")
+                _Image = My.Resources.fr_one
+                Caption = "Replace next match"
+
+            Case Identifier.ShowHideReplace
+                _Image = New Bitmap(My.Resources.fr_up, New Size(20, 12))
+                Caption = "Show or hide replace"
+
+            Case Identifier.Switch
+                _Image = My.Resources.fr_switch
+                Caption = "Switch find and replace text"
+
+            Case Identifier.Tip
+                '_Image = My.Resources.LightOff
+                _Image = New Bitmap(My.Resources.fr_light, New Size(20, 20))
+                Caption = "Click to turn off tips"
+                Selected = True
+
+        End Select
+    End Sub
 End Class
 Public Class FindReplace
     Inherits Control
@@ -200,7 +206,7 @@ Public Class FindReplace
                 Dim ZoneBounds As Rectangle = ZonesBounds(Zone)
                 If Zone.Name <> Zone.Identifier.None Then
                     Dim zoneBulb As Image = If(Zone.Name = Zone.Identifier.Tip, If(Zone.Selected, My.Resources.fr_lighton, My.Resources.fr_light), Nothing)
-                    Dim zoneImage As Image = If(Zone.Name = Zone.Identifier.Tip, zoneBulb, Convert(DirectCast(Zone.Image, Bitmap), glossFore))
+                    Dim zoneImage As Image = If(Zone.Name = Zone.Identifier.Tip, zoneBulb, Zone.Image)
                     e.Graphics.DrawImage(zoneImage, ZoneBounds)
                 End If
                 If Not Zone.Name = Zone.Identifier.Tip And Zone.Name = MouseOverZone.Name Then
@@ -614,10 +620,8 @@ Public Class FindReplace
         MouseOverZone.Selected = Not MouseOverZone.Selected
 
         Select Case MouseOverZone.Name
-            Case Zone.Identifier.None
-
-            Case Zone.Identifier.MatchCase, Zone.Identifier.MatchWord, Zone.Identifier.RegEx
-                RaiseEvent ZoneClicked(Me, New ZoneEventArgs(MouseOverZone))
+            Case Zone.Identifier.None, Zone.Identifier.MatchCase, Zone.Identifier.MatchWord, Zone.Identifier.RegEx
+                '// do nothing
 
             Case Zone.Identifier.Close
                 Close()
@@ -643,28 +647,30 @@ Public Class FindReplace
                     End If
                     ZoneTip.Show(NextMatchCaption, Me, New Point(0, Height))
                 End If
-                RaiseEvent ZoneClicked(Me, New ZoneEventArgs(MouseOverZone))
 
             Case Zone.Identifier.ReplaceOne
                 If Matches.Any Then
                     If CurrentMatch.Value Is Nothing Then _CurrentMatch = Matches.First
-                    RaiseEvent ZoneClicked(Me, New ZoneEventArgs(MouseOverZone))
                     MouseOverZone = Zones(Zone.Identifier.GotoNext)
                     OnMouseDown(e)
                     MouseOverZone = Zones(Zone.Identifier.ReplaceOne)
                 End If
 
             Case Zone.Identifier.ReplaceAll
-                If Matches.Any Then
-                    If CurrentMatch.Value Is Nothing Then _CurrentMatch = Matches.First
-                    RaiseEvent ZoneClicked(Me, New ZoneEventArgs(MouseOverZone))
-                End If
+                If Matches.Any And CurrentMatch.Value Is Nothing Then _CurrentMatch = Matches.First
+
+            Case Zone.Identifier.Switch
+                Dim findText As String = FindControl.Text
+                Dim replaceText As String = ReplaceControl.Text
+                ReplaceControl.Text = findText
+                FindControl.Text = replaceText
 
             Case Zone.Identifier.Tip
                 If Not MouseOverZone.Selected Then ZoneTip.Hide(Me)
                 Invalidate()
 
         End Select
+        If Not MouseOverZone.Name = Zone.Identifier.None Then RaiseEvent ZoneClicked(Me, New ZoneEventArgs(MouseOverZone))
         MyBase.OnMouseDown(e)
 
     End Sub
@@ -939,6 +945,12 @@ Public Class FindReplace
                                          ZonesBounds(Zone_Case).Top)
         ZonesBounds(Zone_Move) = New Rectangle(xy_Move, wh_Move)
         '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+        Dim Zone_Switch As Zone = Zones(Zone.Identifier.Switch)
+        Dim wh_Switch As Size = Zone_Switch.Image.Size
+        Dim xy_Switch As New Point(ReplaceControl.Left - If(ReplaceControl.Visible, {wh_Switch.Width, Spacing}.Sum, 100),
+                                         If(ReplaceControl.Visible, ReplaceControl.Top + CInt((ReplaceControl.Height - wh_Switch.Height) / 2), -100))
+        ZonesBounds(Zone_Switch) = New Rectangle(xy_Switch, wh_Switch)
+        '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
         Dim Zone_Tip As Zone = Zones(Zone.Identifier.Tip)
         Dim wh_Tip As Size = Zone_Tip.Image.Size
         Dim xy_Tip As New Point(ZonesBounds(Zone_Move).Left - Spacing - wh_Tip.Width,
@@ -1007,9 +1019,9 @@ Public Class FindReplace
         'newColors.RotateFlip(RotateFlipType.RotateNoneFlipX)
         'newColors.Save($"C:\Users\SeanGlover\Desktop\dotsNew.png")
 
-        Dim mostColor As Bitmap = New Bitmap(bmp.Width, bmp.Height)
+        Dim mostColor As New Bitmap(bmp.Width, bmp.Height)
         Using grx As Graphics = Graphics.FromImage(mostColor)
-            Using sb As SolidBrush = New SolidBrush(keyColor)
+            Using sb As New SolidBrush(keyColor)
                 grx.FillRectangle(sb, New RectangleF(0, 0, bmp.Width, bmp.Height))
             End Using
         End Using

@@ -664,25 +664,13 @@
     <None Include="Resources\Db2Cloud.ico" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\fr_word.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Resources\fr_case.png" />
-  </ItemGroup>
-  <ItemGroup>
     <None Include="Resources\fr_close.png" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\fr_down.png" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\fr_expand.png" />
-  </ItemGroup>
-  <ItemGroup>
     <None Include="Resources\fr_light.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Resources\fr_move.png" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\fr_next.png" />
@@ -694,16 +682,31 @@
     <None Include="Resources\fr_up.png" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\fr_one.png" />
+    <None Include="Resources\fr_lighton.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\fr_lighton2.png" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\fr_all.png" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\fr_lighton.png" />
+    <None Include="Resources\fr_one.png" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\fr_lighton2.png" />
+    <None Include="Resources\fr_case.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\fr_word.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\fr_move.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\fr_expand.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\fr_switch.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

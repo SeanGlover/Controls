@@ -2269,12 +2269,16 @@ End Class
             If value IsNot Nothing And DataType <> value Then
                 Dim existingFormat = Get_kvpFormat(_DataType)
                 _DataType = value
-                If existingFormat.Key <> Format.Key And Not {TypeGroup.Dates, TypeGroup.Times}.Intersect({existingFormat.Key, Format.Key}).Count = 2 Then
+                If DColumn Is Nothing Then
+                    DColumn = New DataColumn With {.DataType = value, .ColumnName = Name}
+                    'DColumn.SetOrdinal(Index)
+
+                ElseIf existingFormat.Key <> Format.Key And Not {TypeGroup.Dates, TypeGroup.Times}.Intersect({existingFormat.Key, Format.Key}).Count = 2 Then
 #Region " CHANGE/REORDER DATATABLE COLUMNS - REMOVE OLD DATATYPE, INSERT NEW - DO NOT DO THIS FOR Dates Or Times AS SYSTEM.DateAndTime IS NOT A REAL TYPE "
                     Dim columnValues As New List(Of Object)(DataColumnToList(DColumn))
                     Dim ColumnOridinal As Integer = DColumn.Ordinal
                     DTable.Columns.Remove(DColumn)
-                    Dim NewColumn As DataColumn = New DataColumn With {.DataType = value, .ColumnName = DColumn.ColumnName}
+                    Dim NewColumn As New DataColumn With {.DataType = value, .ColumnName = DColumn.ColumnName}
                     DTable.Columns.Add(NewColumn)
                     NewColumn.SetOrdinal(ColumnOridinal)
                     DColumn = NewColumn
@@ -2291,6 +2295,7 @@ End Class
                         AddHandler .Tick, AddressOf DrawTimer_Tick
                         .Start()
                     End With
+
                 End If
             End If
             Dim valueAlignment As HorizontalAlignment = DataTypeToAlignment(value)

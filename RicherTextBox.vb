@@ -77,6 +77,7 @@ Public NotInheritable Class RicherTextBox
     'End Property
 
     Public Event ScrolledVertical(sender As Object, e As RicherEventArgs)
+    Private WithEvents ScrollTimer As New Timer With {.Interval = 500}
     Public Event DragStart(sender As Object, e As DragEventArgs)
     Public Event PageChanged(sender As Object, e As Integer)
 
@@ -247,23 +248,49 @@ Public NotInheritable Class RicherTextBox
 
         ElseIf e.Zone.Name = Zone.Identifier.ReplaceOne Then
             If FindReplace.CurrentMatch.Key >= 0 Then
-                textSearch = textSearch.Remove(FindReplace.CurrentMatch.Key, FindReplace.CurrentMatch.Value.Length)
-                textSearch = textSearch.Insert(FindReplace.CurrentMatch.Key, FindReplace.ReplaceControl.Text)
+                Dim replacementText As String = FindReplace.ReplaceControl.Text
+                Dim lengthOfWordToInsert As Integer = replacementText.Length
+                Dim lengthOfWordToRemove As Integer = FindReplace.CurrentMatch.Value.Length
+                If ReplacementTextLengthMustEqualFindTextLength Then
+                    If lengthOfWordToInsert < lengthOfWordToRemove Then
+                        'ABCDEF ==> ABC___
+                        replacementText = $"{replacementText}{StrDup(lengthOfWordToRemove - lengthOfWordToInsert, " ")}"
+
+                    ElseIf lengthOfWordToInsert > lengthOfWordToRemove Then
+                        'ABC___ ==> ABCDEF ... is there space to the right of ABC to allow DEF?
+                        lengthOfWordToRemove = lengthOfWordToInsert
+
+                    End If
+                End If
+                textSearch = textSearch.Remove(FindReplace.CurrentMatch.Key, lengthOfWordToRemove)
+                textSearch = textSearch.Insert(FindReplace.CurrentMatch.Key, replacementText)
                 Text = textSearch
-                'FindReplace.DataSource = textSearch
                 FindRequest(Nothing, New FindEventArgs(Nothing))
             End If
 
         ElseIf e.Zone.Name = Zone.Identifier.ReplaceAll Then
             If FindReplace.CurrentMatch.Key >= 0 Then
+                Dim replacementText As String = FindReplace.ReplaceControl.Text
+                Dim lengthOfWordToInsert As Integer = replacementText.Length
                 Dim ReverseOrderMatches = FindReplace.Matches.OrderByDescending(Function(x) x.Key)
                 For Each match In ReverseOrderMatches
-                    textSearch = textSearch.Remove(match.Key, match.Value.Length)
-                    textSearch = textSearch.Insert(match.Key, FindReplace.ReplaceControl.Text)
+                    Dim lengthOfWordToRemove As Integer = match.Value.Length
+                    If ReplacementTextLengthMustEqualFindTextLength Then
+                        If lengthOfWordToInsert < lengthOfWordToRemove Then
+                            'ABCDEF ==> ABC___
+                            replacementText = $"{FindReplace.ReplaceControl.Text}{StrDup(lengthOfWordToRemove - lengthOfWordToInsert, " ")}"
+
+                        ElseIf lengthOfWordToInsert > lengthOfWordToRemove Then
+                            'ABC___ ==> ABCDEF ... is there space to the right of ABC to allow DEF?
+                            lengthOfWordToRemove = lengthOfWordToInsert
+
+                        End If
+                    End If
+                    textSearch = textSearch.Remove(match.Key, lengthOfWordToRemove)
+                    textSearch = textSearch.Insert(match.Key, replacementText)
                 Next
                 If FindReplace.CurrentMatch.Key >= 0 Then
                     Text = textSearch
-                    'FindReplace.DataSource = textSearch
                     FindRequest(Nothing, New FindEventArgs(Nothing))
                 End If
             End If
@@ -295,6 +322,7 @@ Public NotInheritable Class RicherTextBox
         End If
 
     End Sub
+    Public Property ReplacementTextLengthMustEqualFindTextLength As Boolean
 #End Region
 
     Public Property VScrollPos() As Integer
@@ -483,6 +511,7 @@ Public NotInheritable Class RicherTextBox
     Public ReadOnly Property VerticalScrollLocation As Point
     Private Sub VerticalScrolled() Handles Me.VScroll
 
+        ScrollTimer.Start()
         Dim topLeftCharacter As Integer = GetCharIndexFromPosition(New Point(0, 0))
         Dim topLine As Integer = GetLineFromCharIndex(topLeftCharacter)
         Dim currentPageNbr As Integer = 1 + CInt(Math.Floor(topLine / LinesPerPage))
@@ -496,5 +525,8 @@ Public NotInheritable Class RicherTextBox
             RaiseEvent ScrolledVertical(Me, New RicherEventArgs(VScrollPos))
         End If
 
+    End Sub
+    Private Sub ScrollTimer_Tick() Handles ScrollTimer.Tick
+        If FindReplace IsNot Nothing Then FindReplace.Top = 0
     End Sub
 End Class
