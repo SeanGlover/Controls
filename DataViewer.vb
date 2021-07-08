@@ -1857,38 +1857,40 @@ Public Class ColumnCollection
         Next
         RaiseEvent CollectionSizingEnd(Me, Nothing)
     End Sub
-    Public Sub DistibuteWidths(Optional testing As Boolean = False)
+    Public Async Sub DistibuteWidths(Optional testing As Boolean = False)
 
         'If Viewer.Width>Columns.Width ... Then share extra space among columns
-        Dim VisibleColumns As New List(Of Column)(From c In Me Where c.Visible)
-        If VisibleColumns.Any Then
-            Dim parentControl As Control = Parent
-            Do While parentControl.Parent IsNot Nothing AndAlso parentControl.Dock = DockStyle.Fill 'Or <> DockStyle.None?
-                parentControl = parentControl.Parent
-            Loop
+        While AutoSizing
+            Await Task.Delay(50)
+        End While
+        '// wait for any inprogress auto-sizing to complete before columns are sized again
+        Dim parentControl As Control = Parent.Parent
+        If parentControl IsNot Nothing Then
             Dim ExtraWidth = CInt((parentControl.Width - HeadBounds.Width) / Count)
-            If ExtraWidth >= 1 Then
+            If ExtraWidth > 1 Then
                 Dim rollingWidth As Integer = 0
-                Dim maxWidth As Integer = parentControl.Width
-                'Space to spare
-                For Each visibleColumn In VisibleColumns
+                Dim widths As New List(Of Integer)
+                For Each column In Where(Function(c) c.Visible)
+                    column.Width += ExtraWidth
+                    widths.Add(column.Width)
                     rollingWidth += ExtraWidth
-                    visibleColumn.Width += ExtraWidth
-                    If rollingWidth > maxWidth Then Exit For
+                    If rollingWidth > parentControl.Width Then Exit For
                 Next
-                If testing Then Stop
                 Do While Parent.HScrollVisible
-                    For Each Column In Me
-                        Column.Width -= 1
-                        Parent.Invalidate()
+                    For Each column In Me
+                        column.Width -= 1
                     Next
+                    Parent.Invalidate()
                 Loop
+                If testing Then Stop
             End If
         End If
 
     End Sub
+    Private AutoSizing As Boolean = False
     Private Sub FormatSizeWorker_Start(sender As Object, e As DoWorkEventArgs) Handles ColumnsWorker.DoWork
 
+        AutoSizing = True
         For Each Column In Where(Function(c) c.Visible)
             ColumnWidth(Column, True)
             If ColumnsWorker.CancellationPending Then Exit For
@@ -1941,9 +1943,11 @@ Public Class ColumnCollection
     End Sub
     Private Sub FormatSizeWorker_End(sender As Object, e As RunWorkerCompletedEventArgs) Handles ColumnsWorker.RunWorkerCompleted
         RaiseEvent CollectionSizingEnd(Me, Nothing)
+        AutoSizing = False
     End Sub
     Friend Sub CancelWorkers()
         ColumnsWorker.CancelAsync()
+        AutoSizing = False
     End Sub
     Private Sub HeadersStyle_PropertyChanged(sender As Object, e As StyleEventArgs) Handles HeaderStyle_.PropertyChanged
 
