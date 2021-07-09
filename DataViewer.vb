@@ -1865,7 +1865,7 @@ Public Class ColumnCollection
         End While
         '// wait for any inprogress auto-sizing to complete before columns are sized again
         Dim parentControl As Control = Parent.Parent
-        If parentControl IsNot Nothing Then
+        If parentControl IsNot Nothing And Count > 0 Then
             Dim ExtraWidth = CInt((parentControl.Width - HeadBounds.Width) / Count)
             If ExtraWidth > 1 Then
                 Dim rollingWidth As Integer = 0
