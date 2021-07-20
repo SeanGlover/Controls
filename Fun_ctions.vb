@@ -3914,8 +3914,9 @@ Public NotInheritable Class CustomRenderer
     End Sub
 End Class
 Public NotInheritable Class ThreadHelperClass
-    Delegate Sub SetToolPropertyCallback(tsi As ToolStripItem, n As String, v As Object)
     Delegate Sub SetPropertyCallback(c As Control, n As String, v As Object)
+    Delegate Sub SetPanelPropertyCallback(tlp As TableLayoutPanel, index As Integer, width As Integer)
+    Delegate Sub SetToolPropertyCallback(tsi As ToolStripItem, n As String, v As Object)
     Delegate Sub GetPropertyCallback(c As Control, n As String)
     Public Shared Sub SetSafeControlPropertyValue(Item As Control, PropertyName As String, PropertyValue As Object)
 
@@ -3929,6 +3930,29 @@ Public NotInheritable Class ThreadHelperClass
                     Dim t As Type = Item.GetType
                     Dim pi As PropertyInfo = t.GetProperty(PropertyName)
                     pi.SetValue(Item, PropertyValue)
+
+                End If
+            Catch ex As ObjectDisposedException
+            Catch ex As InvalidAsynchronousStateException
+            Catch ex As TargetInvocationException
+            End Try
+        End If
+
+    End Sub
+    Public Shared Sub SetSafeColumnStylesWidth(Item As TableLayoutPanel, indexOfColumn As Integer, widthOfColumn As Integer)
+
+        If Item IsNot Nothing Then
+
+            Try
+                If Item.InvokeRequired Then
+                    Dim d As New SetPanelPropertyCallback(AddressOf SetSafeColumnStylesWidth)
+                    Item.Invoke(d, New Object() {Item.ColumnStyles(indexOfColumn), "Width", widthOfColumn})
+
+                Else
+                    'Dim t As Type = Item.GetType
+                    'Dim pi As PropertyInfo = t.GetProperty(PropertyName)
+                    'pi.SetValue(Item, PropertyValue)
+                    Item.ColumnStyles(indexOfColumn).Width = widthOfColumn
 
                 End If
             Catch ex As ObjectDisposedException
@@ -3967,7 +3991,7 @@ Public NotInheritable Class ThreadHelperClass
             Try
                 Dim t As Type = Item.GetType
                 If Item.InvokeRequired Then
-                    Dim d As GetPropertyCallback = New GetPropertyCallback(AddressOf GetSafeControlPropertyValue)
+                    Dim d As New GetPropertyCallback(AddressOf GetSafeControlPropertyValue)
                     Try
                         Return Item.Invoke(d, New Object() {Item, PropertyName})
                     Catch ex As TargetInvocationException

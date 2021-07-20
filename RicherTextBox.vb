@@ -4,6 +4,8 @@ Imports System.Windows.Forms
 Imports System.Drawing
 Imports System.Text.RegularExpressions
 Imports System.Runtime.InteropServices
+Imports System.ComponentModel
+
 Public NotInheritable Class RicherEventArgs
     Inherits EventArgs
     Public ReadOnly Property VScrollValue As Integer
@@ -53,6 +55,7 @@ Public Structure MouseData
 End Structure
 Public NotInheritable Class RicherTextBox
     Inherits RichTextBox
+    Implements INotifyPropertyChanged
     Public Sub New()
 
         'SetStyle(ControlStyles.AllPaintingInWmPaint, True)
@@ -80,7 +83,7 @@ Public NotInheritable Class RicherTextBox
     Private WithEvents ScrollTimer As New Timer With {.Interval = 500}
     Public Event DragStart(sender As Object, e As DragEventArgs)
     Public Event PageChanged(sender As Object, e As Integer)
-
+    Public Event PropertyChanged As PropertyChangedEventHandler Implements INotifyPropertyChanged.PropertyChanged
     Private ReadOnly Dragging As New Dictionary(Of Point, Boolean)
     Private Const SIF_RANGE As Integer = &H1
     Private Const SIF_PAGE As Integer = &H2
